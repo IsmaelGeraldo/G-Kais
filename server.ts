@@ -55,6 +55,7 @@ async function startServer() {
     leadSubmissionRateLimiter,
     antiSpamMiddleware,
     async (req: Request, res: Response) => {
+      let stage: 'validation' | 'persistence' | 'notification' | 'notification_status' | 'response' = 'validation';
       try {
         // Strict server-side payload validation
         const validation = validateAuditPayload(req.body);
@@ -72,6 +73,7 @@ async function startServer() {
           : req.ip;
 
         // Persist directly to Firestore collection 'audit_submissions'
+        stage = 'persistence';
         const record = await auditRepository.create({
           ...validation.sanitizedData,
           ipAddress: clientIp
@@ -80,7 +82,10 @@ async function startServer() {
         console.info(`[FIRESTORE AUDIT SAVED] ID: ${record.id} | Company: ${record.company} | Channel: ${record.contactChannel}`);
 
         // Webhook notification dispatch
+        stage = 'notification';
         const notification = await notifyNewLead({ type: 'audit', data: record });
+
+        stage = 'notification_status';
         await auditRepository.updateNotificationStatus(record, notification.status);
 
         // Email architecture dispatch (non-blocking)
@@ -88,6 +93,7 @@ async function startServer() {
           console.error(`[EMAIL BACKGROUND ERROR] Audit ${record.id}:`, emailErr);
         });
 
+        stage = 'response';
         return res.status(200).json({
           success: true,
           code: 'SUCCESS',
@@ -96,12 +102,21 @@ async function startServer() {
           timestamp: record.createdAt
         });
       } catch (err: any) {
-        console.error('[AUDIT INTERNAL ERROR]', err);
+        console.error(`[AUDIT INTERNAL ERROR] stage=${stage}`, err);
         try { require('fs').writeFileSync('/tmp/server_error.log', (err?.stack || err?.message || String(err))); } catch {}
+
+        const isProduction = process.env.NODE_ENV === 'production';
+        const safeDiagnostic = err instanceof Error && err.message
+          ? err.message
+          : 'Unknown server error';
+
         return res.status(500).json({
           success: false,
           code: 'SERVER_ERROR',
-          error: 'Something went wrong. Please try again.'
+          stage,
+          error: isProduction
+            ? 'Something went wrong. Please try again.'
+            : `Audit request failed during ${stage}: ${safeDiagnostic}`
         });
       }
     }

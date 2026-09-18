@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { X, ArrowRight, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
-import { submitContactInquiry } from '../services/contact';
+import { submitContactRequest } from '../services/contact';
 import { useModalAccessibility } from '../utils/useModal';
 
 interface ContactModalProps {
@@ -10,6 +10,7 @@ interface ContactModalProps {
 }
 
 export const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose, onOpenAudit }) => {
+  const modalRef = useRef<HTMLDivElement | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -20,7 +21,7 @@ export const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose, onO
   const [submissionId, setSubmissionId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  useModalAccessibility({ isOpen, onClose });
+  useModalAccessibility({ isOpen, onClose, containerRef: modalRef });
 
   if (!isOpen) return null;
 
@@ -30,7 +31,7 @@ export const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose, onO
     setIsLoading(true);
 
     try {
-      const result = await submitContactInquiry(formData);
+      const result = await submitContactRequest(formData);
       if (result.success && result.submissionId) {
         setSubmissionId(result.submissionId);
       } else {
@@ -62,6 +63,7 @@ export const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose, onO
       aria-labelledby="contact-modal-title"
     >
       <div 
+        ref={modalRef}
         className="relative w-full max-w-xl bg-[#F7F7F5] border border-[#0A0A0A] p-6 sm:p-10 shadow-2xl my-8 text-left"
         onClick={(e) => e.stopPropagation()}
       >
@@ -146,7 +148,7 @@ export const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose, onO
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-mono-code uppercase text-[#777777] mb-1.5">
-                  Your Name *
+                  Name *
                 </label>
                 <input
                   type="text"
@@ -160,7 +162,7 @@ export const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose, onO
 
               <div>
                 <label className="block text-xs font-mono-code uppercase text-[#777777] mb-1.5">
-                  Business Email *
+                  Work Email *
                 </label>
                 <input
                   type="email"
@@ -186,35 +188,40 @@ export const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose, onO
                 />
               </div>
 
-              <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4">
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="w-full sm:w-auto inline-flex items-center justify-center px-6 py-3 bg-[#0A0A0A] text-[#F7F7F5] font-semibold text-xs tracking-wider uppercase hover:bg-[#0A3F4D] transition-all disabled:opacity-60"
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      <span>Transmitting...</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>Transmit Inquiry</span>
-                      <ArrowRight className="w-3.5 h-3.5 ml-2" />
-                    </>
-                  )}
-                </button>
+              <div className="pt-2">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full sm:w-auto inline-flex items-center justify-center px-6 py-3 bg-[#0A0A0A] text-[#F7F7F5] font-semibold text-xs tracking-wider uppercase hover:bg-[#0A3F4D] transition-all disabled:opacity-60"
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        <span>Transmitting...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Transmit Inquiry</span>
+                        <ArrowRight className="w-3.5 h-3.5 ml-2" />
+                      </>
+                    )}
+                  </button>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    onClose();
-                    onOpenAudit();
-                  }}
-                  className="text-xs text-[#0A3F4D] font-mono-code hover:underline"
-                >
-                  Need a full audit instead? →
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onOpenAudit();
+                    }}
+                    className="text-xs text-[#0A3F4D] font-mono-code hover:underline"
+                  >
+                    Need a full audit instead? →
+                  </button>
+                </div>
+                <p className="font-mono-code text-[10px] text-[#777777] text-center mt-3">
+                  Your information is handled confidentially. No spam. No obligation.
+                </p>
               </div>
             </form>
           </div>

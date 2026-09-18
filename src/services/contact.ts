@@ -3,7 +3,7 @@ import { ContactRequestPayload, ContactResponse } from '../types/audit';
 /**
  * Service to submit a Contact / Engineering Inquiry to the backend API.
  */
-export async function submitContactInquiry(payload: ContactRequestPayload): Promise<ContactResponse> {
+export async function submitContactRequest(payload: ContactRequestPayload): Promise<ContactResponse> {
   if (!payload.name?.trim() || !payload.email?.trim() || !payload.message?.trim()) {
     throw new Error('Please complete all fields: Name, Email, and Message.');
   }
@@ -25,3 +25,5 @@ export async function submitContactInquiry(payload: ContactRequestPayload): Prom
 
   return data as ContactResponse;
 }
+
+export const submitContactInquiry = submitContactRequest;

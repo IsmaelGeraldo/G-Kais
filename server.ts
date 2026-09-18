@@ -1,5 +1,6 @@
 import express from 'express';
 import path from 'path';
+import crypto from 'crypto';
 import { createServer as createViteServer } from 'vite';
 
 interface StoredAuditRecord {
@@ -60,7 +61,7 @@ async function startServer() {
       }
 
       // Generate verifiable server record ID
-      const submissionId = `GK-AUD-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
+      const submissionId = `GK-AUD-${Date.now().toString(36).toUpperCase()}-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
       const timestamp = new Date().toISOString();
 
       const record: StoredAuditRecord = {
@@ -124,7 +125,7 @@ async function startServer() {
         return res.status(400).json({ success: false, error: 'Message content is required.' });
       }
 
-      const submissionId = `GK-CNT-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
+      const submissionId = `GK-CNT-${Date.now().toString(36).toUpperCase()}-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
       const timestamp = new Date().toISOString();
 
       const record: StoredContactRecord = {

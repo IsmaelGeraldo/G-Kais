@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { X, ArrowRight, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { submitAuditRequest } from '../services/audit';
 import { useModalAccessibility } from '../utils/useModal';
@@ -19,6 +19,7 @@ const CONTACT_CHANNELS: ContactChannel[] = [
 ];
 
 export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose }) => {
+  const modalRef = useRef<HTMLDivElement | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     company: '',
@@ -32,7 +33,7 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose }) => {
   const [submissionId, setSubmissionId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  useModalAccessibility({ isOpen, onClose });
+  useModalAccessibility({ isOpen, onClose, containerRef: modalRef });
 
   if (!isOpen) return null;
 
@@ -77,6 +78,7 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose }) => {
       aria-labelledby="audit-modal-title"
     >
       <div 
+        ref={modalRef}
         className="relative w-full max-w-2xl bg-[#F7F7F5] border border-[#0A0A0A] p-6 sm:p-10 shadow-2xl my-8 text-left max-h-[92vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
@@ -179,26 +181,26 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose }) => {
             </div>
 
             {/* WHAT YOU RECEIVE Section */}
-            <div className="mb-6 p-4 bg-white border border-[#0A0A0A]/15">
-              <span className="font-mono-code text-[10px] uppercase tracking-wider text-[#0A3F4D] font-bold block mb-2">
-                WHAT YOU RECEIVE:
+            <div className="mb-6 p-4 sm:p-5 bg-white border border-[#0A0A0A]/15 text-left">
+              <span className="font-mono-code text-[11px] uppercase tracking-wider text-[#0A3F4D] font-bold block mb-3">
+                WHAT YOU RECEIVE
               </span>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-[#0A0A0A]">
-                <div className="flex items-center space-x-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#0A3F4D]" />
-                  <span>1. Review of your current lead flow</span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div className="flex items-start space-x-2.5">
+                  <span className="font-mono-code text-[11px] text-[#0A3F4D] font-bold shrink-0">01</span>
+                  <span className="text-[#0A0A0A] font-medium">Current workflow review</span>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#0A3F4D]" />
-                  <span>2. 3 potential opportunity leaks</span>
+                <div className="flex items-start space-x-2.5">
+                  <span className="font-mono-code text-[11px] text-[#0A3F4D] font-bold shrink-0">02</span>
+                  <span className="text-[#0A0A0A] font-medium">Three potential opportunity leaks</span>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#0A3F4D]" />
-                  <span>3. Automation opportunities</span>
+                <div className="flex items-start space-x-2.5">
+                  <span className="font-mono-code text-[11px] text-[#0A3F4D] font-bold shrink-0">03</span>
+                  <span className="text-[#0A0A0A] font-medium">Automation opportunities</span>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#0A3F4D]" />
-                  <span>4. Recommended first system</span>
+                <div className="flex items-start space-x-2.5">
+                  <span className="font-mono-code text-[11px] text-[#0A3F4D] font-bold shrink-0">04</span>
+                  <span className="text-[#0A0A0A] font-medium">Recommended first system</span>
                 </div>
               </div>
             </div>
@@ -214,7 +216,7 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose }) => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-mono-code uppercase text-[#777777] mb-1.5">
-                    Your Name *
+                    Name *
                   </label>
                   <input
                     type="text"
@@ -228,22 +230,6 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose }) => {
 
                 <div>
                   <label className="block text-xs font-mono-code uppercase text-[#777777] mb-1.5">
-                    Business Email *
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    placeholder="elena@company.com"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="w-full bg-white border border-[#0A0A0A]/15 px-3.5 py-2.5 text-sm text-[#0A0A0A] focus:outline-none focus:border-[#0A3F4D] focus:ring-1 focus:ring-[#0A3F4D]"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-mono-code uppercase text-[#777777] mb-1.5">
                     Company *
                   </label>
                   <input
@@ -252,6 +238,22 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose }) => {
                     placeholder="Acme Corp"
                     value={formData.company}
                     onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+                    className="w-full bg-white border border-[#0A0A0A]/15 px-3.5 py-2.5 text-sm text-[#0A0A0A] focus:outline-none focus:border-[#0A3F4D] focus:ring-1 focus:ring-[#0A3F4D]"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-mono-code uppercase text-[#777777] mb-1.5">
+                    Work Email *
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="elena@company.com"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     className="w-full bg-white border border-[#0A0A0A]/15 px-3.5 py-2.5 text-sm text-[#0A0A0A] focus:outline-none focus:border-[#0A3F4D] focus:ring-1 focus:ring-[#0A3F4D]"
                   />
                 </div>
@@ -330,7 +332,7 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose }) => {
                   )}
                 </button>
                 <p className="font-mono-code text-[10px] text-[#777777] text-center mt-2.5">
-                  No commitment. We respond within 24–48 hours with actionable insights.
+                  Your information is handled confidentially. No spam. No obligation.
                 </p>
               </div>
             </form>

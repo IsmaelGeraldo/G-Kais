@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { X, ArrowRight, Activity, Shield, Layers } from 'lucide-react';
 import { useModalAccessibility } from '../utils/useModal';
 
@@ -9,7 +9,8 @@ interface LeadFlowModalProps {
 }
 
 export const LeadFlowModal: React.FC<LeadFlowModalProps> = ({ isOpen, onClose, onOpenAudit }) => {
-  useModalAccessibility({ isOpen, onClose });
+  const modalRef = useRef<HTMLDivElement | null>(null);
+  useModalAccessibility({ isOpen, onClose, containerRef: modalRef });
 
   if (!isOpen) return null;
 
@@ -22,6 +23,7 @@ export const LeadFlowModal: React.FC<LeadFlowModalProps> = ({ isOpen, onClose, o
       aria-labelledby="leadflow-modal-title"
     >
       <div 
+        ref={modalRef}
         className="relative w-full max-w-3xl bg-[#F7F7F5] border border-[#0A0A0A] p-6 sm:p-10 shadow-2xl my-8 text-left max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
@@ -84,8 +86,8 @@ export const LeadFlowModal: React.FC<LeadFlowModalProps> = ({ isOpen, onClose, o
               <span className="font-mono-code text-sm font-bold text-[#0A0A0A]">Real-Time</span>
             </div>
             <div className="p-3 bg-white border border-[#0A0A0A]/10">
-              <span className="font-mono-code text-[10px] text-[#777777] block">Target Recovery</span>
-              <span className="font-mono-code text-sm font-bold text-[#0A3F4D]">Up to 38%*</span>
+              <span className="font-mono-code text-[10px] text-[#777777] block">Pipeline Recovery</span>
+              <span className="font-mono-code text-xs font-bold text-[#0A3F4D]">Illustrative Recovery KPI</span>
             </div>
             <div className="p-3 bg-white border border-[#0A0A0A]/10">
               <span className="font-mono-code text-[10px] text-[#777777] block">Data Privacy</span>

@@ -100,7 +100,7 @@ const STAGES: StageItem[] = [
     specItems: [
       { key: 'Touch cadence', value: 'Intelligent interval (24h, 72h, 7d)' },
       { key: 'Value-add inject', value: 'Relevant case studies & benchmarks' },
-      { key: 'Target outcome', value: 'Up to 38% recovery (Target)*' }
+      { key: 'Target outcome', value: 'Recovery KPI (Illustrative)' }
     ]
   },
   {

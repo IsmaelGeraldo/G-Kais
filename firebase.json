@@ -1,0 +1,8 @@
+{
+  "firestore": [
+    {
+      "database": "ai-studio-gkaisaibusinesss-bce5f1a7-3058-4444-a6f3-e95e74163439",
+      "rules": "firestore.rules"
+    }
+  ]
+}

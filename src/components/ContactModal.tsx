@@ -11,6 +11,8 @@ interface ContactModalProps {
 
 export const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose, onOpenAudit }) => {
   const modalRef = useRef<HTMLDivElement | null>(null);
+  const renderedAtRef = useRef<number>(Date.now());
+  const [honeypot, setHoneypot] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -31,14 +33,18 @@ export const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose, onO
     setIsLoading(true);
 
     try {
-      const result = await submitContactRequest(formData);
+      const result = await submitContactRequest({
+        ...formData,
+        _formRenderedAt: renderedAtRef.current,
+        _hp_website_title: honeypot
+      });
       if (result.success && result.submissionId) {
         setSubmissionId(result.submissionId);
       } else {
         throw new Error(result.error || 'Failed to submit inquiry.');
       }
     } catch (err: any) {
-      setErrorMessage(err.message || 'An error occurred while sending your message. Please try again.');
+      setErrorMessage(err.message || 'Something went wrong. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -47,6 +53,8 @@ export const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose, onO
   const handleReset = () => {
     setSubmissionId(null);
     setErrorMessage(null);
+    renderedAtRef.current = Date.now();
+    setHoneypot('');
     setFormData({
       name: '',
       email: '',
@@ -104,7 +112,7 @@ export const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose, onO
             </div>
 
             <p className="text-sm text-[#777777] leading-relaxed">
-              Your inquiry has been received by our systems architecture team. We typically respond within 1 business day.
+              Your inquiry has been received. G-KAIS reviews your request and follows up with next steps.
             </p>
 
             <div className="pt-4 flex items-center justify-between border-t border-[#0A0A0A]/10">
@@ -146,6 +154,17 @@ export const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose, onO
             )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Honeypot anti-spam field */}
+              <input
+                type="text"
+                name="_hp_website_title"
+                value={honeypot}
+                onChange={(e) => setHoneypot(e.target.value)}
+                tabIndex={-1}
+                autoComplete="off"
+                aria-hidden="true"
+                style={{ display: 'none', position: 'absolute', opacity: 0, pointerEvents: 'none' }}
+              />
               <div>
                 <label className="block text-xs font-mono-code uppercase text-[#777777] mb-1.5">
                   Name *

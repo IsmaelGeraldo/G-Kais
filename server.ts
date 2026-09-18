@@ -1,161 +1,205 @@
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import path from 'path';
-import crypto from 'crypto';
 import { createServer as createViteServer } from 'vite';
-
-interface StoredAuditRecord {
-  id: string;
-  name: string;
-  company: string;
-  website?: string;
-  email: string;
-  contactChannel: string;
-  inquiryNotes?: string;
-  createdAt: string;
-  status: 'PENDING_REVIEW' | 'CONTACTED';
-}
-
-interface StoredContactRecord {
-  id: string;
-  name: string;
-  email: string;
-  message: string;
-  createdAt: string;
-  status: 'NEW';
-}
-
-// In-memory record storage (ready to be plugged into a persistent DB / Webhook)
-const auditSubmissions: StoredAuditRecord[] = [];
-const contactSubmissions: StoredContactRecord[] = [];
+import { firestoreClient } from './src/server/db/firestoreClient';
+import { auditRepository } from './src/server/repositories/auditRepository';
+import { contactRepository } from './src/server/repositories/contactRepository';
+import { validateAuditPayload, validateContactPayload } from './src/server/validators/leadValidators';
+import { leadSubmissionRateLimiter } from './src/server/middleware/rateLimiter';
+import { antiSpamMiddleware } from './src/server/middleware/antiSpam';
+import { notifyNewLead } from './src/server/services/notification';
+import { sendAuditNotification, sendContactNotification } from './src/server/services/email';
 
 async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  // Middleware for body parsing
-  app.use(express.json());
+  // 1. Request payload size limit (max 100kb to avoid denial-of-service or arbitrary payloads)
+  app.use(express.json({ limit: '100kb' }));
 
-  // Health check endpoint
-  app.get('/api/health', (req, res) => {
-    res.json({
-      status: 'ok',
+  // Handle JSON parsing or payload-too-large errors safely
+  app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+    if (err && (err.type === 'entity.too.large' || err.status === 413)) {
+      return res.status(413).json({
+        success: false,
+        code: 'PAYLOAD_TOO_LARGE',
+        error: 'Payload size exceeds 100kb limit.'
+      });
+    }
+    if (err instanceof SyntaxError && 'body' in err) {
+      return res.status(400).json({
+        success: false,
+        code: 'VALIDATION_ERROR',
+        error: 'Malformed JSON payload.'
+      });
+    }
+    next(err);
+  });
+
+  // 2. Health check endpoint with real live Firestore connectivity check
+  app.get('/api/health', async (req: Request, res: Response) => {
+    const isConnected = await firestoreClient.checkHealth();
+    const statusCode = isConnected ? 200 : 503;
+
+    return res.status(statusCode).json({
+      status: isConnected ? 'ok' : 'degraded',
+      database: isConnected ? 'connected' : 'disconnected',
       service: 'G-KAIS AI Business Systems API',
       timestamp: new Date().toISOString()
     });
   });
 
-  // POST /api/audit - Real commercial audit request endpoint
-  app.post('/api/audit', async (req, res) => {
-    try {
-      const { name, company, website, email, contactChannel, inquiryNotes } = req.body;
-
-      // Validation
-      if (!name || typeof name !== 'string' || !name.trim()) {
-        return res.status(400).json({ success: false, error: 'Name is required.' });
-      }
-      if (!company || typeof company !== 'string' || !company.trim()) {
-        return res.status(400).json({ success: false, error: 'Company name is required.' });
-      }
-      if (!email || typeof email !== 'string' || !email.includes('@')) {
-        return res.status(400).json({ success: false, error: 'A valid business email address is required.' });
-      }
-
-      // Generate verifiable server record ID
-      const submissionId = `GK-AUD-${Date.now().toString(36).toUpperCase()}-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
-      const timestamp = new Date().toISOString();
-
-      const record: StoredAuditRecord = {
-        id: submissionId,
-        name: name.trim(),
-        company: company.trim(),
-        website: website ? String(website).trim() : undefined,
-        email: email.trim().toLowerCase(),
-        contactChannel: contactChannel || 'Multiple channels',
-        inquiryNotes: inquiryNotes ? String(inquiryNotes).trim() : undefined,
-        createdAt: timestamp,
-        status: 'PENDING_REVIEW'
-      };
-
-      auditSubmissions.push(record);
-
-      console.log(`[AUDIT INTAKE] New verified submission [${submissionId}] for ${record.company} (${record.email})`);
-
-      // Optional webhook notification forwarding
-      if (process.env.NOTIFICATION_WEBHOOK_URL) {
-        try {
-          await fetch(process.env.NOTIFICATION_WEBHOOK_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              text: `🔔 New G-KAIS Audit Request: ${record.company} (${record.name}) - Channel: ${record.contactChannel}`
-            })
+  // 3. POST /api/audit - Commercial audit intake pipeline
+  app.post(
+    '/api/audit',
+    leadSubmissionRateLimiter,
+    antiSpamMiddleware,
+    async (req: Request, res: Response) => {
+      try {
+        // Strict server-side payload validation
+        const validation = validateAuditPayload(req.body);
+        if (!validation.isValid || !validation.sanitizedData) {
+          return res.status(400).json({
+            success: false,
+            code: 'VALIDATION_ERROR',
+            error: validation.errors[0] || 'Invalid submission data.',
+            errors: validation.errors
           });
-        } catch (webhookErr) {
-          console.error('[WEBHOOK ERROR] Failed to send external notification:', webhookErr);
         }
+
+        const clientIp = typeof req.headers['x-forwarded-for'] === 'string'
+          ? req.headers['x-forwarded-for'].split(',')[0].trim()
+          : req.ip;
+
+        // Persist directly to Firestore collection 'audit_submissions'
+        const record = await auditRepository.create({
+          ...validation.sanitizedData,
+          ipAddress: clientIp
+        });
+
+        console.info(`[FIRESTORE AUDIT SAVED] ID: ${record.id} | Company: ${record.company} | Channel: ${record.contactChannel}`);
+
+        // Webhook notification dispatch
+        const notification = await notifyNewLead({ type: 'audit', data: record });
+        await auditRepository.updateNotificationStatus(record, notification.status);
+
+        // Email architecture dispatch (non-blocking)
+        sendAuditNotification(record).catch((emailErr) => {
+          console.error(`[EMAIL BACKGROUND ERROR] Audit ${record.id}:`, emailErr);
+        });
+
+        return res.status(200).json({
+          success: true,
+          code: 'SUCCESS',
+          submissionId: record.id,
+          message: 'G-KAIS reviews your current lead flow and follows up with next steps.',
+          timestamp: record.createdAt
+        });
+      } catch (err: any) {
+        console.error('[AUDIT INTERNAL ERROR]', err);
+        try { require('fs').writeFileSync('/tmp/server_error.log', (err?.stack || err?.message || String(err))); } catch {}
+        return res.status(500).json({
+          success: false,
+          code: 'SERVER_ERROR',
+          error: err?.message || 'Something went wrong. Please try again.'
+        });
       }
-
-      return res.status(200).json({
-        success: true,
-        submissionId,
-        message: 'Your audit request has been registered. Our systems architecture team will review your lead flow.',
-        timestamp
-      });
-    } catch (err) {
-      console.error('[AUDIT ERROR]', err);
-      return res.status(500).json({
-        success: false,
-        error: 'An internal error occurred while processing your audit request. Please try again.'
-      });
     }
-  });
+  );
 
-  // POST /api/contact - General engineering contact endpoint
-  app.post('/api/contact', async (req, res) => {
+  // 4. POST /api/contact - Commercial engineering contact pipeline
+  app.post(
+    '/api/contact',
+    leadSubmissionRateLimiter,
+    antiSpamMiddleware,
+    async (req: Request, res: Response) => {
+      try {
+        // Strict server-side payload validation
+        const validation = validateContactPayload(req.body);
+        if (!validation.isValid || !validation.sanitizedData) {
+          return res.status(400).json({
+            success: false,
+            code: 'VALIDATION_ERROR',
+            error: validation.errors[0] || 'Invalid submission data.',
+            errors: validation.errors
+          });
+        }
+
+        const clientIp = typeof req.headers['x-forwarded-for'] === 'string'
+          ? req.headers['x-forwarded-for'].split(',')[0].trim()
+          : req.ip;
+
+        // Persist directly to Firestore collection 'contact_submissions'
+        const record = await contactRepository.create({
+          ...validation.sanitizedData,
+          ipAddress: clientIp
+        });
+
+        console.info(`[FIRESTORE CONTACT SAVED] ID: ${record.id} | From: ${record.name} (${record.email})`);
+
+        // Webhook notification dispatch
+        const notification = await notifyNewLead({ type: 'contact', data: record });
+        await contactRepository.updateNotificationStatus(record, notification.status);
+
+        // Email architecture dispatch (non-blocking)
+        sendContactNotification(record).catch((emailErr) => {
+          console.error(`[EMAIL BACKGROUND ERROR] Contact ${record.id}:`, emailErr);
+        });
+
+        return res.status(200).json({
+          success: true,
+          code: 'SUCCESS',
+          submissionId: record.id,
+          message: 'Inquiry received. G-KAIS reviews your request and follows up with next steps.',
+          timestamp: record.createdAt
+        });
+      } catch (err: any) {
+        console.error('[CONTACT INTERNAL ERROR]', err);
+        return res.status(500).json({
+          success: false,
+          code: 'SERVER_ERROR',
+          error: 'Something went wrong. Please try again.'
+        });
+      }
+    }
+  );
+
+  // 5. Prepared lead retrieval endpoint (for future LeadFlow CRM consumption)
+  app.get('/api/leads', async (req: Request, res: Response) => {
     try {
-      const { name, email, message } = req.body;
-
-      if (!name || typeof name !== 'string' || !name.trim()) {
-        return res.status(400).json({ success: false, error: 'Name is required.' });
-      }
-      if (!email || typeof email !== 'string' || !email.includes('@')) {
-        return res.status(400).json({ success: false, error: 'A valid email address is required.' });
-      }
-      if (!message || typeof message !== 'string' || !message.trim()) {
-        return res.status(400).json({ success: false, error: 'Message content is required.' });
-      }
-
-      const submissionId = `GK-CNT-${Date.now().toString(36).toUpperCase()}-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
-      const timestamp = new Date().toISOString();
-
-      const record: StoredContactRecord = {
-        id: submissionId,
-        name: name.trim(),
-        email: email.trim().toLowerCase(),
-        message: message.trim(),
-        createdAt: timestamp,
-        status: 'NEW'
-      };
-
-      contactSubmissions.push(record);
-      console.log(`[CONTACT INTAKE] New message [${submissionId}] from ${record.name} (${record.email})`);
-
+      const audits = await auditRepository.getRecent(10);
+      const contacts = await contactRepository.getRecent(10);
       return res.status(200).json({
         success: true,
-        submissionId,
-        message: 'Inquiry received. Our systems team will get back to you shortly.',
-        timestamp
+        summary: {
+          totalAudits: audits.length,
+          totalContacts: contacts.length
+        },
+        recentAudits: audits.map((a) => ({
+          id: a.id,
+          company: a.company,
+          channel: a.contactChannel,
+          status: a.status,
+          createdAt: a.createdAt
+        })),
+        recentContacts: contacts.map((c) => ({
+          id: c.id,
+          name: c.name,
+          status: c.status,
+          createdAt: c.createdAt
+        }))
       });
-    } catch (err) {
-      console.error('[CONTACT ERROR]', err);
+    } catch (err: any) {
+      console.error('[LEADS RETRIEVAL ERROR]', err);
       return res.status(500).json({
         success: false,
-        error: 'An internal error occurred while processing your message. Please try again.'
+        code: 'SERVER_ERROR',
+        error: 'Unable to retrieve records.'
       });
     }
   });
 
-  // Vite middleware setup
+  // 6. Vite middleware for frontend development and production static serving
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
       server: { middlewareMode: true },
@@ -165,7 +209,7 @@ async function startServer() {
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.get('*', (req, res) => {
+    app.get('*', (req: Request, res: Response) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }

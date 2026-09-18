@@ -1,0 +1,46 @@
+{
+  "entities": {
+    "AuditSubmission": {
+      "title": "Audit Submission",
+      "description": "Commercial lead requesting autonomous sales pipeline audit",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 100 },
+        "company": { "type": "string", "maxLength": 150 },
+        "website": { "type": "string", "maxLength": 255 },
+        "email": { "type": "string", "maxLength": 255, "format": "email" },
+        "contactChannel": { "type": "string", "maxLength": 50 },
+        "inquiryNotes": { "type": "string", "maxLength": 2000 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "notificationStatus": { "type": "string", "enum": ["PENDING", "SUCCESS", "FAILED", "SKIPPED"] }
+      },
+      "required": ["id", "name", "company", "email", "contactChannel", "createdAt"]
+    },
+    "ContactSubmission": {
+      "title": "Contact Submission",
+      "description": "General enterprise inquiry submitted via the contact modal",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 100 },
+        "company": { "type": "string", "maxLength": 150 },
+        "email": { "type": "string", "maxLength": 255, "format": "email" },
+        "message": { "type": "string", "maxLength": 5000 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "notificationStatus": { "type": "string", "enum": ["PENDING", "SUCCESS", "FAILED", "SKIPPED"] }
+      },
+      "required": ["id", "name", "email", "message", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/audit_submissions/{auditId}": {
+      "schema": "AuditSubmission",
+      "description": "Collection of lead audit intake submissions"
+    },
+    "/contact_submissions/{contactId}": {
+      "schema": "ContactSubmission",
+      "description": "Collection of direct business contact submissions"
+    }
+  }
+}

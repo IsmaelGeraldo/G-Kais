@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { ArrowRight, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { submitAuditRequest } from '../services/audit';
 import { ContactChannel } from '../types/audit';
@@ -17,6 +17,8 @@ const CONTACT_CHANNELS: ContactChannel[] = [
 ];
 
 export const AuditCtaSection: React.FC<AuditCtaSectionProps> = () => {
+  const renderedAtRef = useRef<number>(Date.now());
+  const [honeypot, setHoneypot] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     company: '',
@@ -36,14 +38,18 @@ export const AuditCtaSection: React.FC<AuditCtaSectionProps> = () => {
     setIsLoading(true);
 
     try {
-      const result = await submitAuditRequest(formData);
+      const result = await submitAuditRequest({
+        ...formData,
+        _formRenderedAt: renderedAtRef.current,
+        _hp_website_title: honeypot
+      });
       if (result.success && result.submissionId) {
         setSubmissionId(result.submissionId);
       } else {
         throw new Error(result.error || 'Failed to submit audit request.');
       }
     } catch (err: any) {
-      setErrorMessage(err.message || 'An error occurred while submitting your audit request. Please try again.');
+      setErrorMessage(err.message || 'Something went wrong. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -52,6 +58,8 @@ export const AuditCtaSection: React.FC<AuditCtaSectionProps> = () => {
   const handleReset = () => {
     setSubmissionId(null);
     setErrorMessage(null);
+    renderedAtRef.current = Date.now();
+    setHoneypot('');
     setFormData({
       name: '',
       company: '',
@@ -108,7 +116,7 @@ export const AuditCtaSection: React.FC<AuditCtaSectionProps> = () => {
             <div className="space-y-3 font-mono-code text-xs text-white/50 border-t border-white/10 pt-6">
               <div className="flex items-center space-x-3">
                 <span className="w-1 h-1 rounded-full bg-white/60" />
-                <span>24–48 hour turnaround</span>
+                <span>Direct review of your workflow</span>
               </div>
               <div className="flex items-center space-x-3">
                 <span className="w-1 h-1 rounded-full bg-white/60" />
@@ -136,7 +144,7 @@ export const AuditCtaSection: React.FC<AuditCtaSectionProps> = () => {
                     SUBMISSION ID: <span className="text-white font-bold">{submissionId}</span>
                   </p>
                   <p className="text-sm text-white/70 leading-relaxed max-w-sm mx-auto mb-8">
-                    Our systems architecture team will review your commercial pipeline and deliver your 3 automation opportunities within 24–48 hours.
+                    G-KAIS reviews your current lead flow and follows up with next steps.
                   </p>
                   <button
                     type="button"
@@ -148,6 +156,17 @@ export const AuditCtaSection: React.FC<AuditCtaSectionProps> = () => {
                 </div>
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-5">
+                  {/* Honeypot anti-spam field */}
+                  <input
+                    type="text"
+                    name="_hp_website_title"
+                    value={honeypot}
+                    onChange={(e) => setHoneypot(e.target.value)}
+                    tabIndex={-1}
+                    autoComplete="off"
+                    aria-hidden="true"
+                    style={{ display: 'none', position: 'absolute', opacity: 0, pointerEvents: 'none' }}
+                  />
                   <div className="flex items-center justify-between pb-4 border-b border-white/10 mb-6">
                     <span className="font-mono-code text-xs tracking-wider text-white/60 uppercase">
                       REQUEST AUDIT // DIRECT INTAKE

@@ -20,6 +20,8 @@ const CONTACT_CHANNELS: ContactChannel[] = [
 
 export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose }) => {
   const modalRef = useRef<HTMLDivElement | null>(null);
+  const renderedAtRef = useRef<number>(Date.now());
+  const [honeypot, setHoneypot] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     company: '',
@@ -43,14 +45,18 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose }) => {
     setIsLoading(true);
 
     try {
-      const result = await submitAuditRequest(formData);
+      const result = await submitAuditRequest({
+        ...formData,
+        _formRenderedAt: renderedAtRef.current,
+        _hp_website_title: honeypot
+      });
       if (result.success && result.submissionId) {
         setSubmissionId(result.submissionId);
       } else {
         throw new Error(result.error || 'Failed to submit audit request.');
       }
     } catch (err: any) {
-      setErrorMessage(err.message || 'An unexpected error occurred. Please try again.');
+      setErrorMessage(err.message || 'Something went wrong. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -59,6 +65,8 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose }) => {
   const handleReset = () => {
     setSubmissionId(null);
     setErrorMessage(null);
+    renderedAtRef.current = Date.now();
+    setHoneypot('');
     setFormData({
       name: '',
       company: '',
@@ -135,7 +143,7 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose }) => {
               <ul className="space-y-2 text-sm text-[#777777]">
                 <li className="flex items-start">
                   <span className="font-mono-code text-xs text-[#0A3F4D] mr-2 font-bold">1.</span>
-                  Our systems engineering team reviews your inbound channels within 24–48 hours.
+                  G-KAIS reviews your current lead flow and follows up with next steps.
                 </li>
                 <li className="flex items-start">
                   <span className="font-mono-code text-xs text-[#0A3F4D] mr-2 font-bold">2.</span>
@@ -213,6 +221,17 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose }) => {
             )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Honeypot anti-spam field */}
+              <input
+                type="text"
+                name="_hp_website_title"
+                value={honeypot}
+                onChange={(e) => setHoneypot(e.target.value)}
+                tabIndex={-1}
+                autoComplete="off"
+                aria-hidden="true"
+                style={{ display: 'none', position: 'absolute', opacity: 0, pointerEvents: 'none' }}
+              />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-mono-code uppercase text-[#777777] mb-1.5">

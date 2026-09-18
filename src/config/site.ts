@@ -11,9 +11,9 @@ export const SITE_CONFIG = {
     interaction: '#0A3F4D',
     border: '#0A0A0A'
   },
-  sla: {
-    auditResponseHours: '24–48 hours',
-    contactResponseDays: '1 business day'
+  workflow: {
+    auditReview: 'Direct workflow review and opportunity analysis',
+    contactFollowUp: 'Direct engineering review and follow-up'
   },
   products: {
     primary: 'LeadFlow',

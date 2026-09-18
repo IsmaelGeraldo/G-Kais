@@ -12,7 +12,7 @@ import { sendAuditNotification, sendContactNotification } from './src/server/ser
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT) || 3000;
 
   // 1. Request payload size limit (max 100kb to avoid denial-of-service or arbitrary payloads)
   app.use(express.json({ limit: '100kb' }));
@@ -101,7 +101,7 @@ async function startServer() {
         return res.status(500).json({
           success: false,
           code: 'SERVER_ERROR',
-          error: err?.message || 'Something went wrong. Please try again.'
+          error: 'Something went wrong. Please try again.'
         });
       }
     }
@@ -164,42 +164,7 @@ async function startServer() {
     }
   );
 
-  // 5. Prepared lead retrieval endpoint (for future LeadFlow CRM consumption)
-  app.get('/api/leads', async (req: Request, res: Response) => {
-    try {
-      const audits = await auditRepository.getRecent(10);
-      const contacts = await contactRepository.getRecent(10);
-      return res.status(200).json({
-        success: true,
-        summary: {
-          totalAudits: audits.length,
-          totalContacts: contacts.length
-        },
-        recentAudits: audits.map((a) => ({
-          id: a.id,
-          company: a.company,
-          channel: a.contactChannel,
-          status: a.status,
-          createdAt: a.createdAt
-        })),
-        recentContacts: contacts.map((c) => ({
-          id: c.id,
-          name: c.name,
-          status: c.status,
-          createdAt: c.createdAt
-        }))
-      });
-    } catch (err: any) {
-      console.error('[LEADS RETRIEVAL ERROR]', err);
-      return res.status(500).json({
-        success: false,
-        code: 'SERVER_ERROR',
-        error: 'Unable to retrieve records.'
-      });
-    }
-  });
-
-  // 6. Vite middleware for frontend development and production static serving
+  // 5. Vite middleware for frontend development and production static serving
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
       server: { middlewareMode: true },

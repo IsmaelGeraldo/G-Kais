@@ -1,5 +1,6 @@
 import React from 'react';
-import { X, ArrowRight, Check, Activity, Shield, Layers } from 'lucide-react';
+import { X, ArrowRight, Activity, Shield, Layers } from 'lucide-react';
+import { useModalAccessibility } from '../utils/useModal';
 
 interface LeadFlowModalProps {
   isOpen: boolean;
@@ -8,84 +9,96 @@ interface LeadFlowModalProps {
 }
 
 export const LeadFlowModal: React.FC<LeadFlowModalProps> = ({ isOpen, onClose, onOpenAudit }) => {
+  useModalAccessibility({ isOpen, onClose });
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="leadflow-modal-title"
+    >
       <div 
         className="relative w-full max-w-3xl bg-[#F7F7F5] border border-[#0A0A0A] p-6 sm:p-10 shadow-2xl my-8 text-left max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <button
           onClick={onClose}
-          className="absolute top-6 right-6 p-2 text-[#777777] hover:text-[#0A0A0A] transition-colors"
+          className="absolute top-6 right-6 p-2 text-[#777777] hover:text-[#0A0A0A] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A3F4D]"
           aria-label="Close modal"
           id="close-leadflow-modal-btn"
         >
           <X className="w-5 h-5" />
         </button>
 
-        <div className="mb-8">
+        <div className="mb-8 pr-8">
           <span className="font-mono-code text-[11px] uppercase tracking-[0.24em] text-[#0A3F4D] font-semibold block mb-2">
-            SUBSYSTEM TECHNICAL SPECIFICATION
+            SYSTEM SPECIFICATION
           </span>
-          <h3 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-[#0A0A0A]">
+          <h3 id="leadflow-modal-title" className="text-3xl sm:text-4xl font-extrabold tracking-tight text-[#0A0A0A]">
             LeadFlow Architecture
           </h3>
-          <p className="text-base text-[#777777] mt-2">
-            The autonomous recovery engine that eliminates lead leakage between first touch and booked deal.
+          <p className="text-base text-[#777777] mt-2 leading-relaxed">
+            The lead recovery system that eliminates opportunity leakage between first customer touch and booked conversation.
           </p>
         </div>
 
         <div className="space-y-6">
           <div className="border border-[#0A0A0A]/15 bg-white p-5">
-            <h4 className="font-mono-code text-xs uppercase tracking-wider text-[#0A0A0A] font-bold mb-3 flex items-center">
+            <h4 className="font-mono-code text-xs uppercase tracking-wider text-[#0A0A0A] font-bold mb-2 flex items-center">
               <Layers className="w-4 h-4 mr-2 text-[#0A3F4D]" />
               1. Omnichannel Ingestion Pipeline
             </h4>
             <p className="text-sm text-[#777777] leading-relaxed">
-              Connects directly to your Webhooks, Segment, Web forms, direct Gmail/Outlook inboxes, and WhatsApp Business API. Ingests raw multi-modal inquiries within 50 milliseconds with guaranteed zero packet loss.
+              Connects directly to your website forms, direct email inboxes, WhatsApp Business channels, and incoming webhooks. Ingests inquiries with continuous redundancy so no incoming customer request goes unregistered.
             </p>
           </div>
 
           <div className="border border-[#0A0A0A]/15 bg-white p-5">
-            <h4 className="font-mono-code text-xs uppercase tracking-wider text-[#0A0A0A] font-bold mb-3 flex items-center">
+            <h4 className="font-mono-code text-xs uppercase tracking-wider text-[#0A0A0A] font-bold mb-2 flex items-center">
               <Activity className="w-4 h-4 mr-2 text-[#0A3F4D]" />
-              2. Semantic ICP & Intent Classification
+              2. Intent & Commercial Priority Evaluation
             </h4>
             <p className="text-sm text-[#777777] leading-relaxed">
-              Analyzes incoming company domain, revenue band, project scope, and urgency level. Inquiries are scored and filtered into deterministic execution tracks: Instant Technical Proposal, Executive Fast-Track, or Polite Self-Serve Routing.
+              AI understands what the customer wants and how ready they are to act. Inquiries are scored against your business criteria and routed into clear tracks: immediate executive alert, direct quote preparation, or polite qualification follow-up.
             </p>
           </div>
 
           <div className="border border-[#0A0A0A]/15 bg-white p-5">
-            <h4 className="font-mono-code text-xs uppercase tracking-wider text-[#0A0A0A] font-bold mb-3 flex items-center">
+            <h4 className="font-mono-code text-xs uppercase tracking-wider text-[#0A0A0A] font-bold mb-2 flex items-center">
               <Shield className="w-4 h-4 mr-2 text-[#0A3F4D]" />
-              3. Context-Grounded Response & Persistent Cadence
+              3. Grounded Responses & Automatic Follow-Up Cadence
             </h4>
             <p className="text-sm text-[#777777] leading-relaxed">
-              Uses vector grounding on your internal pricing sheets, case studies, and technical specs to produce flawless, personalized answers in under 60 seconds. If a prospect doesn’t respond, a gentle, high-value 4-step sequence re-engages them automatically.
+              Delivers answers grounded in your company documentation and pricing bounds. If a prospect goes silent, the system executes polite follow-up touches over days and weeks to keep opportunities moving forward without burning rep time.
             </p>
           </div>
 
+          {/* Key System Attributes Grid */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center pt-2">
             <div className="p-3 bg-white border border-[#0A0A0A]/10">
-              <span className="font-mono-code text-[10px] text-[#777777] block">Pipeline Latency</span>
-              <span className="font-mono-code text-sm font-bold text-[#0A0A0A]">&lt; 45 sec</span>
+              <span className="font-mono-code text-[10px] text-[#777777] block">Ingestion Latency</span>
+              <span className="font-mono-code text-sm font-bold text-[#0A0A0A]">Real-Time</span>
             </div>
             <div className="p-3 bg-white border border-[#0A0A0A]/10">
-              <span className="font-mono-code text-[10px] text-[#777777] block">Avg. Recovery</span>
-              <span className="font-mono-code text-sm font-bold text-[#0A3F4D]">+38.4%</span>
+              <span className="font-mono-code text-[10px] text-[#777777] block">Target Recovery</span>
+              <span className="font-mono-code text-sm font-bold text-[#0A3F4D]">Up to 38%*</span>
             </div>
             <div className="p-3 bg-white border border-[#0A0A0A]/10">
-              <span className="font-mono-code text-[10px] text-[#777777] block">Security</span>
-              <span className="font-mono-code text-sm font-bold text-[#0A0A0A]">SOC2 Class</span>
+              <span className="font-mono-code text-[10px] text-[#777777] block">Data Privacy</span>
+              <span className="font-mono-code text-sm font-bold text-[#0A0A0A]">Encrypted</span>
             </div>
             <div className="p-3 bg-white border border-[#0A0A0A]/10">
-              <span className="font-mono-code text-[10px] text-[#777777] block">CRM Integrations</span>
-              <span className="font-mono-code text-sm font-bold text-[#0A0A0A]">Universal</span>
+              <span className="font-mono-code text-[10px] text-[#777777] block">Compatibility</span>
+              <span className="font-mono-code text-sm font-bold text-[#0A0A0A]">Universal API</span>
             </div>
           </div>
+          <p className="font-mono-code text-[9px] text-[#777777] text-right">
+            *Illustrative target metric based on automated follow-up simulations.
+          </p>
         </div>
 
         <div className="mt-8 pt-6 border-t border-[#0A0A0A]/10 flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -94,6 +107,7 @@ export const LeadFlowModal: React.FC<LeadFlowModalProps> = ({ isOpen, onClose, o
               onClose();
               onOpenAudit();
             }}
+            id="modal-request-audit-leadflow-btn"
             className="w-full sm:w-auto inline-flex items-center justify-center px-6 py-3 bg-[#0A0A0A] text-[#F7F7F5] font-semibold text-xs tracking-wider uppercase hover:bg-[#0A3F4D] transition-all"
           >
             <span>Request System Audit for LeadFlow</span>

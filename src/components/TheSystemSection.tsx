@@ -22,7 +22,7 @@ const STAGES: StageItem[] = [
     specItems: [
       { key: 'Channels', value: 'Web, Email, WhatsApp, API' },
       { key: 'Format', value: 'Unstructured text, audio, form data' },
-      { key: 'Packet loss', value: '0.00% guaranteed' }
+      { key: 'Reliability', value: 'Continuous failover redundancy' }
     ]
   },
   {
@@ -31,11 +31,11 @@ const STAGES: StageItem[] = [
     label: 'CAPTURE',
     type: 'engine',
     explanation: 'Collect opportunities from the channels your business already uses.',
-    technicalSub: 'Zero-Latency Pipeline',
+    technicalSub: 'Real-Time Ingestion Pipeline',
     specItems: [
-      { key: 'Capture speed', value: '< 20ms' },
+      { key: 'Capture speed', value: 'Real-time event capture' },
       { key: 'Spam filter', value: 'Deterministic DKIM / SPF verification' },
-      { key: 'Encryption', value: 'End-to-end at rest & transit' }
+      { key: 'Encryption', value: 'Standard TLS in transit and at rest' }
     ]
   },
   {
@@ -60,7 +60,7 @@ const STAGES: StageItem[] = [
     technicalSub: 'Algorithmic Escalation',
     specItems: [
       { key: 'Routing', value: 'VIP Enterprise vs Self-serve' },
-      { key: 'SLA Sentinel', value: '< 60s response lock' },
+      { key: 'SLA Sentinel', value: 'Configurable response thresholds' },
       { key: 'Rep alerts', value: 'Slack / Mobile / SMS push' }
     ]
   },
@@ -73,7 +73,7 @@ const STAGES: StageItem[] = [
     technicalSub: 'Bidirectional Data Sync',
     specItems: [
       { key: 'Integrations', value: 'HubSpot, Salesforce, Pipedrive, Notion' },
-      { key: 'Manual data entry', value: '0 hours required' },
+      { key: 'Manual data entry', value: 'Automated CRM logging' },
       { key: 'Audit history', value: 'Full transcript & timeline logged' }
     ]
   },
@@ -85,9 +85,9 @@ const STAGES: StageItem[] = [
     explanation: 'Deliver context-grounded, branded technical answers in seconds.',
     technicalSub: 'Brand-Governed Autonomous Dispatch',
     specItems: [
-      { key: 'Response latency', value: 'Under 60 seconds' },
+      { key: 'Response speed', value: 'Real-time response' },
       { key: 'Knowledge source', value: 'Verified company docs & pricing limits' },
-      { key: 'Tone', value: 'Executive B2B tone calibrated' }
+      { key: 'Tone', value: 'Calibrated B2B executive tone' }
     ]
   },
   {
@@ -100,7 +100,7 @@ const STAGES: StageItem[] = [
     specItems: [
       { key: 'Touch cadence', value: 'Intelligent interval (24h, 72h, 7d)' },
       { key: 'Value-add inject', value: 'Relevant case studies & benchmarks' },
-      { key: 'Drop-off recovery', value: '+38% pipeline recovery' }
+      { key: 'Target outcome', value: 'Up to 38% recovery (Target)*' }
     ]
   },
   {
@@ -112,7 +112,7 @@ const STAGES: StageItem[] = [
     technicalSub: 'Meeting & Revenue Confirmation',
     specItems: [
       { key: 'Outcome', value: 'Confirmed calendar demo or quote acceptance' },
-      { key: 'Show-up rate', value: '92% with automated prep briefing' },
+      { key: 'Preparation', value: 'Automated prep briefing delivered' },
       { key: 'Team handoff', value: 'Complete briefing delivered to rep' }
     ]
   }

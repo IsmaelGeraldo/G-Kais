@@ -46,35 +46,28 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAudit }) => {
         <nav className="hidden md:flex items-center space-x-10 text-sm font-medium text-[#777777]">
           <button 
             onClick={() => scrollTo('solutions')} 
-            className="hover:text-[#0A0A0A] transition-colors py-2 text-left"
+            className="hover:text-[#0A0A0A] transition-colors py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A3F4D]"
             id="nav-link-solutions"
           >
             Solutions
           </button>
           <button 
-            onClick={() => scrollTo('the-system')} 
-            className="hover:text-[#0A0A0A] transition-colors py-2 text-left"
-            id="nav-link-systems"
-          >
-            Systems
-          </button>
-          <button 
             onClick={() => scrollTo('leadflow')} 
-            className="hover:text-[#0A0A0A] transition-colors py-2 text-left"
+            className="hover:text-[#0A0A0A] transition-colors py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A3F4D]"
             id="nav-link-leadflow"
           >
             LeadFlow
           </button>
           <button 
-            onClick={() => scrollTo('process')} 
-            className="hover:text-[#0A0A0A] transition-colors py-2 text-left"
-            id="nav-link-process"
+            onClick={() => scrollTo('the-system')} 
+            className="hover:text-[#0A0A0A] transition-colors py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A3F4D]"
+            id="nav-link-how-it-works"
           >
-            Process
+            How It Works
           </button>
           <button 
             onClick={() => scrollTo('about')} 
-            className="hover:text-[#0A0A0A] transition-colors py-2 text-left"
+            className="hover:text-[#0A0A0A] transition-colors py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A3F4D]"
             id="nav-link-about"
           >
             About
@@ -85,10 +78,10 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAudit }) => {
         <div className="hidden md:flex items-center space-x-4">
           <button
             onClick={onOpenAudit}
-            id="header-book-audit-btn"
-            className="group inline-flex items-center justify-center px-5 py-2.5 text-xs font-semibold uppercase tracking-wider text-[#F7F7F5] bg-[#0A0A0A] hover:bg-[#0A3F4D] transition-all duration-200"
+            id="header-free-audit-btn"
+            className="group inline-flex items-center justify-center px-5 py-2.5 text-xs font-semibold uppercase tracking-wider text-[#F7F7F5] bg-[#0A0A0A] hover:bg-[#0A3F4D] transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A3F4D]"
           >
-            <span>BOOK AN AUDIT</span>
+            <span>Free Audit</span>
             <ArrowUpRight className="w-3.5 h-3.5 ml-1.5 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
           </button>
         </div>
@@ -116,22 +109,16 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAudit }) => {
             Solutions
           </button>
           <button 
-            onClick={() => scrollTo('the-system')} 
-            className="text-left text-lg font-medium text-[#0A0A0A]"
-          >
-            Systems
-          </button>
-          <button 
             onClick={() => scrollTo('leadflow')} 
             className="text-left text-lg font-medium text-[#0A0A0A]"
           >
             LeadFlow
           </button>
           <button 
-            onClick={() => scrollTo('process')} 
+            onClick={() => scrollTo('the-system')} 
             className="text-left text-lg font-medium text-[#0A0A0A]"
           >
-            Process
+            How It Works
           </button>
           <button 
             onClick={() => scrollTo('about')} 
@@ -147,7 +134,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAudit }) => {
               }}
               className="w-full text-center px-5 py-3 text-xs font-semibold uppercase tracking-wider text-[#F7F7F5] bg-[#0A0A0A]"
             >
-              BOOK AN AUDIT
+              Free Audit
             </button>
           </div>
         </div>

@@ -1,9 +1,20 @@
 import React, { useState } from 'react';
-import { ArrowRight, CheckCircle2 } from 'lucide-react';
+import { ArrowRight, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { submitAuditRequest } from '../services/audit';
+import { ContactChannel } from '../types/audit';
 
 interface AuditCtaSectionProps {
   onOpenAudit?: () => void;
 }
+
+const CONTACT_CHANNELS: ContactChannel[] = [
+  'WhatsApp',
+  'Website',
+  'Email',
+  'Instagram',
+  'Phone',
+  'Multiple channels'
+];
 
 export const AuditCtaSection: React.FC<AuditCtaSectionProps> = () => {
   const [formData, setFormData] = useState({
@@ -11,14 +22,44 @@ export const AuditCtaSection: React.FC<AuditCtaSectionProps> = () => {
     company: '',
     website: '',
     email: '',
-    leadManagementTool: ''
+    contactChannel: 'WhatsApp' as ContactChannel,
+    inquiryNotes: ''
   });
-  const [isSubmitted, setIsSubmitted] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [isLoading, setIsLoading] = useState(false);
+  const [submissionId, setSubmissionId] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.email) return;
-    setIsSubmitted(true);
+    setErrorMessage(null);
+    setIsLoading(true);
+
+    try {
+      const result = await submitAuditRequest(formData);
+      if (result.success && result.submissionId) {
+        setSubmissionId(result.submissionId);
+      } else {
+        throw new Error(result.error || 'Failed to submit audit request.');
+      }
+    } catch (err: any) {
+      setErrorMessage(err.message || 'An error occurred while submitting your audit request. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleReset = () => {
+    setSubmissionId(null);
+    setErrorMessage(null);
+    setFormData({
+      name: '',
+      company: '',
+      website: '',
+      email: '',
+      contactChannel: 'WhatsApp',
+      inquiryNotes: ''
+    });
   };
 
   return (
@@ -35,22 +76,47 @@ export const AuditCtaSection: React.FC<AuditCtaSectionProps> = () => {
               Find 3 automation opportunities in your business.
             </h2>
 
-            <p className="text-lg sm:text-xl text-white/70 leading-relaxed font-normal mb-12 max-w-xl">
-              We'll review your current process and identify where AI and automation can remove friction, recover opportunities and improve execution.
+            <p className="text-lg sm:text-xl text-white/70 leading-relaxed font-normal mb-10 max-w-xl">
+              We'll review your current commercial process and identify where AI and automation can remove friction, recover opportunities, and keep execution reliable.
             </p>
 
-            <div className="space-y-4 font-mono-code text-xs text-white/60 border-t border-white/10 pt-8">
+            {/* WHAT YOU RECEIVE section */}
+            <div className="p-6 bg-white/5 border border-white/15 mb-10">
+              <span className="font-mono-code text-xs uppercase tracking-wider text-white font-bold block mb-4">
+                WHAT YOU RECEIVE:
+              </span>
+              <ul className="space-y-3 font-mono-code text-xs text-white/80">
+                <li className="flex items-start">
+                  <span className="w-1.5 h-1.5 rounded-full bg-white mt-1.5 mr-3 shrink-0" />
+                  <span>1. Thorough review of your current lead flow</span>
+                </li>
+                <li className="flex items-start">
+                  <span className="w-1.5 h-1.5 rounded-full bg-white mt-1.5 mr-3 shrink-0" />
+                  <span>2. Three potential opportunity leaks pinpointed</span>
+                </li>
+                <li className="flex items-start">
+                  <span className="w-1.5 h-1.5 rounded-full bg-white mt-1.5 mr-3 shrink-0" />
+                  <span>3. Clear automation & recovery opportunities</span>
+                </li>
+                <li className="flex items-start">
+                  <span className="w-1.5 h-1.5 rounded-full bg-white mt-1.5 mr-3 shrink-0" />
+                  <span>4. Recommended first system architecture</span>
+                </li>
+              </ul>
+            </div>
+
+            <div className="space-y-3 font-mono-code text-xs text-white/50 border-t border-white/10 pt-6">
               <div className="flex items-center space-x-3">
-                <span className="w-1.5 h-1.5 rounded-full bg-white" />
-                <span>3-day diagnostic turnaround</span>
+                <span className="w-1 h-1 rounded-full bg-white/60" />
+                <span>24–48 hour turnaround</span>
               </div>
               <div className="flex items-center space-x-3">
-                <span className="w-1.5 h-1.5 rounded-full bg-white" />
-                <span>Custom architecture blueprint included</span>
+                <span className="w-1 h-1 rounded-full bg-white/60" />
+                <span>No software installation required</span>
               </div>
               <div className="flex items-center space-x-3">
-                <span className="w-1.5 h-1.5 rounded-full bg-white" />
-                <span>Zero software installation required</span>
+                <span className="w-1 h-1 rounded-full bg-white/60" />
+                <span>Confidential review of your workflow</span>
               </div>
             </div>
           </div>
@@ -58,43 +124,45 @@ export const AuditCtaSection: React.FC<AuditCtaSectionProps> = () => {
           {/* Right Column: Direct Form */}
           <div className="lg:col-span-6">
             <div className="border border-white/20 bg-[#0A0A0A] p-8 sm:p-10">
-              {isSubmitted ? (
+              {submissionId ? (
                 <div className="py-12 text-center">
-                  <div className="w-12 h-12 rounded-full border border-white/20 flex items-center justify-center mx-auto mb-6">
+                  <div className="w-12 h-12 rounded-full border border-white/20 flex items-center justify-center mx-auto mb-6 bg-white/10">
                     <CheckCircle2 className="w-6 h-6 text-white" />
                   </div>
-                  <h3 className="text-2xl font-bold tracking-tight text-white mb-3">
+                  <h3 className="text-2xl font-bold tracking-tight text-white mb-2">
                     Audit Request Received
                   </h3>
+                  <p className="text-xs font-mono-code text-white/60 mb-6">
+                    SUBMISSION ID: <span className="text-white font-bold">{submissionId}</span>
+                  </p>
                   <p className="text-sm text-white/70 leading-relaxed max-w-sm mx-auto mb-8">
-                    Our systems architecture team will review your commercial pipeline and deliver your 3 automation opportunities within 3 business days.
+                    Our systems architecture team will review your commercial pipeline and deliver your 3 automation opportunities within 24–48 hours.
                   </p>
                   <button
-                    onClick={() => {
-                      setIsSubmitted(false);
-                      setFormData({
-                        name: '',
-                        company: '',
-                        website: '',
-                        email: '',
-                        leadManagementTool: ''
-                      });
-                    }}
+                    type="button"
+                    onClick={handleReset}
                     className="font-mono-code text-xs text-white/50 underline hover:text-white"
                   >
                     Submit another inquiry
                   </button>
                 </div>
               ) : (
-                <form onSubmit={handleSubmit} className="space-y-6">
+                <form onSubmit={handleSubmit} className="space-y-5">
                   <div className="flex items-center justify-between pb-4 border-b border-white/10 mb-6">
                     <span className="font-mono-code text-xs tracking-wider text-white/60 uppercase">
-                      REQUEST AUDIT // STEP 01
+                      REQUEST AUDIT // DIRECT INTAKE
                     </span>
                     <span className="font-mono-code text-[10px] text-white/40">
-                      ENCRYPTED TRANSMISSION
+                      SECURE PIPELINE
                     </span>
                   </div>
+
+                  {errorMessage && (
+                    <div className="p-3 bg-red-950/80 border border-red-800 text-red-200 text-xs flex items-center space-x-2">
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                      <span>{errorMessage}</span>
+                    </div>
+                  )}
 
                   <div>
                     <label className="block text-xs font-mono-code text-white/80 uppercase tracking-wider mb-2">
@@ -106,7 +174,7 @@ export const AuditCtaSection: React.FC<AuditCtaSectionProps> = () => {
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       placeholder="Jane Doe"
-                      className="w-full px-4 py-3.5 bg-black border border-white/20 text-white placeholder-white/30 text-sm focus:outline-none focus:border-white transition-colors"
+                      className="w-full px-4 py-3 bg-black border border-white/20 text-white placeholder-white/30 text-sm focus:outline-none focus:border-white transition-colors"
                       id="audit-input-name"
                     />
                   </div>
@@ -122,7 +190,7 @@ export const AuditCtaSection: React.FC<AuditCtaSectionProps> = () => {
                         value={formData.company}
                         onChange={(e) => setFormData({ ...formData, company: e.target.value })}
                         placeholder="Acme Corp"
-                        className="w-full px-4 py-3.5 bg-black border border-white/20 text-white placeholder-white/30 text-sm focus:outline-none focus:border-white transition-colors"
+                        className="w-full px-4 py-3 bg-black border border-white/20 text-white placeholder-white/30 text-sm focus:outline-none focus:border-white transition-colors"
                         id="audit-input-company"
                       />
                     </div>
@@ -136,7 +204,7 @@ export const AuditCtaSection: React.FC<AuditCtaSectionProps> = () => {
                         value={formData.website}
                         onChange={(e) => setFormData({ ...formData, website: e.target.value })}
                         placeholder="https://company.com"
-                        className="w-full px-4 py-3.5 bg-black border border-white/20 text-white placeholder-white/30 text-sm focus:outline-none focus:border-white transition-colors"
+                        className="w-full px-4 py-3 bg-black border border-white/20 text-white placeholder-white/30 text-sm focus:outline-none focus:border-white transition-colors"
                         id="audit-input-website"
                       />
                     </div>
@@ -144,7 +212,7 @@ export const AuditCtaSection: React.FC<AuditCtaSectionProps> = () => {
 
                   <div>
                     <label className="block text-xs font-mono-code text-white/80 uppercase tracking-wider mb-2">
-                      Email *
+                      Business Email *
                     </label>
                     <input
                       type="email"
@@ -152,39 +220,74 @@ export const AuditCtaSection: React.FC<AuditCtaSectionProps> = () => {
                       value={formData.email}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                       placeholder="jane@company.com"
-                      className="w-full px-4 py-3.5 bg-black border border-white/20 text-white placeholder-white/30 text-sm focus:outline-none focus:border-white transition-colors"
+                      className="w-full px-4 py-3 bg-black border border-white/20 text-white placeholder-white/30 text-sm focus:outline-none focus:border-white transition-colors"
                       id="audit-input-email"
                     />
                   </div>
 
+                  {/* How do customers usually contact you? */}
                   <div>
                     <label className="block text-xs font-mono-code text-white/80 uppercase tracking-wider mb-2">
-                      What do you currently use to manage leads?
+                      How do customers usually contact you? *
                     </label>
-                    <select
-                      value={formData.leadManagementTool}
-                      onChange={(e) => setFormData({ ...formData, leadManagementTool: e.target.value })}
-                      className="w-full px-4 py-3.5 bg-black border border-white/20 text-white text-sm focus:outline-none focus:border-white transition-colors"
-                      id="audit-input-lead-tool"
-                    >
-                      <option value="" disabled className="text-white/30">Select lead management setup</option>
-                      <option value="CRM (HubSpot, Salesforce, Pipedrive)">CRM (HubSpot, Salesforce, Pipedrive, etc.)</option>
-                      <option value="Spreadsheets (Google Sheets, Excel)">Spreadsheets (Google Sheets, Excel)</option>
-                      <option value="Direct Email & WhatsApp (Manual)">Direct Email & WhatsApp (Manual)</option>
-                      <option value="ERP / Custom Internal Software">ERP / Custom Internal Software</option>
-                      <option value="No formal system currently">No formal system currently</option>
-                    </select>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {CONTACT_CHANNELS.map((channel) => {
+                        const isSelected = formData.contactChannel === channel;
+                        return (
+                          <button
+                            type="button"
+                            key={channel}
+                            onClick={() => setFormData({ ...formData, contactChannel: channel })}
+                            className={`p-2 text-xs font-mono-code border text-left transition-all ${
+                              isSelected
+                                ? 'border-white bg-white text-black font-semibold'
+                                : 'border-white/20 bg-black text-white/80 hover:border-white/50'
+                            }`}
+                          >
+                            {channel}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
 
-                  <div className="pt-4">
+                  {/* What happens after someone contacts? */}
+                  <div>
+                    <label className="block text-xs font-mono-code text-white/80 uppercase tracking-wider mb-2">
+                      What happens after someone makes an inquiry? <span className="text-white/40 lowercase">(optional)</span>
+                    </label>
+                    <textarea
+                      rows={2}
+                      placeholder="e.g. Inquiries wait in our inbox, sales reps follow up when free, leads get dropped after 1 touch..."
+                      value={formData.inquiryNotes}
+                      onChange={(e) => setFormData({ ...formData, inquiryNotes: e.target.value })}
+                      className="w-full px-4 py-2.5 bg-black border border-white/20 text-white placeholder-white/30 text-xs focus:outline-none focus:border-white transition-colors"
+                      id="audit-input-notes"
+                    />
+                  </div>
+
+                  <div className="pt-2">
                     <button
                       type="submit"
+                      disabled={isLoading}
                       id="audit-submit-btn"
-                      className="w-full group inline-flex items-center justify-center px-8 py-4.5 bg-white text-black font-bold text-xs tracking-wider uppercase hover:bg-[#F7F7F5] transition-all duration-200"
+                      className="w-full group inline-flex items-center justify-center px-8 py-4 bg-white text-black font-bold text-xs tracking-wider uppercase hover:bg-[#F7F7F5] transition-all duration-200 disabled:opacity-60"
                     >
-                      <span>BOOK A FREE AUDIT</span>
-                      <ArrowRight className="w-4 h-4 ml-3 transition-transform duration-200 group-hover:translate-x-1" />
+                      {isLoading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          <span>Processing Request...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>REQUEST FREE AUDIT</span>
+                          <ArrowRight className="w-4 h-4 ml-3 transition-transform duration-200 group-hover:translate-x-1" />
+                        </>
+                      )}
                     </button>
+                    <p className="font-mono-code text-[10px] text-white/40 text-center mt-2.5">
+                      No commitment. We respond within 24–48 hours with concrete recommendations.
+                    </p>
                   </div>
                 </form>
               )}

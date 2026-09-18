@@ -281,21 +281,42 @@ export const HeroSystemVisual: React.FC = () => {
           <span className="text-[#777777] hidden sm:inline">MOTOR G-KAIS V2.4</span>
         </div>
 
-        <div className="flex items-center space-x-4 text-[11px] text-[#777777]">
-          <div className="flex items-center space-x-1.5">
+        <div className="flex items-center space-x-3 text-[11px] text-[#777777]">
+          <span className="px-2 py-0.5 border border-[#0A3F4D]/30 bg-[#0A3F4D]/5 font-mono-code text-[10px] text-[#0A3F4D] font-bold uppercase tracking-wider">
+            INTERACTIVE SYSTEM DEMO
+          </span>
+          <span className="text-[#0A0A0A]/20 hidden sm:inline">|</span>
+          <div className="hidden sm:flex items-center space-x-1.5">
             <Clock className="w-3.5 h-3.5 text-[#0A3F4D]" />
-            <span>LAST SIGNAL:</span>
+            <span>SIGNAL:</span>
             <span className="text-[#0A0A0A] font-bold font-mono-code">{lastSignalTime}</span>
           </div>
-          <span className="text-[#0A0A0A]/20">|</span>
+          <span className="text-[#0A0A0A]/20 hidden sm:inline">|</span>
           <div className="flex items-center space-x-1.5">
             <Zap className="w-3.5 h-3.5 text-[#0A3F4D]" />
             <span>LATENCY:</span>
             <span className="text-[#0A3F4D] font-bold">{liveLatency}</span>
           </div>
-          <span className="hidden md:inline px-2 py-0.5 border border-[#0A0A0A]/10 bg-[#F7F7F5] text-[10px] font-bold text-[#0A0A0A]">
-            STATE: {systemState}
-          </span>
+        </div>
+      </div>
+
+      {/* 1B. COMMERCIAL WORKFLOW WALKTHROUGH (Input -> AI Analysis -> Decision -> Action -> Follow-up -> Recovery) */}
+      <div className="px-5 py-3 border-b border-[#0A0A0A]/10 bg-[#F7F7F5] flex flex-wrap items-center justify-between gap-3 text-xs font-mono-code">
+        <div className="flex items-center space-x-2 text-[#777777]">
+          <span className="text-[#0A0A0A] font-bold uppercase">HOW IT WORKS:</span>
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5 text-[10px] sm:text-[11px] text-[#777777]">
+          <span className="px-2 py-0.5 bg-white border border-[#0A0A0A]/15 text-[#0A0A0A] font-medium">Input</span>
+          <span className="text-[#0A0A0A]/30">→</span>
+          <span className="px-2 py-0.5 bg-white border border-[#0A0A0A]/15 text-[#0A0A0A] font-medium">AI Analysis</span>
+          <span className="text-[#0A0A0A]/30">→</span>
+          <span className="px-2 py-0.5 bg-white border border-[#0A0A0A]/15 text-[#0A0A0A] font-medium">Decision</span>
+          <span className="text-[#0A0A0A]/30">→</span>
+          <span className="px-2 py-0.5 bg-white border border-[#0A0A0A]/15 text-[#0A0A0A] font-medium">Action</span>
+          <span className="text-[#0A0A0A]/30">→</span>
+          <span className="px-2 py-0.5 bg-white border border-[#0A0A0A]/15 text-[#0A0A0A] font-medium">Follow-up</span>
+          <span className="text-[#0A0A0A]/30">→</span>
+          <span className="px-2 py-0.5 bg-[#0A0A0A] text-[#F7F7F5] font-semibold">Recovery</span>
         </div>
       </div>
 

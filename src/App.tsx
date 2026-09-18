@@ -11,6 +11,7 @@ import { TheSystemSection } from './components/TheSystemSection.tsx';
 import { LeadFlowSection } from './components/LeadFlowSection.tsx';
 import { HumanControlSection } from './components/HumanControlSection.tsx';
 import { ProductsSection } from './components/ProductsSection.tsx';
+import { ExistingToolsSection } from './components/ExistingToolsSection.tsx';
 import { ProcessSection } from './components/ProcessSection.tsx';
 import { AuditCtaSection } from './components/AuditCtaSection.tsx';
 import { Footer } from './components/Footer.tsx';
@@ -69,7 +70,10 @@ export default function App() {
         {/* 6. Human + AI ("AI handles the process. Humans keep control.") */}
         <HumanControlSection />
 
-        {/* 7. Product Ecosystem ("One architecture. Multiple systems.") */}
+        {/* 7. Works with your existing tools */}
+        <ExistingToolsSection />
+
+        {/* 8. Product Ecosystem ("One architecture. Multiple systems.") */}
         <ProductsSection />
 
         {/* 8. Process ("From opportunity to operating system.") */}

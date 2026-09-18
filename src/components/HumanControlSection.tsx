@@ -1,7 +1,7 @@
 import React from 'react';
 
 const AI_TASKS = [
-  { name: 'Capture', desc: 'Ingests opportunities from all inbound channels 24/7 with zero latency.' },
+  { name: 'Capture', desc: 'Ingests opportunities from all inbound channels 24/7 in real time.' },
   { name: 'Classify', desc: 'Evaluates intent, timeline urgency, budget context, and qualification metrics.' },
   { name: 'Prioritize', desc: 'Identifies which commercial inquiries require immediate executive response.' },
   { name: 'Respond', desc: 'Dispatches precision, brand-governed answers and booking links in seconds.' },

@@ -146,7 +146,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAudit, onOpenContact }) =>
                 Terms
               </button>
               <span className="text-xs font-mono-code text-[#777777] pt-4">
-                SOC2 Type II Ready
+                Enterprise Data Protection
               </span>
             </div>
           </div>

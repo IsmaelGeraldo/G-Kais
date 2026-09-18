@@ -78,8 +78,11 @@ export const Hero: React.FC<HeroProps> = ({ onOpenAudit }) => {
         {/* Minimalist G-KAIS SYSTEM Architecture Visual */}
         <div className="w-full" id="hero-system-visual">
           <div className="mb-3 flex items-center justify-between text-xs font-mono-code text-[#777777]">
-            <span>G-KAIS SYSTEM ARCHITECTURE</span>
-            <span>SPEC: UNIFIED COMMERCIAL ENGINE</span>
+            <div className="flex items-center space-x-2">
+              <span className="w-2 h-2 rounded-full bg-[#0A3F4D]" />
+              <span className="font-semibold text-[#0A0A0A]">G-KAIS SYSTEM ARCHITECTURE</span>
+            </div>
+            <span className="text-[#0A3F4D] font-semibold">INTERACTIVE SYSTEM DEMO</span>
           </div>
           <HeroSystemVisual />
         </div>

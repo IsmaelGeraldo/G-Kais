@@ -18,7 +18,7 @@ const PRODUCTS: ProductItem[] = [
     category: 'Lead Recovery',
     tagline: 'Autonomous Lead Recovery System',
     description: 'Captures unanswered inquiries across all channels, qualifies prospect intent, and executes persistent multi-touch follow-ups until opportunities convert.',
-    metrics: '+38% pipeline recovery',
+    metrics: 'Target: +38% recovery*',
     architecture: ['Omnichannel Ingestion', 'Intent Classification', 'Autonomous Cadence', 'CRM Sync']
   },
   {
@@ -27,7 +27,7 @@ const PRODUCTS: ProductItem[] = [
     category: 'Booking Automation',
     tagline: 'Autonomous Scheduling & Qualification Agent',
     description: 'Coordinates executive meeting times across timezones, verifies buyer qualification before calendar access, and delivers pre-meeting dossiers to your team.',
-    metrics: '92% show-up rate',
+    metrics: 'Target: High attendance*',
     architecture: ['Calendar Mutex', 'Timezone Resolver', 'Pre-Meeting Briefs', 'SMS/Email Loops']
   },
   {
@@ -36,7 +36,7 @@ const PRODUCTS: ProductItem[] = [
     category: 'Customer Support',
     tagline: 'Tier-1 Autonomous Resolution & Escalation',
     description: 'Resolves repetitive technical and operational inquiries instantly against your company documentation, escalating complex exceptions to human specialists.',
-    metrics: '65% instant resolution',
+    metrics: 'Target: 60%+ resolution*',
     architecture: ['Grounding Engine', 'SLA Sentinel', 'Human Handover', 'Audit Trail']
   },
   {
@@ -45,7 +45,7 @@ const PRODUCTS: ProductItem[] = [
     category: 'Quote Automation',
     tagline: 'Rapid RFP & Proposal Generation Engine',
     description: 'Ingests complex client requirements, calculates pricing models within strict margin limits, and drafts executive-ready B2B proposals in minutes.',
-    metrics: '3-min proposal draft',
+    metrics: 'Target: Rapid proposals*',
     architecture: ['Margin Safeguards', 'Dynamic Pricing', 'PDF Assembly', 'Approval Gateways']
   },
   {
@@ -54,7 +54,7 @@ const PRODUCTS: ProductItem[] = [
     category: 'Review Management',
     tagline: 'Post-Delivery Reputation & Sentiment System',
     description: 'Monitors client satisfaction milestones, requests feedback at moments of delight, and turns positive outcomes into verified public client reviews.',
-    metrics: '4.2x review volume',
+    metrics: 'Target: Feedback loops*',
     architecture: ['Sentiment Pulse', 'Milestone Trigger', 'Friction Alerts', 'Review Attribution']
   }
 ];
@@ -151,6 +151,12 @@ export const ProductsSection: React.FC = () => {
               </div>
             );
           })}
+        </div>
+
+        <div className="mt-4 text-right">
+          <span className="font-mono-code text-[10px] text-[#777777]">
+            *Illustrative target metrics based on automated system simulations. Individual outcomes vary by industry and volume.
+          </span>
         </div>
       </div>
     </section>

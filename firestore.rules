@@ -48,12 +48,16 @@ service cloud.firestore {
 
     match /audit_submissions/{auditId} {
       allow create: if validAudit(request.resource.data, auditId);
-      allow read, update, delete: if false;
+      // TODO: replace false with request.auth.uid == '<ADMIN_UID>' after first admin sign-in.
+      allow read: if false;
+      allow update, delete: if false;
     }
 
     match /contact_submissions/{contactId} {
       allow create: if validContact(request.resource.data, contactId);
-      allow read, update, delete: if false;
+      // TODO: replace false with request.auth.uid == '<ADMIN_UID>' after first admin sign-in.
+      allow read: if false;
+      allow update, delete: if false;
     }
 
     match /_health/{docId} {

@@ -1,4 +1,5 @@
 import { getApp, getApps, initializeApp } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import firebaseAppletConfig from '../../firebase-applet-config.json';
 
@@ -14,6 +15,8 @@ const firebaseConfig = {
 export const firebaseApp = getApps().length > 0
   ? getApp()
   : initializeApp(firebaseConfig);
+
+export const firebaseAuth = getAuth(firebaseApp);
 
 export const firestoreDb = getFirestore(
   firebaseApp,

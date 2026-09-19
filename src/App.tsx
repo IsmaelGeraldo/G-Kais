@@ -18,8 +18,9 @@ import { Footer } from './components/Footer.tsx';
 import { AuditModal } from './components/AuditModal.tsx';
 import { LeadFlowModal } from './components/LeadFlowModal.tsx';
 import { ContactModal } from './components/ContactModal.tsx';
+import { AdminPage } from './components/AdminPage.tsx';
 
-export default function App() {
+function PublicApp() {
   const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
   const [isLeadFlowModalOpen, setIsLeadFlowModalOpen] = useState(false);
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
@@ -100,4 +101,8 @@ export default function App() {
       />
     </div>
   );
+}
+
+export default function App() {
+  return window.location.pathname.startsWith('/admin') ? <AdminPage /> : <PublicApp />;
 }

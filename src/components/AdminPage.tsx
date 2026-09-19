@@ -577,6 +577,14 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
         )
       );
 
+      if (selectedId === lead.id) {
+        setDraft((current) => ({
+          ...current,
+          nextAction: '',
+          followUpAt: ''
+        }));
+      }
+
       setSaveMessage(`Completed action for ${lead.name}.`);
     } catch (err: any) {
       setError(err?.message || 'No se pudo completar la acción.');

@@ -251,7 +251,102 @@ async function startServer() {
     }
   });
 
-  // 6. Vite middleware for frontend development and production static serving
+  // 6. Authenticated admin-only operational lead email.
+  app.post('/api/admin/email/lead-alert', async (req: Request, res: Response) => {
+    try {
+      const identity = await verifyAdminBearerToken(req.headers.authorization);
+
+      if (!identity) {
+        return res.status(401).json({
+          success: false,
+          code: 'UNAUTHORIZED',
+          error: 'Authenticated administrator access is required.'
+        });
+      }
+
+      const body = req.body && typeof req.body === 'object' ? req.body : {};
+      const kind = body.kind;
+      const level = body.level;
+
+      const allowedKinds = ['overdue_follow_up', 'follow_up_today', 'new_lead'];
+      const allowedLevels = ['critical', 'warning', 'info'];
+
+      if (
+        typeof body.id !== 'string' ||
+        !body.id.trim() ||
+        typeof body.leadName !== 'string' ||
+        !body.leadName.trim() ||
+        !allowedKinds.includes(kind) ||
+        !allowedLevels.includes(level)
+      ) {
+        return res.status(400).json({
+          success: false,
+          code: 'VALIDATION_ERROR',
+          error: 'Invalid operational alert payload.'
+        });
+      }
+
+      const clean = (value: unknown, max: number) =>
+        typeof value === 'string' ? value.trim().slice(0, max) : undefined;
+
+      const result = await sendOperationalAlertNotification({
+        id: body.id.trim().slice(0, 200),
+        leadName: body.leadName.trim().slice(0, 160),
+        company: clean(body.company, 200),
+        email: clean(body.email, 320),
+        nextAction: clean(body.nextAction, 500),
+        followUpAt: clean(body.followUpAt, 100),
+        level,
+        kind
+      });
+
+      if (result.status === 'SKIPPED') {
+        return res.status(200).json({
+          success: true,
+          code: 'EMAIL_NOT_CONFIGURED',
+          status: result.status,
+          message: 'Email provider configuration is incomplete. No email was sent.'
+        });
+      }
+
+      if (!result.success || result.status === 'FAILED') {
+        return res.status(502).json({
+          success: false,
+          code: 'EMAIL_PROVIDER_ERROR',
+          status: result.status,
+          error: result.error || 'Email provider rejected the operational alert.'
+        });
+      }
+
+      console.info(
+        `[ADMIN EMAIL ALERT] Admin ${identity.uid} sent ${kind} for lead ${body.id}`
+      );
+
+      return res.status(200).json({
+        success: true,
+        code: 'EMAIL_SENT',
+        status: result.status,
+        provider: result.provider,
+        messageId: result.messageId,
+        message: 'Operational alert email sent successfully.'
+      });
+    } catch (err: any) {
+      console.error('[ADMIN LEAD EMAIL ERROR]', err);
+
+      const configurationError =
+        err instanceof Error && err.message === 'ADMIN_FIREBASE_UID is not configured.';
+
+      return res.status(configurationError ? 503 : 401).json({
+        success: false,
+        code: configurationError ? 'ADMIN_NOT_CONFIGURED' : 'AUTH_ERROR',
+        error: configurationError
+          ? 'Admin backend identity is not configured.'
+          : 'Could not verify administrator identity.'
+      });
+    }
+  });
+
+  // 7. Vite middleware for frontend development and production static serving
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
       server: { middlewareMode: true },

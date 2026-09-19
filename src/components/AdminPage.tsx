@@ -100,8 +100,16 @@ export const AdminPage: React.FC = () => {
     const audits = leads.filter((lead) => lead.source === 'AUDIT').length;
     const contacts = leads.filter((lead) => lead.source === 'CONTACT').length;
     const whatsapp = leads.filter((lead) => lead.contactChannel === 'WhatsApp').length;
-    const today = new Date().toISOString().slice(0, 10);
-    const todayCount = leads.filter((lead) => lead.createdAt.startsWith(today)).length;
+    const now = new Date();
+    const todayCount = leads.filter((lead) => {
+      const created = new Date(lead.createdAt);
+      if (Number.isNaN(created.getTime())) return false;
+      return (
+        created.getFullYear() === now.getFullYear() &&
+        created.getMonth() === now.getMonth() &&
+        created.getDate() === now.getDate()
+      );
+    });
     return { total: leads.length, audits, contacts, whatsapp, todayCount };
   }, [leads]);
 

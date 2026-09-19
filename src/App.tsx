@@ -103,6 +103,15 @@ function PublicApp() {
   );
 }
 
+function isAdminRoute(): boolean {
+  const url = new URL(window.location.href);
+  return (
+    window.location.pathname.startsWith('/admin') ||
+    window.location.hash === '#admin' ||
+    url.searchParams.get('admin') === '1'
+  );
+}
+
 export default function App() {
-  return window.location.pathname.startsWith('/admin') ? <AdminPage /> : <PublicApp />;
+  return isAdminRoute() ? <AdminPage /> : <PublicApp />;
 }

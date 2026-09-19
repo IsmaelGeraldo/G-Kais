@@ -15,6 +15,7 @@ import {
   ExternalLink,
   Loader2,
   LogOut,
+  Mail,
   RefreshCw,
   Save,
   ShieldCheck,
@@ -191,6 +192,10 @@ export const AdminPage: React.FC = () => {
     'idle' | 'sending' | 'sent' | 'not_configured' | 'failed'
   >('idle');
   const [emailTestMessage, setEmailTestMessage] = useState<string>('');
+  const [leadEmailStatus, setLeadEmailStatus] = useState<
+    'idle' | 'sending' | 'sent' | 'failed'
+  >('idle');
+  const [leadEmailMessage, setLeadEmailMessage] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | LeadStatus>('ALL');
   const [followUpFilter, setFollowUpFilter] = useState<'ALL' | FollowUpBucket>('ALL');
   const [draft, setDraft] = useState<LeadOperationsUpdate>(
@@ -271,6 +276,8 @@ export const AdminPage: React.FC = () => {
   useEffect(() => {
     setDraft(makeDraft(selectedLead));
     setSaveMessage(null);
+    setLeadEmailStatus('idle');
+    setLeadEmailMessage('');
   }, [selectedLead?.id]);
 
   const metrics = useMemo(() => {
@@ -451,6 +458,64 @@ export const AdminPage: React.FC = () => {
       await signInWithPopup(firebaseAuth, provider);
     } catch (err: any) {
       setError(err?.message || 'No se pudo iniciar sesión con Google.');
+    }
+  };
+
+  const sendSelectedLeadEmail = async () => {
+    if (!selectedLead || !user) return;
+
+    const bucket = getFollowUpBucket(selectedLead);
+    const kind =
+      bucket === 'OVERDUE'
+        ? 'overdue_follow_up'
+        : bucket === 'TODAY'
+        ? 'follow_up_today'
+        : 'new_lead';
+    const level =
+      bucket === 'OVERDUE'
+        ? 'critical'
+        : bucket === 'TODAY'
+        ? 'warning'
+        : 'info';
+
+    setLeadEmailStatus('sending');
+    setLeadEmailMessage('');
+
+    try {
+      const idToken = await user.getIdToken(true);
+      const response = await fetch('/api/admin/email/lead-alert', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${idToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          id: selectedLead.id,
+          leadName: selectedLead.name,
+          company: selectedLead.company || '',
+          email: selectedLead.email || '',
+          nextAction: selectedLead.nextAction || '',
+          followUpAt: selectedLead.followUpAt || '',
+          level,
+          kind
+        })
+      });
+
+      const payload = await response.json().catch(() => null);
+
+      if (response.ok && payload?.code === 'EMAIL_SENT') {
+        setLeadEmailStatus('sent');
+        setLeadEmailMessage('Operational alert email sent.');
+        return;
+      }
+
+      setLeadEmailStatus('failed');
+      setLeadEmailMessage(
+        payload?.error || payload?.message || 'Could not send operational alert email.'
+      );
+    } catch (err: any) {
+      setLeadEmailStatus('failed');
+      setLeadEmailMessage(err?.message || 'Could not send operational alert email.');
     }
   };
 
@@ -1165,6 +1230,32 @@ export const AdminPage: React.FC = () => {
                         )}
                         Save CRM changes
                       </button>
+
+                      <button
+                        type="button"
+                        onClick={sendSelectedLeadEmail}
+                        disabled={leadEmailStatus === 'sending'}
+                        className="w-full inline-flex items-center justify-center border border-[#0A3F4D] text-[#0A3F4D] bg-white px-4 py-3 text-xs font-semibold uppercase tracking-wider hover:bg-[#F7F7F5] disabled:opacity-50 transition-colors"
+                      >
+                        {leadEmailStatus === 'sending' ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <Mail className="w-4 h-4 mr-2" />
+                        )}
+                        {leadEmailStatus === 'sending' ? 'Sending alert…' : 'Send email alert'}
+                      </button>
+
+                      {leadEmailMessage && (
+                        <div
+                          className={`border p-3 text-[10px] ${
+                            leadEmailStatus === 'sent'
+                              ? 'border-[#0A3F4D]/30 text-[#0A3F4D] bg-white'
+                              : 'border-red-200 text-red-800 bg-red-50'
+                          }`}
+                        >
+                          {leadEmailMessage}
+                        </div>
+                      )}
                     </div>
                   </div>
 

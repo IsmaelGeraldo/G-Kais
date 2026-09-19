@@ -9,15 +9,34 @@ import type { User } from 'firebase/auth';
 import {
   AlertCircle,
   ArrowLeft,
+  CheckCircle2,
   ExternalLink,
   Loader2,
   LogOut,
   RefreshCw,
+  Save,
   ShieldCheck
 } from 'lucide-react';
 import { firebaseAuth } from '../lib/firebase';
-import { fetchAdminLeads } from '../services/adminLeads';
-import type { AdminLead } from '../types/admin';
+import {
+  fetchAdminLeads,
+  updateLeadOperations
+} from '../services/adminLeads';
+import type {
+  AdminLead,
+  LeadOperationsUpdate,
+  LeadStatus
+} from '../types/admin';
+
+const STATUS_OPTIONS: { value: LeadStatus; label: string }[] = [
+  { value: 'PENDING_REVIEW', label: 'Pending review' },
+  { value: 'NEW', label: 'New' },
+  { value: 'CONTACTED', label: 'Contacted' },
+  { value: 'FOLLOW_UP', label: 'Follow-up' },
+  { value: 'MEETING', label: 'Meeting' },
+  { value: 'CLIENT', label: 'Client' },
+  { value: 'LOST', label: 'Lost' }
+];
 
 function formatDate(value: string): string {
   if (!value) return '—';
@@ -29,14 +48,45 @@ function formatDate(value: string): string {
   }).format(date);
 }
 
+function toDatetimeLocal(value?: string): string {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+
+  const pad = (part: number) => String(part).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function fromDatetimeLocal(value: string): string {
+  if (!value) return '';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '' : date.toISOString();
+}
+
+function makeDraft(lead: AdminLead | null): LeadOperationsUpdate {
+  return {
+    status: lead?.status || 'PENDING_REVIEW',
+    assignedTo: lead?.assignedTo || '',
+    nextAction: lead?.nextAction || '',
+    followUpAt: lead?.followUpAt || '',
+    internalNotes: lead?.internalNotes || ''
+  };
+}
+
 export const AdminPage: React.FC = () => {
   const [user, setUser] = useState<User | null>(firebaseAuth.currentUser);
   const [authLoading, setAuthLoading] = useState(true);
   const [leads, setLeads] = useState<AdminLead[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [dataLoading, setDataLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [queryText, setQueryText] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | LeadStatus>('ALL');
+  const [draft, setDraft] = useState<LeadOperationsUpdate>(
+    makeDraft(null)
+  );
 
   useEffect(() => {
     return onAuthStateChanged(firebaseAuth, (nextUser) => {
@@ -74,43 +124,58 @@ export const AdminPage: React.FC = () => {
 
   const filteredLeads = useMemo(() => {
     const needle = queryText.trim().toLowerCase();
-    if (!needle) return leads;
-    return leads.filter((lead) =>
-      [
-        lead.name,
-        lead.company,
-        lead.email,
-        lead.contactChannel,
-        lead.inquiryNotes,
-        lead.message,
-        lead.source
-      ]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(needle))
-    );
-  }, [leads, queryText]);
+
+    return leads.filter((lead) => {
+      const matchesStatus =
+        statusFilter === 'ALL' || lead.status === statusFilter;
+
+      const matchesSearch =
+        !needle ||
+        [
+          lead.name,
+          lead.company,
+          lead.email,
+          lead.contactChannel,
+          lead.inquiryNotes,
+          lead.message,
+          lead.source,
+          lead.status,
+          lead.assignedTo,
+          lead.nextAction,
+          lead.internalNotes
+        ]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(needle));
+
+      return matchesStatus && matchesSearch;
+    });
+  }, [leads, queryText, statusFilter]);
 
   const selectedLead =
-    filteredLeads.find((lead) => lead.id === selectedId) ||
     leads.find((lead) => lead.id === selectedId) ||
     filteredLeads[0] ||
     null;
 
+  useEffect(() => {
+    setDraft(makeDraft(selectedLead));
+    setSaveMessage(null);
+  }, [selectedLead?.id]);
+
   const metrics = useMemo(() => {
-    const audits = leads.filter((lead) => lead.source === 'AUDIT').length;
-    const contacts = leads.filter((lead) => lead.source === 'CONTACT').length;
-    const whatsapp = leads.filter((lead) => lead.contactChannel === 'WhatsApp').length;
-    const now = new Date();
-    const todayCount = leads.filter((lead) => {
-      const created = new Date(lead.createdAt);
-      if (Number.isNaN(created.getTime())) return false;
-      return (
-        created.getFullYear() === now.getFullYear() &&
-        created.getMonth() === now.getMonth() &&
-        created.getDate() === now.getDate()
-      );
-    }).length;
-    return { total: leads.length, audits, contacts, whatsapp, todayCount };
+    const newCount = leads.filter((lead) =>
+      lead.status === 'PENDING_REVIEW' || lead.status === 'NEW'
+    ).length;
+    const followUpCount = leads.filter((lead) => lead.status === 'FOLLOW_UP').length;
+    const meetingCount = leads.filter((lead) => lead.status === 'MEETING').length;
+    const clientCount = leads.filter((lead) => lead.status === 'CLIENT').length;
+
+    return {
+      total: leads.length,
+      newCount,
+      followUpCount,
+      meetingCount,
+      clientCount
+    };
   }, [leads]);
 
   const handleGoogleSignIn = async () => {
@@ -121,6 +186,44 @@ export const AdminPage: React.FC = () => {
       await signInWithPopup(firebaseAuth, provider);
     } catch (err: any) {
       setError(err?.message || 'No se pudo iniciar sesión con Google.');
+    }
+  };
+
+  const handleSave = async () => {
+    if (!selectedLead || !user) return;
+
+    setSaving(true);
+    setError(null);
+    setSaveMessage(null);
+
+    try {
+      const normalizedUpdate: LeadOperationsUpdate = {
+        status: draft.status,
+        assignedTo: draft.assignedTo || '',
+        nextAction: draft.nextAction || '',
+        followUpAt: draft.followUpAt || '',
+        internalNotes: draft.internalNotes || ''
+      };
+
+      await updateLeadOperations(selectedLead, normalizedUpdate);
+
+      setLeads((current) =>
+        current.map((lead) =>
+          lead.id === selectedLead.id
+            ? {
+                ...lead,
+                ...normalizedUpdate,
+                updatedAt: new Date().toISOString()
+              }
+            : lead
+        )
+      );
+
+      setSaveMessage('CRM changes saved in Firestore.');
+    } catch (err: any) {
+      setError(err?.message || 'No se pudieron guardar los cambios.');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -154,7 +257,7 @@ export const AdminPage: React.FC = () => {
             G-KAIS Admin
           </h1>
           <p className="text-sm text-[#6B6B6B] leading-relaxed mb-8">
-            Acceso interno para revisar solicitudes de auditoría y contactos registrados en Firestore.
+            Acceso interno para revisar y gestionar oportunidades registradas en Firestore.
           </p>
 
           {error && (
@@ -173,7 +276,7 @@ export const AdminPage: React.FC = () => {
           </button>
 
           <p className="mt-4 text-[10px] leading-relaxed font-mono-code text-[#8A8A8A]">
-            Preview interno. La seguridad definitiva se cerrará a un UID administrador cuando podamos desplegar las reglas actualizadas.
+            Preview interno. No publicar hasta desplegar las Security Rules de administrador.
           </p>
         </section>
       </main>
@@ -183,21 +286,21 @@ export const AdminPage: React.FC = () => {
   return (
     <main className="min-h-screen bg-[#F7F7F5] text-[#0A0A0A]">
       <header className="border-b border-[#E5E5E5] bg-white">
-        <div className="max-w-[1500px] mx-auto px-5 sm:px-8 py-4 flex flex-wrap items-center justify-between gap-4">
+        <div className="max-w-[1600px] mx-auto px-5 sm:px-8 py-4 flex flex-wrap items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-3">
               <a href="/" className="text-2xl font-extrabold tracking-tight">G-KAIS</a>
               <span className="font-mono-code text-[9px] border border-[#E5E5E5] px-2 py-1 text-[#6B6B6B]">
-                ADMIN // PREVIEW
+                CRM // PREVIEW
               </span>
             </div>
-            <p className="text-xs text-[#6B6B6B] mt-1">Lead intake operations</p>
+            <p className="text-xs text-[#6B6B6B] mt-1">Lead operations workspace</p>
           </div>
 
           <div className="flex items-center gap-3">
             <div className="hidden md:block text-right">
               <p className="text-xs font-semibold">{user.displayName || user.email}</p>
-              <p className="font-mono-code text-[9px] text-[#6B6B6B]">UID: {user.uid}</p>
+              <p className="font-mono-code text-[9px] text-[#6B6B6B]">Authenticated admin preview</p>
             </div>
             <button
               type="button"
@@ -211,16 +314,17 @@ export const AdminPage: React.FC = () => {
         </div>
       </header>
 
-      <div className="max-w-[1500px] mx-auto px-5 sm:px-8 py-8">
+      <div className="max-w-[1600px] mx-auto px-5 sm:px-8 py-8">
         <div className="mb-6 flex flex-col lg:flex-row lg:items-end lg:justify-between gap-5">
           <div>
             <p className="font-mono-code text-[10px] uppercase tracking-[0.2em] text-[#0A3F4D] font-bold mb-2">
-              LIVE FIRESTORE INTAKE
+              LIVE FIRESTORE CRM
             </p>
             <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
-              Opportunities inbox
+              Opportunities pipeline
             </h1>
           </div>
+
           <button
             type="button"
             onClick={loadLeads}
@@ -239,13 +343,20 @@ export const AdminPage: React.FC = () => {
           </div>
         )}
 
+        {saveMessage && (
+          <div className="mb-6 border border-[#0A3F4D]/20 bg-white text-[#0A3F4D] p-3 text-xs flex items-start gap-2">
+            <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" />
+            <span>{saveMessage}</span>
+          </div>
+        )}
+
         <section className="grid grid-cols-2 md:grid-cols-5 border border-[#E5E5E5] bg-white mb-6">
           {[
             ['TOTAL', metrics.total],
-            ['AUDITS', metrics.audits],
-            ['CONTACTS', metrics.contacts],
-            ['WHATSAPP', metrics.whatsapp],
-            ['TODAY', metrics.todayCount]
+            ['NEW', metrics.newCount],
+            ['FOLLOW-UP', metrics.followUpCount],
+            ['MEETINGS', metrics.meetingCount],
+            ['CLIENTS', metrics.clientCount]
           ].map(([label, value]) => (
             <div key={String(label)} className="p-5 border-r border-b md:border-b-0 border-[#E5E5E5] last:border-r-0">
               <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#6B6B6B] mb-2">{label}</p>
@@ -255,41 +366,61 @@ export const AdminPage: React.FC = () => {
         </section>
 
         <section className="border border-[#E5E5E5] bg-white">
-          <div className="p-4 border-b border-[#E5E5E5] flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div className="p-4 border-b border-[#E5E5E5] flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
             <div>
-              <p className="font-mono-code text-[10px] font-bold uppercase tracking-wider">Lead intake</p>
+              <p className="font-mono-code text-[10px] font-bold uppercase tracking-wider">Lead pipeline</p>
               <p className="text-xs text-[#6B6B6B]">{filteredLeads.length} records visible</p>
             </div>
-            <input
-              value={queryText}
-              onChange={(event) => setQueryText(event.target.value)}
-              placeholder="Search name, company, email, channel..."
-              className="w-full md:w-80 border border-[#E5E5E5] bg-[#FAFAFA] px-3 py-2 text-xs focus:outline-none focus:border-[#0A3F4D]"
-            />
+
+            <div className="flex flex-col sm:flex-row gap-2">
+              <select
+                value={statusFilter}
+                onChange={(event) =>
+                  setStatusFilter(event.target.value as 'ALL' | LeadStatus)
+                }
+                className="border border-[#E5E5E5] bg-[#FAFAFA] px-3 py-2 text-xs focus:outline-none focus:border-[#0A3F4D]"
+              >
+                <option value="ALL">All statuses</option>
+                {STATUS_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+
+              <input
+                value={queryText}
+                onChange={(event) => setQueryText(event.target.value)}
+                placeholder="Search name, company, owner, action..."
+                className="w-full sm:w-80 border border-[#E5E5E5] bg-[#FAFAFA] px-3 py-2 text-xs focus:outline-none focus:border-[#0A3F4D]"
+              />
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 xl:grid-cols-12 min-h-[560px]">
+          <div className="grid grid-cols-1 xl:grid-cols-12 min-h-[640px]">
             <div className="xl:col-span-8 overflow-x-auto border-b xl:border-b-0 xl:border-r border-[#E5E5E5]">
-              <table className="w-full min-w-[760px] text-left text-xs">
+              <table className="w-full min-w-[980px] text-left text-xs">
                 <thead className="bg-[#FAFAFA] border-b border-[#E5E5E5] font-mono-code text-[10px] uppercase text-[#6B6B6B]">
                   <tr>
                     <th className="px-4 py-3">Lead</th>
                     <th className="px-3 py-3">Source</th>
-                    <th className="px-3 py-3">Channel</th>
                     <th className="px-3 py-3">Status</th>
+                    <th className="px-3 py-3">Owner</th>
+                    <th className="px-3 py-3">Next action</th>
                     <th className="px-4 py-3 text-right">Created</th>
                   </tr>
                 </thead>
+
                 <tbody className="divide-y divide-[#E5E5E5]">
                   {dataLoading && leads.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="py-16 text-center">
+                      <td colSpan={6} className="py-16 text-center">
                         <Loader2 className="w-5 h-5 animate-spin mx-auto" />
                       </td>
                     </tr>
                   ) : filteredLeads.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="py-16 text-center text-[#6B6B6B]">
+                      <td colSpan={6} className="py-16 text-center text-[#6B6B6B]">
                         No records found.
                       </td>
                     </tr>
@@ -302,15 +433,22 @@ export const AdminPage: React.FC = () => {
                       >
                         <td className="px-4 py-4">
                           <p className="font-bold text-sm">{lead.name}</p>
-                          <p className="text-[10px] text-[#6B6B6B] mt-1">{lead.company || lead.email}</p>
+                          <p className="text-[10px] text-[#6B6B6B] mt-1">
+                            {lead.company || lead.email}
+                          </p>
                         </td>
                         <td className="px-3 py-4">
                           <span className="font-mono-code text-[9px] border border-[#E5E5E5] px-2 py-1">
                             {lead.source}
                           </span>
                         </td>
-                        <td className="px-3 py-4">{lead.contactChannel || '—'}</td>
-                        <td className="px-3 py-4">{lead.status}</td>
+                        <td className="px-3 py-4 font-medium">
+                          {STATUS_OPTIONS.find((option) => option.value === lead.status)?.label || lead.status}
+                        </td>
+                        <td className="px-3 py-4">{lead.assignedTo || '—'}</td>
+                        <td className="px-3 py-4 max-w-[220px] truncate">
+                          {lead.nextAction || '—'}
+                        </td>
                         <td className="px-4 py-4 text-right font-mono-code text-[10px]">
                           {formatDate(lead.createdAt)}
                         </td>
@@ -326,7 +464,7 @@ export const AdminPage: React.FC = () => {
                 <div>
                   <div className="flex items-center justify-between pb-4 mb-5 border-b border-[#E5E5E5]">
                     <span className="font-mono-code text-[10px] uppercase tracking-wider text-[#6B6B6B]">
-                      RECORD // {selectedLead.source}
+                      CRM RECORD // {selectedLead.source}
                     </span>
                     <span className="font-mono-code text-[9px] text-[#6B6B6B]">
                       {selectedLead.id}
@@ -340,9 +478,8 @@ export const AdminPage: React.FC = () => {
                     {[
                       ['EMAIL', selectedLead.email],
                       ['CHANNEL', selectedLead.contactChannel || '—'],
-                      ['STATUS', selectedLead.status],
-                      ['NOTIFICATION', selectedLead.notificationStatus],
-                      ['CREATED', formatDate(selectedLead.createdAt)]
+                      ['CREATED', formatDate(selectedLead.createdAt)],
+                      ['UPDATED', selectedLead.updatedAt ? formatDate(selectedLead.updatedAt) : '—']
                     ].map(([label, value]) => (
                       <div key={String(label)} className="flex justify-between gap-4 border-b border-[#E5E5E5] pb-2">
                         <span className="text-[#6B6B6B]">{label}</span>
@@ -371,10 +508,131 @@ export const AdminPage: React.FC = () => {
                     </p>
                   </div>
 
-                  <div className="mt-6 border-t border-[#E5E5E5] pt-4">
-                    <p className="text-[10px] leading-relaxed text-[#8A8A8A]">
-                      Read-only preview. Status editing, ownership and follow-up actions will be enabled after Firestore rules are locked to the administrator UID shown in the header.
-                    </p>
+                  <div className="mt-6 border-t border-[#D8D8D8] pt-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <p className="font-mono-code text-[10px] font-bold uppercase tracking-wider">
+                          CRM controls
+                        </p>
+                        <p className="text-[10px] text-[#777] mt-1">
+                          Authenticated internal preview
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <label className="block">
+                        <span className="font-mono-code text-[9px] uppercase text-[#6B6B6B] block mb-1.5">
+                          Status
+                        </span>
+                        <select
+                          value={draft.status}
+                          onChange={(event) =>
+                            setDraft((current) => ({
+                              ...current,
+                              status: event.target.value as LeadStatus
+                            }))
+                          }
+                          className="w-full border border-[#D8D8D8] bg-white px-3 py-2.5 text-sm focus:outline-none focus:border-[#0A3F4D]"
+                        >
+                          {STATUS_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <label className="block">
+                        <span className="font-mono-code text-[9px] uppercase text-[#6B6B6B] block mb-1.5">
+                          Responsible
+                        </span>
+                        <input
+                          value={draft.assignedTo || ''}
+                          onChange={(event) =>
+                            setDraft((current) => ({
+                              ...current,
+                              assignedTo: event.target.value
+                            }))
+                          }
+                          maxLength={100}
+                          placeholder="e.g. Ismael"
+                          className="w-full border border-[#D8D8D8] bg-white px-3 py-2.5 text-sm focus:outline-none focus:border-[#0A3F4D]"
+                        />
+                      </label>
+
+                      <label className="block">
+                        <span className="font-mono-code text-[9px] uppercase text-[#6B6B6B] block mb-1.5">
+                          Next action
+                        </span>
+                        <input
+                          value={draft.nextAction || ''}
+                          onChange={(event) =>
+                            setDraft((current) => ({
+                              ...current,
+                              nextAction: event.target.value
+                            }))
+                          }
+                          maxLength={240}
+                          placeholder="Call, send proposal, confirm meeting..."
+                          className="w-full border border-[#D8D8D8] bg-white px-3 py-2.5 text-sm focus:outline-none focus:border-[#0A3F4D]"
+                        />
+                      </label>
+
+                      <label className="block">
+                        <span className="font-mono-code text-[9px] uppercase text-[#6B6B6B] block mb-1.5">
+                          Follow-up date
+                        </span>
+                        <input
+                          type="datetime-local"
+                          value={toDatetimeLocal(draft.followUpAt)}
+                          onChange={(event) =>
+                            setDraft((current) => ({
+                              ...current,
+                              followUpAt: fromDatetimeLocal(event.target.value)
+                            }))
+                          }
+                          className="w-full border border-[#D8D8D8] bg-white px-3 py-2.5 text-sm focus:outline-none focus:border-[#0A3F4D]"
+                        />
+                      </label>
+
+                      <label className="block">
+                        <span className="font-mono-code text-[9px] uppercase text-[#6B6B6B] block mb-1.5">
+                          Internal notes
+                        </span>
+                        <textarea
+                          value={draft.internalNotes || ''}
+                          onChange={(event) =>
+                            setDraft((current) => ({
+                              ...current,
+                              internalNotes: event.target.value
+                            }))
+                          }
+                          maxLength={3000}
+                          rows={5}
+                          placeholder="Private commercial context, objections, next steps..."
+                          className="w-full border border-[#D8D8D8] bg-white px-3 py-2.5 text-sm leading-relaxed resize-y focus:outline-none focus:border-[#0A3F4D]"
+                        />
+                      </label>
+
+                      <button
+                        type="button"
+                        onClick={handleSave}
+                        disabled={saving}
+                        className="w-full inline-flex items-center justify-center bg-[#0A0A0A] text-white px-4 py-3 text-xs font-semibold uppercase tracking-wider hover:bg-[#0A3F4D] disabled:opacity-50 transition-colors"
+                      >
+                        {saving ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <Save className="w-4 h-4 mr-2" />
+                        )}
+                        Save CRM changes
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 border border-amber-200 bg-amber-50 p-3 text-[10px] leading-relaxed text-amber-900">
+                    Development environment only. Do not publish while the currently deployed Firestore rules remain permissive.
                   </div>
                 </div>
               ) : (

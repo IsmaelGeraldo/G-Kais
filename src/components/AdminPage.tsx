@@ -65,6 +65,11 @@ function followUpLabel(bucket: FollowUpBucket): string {
   return 'Unscheduled';
 }
 
+function isFutureCreatedAt(value: string): boolean {
+  const time = Date.parse(value);
+  return Number.isFinite(time) && time > Date.now() + 5 * 60 * 1000;
+}
+
 function formatDate(value: string): string {
   if (!value) return '—';
   const date = new Date(value);
@@ -641,7 +646,12 @@ export const AdminPage: React.FC = () => {
                           )}
                         </td>
                         <td className="px-4 py-4 text-right font-mono-code text-[10px]">
-                          {formatDate(lead.createdAt)}
+                          <div>{formatDate(lead.createdAt)}</div>
+                          {isFutureCreatedAt(lead.createdAt) && (
+                            <span className="inline-block mt-1 px-1.5 py-0.5 border border-amber-300 bg-amber-50 text-amber-800 text-[8px] uppercase tracking-wider">
+                              Future test date
+                            </span>
+                          )}
                         </td>
                       </tr>
                     ))

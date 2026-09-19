@@ -109,7 +109,7 @@ export const AdminPage: React.FC = () => {
         created.getMonth() === now.getMonth() &&
         created.getDate() === now.getDate()
       );
-    });
+    }).length;
     return { total: leads.length, audits, contacts, whatsapp, todayCount };
   }, [leads]);
 

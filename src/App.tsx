@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Header } from './components/Header.tsx';
 import { Hero } from './components/Hero.tsx';
 import { ProblemSection } from './components/ProblemSection.tsx';
@@ -20,7 +20,7 @@ import { LeadFlowModal } from './components/LeadFlowModal.tsx';
 import { ContactModal } from './components/ContactModal.tsx';
 import { AdminPage } from './components/AdminPage.tsx';
 
-function PublicApp() {
+function PublicApp({ onOpenAdmin }: { onOpenAdmin: () => void }) {
   const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
   const [isLeadFlowModalOpen, setIsLeadFlowModalOpen] = useState(false);
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
@@ -52,7 +52,7 @@ function PublicApp() {
   return (
     <div className="min-h-screen bg-[#F7F7F5] text-[#0A0A0A] selection:bg-[#0A3F4D] selection:text-[#F7F7F5] font-sans">
       {/* 1. Header */}
-      <Header onOpenAudit={handleOpenAudit} />
+      <Header onOpenAudit={handleOpenAudit} onOpenAdmin={onOpenAdmin} />
 
       {/* Main Content Sections */}
       <main>
@@ -117,25 +117,10 @@ export default function App() {
     return isAdminRoute() || window.sessionStorage.getItem('gkais-admin-preview') === '1';
   });
 
-  useEffect(() => {
-    const handleShortcut = (event: KeyboardEvent) => {
-      if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === 'a') {
-        event.preventDefault();
-        setShowAdmin((current) => {
-          const next = !current;
-          if (next) {
-            window.sessionStorage.setItem('gkais-admin-preview', '1');
-          } else {
-            window.sessionStorage.removeItem('gkais-admin-preview');
-          }
-          return next;
-        });
-      }
-    };
+  const openAdmin = () => {
+    window.sessionStorage.setItem('gkais-admin-preview', '1');
+    setShowAdmin(true);
+  };
 
-    window.addEventListener('keydown', handleShortcut);
-    return () => window.removeEventListener('keydown', handleShortcut);
-  }, []);
-
-  return showAdmin ? <AdminPage /> : <PublicApp />;
+  return showAdmin ? <AdminPage /> : <PublicApp onOpenAdmin={openAdmin} />;
 }

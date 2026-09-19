@@ -67,7 +67,8 @@ service cloud.firestore {
         request.resource.data.followUpAt is string &&
         request.resource.data.followUpAt.size() <= 40 &&
         request.resource.data.internalNotes is string &&
-        request.resource.data.internalNotes.size() <= 3000;
+        request.resource.data.internalNotes.size() <= 3000 &&
+        request.resource.data.updatedAt is timestamp;
     }
 
     match /audit_submissions/{auditId} {

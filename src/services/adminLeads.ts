@@ -199,3 +199,33 @@ export async function updateLeadOperations(
 
   return activity;
 }
+
+
+export async function completeLeadAction(
+  lead: AdminLead,
+  actorLabel: string
+): Promise<LeadActivity> {
+  const collectionName =
+    lead.source === 'AUDIT' ? 'audit_submissions' : 'contact_submissions';
+
+  const completedLabel = (lead.nextAction?.trim() || 'Scheduled follow-up').slice(0, 220);
+
+  const activity: LeadActivity = {
+    at: new Date().toISOString(),
+    actor: actorLabel.trim().slice(0, 120) || 'Admin',
+    fromStatus: lead.status,
+    toStatus: lead.status,
+    nextAction: `Completed: ${completedLabel}`
+  };
+
+  const activityLog = [...(lead.activityLog || []), activity].slice(-20);
+
+  await updateDoc(doc(firestoreDb, collectionName, lead.id), {
+    nextAction: '',
+    followUpAt: '',
+    activityLog,
+    updatedAt: serverTimestamp()
+  });
+
+  return activity;
+}

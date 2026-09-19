@@ -3,10 +3,29 @@ import { ArrowUpRight, Menu, X } from 'lucide-react';
 
 interface HeaderProps {
   onOpenAudit: () => void;
+  onOpenAdmin?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onOpenAudit }) => {
+export const Header: React.FC<HeaderProps> = ({ onOpenAudit, onOpenAdmin }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [logoClicks, setLogoClicks] = useState(0);
+  const [lastLogoClickAt, setLastLogoClickAt] = useState(0);
+
+  const handleLogoClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+
+    const now = Date.now();
+    const withinWindow = now - lastLogoClickAt <= 2500;
+    const nextCount = withinWindow ? logoClicks + 1 : 1;
+
+    setLastLogoClickAt(now);
+    setLogoClicks(nextCount);
+
+    if (nextCount >= 5) {
+      setLogoClicks(0);
+      onOpenAdmin?.();
+    }
+  };
 
   const scrollTo = (id: string) => {
     setMobileMenuOpen(false);
@@ -31,8 +50,10 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAudit }) => {
         {/* Large Logo */}
         <a 
           href="#" 
+          onClick={handleLogoClick}
           className="group flex flex-col justify-center text-left select-none"
           id="brand-logo-link"
+          aria-label="G-KAIS home"
         >
           <span className="font-extrabold text-2xl lg:text-3xl tracking-[-0.03em] text-[#0A0A0A] leading-none">
             G-KAIS

@@ -303,6 +303,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
       return (
         bucket === 'OVERDUE' ||
         bucket === 'TODAY' ||
+        bucket === 'UPCOMING' ||
         lead.status === 'PENDING_REVIEW' ||
         lead.status === 'NEW'
       );
@@ -313,7 +314,8 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
       if (bucket === 'OVERDUE') return 0;
       if (bucket === 'TODAY') return 1;
       if (lead.status === 'PENDING_REVIEW' || lead.status === 'NEW') return 2;
-      return 3;
+      if (bucket === 'UPCOMING') return 3;
+      return 4;
     };
 
     return [...actionable]
@@ -327,7 +329,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
 
         return (Date.parse(b.createdAt) || 0) - (Date.parse(a.createdAt) || 0);
       })
-      .slice(0, 8);
+      .slice(0, 12);
   }, [leads]);
 
   const adminAlerts = useMemo(() => buildAdminAlerts(leads), [leads]);
@@ -870,7 +872,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                 Action Queue
               </p>
               <p className="text-xs text-[#6B6B6B] mt-1">
-                Priority work: overdue follow-ups, today's follow-ups and unreviewed leads.
+                Priority work: overdue, due today, new/unreviewed, then upcoming follow-ups by date.
               </p>
             </div>
             <span className="font-mono-code text-[10px] text-[#6B6B6B]">
@@ -890,6 +892,8 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                     ? 'TODAY'
                     : isNew
                     ? 'NEW LEAD'
+                    : bucket === 'UPCOMING'
+                    ? 'UPCOMING'
                     : 'ACTION';
 
                 const queueClass =
@@ -897,6 +901,8 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                     ? 'border-red-300 text-red-700 bg-red-50'
                     : bucket === 'TODAY'
                     ? 'border-amber-300 text-amber-800 bg-amber-50'
+                    : bucket === 'UPCOMING'
+                    ? 'border-slate-300 text-slate-700 bg-slate-50'
                     : 'border-[#0A3F4D]/30 text-[#0A3F4D] bg-white';
 
                 return (

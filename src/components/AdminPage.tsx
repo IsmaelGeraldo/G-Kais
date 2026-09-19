@@ -10,6 +10,7 @@ import {
   AlertCircle,
   ArrowLeft,
   CheckCircle2,
+  ChevronRight,
   ExternalLink,
   Loader2,
   LogOut,
@@ -206,6 +207,41 @@ export const AdminPage: React.FC = () => {
     };
   }, [leads]);
 
+  const actionQueue = useMemo(() => {
+    const actionable = leads.filter((lead) => {
+      if (lead.status === 'CLIENT' || lead.status === 'LOST') return false;
+
+      const bucket = getFollowUpBucket(lead);
+      return (
+        bucket === 'OVERDUE' ||
+        bucket === 'TODAY' ||
+        lead.status === 'PENDING_REVIEW' ||
+        lead.status === 'NEW'
+      );
+    });
+
+    const priority = (lead: AdminLead) => {
+      const bucket = getFollowUpBucket(lead);
+      if (bucket === 'OVERDUE') return 0;
+      if (bucket === 'TODAY') return 1;
+      if (lead.status === 'PENDING_REVIEW' || lead.status === 'NEW') return 2;
+      return 3;
+    };
+
+    return [...actionable]
+      .sort((a, b) => {
+        const priorityDiff = priority(a) - priority(b);
+        if (priorityDiff !== 0) return priorityDiff;
+
+        const aFollowUp = a.followUpAt ? Date.parse(a.followUpAt) : Number.POSITIVE_INFINITY;
+        const bFollowUp = b.followUpAt ? Date.parse(b.followUpAt) : Number.POSITIVE_INFINITY;
+        if (aFollowUp !== bFollowUp) return aFollowUp - bFollowUp;
+
+        return (Date.parse(b.createdAt) || 0) - (Date.parse(a.createdAt) || 0);
+      })
+      .slice(0, 8);
+  }, [leads]);
+
   const handleGoogleSignIn = async () => {
     setError(null);
     try {
@@ -396,6 +432,95 @@ export const AdminPage: React.FC = () => {
               <p className="text-3xl font-extrabold">{value}</p>
             </div>
           ))}
+        </section>
+
+        <section className="border border-[#E5E5E5] bg-white mb-6">
+          <div className="px-4 sm:px-5 py-4 border-b border-[#E5E5E5] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div>
+              <p className="font-mono-code text-[10px] font-bold uppercase tracking-wider">
+                Action Queue
+              </p>
+              <p className="text-xs text-[#6B6B6B] mt-1">
+                Priority work: overdue follow-ups, today's follow-ups and unreviewed leads.
+              </p>
+            </div>
+            <span className="font-mono-code text-[10px] text-[#6B6B6B]">
+              {actionQueue.length} items
+            </span>
+          </div>
+
+          {actionQueue.length > 0 ? (
+            <div className="divide-y divide-[#E5E5E5]">
+              {actionQueue.map((lead) => {
+                const bucket = getFollowUpBucket(lead);
+                const isNew = lead.status === 'PENDING_REVIEW' || lead.status === 'NEW';
+                const queueLabel =
+                  bucket === 'OVERDUE'
+                    ? 'OVERDUE'
+                    : bucket === 'TODAY'
+                    ? 'TODAY'
+                    : isNew
+                    ? 'NEW LEAD'
+                    : 'ACTION';
+
+                const queueClass =
+                  bucket === 'OVERDUE'
+                    ? 'border-red-300 text-red-700 bg-red-50'
+                    : bucket === 'TODAY'
+                    ? 'border-amber-300 text-amber-800 bg-amber-50'
+                    : 'border-[#0A3F4D]/30 text-[#0A3F4D] bg-white';
+
+                return (
+                  <button
+                    key={lead.id}
+                    type="button"
+                    onClick={() => setSelectedId(lead.id)}
+                    className="w-full px-4 sm:px-5 py-4 text-left hover:bg-[#FAFAFA] transition-colors flex items-center justify-between gap-4"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                        <span className={`font-mono-code text-[9px] px-2 py-1 border ${queueClass}`}>
+                          {queueLabel}
+                        </span>
+                        <span className="font-bold text-sm text-[#0A0A0A] truncate">
+                          {lead.name}
+                        </span>
+                        {lead.company && (
+                          <span className="text-xs text-[#6B6B6B] truncate">
+                            {lead.company}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-[#6B6B6B]">
+                        <span>
+                          {lead.nextAction || (isNew ? 'Review new inquiry' : 'No next action set')}
+                        </span>
+                        {lead.followUpAt && (
+                          <span className="font-mono-code">
+                            {formatDate(lead.followUpAt)}
+                          </span>
+                        )}
+                        <span>
+                          Owner: {lead.assignedTo || 'Unassigned'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <ChevronRight className="w-4 h-4 shrink-0 text-[#6B6B6B]" />
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="px-5 py-8 text-center">
+              <CheckCircle2 className="w-5 h-5 mx-auto mb-2 text-[#0A3F4D]" />
+              <p className="text-sm font-semibold">Action queue clear</p>
+              <p className="text-xs text-[#6B6B6B] mt-1">
+                No overdue, due-today or unreviewed leads.
+              </p>
+            </div>
+          )}
         </section>
 
         <section className="border border-[#E5E5E5] bg-white">

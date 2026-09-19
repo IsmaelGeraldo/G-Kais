@@ -24,6 +24,7 @@ import {
 } from '../services/adminLeads';
 import type {
   AdminLead,
+  FollowUpBucket,
   LeadOperationsUpdate,
   LeadStatus
 } from '../types/admin';
@@ -37,6 +38,31 @@ const STATUS_OPTIONS: { value: LeadStatus; label: string }[] = [
   { value: 'CLIENT', label: 'Client' },
   { value: 'LOST', label: 'Lost' }
 ];
+
+function getFollowUpBucket(lead: AdminLead): FollowUpBucket {
+  if (lead.status === 'CLIENT' || lead.status === 'LOST' || !lead.followUpAt) {
+    return 'UNSCHEDULED';
+  }
+
+  const followUp = new Date(lead.followUpAt);
+  if (Number.isNaN(followUp.getTime())) return 'UNSCHEDULED';
+
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const tomorrowStart = new Date(todayStart);
+  tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+
+  if (followUp < now) return 'OVERDUE';
+  if (followUp < tomorrowStart) return 'TODAY';
+  return 'UPCOMING';
+}
+
+function followUpLabel(bucket: FollowUpBucket): string {
+  if (bucket === 'OVERDUE') return 'Overdue';
+  if (bucket === 'TODAY') return 'Today';
+  if (bucket === 'UPCOMING') return 'Upcoming';
+  return 'Unscheduled';
+}
 
 function formatDate(value: string): string {
   if (!value) return '—';
@@ -84,6 +110,7 @@ export const AdminPage: React.FC = () => {
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [queryText, setQueryText] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | LeadStatus>('ALL');
+  const [followUpFilter, setFollowUpFilter] = useState<'ALL' | FollowUpBucket>('ALL');
   const [draft, setDraft] = useState<LeadOperationsUpdate>(
     makeDraft(null)
   );
@@ -129,6 +156,9 @@ export const AdminPage: React.FC = () => {
       const matchesStatus =
         statusFilter === 'ALL' || lead.status === statusFilter;
 
+      const matchesFollowUp =
+        followUpFilter === 'ALL' || getFollowUpBucket(lead) === followUpFilter;
+
       const matchesSearch =
         !needle ||
         [
@@ -147,9 +177,9 @@ export const AdminPage: React.FC = () => {
           .filter(Boolean)
           .some((value) => String(value).toLowerCase().includes(needle));
 
-      return matchesStatus && matchesSearch;
+      return matchesStatus && matchesFollowUp && matchesSearch;
     });
-  }, [leads, queryText, statusFilter]);
+  }, [leads, queryText, statusFilter, followUpFilter]);
 
   const selectedLead =
     leads.find((lead) => lead.id === selectedId) ||
@@ -162,18 +192,16 @@ export const AdminPage: React.FC = () => {
   }, [selectedLead?.id]);
 
   const metrics = useMemo(() => {
-    const newCount = leads.filter((lead) =>
-      lead.status === 'PENDING_REVIEW' || lead.status === 'NEW'
-    ).length;
-    const followUpCount = leads.filter((lead) => lead.status === 'FOLLOW_UP').length;
-    const meetingCount = leads.filter((lead) => lead.status === 'MEETING').length;
+    const overdueCount = leads.filter((lead) => getFollowUpBucket(lead) === 'OVERDUE').length;
+    const todayCount = leads.filter((lead) => getFollowUpBucket(lead) === 'TODAY').length;
+    const upcomingCount = leads.filter((lead) => getFollowUpBucket(lead) === 'UPCOMING').length;
     const clientCount = leads.filter((lead) => lead.status === 'CLIENT').length;
 
     return {
       total: leads.length,
-      newCount,
-      followUpCount,
-      meetingCount,
+      overdueCount,
+      todayCount,
+      upcomingCount,
       clientCount
     };
   }, [leads]);
@@ -205,7 +233,11 @@ export const AdminPage: React.FC = () => {
         internalNotes: draft.internalNotes || ''
       };
 
-      await updateLeadOperations(selectedLead, normalizedUpdate);
+      const activity = await updateLeadOperations(
+        selectedLead,
+        normalizedUpdate,
+        user.displayName || user.email || 'Admin'
+      );
 
       setLeads((current) =>
         current.map((lead) =>
@@ -213,7 +245,8 @@ export const AdminPage: React.FC = () => {
             ? {
                 ...lead,
                 ...normalizedUpdate,
-                updatedAt: new Date().toISOString()
+                updatedAt: new Date().toISOString(),
+                activityLog: [...(lead.activityLog || []), activity].slice(-20)
               }
             : lead
         )
@@ -353,9 +386,9 @@ export const AdminPage: React.FC = () => {
         <section className="grid grid-cols-2 md:grid-cols-5 border border-[#E5E5E5] bg-white mb-6">
           {[
             ['TOTAL', metrics.total],
-            ['NEW', metrics.newCount],
-            ['FOLLOW-UP', metrics.followUpCount],
-            ['MEETINGS', metrics.meetingCount],
+            ['OVERDUE', metrics.overdueCount],
+            ['TODAY', metrics.todayCount],
+            ['UPCOMING', metrics.upcomingCount],
             ['CLIENTS', metrics.clientCount]
           ].map(([label, value]) => (
             <div key={String(label)} className="p-5 border-r border-b md:border-b-0 border-[#E5E5E5] last:border-r-0">
@@ -388,6 +421,20 @@ export const AdminPage: React.FC = () => {
                 ))}
               </select>
 
+              <select
+                value={followUpFilter}
+                onChange={(event) =>
+                  setFollowUpFilter(event.target.value as 'ALL' | FollowUpBucket)
+                }
+                className="border border-[#E5E5E5] bg-[#FAFAFA] px-3 py-2 text-xs focus:outline-none focus:border-[#0A3F4D]"
+              >
+                <option value="ALL">All follow-ups</option>
+                <option value="OVERDUE">Overdue</option>
+                <option value="TODAY">Today</option>
+                <option value="UPCOMING">Upcoming</option>
+                <option value="UNSCHEDULED">Unscheduled</option>
+              </select>
+
               <input
                 value={queryText}
                 onChange={(event) => setQueryText(event.target.value)}
@@ -407,6 +454,7 @@ export const AdminPage: React.FC = () => {
                     <th className="px-3 py-3">Status</th>
                     <th className="px-3 py-3">Owner</th>
                     <th className="px-3 py-3">Next action</th>
+                    <th className="px-3 py-3">Follow-up</th>
                     <th className="px-4 py-3 text-right">Created</th>
                   </tr>
                 </thead>
@@ -414,13 +462,13 @@ export const AdminPage: React.FC = () => {
                 <tbody className="divide-y divide-[#E5E5E5]">
                   {dataLoading && leads.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="py-16 text-center">
+                      <td colSpan={7} className="py-16 text-center">
                         <Loader2 className="w-5 h-5 animate-spin mx-auto" />
                       </td>
                     </tr>
                   ) : filteredLeads.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="py-16 text-center text-[#6B6B6B]">
+                      <td colSpan={7} className="py-16 text-center text-[#6B6B6B]">
                         No records found.
                       </td>
                     </tr>
@@ -448,6 +496,24 @@ export const AdminPage: React.FC = () => {
                         <td className="px-3 py-4">{lead.assignedTo || '—'}</td>
                         <td className="px-3 py-4 max-w-[220px] truncate">
                           {lead.nextAction || '—'}
+                        </td>
+                        <td className="px-3 py-4">
+                          <span className={`font-mono-code text-[9px] px-2 py-1 border ${
+                            getFollowUpBucket(lead) === 'OVERDUE'
+                              ? 'border-red-300 text-red-700 bg-red-50'
+                              : getFollowUpBucket(lead) === 'TODAY'
+                              ? 'border-amber-300 text-amber-800 bg-amber-50'
+                              : getFollowUpBucket(lead) === 'UPCOMING'
+                              ? 'border-[#0A3F4D]/30 text-[#0A3F4D] bg-white'
+                              : 'border-[#E5E5E5] text-[#777] bg-white'
+                          }`}>
+                            {followUpLabel(getFollowUpBucket(lead))}
+                          </span>
+                          {lead.followUpAt && (
+                            <div className="mt-1 text-[9px] text-[#777] font-mono-code">
+                              {formatDate(lead.followUpAt)}
+                            </div>
+                          )}
                         </td>
                         <td className="px-4 py-4 text-right font-mono-code text-[10px]">
                           {formatDate(lead.createdAt)}
@@ -629,6 +695,42 @@ export const AdminPage: React.FC = () => {
                         Save CRM changes
                       </button>
                     </div>
+                  </div>
+
+                  <div className="mt-6 border-t border-[#D8D8D8] pt-6">
+                    <p className="font-mono-code text-[10px] font-bold uppercase tracking-wider mb-4">
+                      Activity history
+                    </p>
+
+                    {selectedLead.activityLog && selectedLead.activityLog.length > 0 ? (
+                      <div className="space-y-3">
+                        {[...selectedLead.activityLog].reverse().map((entry, index) => (
+                          <div
+                            key={`${entry.at}-${index}`}
+                            className="border-l-2 border-[#0A3F4D] pl-3 py-1"
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="font-mono-code text-[9px] text-[#6B6B6B]">
+                                {formatDate(entry.at)}
+                              </span>
+                              <span className="font-mono-code text-[9px] text-[#6B6B6B]">
+                                {entry.actor}
+                              </span>
+                            </div>
+                            <p className="text-xs mt-1">
+                              {entry.fromStatus} → {entry.toStatus}
+                            </p>
+                            {entry.nextAction && (
+                              <p className="text-[11px] text-[#6B6B6B] mt-1">
+                                Next: {entry.nextAction}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-[#777]">No CRM changes recorded yet.</p>
+                    )}
                   </div>
 
                   <div className="mt-5 border border-amber-200 bg-amber-50 p-3 text-[10px] leading-relaxed text-amber-900">

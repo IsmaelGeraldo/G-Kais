@@ -1,7 +1,6 @@
 import express, { Request, Response, NextFunction } from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
-import { firestoreClient } from './src/server/db/firestoreClient';
 import { auditRepository } from './src/server/repositories/auditRepository';
 import { contactRepository } from './src/server/repositories/contactRepository';
 import { validateAuditPayload, validateContactPayload } from './src/server/validators/leadValidators';
@@ -41,15 +40,23 @@ async function startServer() {
     next(err);
   });
 
-  // 2. Health check endpoint with real live Firestore connectivity check
-  app.get('/api/health', async (req: Request, res: Response) => {
-    const isConnected = await firestoreClient.checkHealth();
-    const statusCode = isConnected ? 200 : 503;
+  // 2. Service liveness endpoint.
+  // Public intake currently persists through the Firebase Web SDK, so this
+  // endpoint intentionally does not perform an Admin SDK Firestore write.
+  app.get('/api/health', (req: Request, res: Response) => {
+    const emailConfigured = Boolean(
+      process.env.EMAIL_PROVIDER?.trim() &&
+      process.env.EMAIL_SERVICE_API_KEY?.trim() &&
+      process.env.NOTIFICATION_EMAIL_FROM?.trim() &&
+      process.env.NOTIFICATION_EMAIL_TO?.trim()
+    );
 
-    return res.status(statusCode).json({
-      status: isConnected ? 'ok' : 'degraded',
-      database: isConnected ? 'connected' : 'disconnected',
+    return res.status(200).json({
+      status: 'ok',
       service: 'G-KAIS AI Business Systems API',
+      persistence: 'firebase-web-sdk',
+      firestoreAdminRequiredForPublicIntake: false,
+      emailNotifications: emailConfigured ? 'configured' : 'not_configured',
       timestamp: new Date().toISOString()
     });
   });

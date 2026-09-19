@@ -8,24 +8,7 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ onOpenAudit, onOpenAdmin }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [logoClicks, setLogoClicks] = useState(0);
-  const [lastLogoClickAt, setLastLogoClickAt] = useState(0);
-
-  const handleLogoClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
-    event.preventDefault();
-
-    const now = Date.now();
-    const withinWindow = now - lastLogoClickAt <= 2500;
-    const nextCount = withinWindow ? logoClicks + 1 : 1;
-
-    setLastLogoClickAt(now);
-    setLogoClicks(nextCount);
-
-    if (nextCount >= 5) {
-      setLogoClicks(0);
-      onOpenAdmin?.();
-    }
-  };
+  const showDevelopmentAdminEntry = import.meta.env.DEV && Boolean(onOpenAdmin);
 
   const scrollTo = (id: string) => {
     setMobileMenuOpen(false);
@@ -48,9 +31,8 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAudit, onOpenAdmin }) => {
     <header className="sticky top-0 z-40 bg-[#F7F7F5]/90 backdrop-blur-md border-b border-[#0A0A0A]/10">
       <div className="max-w-7xl mx-auto px-6 lg:px-12 h-24 flex items-center justify-between">
         {/* Large Logo */}
-        <a 
-          href="#" 
-          onClick={handleLogoClick}
+        <a
+          href="/"
           className="group flex flex-col justify-center text-left select-none"
           id="brand-logo-link"
           aria-label="G-KAIS home"
@@ -97,7 +79,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAudit, onOpenAdmin }) => {
 
         {/* Header Action Button */}
         <div className="hidden md:flex items-center space-x-3">
-          {onOpenAdmin && (
+          {showDevelopmentAdminEntry && onOpenAdmin && (
             <button
               type="button"
               onClick={onOpenAdmin}
@@ -158,7 +140,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAudit, onOpenAdmin }) => {
             About
           </button>
           <div className="pt-4 border-t border-[#0A0A0A]/10 space-y-3">
-            {onOpenAdmin && (
+            {showDevelopmentAdminEntry && onOpenAdmin && (
               <button
                 type="button"
                 onClick={() => {

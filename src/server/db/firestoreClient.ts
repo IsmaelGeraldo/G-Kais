@@ -90,21 +90,6 @@ class FirestoreClient {
   }
 
   /**
-   * Health Check: Performs a real read/write probe to Firestore
-   * Returns true only if Firestore responds successfully.
-   */
-  public async checkHealth(): Promise<boolean> {
-    try {
-      if (!this.adminDb) return false;
-      const docRef = this.adminDb.collection('_health').doc('status');
-      await docRef.set({ status: 'healthy', lastHealthCheck: new Date().toISOString() }, { merge: true });
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
-  /**
    * Persist audit submission to Firestore collection: audit_submissions
    */
   public async saveAudit(record: AuditSubmissionDoc): Promise<void> {

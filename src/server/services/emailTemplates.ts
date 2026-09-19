@@ -1,0 +1,155 @@
+import type {
+  AuditSubmissionDoc as AuditRecord,
+  ContactSubmissionDoc as ContactRecord
+} from '../db/firestoreClient';
+
+export interface EmailMessage {
+  subject: string;
+  text: string;
+  html: string;
+}
+
+export interface OperationalEmailAlert {
+  id: string;
+  leadName: string;
+  company?: string;
+  email?: string;
+  nextAction?: string;
+  followUpAt?: string;
+  level: 'critical' | 'warning' | 'info';
+  kind: 'overdue_follow_up' | 'follow_up_today' | 'new_lead';
+}
+
+function escapeHtml(value: unknown): string {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+function layout(title: string, eyebrow: string, rows: Array<[string, string]>, footer: string): string {
+  const rowHtml = rows
+    .filter(([, value]) => Boolean(value))
+    .map(([label, value]) => `
+      <tr>
+        <td style="padding:8px 12px;color:#6b6b6b;font:12px monospace;text-transform:uppercase;vertical-align:top;border-bottom:1px solid #e5e5e5;">${escapeHtml(label)}</td>
+        <td style="padding:8px 12px;color:#0a0a0a;font:14px Arial,sans-serif;border-bottom:1px solid #e5e5e5;">${escapeHtml(value)}</td>
+      </tr>`)
+    .join('');
+
+  return `
+    <div style="background:#f7f7f5;padding:32px;font-family:Arial,sans-serif;color:#0a0a0a;">
+      <div style="max-width:640px;margin:0 auto;background:#ffffff;border:1px solid #e5e5e5;">
+        <div style="padding:28px 28px 20px;border-bottom:1px solid #e5e5e5;">
+          <div style="font:11px monospace;letter-spacing:.18em;text-transform:uppercase;color:#0a3f4d;">${escapeHtml(eyebrow)}</div>
+          <h1 style="font-size:28px;line-height:1.1;margin:10px 0 0;">${escapeHtml(title)}</h1>
+        </div>
+        <div style="padding:18px 16px 8px;">
+          <table role="presentation" style="width:100%;border-collapse:collapse;">${rowHtml}</table>
+        </div>
+        <div style="padding:20px 28px 28px;color:#6b6b6b;font-size:12px;line-height:1.5;">${escapeHtml(footer)}</div>
+      </div>
+    </div>`;
+}
+
+export function buildAuditNotificationEmail(record: AuditRecord): EmailMessage {
+  const subject = `New G-KAIS audit request · ${record.company}`;
+  const text = [
+    'New G-KAIS audit request',
+    `ID: ${record.id}`,
+    `Name: ${record.name}`,
+    `Company: ${record.company}`,
+    `Email: ${record.email}`,
+    `Channel: ${record.contactChannel}`,
+    record.website ? `Website: ${record.website}` : '',
+    record.inquiryNotes ? `Notes: ${record.inquiryNotes}` : '',
+    `Created: ${record.createdAt}`
+  ].filter(Boolean).join('\n');
+
+  return {
+    subject,
+    text,
+    html: layout(
+      'New audit request',
+      'G-KAIS · LeadFlow',
+      [
+        ['ID', record.id],
+        ['Name', record.name],
+        ['Company', record.company],
+        ['Email', record.email],
+        ['Channel', record.contactChannel],
+        ['Website', record.website || ''],
+        ['Notes', record.inquiryNotes || ''],
+        ['Created', record.createdAt]
+      ],
+      'Open G-KAIS Admin to review, assign and schedule the next action.'
+    )
+  };
+}
+
+export function buildContactNotificationEmail(record: ContactRecord): EmailMessage {
+  const subject = `New G-KAIS contact inquiry · ${record.name}`;
+  const text = [
+    'New G-KAIS contact inquiry',
+    `ID: ${record.id}`,
+    `Name: ${record.name}`,
+    `Email: ${record.email}`,
+    `Message: ${record.message}`,
+    `Created: ${record.createdAt}`
+  ].join('\n');
+
+  return {
+    subject,
+    text,
+    html: layout(
+      'New contact inquiry',
+      'G-KAIS · LeadFlow',
+      [
+        ['ID', record.id],
+        ['Name', record.name],
+        ['Email', record.email],
+        ['Message', record.message],
+        ['Created', record.createdAt]
+      ],
+      'Open G-KAIS Admin to review and manage this opportunity.'
+    )
+  };
+}
+
+export function buildOperationalAlertEmail(alert: OperationalEmailAlert): EmailMessage {
+  const label =
+    alert.kind === 'overdue_follow_up'
+      ? 'Overdue follow-up'
+      : alert.kind === 'follow_up_today'
+      ? 'Follow-up due today'
+      : 'New lead';
+
+  const subject = `${label} · ${alert.leadName}`;
+  const text = [
+    label,
+    `Lead: ${alert.leadName}`,
+    alert.company ? `Company: ${alert.company}` : '',
+    alert.email ? `Email: ${alert.email}` : '',
+    alert.nextAction ? `Next action: ${alert.nextAction}` : '',
+    alert.followUpAt ? `Follow-up: ${alert.followUpAt}` : ''
+  ].filter(Boolean).join('\n');
+
+  return {
+    subject,
+    text,
+    html: layout(
+      label,
+      `G-KAIS · ${alert.level.toUpperCase()} alert`,
+      [
+        ['Lead', alert.leadName],
+        ['Company', alert.company || ''],
+        ['Email', alert.email || ''],
+        ['Next action', alert.nextAction || ''],
+        ['Follow-up', alert.followUpAt || '']
+      ],
+      'This message was generated by the G-KAIS operational notification layer.'
+    )
+  };
+}

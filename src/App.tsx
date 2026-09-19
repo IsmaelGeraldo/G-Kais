@@ -122,5 +122,19 @@ export default function App() {
     setShowAdmin(true);
   };
 
-  return showAdmin ? <AdminPage /> : <PublicApp onOpenAdmin={openAdmin} />;
+  const exitAdmin = () => {
+    window.sessionStorage.removeItem('gkais-admin-preview');
+
+    const url = new URL(window.location.href);
+    url.searchParams.delete('admin');
+    url.hash = '';
+
+    const cleanPath = url.pathname.startsWith('/admin') ? '/' : url.pathname;
+    window.history.replaceState({}, '', `${cleanPath}${url.search}`);
+    setShowAdmin(false);
+  };
+
+  return showAdmin
+    ? <AdminPage onExitAdmin={exitAdmin} />
+    : <PublicApp onOpenAdmin={openAdmin} />;
 }

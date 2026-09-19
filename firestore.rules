@@ -54,7 +54,7 @@ service cloud.firestore {
     function validOperationalUpdate() {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'status', 'assignedTo', 'nextAction', 'followUpAt',
-          'internalNotes', 'updatedAt'
+          'internalNotes', 'activityLog', 'updatedAt'
         ]) &&
         request.resource.data.status in [
           'PENDING_REVIEW', 'NEW', 'CONTACTED', 'FOLLOW_UP',
@@ -68,6 +68,8 @@ service cloud.firestore {
         request.resource.data.followUpAt.size() <= 40 &&
         request.resource.data.internalNotes is string &&
         request.resource.data.internalNotes.size() <= 3000 &&
+        request.resource.data.activityLog is list &&
+        request.resource.data.activityLog.size() <= 20 &&
         request.resource.data.updatedAt is timestamp;
     }
 

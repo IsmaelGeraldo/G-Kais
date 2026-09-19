@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   GoogleAuthProvider,
-  User,
   onAuthStateChanged,
   signInWithPopup,
   signOut
 } from 'firebase/auth';
+import type { User } from 'firebase/auth';
 import {
   AlertCircle,
   ArrowLeft,

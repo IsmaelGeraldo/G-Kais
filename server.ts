@@ -8,7 +8,12 @@ import { validateAuditPayload, validateContactPayload } from './src/server/valid
 import { leadSubmissionRateLimiter } from './src/server/middleware/rateLimiter';
 import { antiSpamMiddleware } from './src/server/middleware/antiSpam';
 import { notifyNewLead } from './src/server/services/notification';
-import { sendAuditNotification, sendContactNotification } from './src/server/services/email';
+import {
+  sendAuditNotification,
+  sendContactNotification,
+  sendOperationalAlertNotification
+} from './src/server/services/email';
+import { verifyAdminBearerToken } from './src/server/auth/adminAuth';
 
 async function startServer() {
   const app = express();
@@ -179,7 +184,74 @@ async function startServer() {
     }
   );
 
-  // 5. Vite middleware for frontend development and production static serving
+  // 5. Authenticated admin-only email channel test.
+  // This does not read or write Firestore and never exposes provider credentials.
+  app.post('/api/admin/email/test', async (req: Request, res: Response) => {
+    try {
+      const identity = await verifyAdminBearerToken(req.headers.authorization);
+
+      if (!identity) {
+        return res.status(401).json({
+          success: false,
+          code: 'UNAUTHORIZED',
+          error: 'Authenticated administrator access is required.'
+        });
+      }
+
+      const result = await sendOperationalAlertNotification({
+        id: `email-test-${Date.now()}`,
+        leadName: identity.name || 'G-KAIS Admin',
+        company: 'G-KAIS',
+        email: identity.email,
+        nextAction: 'Email notification channel test',
+        followUpAt: new Date().toISOString(),
+        level: 'info',
+        kind: 'new_lead'
+      });
+
+      if (result.status === 'SKIPPED') {
+        return res.status(200).json({
+          success: true,
+          code: 'EMAIL_NOT_CONFIGURED',
+          status: result.status,
+          message: 'Email provider configuration is incomplete. No email was sent.'
+        });
+      }
+
+      if (!result.success || result.status === 'FAILED') {
+        return res.status(502).json({
+          success: false,
+          code: 'EMAIL_PROVIDER_ERROR',
+          status: result.status,
+          error: result.error || 'Email provider rejected the test message.'
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        code: 'EMAIL_SENT',
+        status: result.status,
+        provider: result.provider,
+        messageId: result.messageId,
+        message: 'Test email sent successfully.'
+      });
+    } catch (err: any) {
+      console.error('[ADMIN EMAIL TEST ERROR]', err);
+
+      const configurationError =
+        err instanceof Error && err.message === 'ADMIN_FIREBASE_UID is not configured.';
+
+      return res.status(configurationError ? 503 : 401).json({
+        success: false,
+        code: configurationError ? 'ADMIN_NOT_CONFIGURED' : 'AUTH_ERROR',
+        error: configurationError
+          ? 'Admin backend identity is not configured.'
+          : 'Could not verify administrator identity.'
+      });
+    }
+  });
+
+  // 6. Vite middleware for frontend development and production static serving
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
       server: { middlewareMode: true },

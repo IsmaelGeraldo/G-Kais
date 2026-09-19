@@ -187,6 +187,10 @@ export const AdminPage: React.FC = () => {
   const [browserAlertStatus, setBrowserAlertStatus] = useState<
     'idle' | 'enabled' | 'unsupported' | 'blocked'
   >('idle');
+  const [emailTestStatus, setEmailTestStatus] = useState<
+    'idle' | 'sending' | 'sent' | 'not_configured' | 'failed'
+  >('idle');
+  const [emailTestMessage, setEmailTestMessage] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | LeadStatus>('ALL');
   const [followUpFilter, setFollowUpFilter] = useState<'ALL' | FollowUpBucket>('ALL');
   const [draft, setDraft] = useState<LeadOperationsUpdate>(
@@ -400,6 +404,45 @@ export const AdminPage: React.FC = () => {
     }
   };
 
+  const sendEmailChannelTest = async () => {
+    if (!user) return;
+
+    setEmailTestStatus('sending');
+    setEmailTestMessage('');
+
+    try {
+      const idToken = await user.getIdToken(true);
+      const response = await fetch('/api/admin/email/test', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${idToken}`
+        }
+      });
+
+      const payload = await response.json().catch(() => null);
+
+      if (response.ok && payload?.code === 'EMAIL_SENT') {
+        setEmailTestStatus('sent');
+        setEmailTestMessage('Test email sent successfully.');
+        return;
+      }
+
+      if (response.ok && payload?.code === 'EMAIL_NOT_CONFIGURED') {
+        setEmailTestStatus('not_configured');
+        setEmailTestMessage('Email provider is not configured yet. No message was sent.');
+        return;
+      }
+
+      setEmailTestStatus('failed');
+      setEmailTestMessage(
+        payload?.error || 'Email channel test failed.'
+      );
+    } catch (err: any) {
+      setEmailTestStatus('failed');
+      setEmailTestMessage(err?.message || 'Email channel test failed.');
+    }
+  };
+
   const handleGoogleSignIn = async () => {
     setError(null);
     try {
@@ -597,6 +640,14 @@ export const AdminPage: React.FC = () => {
               >
                 Enable browser alerts
               </button>
+              <button
+                type="button"
+                onClick={sendEmailChannelTest}
+                disabled={emailTestStatus === 'sending'}
+                className="px-3 py-2 border border-[#0A3F4D] text-[#0A3F4D] text-[10px] font-semibold uppercase tracking-wider hover:bg-[#F7F7F5] disabled:opacity-50"
+              >
+                {emailTestStatus === 'sending' ? 'Testing email…' : 'Test email channel'}
+              </button>
             </div>
 
             {browserAlertStatus === 'blocked' && (
@@ -608,6 +659,20 @@ export const AdminPage: React.FC = () => {
             {browserAlertStatus === 'unsupported' && (
               <div className="mx-4 mt-4 border border-[#E5E5E5] bg-[#FAFAFA] p-3 text-[10px] text-[#6B6B6B]">
                 Native browser notifications are not supported here. The in-app Alert Center still works.
+              </div>
+            )}
+
+            {emailTestStatus !== 'idle' && emailTestStatus !== 'sending' && emailTestMessage && (
+              <div
+                className={`mx-4 mt-4 border p-3 text-[10px] ${
+                  emailTestStatus === 'sent'
+                    ? 'border-[#0A3F4D]/30 bg-white text-[#0A3F4D]'
+                    : emailTestStatus === 'not_configured'
+                    ? 'border-amber-200 bg-amber-50 text-amber-900'
+                    : 'border-red-200 bg-red-50 text-red-800'
+                }`}
+              >
+                {emailTestMessage}
               </div>
             )}
 

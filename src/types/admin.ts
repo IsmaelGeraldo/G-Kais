@@ -9,6 +9,20 @@ export type LeadStatus =
   | 'CLIENT'
   | 'LOST';
 
+export type FollowUpBucket =
+  | 'OVERDUE'
+  | 'TODAY'
+  | 'UPCOMING'
+  | 'UNSCHEDULED';
+
+export interface LeadActivity {
+  at: string;
+  actor: string;
+  fromStatus: LeadStatus;
+  toStatus: LeadStatus;
+  nextAction: string;
+}
+
 export interface AdminLead {
   id: string;
   source: AdminLeadSource;
@@ -27,6 +41,7 @@ export interface AdminLead {
   nextAction?: string;
   followUpAt?: string;
   internalNotes?: string;
+  activityLog?: LeadActivity[];
 }
 
 export interface LeadOperationsUpdate {

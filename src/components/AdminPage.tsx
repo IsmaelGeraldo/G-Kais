@@ -57,7 +57,7 @@ const NEXT_ACTION_OPTIONS = [
 ] as const;
 
 function getFollowUpBucket(lead: AdminLead): FollowUpBucket {
-  if (lead.status === 'CLIENT' || lead.status === 'LOST' || !lead.followUpAt) {
+  if (lead.status === 'LOST' || !lead.followUpAt) {
     return 'UNSCHEDULED';
   }
 
@@ -328,7 +328,6 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
   const priorityWork = useMemo(() => {
     const actionable = leads.filter((lead) => {
       return (
-        lead.status !== 'CLIENT' &&
         lead.status !== 'LOST' &&
         lead.status !== 'PENDING_REVIEW' &&
         lead.status !== 'NEW'

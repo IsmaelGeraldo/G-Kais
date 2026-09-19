@@ -52,7 +52,7 @@ function getFollowUpBucket(lead: AdminLead): FollowUpBucket {
   const tomorrowStart = new Date(todayStart);
   tomorrowStart.setDate(tomorrowStart.getDate() + 1);
 
-  if (followUp < todayStart) return 'OVERDUE';
+  if (followUp < now) return 'OVERDUE';
   if (followUp < tomorrowStart) return 'TODAY';
   return 'UPCOMING';
 }

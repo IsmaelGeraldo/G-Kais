@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Header } from './components/Header.tsx';
 import { Hero } from './components/Hero.tsx';
 import { ProblemSection } from './components/ProblemSection.tsx';
@@ -113,5 +113,29 @@ function isAdminRoute(): boolean {
 }
 
 export default function App() {
-  return isAdminRoute() ? <AdminPage /> : <PublicApp />;
+  const [showAdmin, setShowAdmin] = useState<boolean>(() => {
+    return isAdminRoute() || window.sessionStorage.getItem('gkais-admin-preview') === '1';
+  });
+
+  useEffect(() => {
+    const handleShortcut = (event: KeyboardEvent) => {
+      if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === 'a') {
+        event.preventDefault();
+        setShowAdmin((current) => {
+          const next = !current;
+          if (next) {
+            window.sessionStorage.setItem('gkais-admin-preview', '1');
+          } else {
+            window.sessionStorage.removeItem('gkais-admin-preview');
+          }
+          return next;
+        });
+      }
+    };
+
+    window.addEventListener('keydown', handleShortcut);
+    return () => window.removeEventListener('keydown', handleShortcut);
+  }, []);
+
+  return showAdmin ? <AdminPage /> : <PublicApp />;
 }

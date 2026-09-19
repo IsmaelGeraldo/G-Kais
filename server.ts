@@ -1,7 +1,6 @@
 import express, { Request, Response, NextFunction } from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
-import { firestoreClient } from './src/server/db/firestoreClient';
 import { auditRepository } from './src/server/repositories/auditRepository';
 import { contactRepository } from './src/server/repositories/contactRepository';
 import { validateAuditPayload, validateContactPayload } from './src/server/validators/leadValidators';

@@ -109,7 +109,13 @@ function isAdminRoute(): boolean {
 }
 
 export default function App() {
-  const [showAdmin, setShowAdmin] = useState<boolean>(() => isAdminRoute());
+  const [showAdmin, setShowAdmin] = useState<boolean>(() => {
+    return (
+      isAdminRoute() ||
+      (import.meta.env.DEV &&
+        window.sessionStorage.getItem('gkais-dev-admin') === '1')
+    );
+  });
 
   useEffect(() => {
     const handlePopState = () => setShowAdmin(isAdminRoute());
@@ -118,11 +124,17 @@ export default function App() {
   }, []);
 
   const openAdmin = () => {
+    if (import.meta.env.DEV) {
+      window.sessionStorage.setItem('gkais-dev-admin', '1');
+    }
     window.history.pushState({}, '', '/admin');
     setShowAdmin(true);
   };
 
   const exitAdmin = () => {
+    if (import.meta.env.DEV) {
+      window.sessionStorage.removeItem('gkais-dev-admin');
+    }
     window.history.pushState({}, '', '/');
     setShowAdmin(false);
   };

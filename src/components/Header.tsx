@@ -96,7 +96,17 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAudit, onOpenAdmin }) => {
         </nav>
 
         {/* Header Action Button */}
-        <div className="hidden md:flex items-center space-x-4">
+        <div className="hidden md:flex items-center space-x-3">
+          {onOpenAdmin && (
+            <button
+              type="button"
+              onClick={onOpenAdmin}
+              id="header-admin-preview-btn"
+              className="inline-flex items-center justify-center px-3 py-2.5 text-[10px] font-mono-code font-semibold uppercase tracking-wider text-[#6B6B6B] border border-[#D8D8D8] bg-white hover:text-[#0A0A0A] hover:border-[#0A0A0A] transition-colors"
+            >
+              Admin Preview
+            </button>
+          )}
           <button
             onClick={onOpenAudit}
             id="header-free-audit-btn"
@@ -147,7 +157,19 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAudit, onOpenAdmin }) => {
           >
             About
           </button>
-          <div className="pt-4 border-t border-[#0A0A0A]/10">
+          <div className="pt-4 border-t border-[#0A0A0A]/10 space-y-3">
+            {onOpenAdmin && (
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  onOpenAdmin();
+                }}
+                className="w-full text-center px-5 py-3 text-xs font-semibold uppercase tracking-wider text-[#0A0A0A] border border-[#0A0A0A]/20 bg-white"
+              >
+                Admin Preview
+              </button>
+            )}
             <button
               onClick={() => {
                 setMobileMenuOpen(false);

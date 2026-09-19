@@ -143,19 +143,9 @@ export async function fetchAdminLeads(): Promise<AdminLead[]> {
     normalizeContact(document.data(), document.id)
   );
 
-  const now = Date.now();
-  const futureToleranceMs = 5 * 60 * 1000;
-
   return [...audits, ...contacts].sort((a, b) => {
     const aTime = Date.parse(a.createdAt) || 0;
     const bTime = Date.parse(b.createdAt) || 0;
-    const aFuture = aTime > now + futureToleranceMs;
-    const bFuture = bTime > now + futureToleranceMs;
-
-    // Future createdAt values are treated as test/data anomalies and kept
-    // behind normal records so they do not distort operational recency.
-    if (aFuture !== bFuture) return aFuture ? 1 : -1;
-
     return bTime - aTime;
   });
 }

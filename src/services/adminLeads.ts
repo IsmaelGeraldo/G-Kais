@@ -8,6 +8,7 @@ import {
 import { firestoreDb } from '../lib/firebase';
 import type {
   AdminLead,
+  LeadActivity,
   LeadOperationsUpdate,
   LeadStatus
 } from '../types/admin';
@@ -67,6 +68,22 @@ function optionalString(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() ? value : undefined;
 }
 
+function normalizeActivityLog(value: unknown): LeadActivity[] {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .filter((entry) => entry && typeof entry === 'object')
+    .map((entry: any) => ({
+      at: normalizeCreatedAt(entry.at),
+      actor: String(entry.actor || 'Admin'),
+      fromStatus: normalizeStatus(entry.fromStatus),
+      toStatus: normalizeStatus(entry.toStatus),
+      nextAction: String(entry.nextAction || '')
+    }))
+    .filter((entry) => entry.at)
+    .slice(-20);
+}
+
 function normalizeAudit(data: any, documentId: string): AdminLead {
   return {
     id: String(data.id || documentId),
@@ -84,7 +101,8 @@ function normalizeAudit(data: any, documentId: string): AdminLead {
     assignedTo: optionalString(data.assignedTo),
     nextAction: optionalString(data.nextAction),
     followUpAt: normalizeCreatedAt(data.followUpAt) || undefined,
-    internalNotes: optionalString(data.internalNotes)
+    internalNotes: optionalString(data.internalNotes),
+    activityLog: normalizeActivityLog(data.activityLog)
   };
 }
 
@@ -102,7 +120,8 @@ function normalizeContact(data: any, documentId: string): AdminLead {
     assignedTo: optionalString(data.assignedTo),
     nextAction: optionalString(data.nextAction),
     followUpAt: normalizeCreatedAt(data.followUpAt) || undefined,
-    internalNotes: optionalString(data.internalNotes)
+    internalNotes: optionalString(data.internalNotes),
+    activityLog: normalizeActivityLog(data.activityLog)
   };
 }
 
@@ -134,8 +153,9 @@ export async function fetchAdminLeads(): Promise<AdminLead[]> {
 
 export async function updateLeadOperations(
   lead: AdminLead,
-  update: LeadOperationsUpdate
-): Promise<void> {
+  update: LeadOperationsUpdate,
+  actorLabel: string
+): Promise<LeadActivity> {
   const assignedTo = update.assignedTo?.trim() || '';
   const nextAction = update.nextAction?.trim() || '';
   const followUpAt = update.followUpAt?.trim() || '';
@@ -157,12 +177,25 @@ export async function updateLeadOperations(
   const collectionName =
     lead.source === 'AUDIT' ? 'audit_submissions' : 'contact_submissions';
 
+  const activity: LeadActivity = {
+    at: new Date().toISOString(),
+    actor: actorLabel.trim().slice(0, 120) || 'Admin',
+    fromStatus: lead.status,
+    toStatus: update.status,
+    nextAction
+  };
+
+  const activityLog = [...(lead.activityLog || []), activity].slice(-20);
+
   await updateDoc(doc(firestoreDb, collectionName, lead.id), {
     status: update.status,
     assignedTo,
     nextAction,
     followUpAt,
     internalNotes,
+    activityLog,
     updatedAt: serverTimestamp()
   });
+
+  return activity;
 }

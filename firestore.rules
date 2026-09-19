@@ -51,14 +51,37 @@ service cloud.firestore {
         data.createdAt is string && data.createdAt.size() <= 40;
     }
 
+    function validOperationalUpdate() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status', 'assignedTo', 'nextAction', 'followUpAt',
+          'internalNotes', 'updatedAt'
+        ]) &&
+        request.resource.data.status in [
+          'PENDING_REVIEW', 'NEW', 'CONTACTED', 'FOLLOW_UP',
+          'MEETING', 'CLIENT', 'LOST'
+        ] &&
+        request.resource.data.assignedTo is string &&
+        request.resource.data.assignedTo.size() <= 100 &&
+        request.resource.data.nextAction is string &&
+        request.resource.data.nextAction.size() <= 240 &&
+        request.resource.data.followUpAt is string &&
+        request.resource.data.followUpAt.size() <= 40 &&
+        request.resource.data.internalNotes is string &&
+        request.resource.data.internalNotes.size() <= 3000;
+    }
+
     match /audit_submissions/{auditId} {
       allow create: if validAudit(request.resource.data, auditId);
-      allow read, update, delete: if isAdmin();
+      allow read: if isAdmin();
+      allow update: if isAdmin() && validOperationalUpdate();
+      allow delete: if false;
     }
 
     match /contact_submissions/{contactId} {
       allow create: if validContact(request.resource.data, contactId);
-      allow read, update, delete: if isAdmin();
+      allow read: if isAdmin();
+      allow update: if isAdmin() && validOperationalUpdate();
+      allow delete: if false;
     }
 
     match /admins/{adminId} {

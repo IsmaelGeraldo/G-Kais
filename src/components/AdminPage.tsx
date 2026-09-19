@@ -295,6 +295,16 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
     setLeadEmailMessage('');
   }, [selectedLead?.id]);
 
+  useEffect(() => {
+    if (!selectedLead) return;
+
+    window.requestAnimationFrame(() => {
+      if (crmPanelRef.current) {
+        crmPanelRef.current.scrollTop = 0;
+      }
+    });
+  }, [selectedLead?.id]);
+
   const metrics = useMemo(() => {
     const overdueCount = leads.filter((lead) => getFollowUpBucket(lead) === 'OVERDUE').length;
     const todayCount = leads.filter((lead) => getFollowUpBucket(lead) === 'TODAY').length;
@@ -557,10 +567,13 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
     setSelectedId(leadId);
 
     window.requestAnimationFrame(() => {
-      crmPanelRef.current?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start'
-      });
+      if (crmPanelRef.current) {
+        crmPanelRef.current.scrollTop = 0;
+        crmPanelRef.current.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start'
+        });
+      }
     });
   };
 

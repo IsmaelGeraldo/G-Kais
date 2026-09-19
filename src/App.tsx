@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Header } from './components/Header.tsx';
 import { Hero } from './components/Hero.tsx';
 import { ProblemSection } from './components/ProblemSection.tsx';
@@ -104,33 +104,26 @@ function PublicApp({ onOpenAdmin }: { onOpenAdmin: () => void }) {
 }
 
 function isAdminRoute(): boolean {
-  const url = new URL(window.location.href);
-  return (
-    window.location.pathname.startsWith('/admin') ||
-    window.location.hash === '#admin' ||
-    url.searchParams.get('admin') === '1'
-  );
+  return window.location.pathname === '/admin' ||
+    window.location.pathname.startsWith('/admin/');
 }
 
 export default function App() {
-  const [showAdmin, setShowAdmin] = useState<boolean>(() => {
-    return isAdminRoute() || window.sessionStorage.getItem('gkais-admin-preview') === '1';
-  });
+  const [showAdmin, setShowAdmin] = useState<boolean>(() => isAdminRoute());
+
+  useEffect(() => {
+    const handlePopState = () => setShowAdmin(isAdminRoute());
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   const openAdmin = () => {
-    window.sessionStorage.setItem('gkais-admin-preview', '1');
+    window.history.pushState({}, '', '/admin');
     setShowAdmin(true);
   };
 
   const exitAdmin = () => {
-    window.sessionStorage.removeItem('gkais-admin-preview');
-
-    const url = new URL(window.location.href);
-    url.searchParams.delete('admin');
-    url.hash = '';
-
-    const cleanPath = url.pathname.startsWith('/admin') ? '/' : url.pathname;
-    window.history.replaceState({}, '', `${cleanPath}${url.search}`);
+    window.history.pushState({}, '', '/');
     setShowAdmin(false);
   };
 

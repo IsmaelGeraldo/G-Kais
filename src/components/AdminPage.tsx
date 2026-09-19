@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   GoogleAuthProvider,
   onAuthStateChanged,
@@ -43,6 +43,18 @@ const STATUS_OPTIONS: { value: LeadStatus; label: string }[] = [
   { value: 'CLIENT', label: 'Client' },
   { value: 'LOST', label: 'Lost' }
 ];
+
+const NEXT_ACTION_OPTIONS = [
+  'Call',
+  'Send WhatsApp',
+  'Send email',
+  'Send proposal',
+  'Schedule meeting',
+  'Confirm meeting',
+  'Request information',
+  'Follow up',
+  'Close sale'
+] as const;
 
 function getFollowUpBucket(lead: AdminLead): FollowUpBucket {
   if (lead.status === 'CLIENT' || lead.status === 'LOST' || !lead.followUpAt) {
@@ -167,6 +179,7 @@ function buildAdminAlerts(leads: AdminLead[]): AdminAlert[] {
 }
 
 export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }) => {
+  const crmPanelRef = useRef<HTMLElement | null>(null);
   const [user, setUser] = useState<User | null>(firebaseAuth.currentUser);
   const [authLoading, setAuthLoading] = useState(true);
   const [leads, setLeads] = useState<AdminLead[]>([]);
@@ -314,21 +327,11 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
 
   const priorityWork = useMemo(() => {
     const actionable = leads.filter((lead) => {
-      if (
-        lead.status === 'CLIENT' ||
-        lead.status === 'LOST' ||
-        lead.status === 'PENDING_REVIEW' ||
-        lead.status === 'NEW'
-      ) {
-        return false;
-      }
-
-      const bucket = getFollowUpBucket(lead);
       return (
-        Boolean(lead.nextAction) ||
-        bucket === 'OVERDUE' ||
-        bucket === 'TODAY' ||
-        bucket === 'UPCOMING'
+        lead.status !== 'CLIENT' &&
+        lead.status !== 'LOST' &&
+        lead.status !== 'PENDING_REVIEW' &&
+        lead.status !== 'NEW'
       );
     });
 
@@ -336,8 +339,9 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
       const bucket = getFollowUpBucket(lead);
       if (bucket === 'OVERDUE') return 0;
       if (bucket === 'TODAY') return 1;
-      if (bucket === 'UPCOMING') return 2;
-      return 3;
+      if (!lead.nextAction) return 2;
+      if (bucket === 'UPCOMING') return 3;
+      return 4;
     };
 
     return [...actionable]
@@ -548,6 +552,17 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
       setLeadEmailStatus('failed');
       setLeadEmailMessage(err?.message || 'Could not send operational alert email.');
     }
+  };
+
+  const reviewLeadInCrm = (leadId: string) => {
+    setSelectedId(leadId);
+
+    window.requestAnimationFrame(() => {
+      crmPanelRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start'
+      });
+    });
   };
 
   const handleCompleteAction = async (lead: AdminLead) => {
@@ -959,7 +974,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                   <button
                     key={lead.id}
                     type="button"
-                    onClick={() => setSelectedId(lead.id)}
+                    onClick={() => reviewLeadInCrm(lead.id)}
                     className="w-full px-4 sm:px-5 py-4 text-left hover:bg-[#FAFAFA] transition-colors flex items-center justify-between gap-4"
                   >
                     <div className="min-w-0">
@@ -979,7 +994,10 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                         <span className="font-mono-code">{formatDate(lead.createdAt)}</span>
                       </div>
                     </div>
-                    <ChevronRight className="w-4 h-4 shrink-0 text-[#6B6B6B]" />
+                    <span className="shrink-0 inline-flex items-center gap-1.5 font-mono-code text-[9px] uppercase tracking-wider text-[#0A3F4D]">
+                      Review in CRM
+                      <ChevronRight className="w-4 h-4" />
+                    </span>
                   </button>
                 ))}
               </div>
@@ -1016,6 +1034,8 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                       ? 'OVERDUE'
                       : bucket === 'TODAY'
                       ? 'TODAY'
+                      : !lead.nextAction
+                      ? 'ACTION NEEDED'
                       : bucket === 'UPCOMING'
                       ? 'UPCOMING'
                       : 'ACTION';
@@ -1024,6 +1044,8 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                     bucket === 'OVERDUE'
                       ? 'border-red-300 text-red-700 bg-red-50'
                       : bucket === 'TODAY'
+                      ? 'border-amber-300 text-amber-800 bg-amber-50'
+                      : !lead.nextAction
                       ? 'border-amber-300 text-amber-800 bg-amber-50'
                       : bucket === 'UPCOMING'
                       ? 'border-slate-300 text-slate-700 bg-slate-50'
@@ -1050,7 +1072,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                           </div>
 
                           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-[#6B6B6B]">
-                            <span>{lead.nextAction || 'Scheduled follow-up'}</span>
+                            <span>{lead.nextAction || 'Set the next action in CRM'}</span>
                             {lead.followUpAt && (
                               <span className="font-mono-code">{formatDate(lead.followUpAt)}</span>
                             )}
@@ -1216,7 +1238,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
               </table>
             </div>
 
-            <aside className="xl:col-span-4 bg-[#FAFAFA] p-5 sm:p-6">
+            <aside ref={crmPanelRef} className="xl:col-span-4 bg-[#FAFAFA] p-5 sm:p-6 scroll-mt-6">
               {selectedLead ? (
                 <div>
                   <div className="flex items-center justify-between pb-4 mb-5 border-b border-[#E5E5E5]">
@@ -1322,7 +1344,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                         <span className="font-mono-code text-[9px] uppercase text-[#6B6B6B] block mb-1.5">
                           Next action
                         </span>
-                        <input
+                        <select
                           value={draft.nextAction || ''}
                           onChange={(event) =>
                             setDraft((current) => ({
@@ -1330,10 +1352,26 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                               nextAction: event.target.value
                             }))
                           }
-                          maxLength={240}
-                          placeholder="Call, send proposal, confirm meeting..."
                           className="w-full border border-[#D8D8D8] bg-white px-3 py-2.5 text-sm focus:outline-none focus:border-[#0A3F4D]"
-                        />
+                        >
+                          <option value="">Select next action</option>
+                          {draft.nextAction &&
+                            !NEXT_ACTION_OPTIONS.includes(
+                              draft.nextAction as (typeof NEXT_ACTION_OPTIONS)[number]
+                            ) && (
+                              <option value={draft.nextAction}>
+                                Existing: {draft.nextAction}
+                              </option>
+                            )}
+                          {NEXT_ACTION_OPTIONS.map((action) => (
+                            <option key={action} value={action}>
+                              {action}
+                            </option>
+                          ))}
+                        </select>
+                        <p className="mt-1.5 text-[10px] text-[#777]">
+                          Use Internal notes for details, context or instructions.
+                        </p>
                       </label>
 
                       <label className="block">

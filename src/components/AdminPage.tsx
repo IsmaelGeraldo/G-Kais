@@ -1156,10 +1156,10 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
             </div>
           </div>
 
-          <div className="grid grid-cols-1 xl:grid-cols-12 min-h-[640px]">
-            <div className="xl:col-span-8 overflow-x-auto border-b xl:border-b-0 xl:border-r border-[#E5E5E5]">
+          <div className="grid grid-cols-1 xl:grid-cols-12 min-h-[640px] xl:h-[760px]">
+            <div className="xl:col-span-8 overflow-auto border-b xl:border-b-0 xl:border-r border-[#E5E5E5]">
               <table className="w-full min-w-[980px] text-left text-xs">
-                <thead className="bg-[#FAFAFA] border-b border-[#E5E5E5] font-mono-code text-[10px] uppercase text-[#6B6B6B]">
+                <thead className="sticky top-0 z-10 bg-[#FAFAFA] border-b border-[#E5E5E5] font-mono-code text-[10px] uppercase text-[#6B6B6B] shadow-[0_1px_0_rgba(0,0,0,0.06)]">
                   <tr>
                     <th className="px-4 py-3">Lead</th>
                     <th className="px-3 py-3">Source</th>
@@ -1237,7 +1237,10 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
               </table>
             </div>
 
-            <aside ref={crmPanelRef} className="xl:col-span-4 bg-[#FAFAFA] p-5 sm:p-6 scroll-mt-6">
+            <aside
+              ref={crmPanelRef}
+              className="xl:col-span-4 bg-[#FAFAFA] p-5 sm:p-6 scroll-mt-6 xl:overflow-y-auto xl:h-full"
+            >
               {selectedLead ? (
                 <div>
                   <div className="flex items-center justify-between pb-4 mb-5 border-b border-[#E5E5E5]">

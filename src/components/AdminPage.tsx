@@ -165,7 +165,7 @@ function buildAdminAlerts(leads: AdminLead[]): AdminAlert[] {
   });
 }
 
-export const AdminPage: React.FC = () => {
+export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }) => {
   const [user, setUser] = useState<User | null>(firebaseAuth.currentUser);
   const [authLoading, setAuthLoading] = useState(true);
   const [leads, setLeads] = useState<AdminLead[]>([]);
@@ -575,10 +575,14 @@ export const AdminPage: React.FC = () => {
       <main className="min-h-screen bg-[#F7F7F5] text-[#0A0A0A] flex items-center justify-center px-6">
         <section className="w-full max-w-lg border border-[#0A0A0A]/15 bg-white p-8 sm:p-10">
           <div className="flex items-center justify-between mb-10">
-            <a href="/" className="inline-flex items-center text-xs font-mono-code uppercase tracking-wider text-[#6B6B6B] hover:text-[#0A0A0A]">
+            <button
+              type="button"
+              onClick={onExitAdmin}
+              className="inline-flex items-center text-xs font-mono-code uppercase tracking-wider text-[#6B6B6B] hover:text-[#0A0A0A]"
+            >
               <ArrowLeft className="w-3.5 h-3.5 mr-2" />
-              G-KAIS
-            </a>
+              Back to site
+            </button>
             <span className="font-mono-code text-[10px] border border-[#E5E5E5] px-2 py-1 text-[#6B6B6B]">
               INTERNAL
             </span>
@@ -624,7 +628,13 @@ export const AdminPage: React.FC = () => {
         <div className="max-w-[1600px] mx-auto px-5 sm:px-8 py-4 flex flex-wrap items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-3">
-              <a href="/" className="text-2xl font-extrabold tracking-tight">G-KAIS</a>
+              <button
+                type="button"
+                onClick={onExitAdmin}
+                className="text-2xl font-extrabold tracking-tight hover:text-[#0A3F4D] transition-colors"
+              >
+                G-KAIS
+              </button>
               <span className="font-mono-code text-[9px] border border-[#E5E5E5] px-2 py-1 text-[#6B6B6B]">
                 CRM // PREVIEW
               </span>
@@ -651,6 +661,14 @@ export const AdminPage: React.FC = () => {
               <p className="text-xs font-semibold">{user.displayName || user.email}</p>
               <p className="font-mono-code text-[9px] text-[#6B6B6B]">Authenticated admin preview</p>
             </div>
+            <button
+              type="button"
+              onClick={onExitAdmin}
+              className="inline-flex items-center border border-[#E5E5E5] bg-white px-3 py-2 text-xs hover:bg-[#F7F7F5]"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 mr-2" />
+              Back to site
+            </button>
             <button
               type="button"
               onClick={() => signOut(firebaseAuth)}

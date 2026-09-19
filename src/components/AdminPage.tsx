@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { firebaseAuth } from '../lib/firebase';
 import {
+  completeLeadAction,
   fetchAdminLeads,
   updateLeadOperations
 } from '../services/adminLeads';
@@ -172,6 +173,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [dataLoading, setDataLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [completingActionId, setCompletingActionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [queryText, setQueryText] = useState('');
@@ -295,17 +297,38 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
     };
   }, [leads]);
 
-  const actionQueue = useMemo(() => {
+  const newLeadInbox = useMemo(
+    () =>
+      leads
+        .filter(
+          (lead) =>
+            lead.status === 'PENDING_REVIEW' || lead.status === 'NEW'
+        )
+        .sort(
+          (a, b) =>
+            (Date.parse(b.createdAt) || 0) - (Date.parse(a.createdAt) || 0)
+        )
+        .slice(0, 6),
+    [leads]
+  );
+
+  const priorityWork = useMemo(() => {
     const actionable = leads.filter((lead) => {
-      if (lead.status === 'CLIENT' || lead.status === 'LOST') return false;
+      if (
+        lead.status === 'CLIENT' ||
+        lead.status === 'LOST' ||
+        lead.status === 'PENDING_REVIEW' ||
+        lead.status === 'NEW'
+      ) {
+        return false;
+      }
 
       const bucket = getFollowUpBucket(lead);
       return (
+        Boolean(lead.nextAction) ||
         bucket === 'OVERDUE' ||
         bucket === 'TODAY' ||
-        bucket === 'UPCOMING' ||
-        lead.status === 'PENDING_REVIEW' ||
-        lead.status === 'NEW'
+        bucket === 'UPCOMING'
       );
     });
 
@@ -313,9 +336,8 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
       const bucket = getFollowUpBucket(lead);
       if (bucket === 'OVERDUE') return 0;
       if (bucket === 'TODAY') return 1;
-      if (lead.status === 'PENDING_REVIEW' || lead.status === 'NEW') return 2;
-      if (bucket === 'UPCOMING') return 3;
-      return 4;
+      if (bucket === 'UPCOMING') return 2;
+      return 3;
     };
 
     return [...actionable]
@@ -323,13 +345,20 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
         const priorityDiff = priority(a) - priority(b);
         if (priorityDiff !== 0) return priorityDiff;
 
-        const aFollowUp = a.followUpAt ? Date.parse(a.followUpAt) : Number.POSITIVE_INFINITY;
-        const bFollowUp = b.followUpAt ? Date.parse(b.followUpAt) : Number.POSITIVE_INFINITY;
+        const aFollowUp = a.followUpAt
+          ? Date.parse(a.followUpAt)
+          : Number.POSITIVE_INFINITY;
+        const bFollowUp = b.followUpAt
+          ? Date.parse(b.followUpAt)
+          : Number.POSITIVE_INFINITY;
+
         if (aFollowUp !== bFollowUp) return aFollowUp - bFollowUp;
 
-        return (Date.parse(b.createdAt) || 0) - (Date.parse(a.createdAt) || 0);
+        const aUpdated = Date.parse(a.updatedAt || a.createdAt) || 0;
+        const bUpdated = Date.parse(b.updatedAt || b.createdAt) || 0;
+        return bUpdated - aUpdated;
       })
-      .slice(0, 12);
+      .slice(0, 6);
   }, [leads]);
 
   const adminAlerts = useMemo(() => buildAdminAlerts(leads), [leads]);
@@ -518,6 +547,41 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
     } catch (err: any) {
       setLeadEmailStatus('failed');
       setLeadEmailMessage(err?.message || 'Could not send operational alert email.');
+    }
+  };
+
+  const handleCompleteAction = async (lead: AdminLead) => {
+    if (!user || completingActionId) return;
+
+    setCompletingActionId(lead.id);
+    setError(null);
+    setSaveMessage(null);
+
+    try {
+      const activity = await completeLeadAction(
+        lead,
+        user.displayName || user.email || 'Admin'
+      );
+
+      setLeads((current) =>
+        current.map((record) =>
+          record.id === lead.id
+            ? {
+                ...record,
+                nextAction: undefined,
+                followUpAt: undefined,
+                updatedAt: new Date().toISOString(),
+                activityLog: [...(record.activityLog || []), activity].slice(-20)
+              }
+            : record
+        )
+      );
+
+      setSaveMessage(`Completed action for ${lead.name}.`);
+    } catch (err: any) {
+      setError(err?.message || 'No se pudo completar la acción.');
+    } finally {
+      setCompletingActionId(null);
     }
   };
 
@@ -865,47 +929,25 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
           ))}
         </section>
 
-        <section className="border border-[#E5E5E5] bg-white mb-6">
-          <div className="px-4 sm:px-5 py-4 border-b border-[#E5E5E5] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            <div>
-              <p className="font-mono-code text-[10px] font-bold uppercase tracking-wider">
-                Action Queue
-              </p>
-              <p className="text-xs text-[#6B6B6B] mt-1">
-                Priority work: overdue, due today, new/unreviewed, then upcoming follow-ups by date.
-              </p>
+        <section className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
+          <div className="border border-[#E5E5E5] bg-white">
+            <div className="px-4 sm:px-5 py-4 border-b border-[#E5E5E5] flex items-start justify-between gap-4">
+              <div>
+                <p className="font-mono-code text-[10px] font-bold uppercase tracking-wider">
+                  New Leads
+                </p>
+                <p className="text-xs text-[#6B6B6B] mt-1">
+                  Inbox for new and unreviewed opportunities.
+                </p>
+              </div>
+              <span className="font-mono-code text-[10px] text-[#6B6B6B]">
+                {newLeadInbox.length} visible
+              </span>
             </div>
-            <span className="font-mono-code text-[10px] text-[#6B6B6B]">
-              {actionQueue.length} items
-            </span>
-          </div>
 
-          {actionQueue.length > 0 ? (
-            <div className="divide-y divide-[#E5E5E5]">
-              {actionQueue.map((lead) => {
-                const bucket = getFollowUpBucket(lead);
-                const isNew = lead.status === 'PENDING_REVIEW' || lead.status === 'NEW';
-                const queueLabel =
-                  bucket === 'OVERDUE'
-                    ? 'OVERDUE'
-                    : bucket === 'TODAY'
-                    ? 'TODAY'
-                    : isNew
-                    ? 'NEW LEAD'
-                    : bucket === 'UPCOMING'
-                    ? 'UPCOMING'
-                    : 'ACTION';
-
-                const queueClass =
-                  bucket === 'OVERDUE'
-                    ? 'border-red-300 text-red-700 bg-red-50'
-                    : bucket === 'TODAY'
-                    ? 'border-amber-300 text-amber-800 bg-amber-50'
-                    : bucket === 'UPCOMING'
-                    ? 'border-slate-300 text-slate-700 bg-slate-50'
-                    : 'border-[#0A3F4D]/30 text-[#0A3F4D] bg-white';
-
-                return (
+            {newLeadInbox.length > 0 ? (
+              <div className="divide-y divide-[#E5E5E5]">
+                {newLeadInbox.map((lead) => (
                   <button
                     key={lead.id}
                     type="button"
@@ -914,48 +956,129 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                   >
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2 mb-1.5">
-                        <span className={`font-mono-code text-[9px] px-2 py-1 border ${queueClass}`}>
-                          {queueLabel}
+                        <span className="font-mono-code text-[9px] px-2 py-1 border border-[#0A3F4D]/30 text-[#0A3F4D]">
+                          NEW LEAD
                         </span>
-                        <span className="font-bold text-sm text-[#0A0A0A] truncate">
-                          {lead.name}
-                        </span>
+                        <span className="font-bold text-sm truncate">{lead.name}</span>
                         {lead.company && (
                           <span className="text-xs text-[#6B6B6B] truncate">
                             {lead.company}
                           </span>
                         )}
                       </div>
-
                       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-[#6B6B6B]">
-                        <span>
-                          {lead.nextAction || (isNew ? 'Review new inquiry' : 'No next action set')}
-                        </span>
-                        {lead.followUpAt && (
-                          <span className="font-mono-code">
-                            {formatDate(lead.followUpAt)}
-                          </span>
-                        )}
-                        <span>
-                          Owner: {lead.assignedTo || 'Unassigned'}
-                        </span>
+                        <span>Review and classify in CRM</span>
+                        <span className="font-mono-code">{formatDate(lead.createdAt)}</span>
                       </div>
                     </div>
-
                     <ChevronRight className="w-4 h-4 shrink-0 text-[#6B6B6B]" />
                   </button>
-                );
-              })}
+                ))}
+              </div>
+            ) : (
+              <div className="px-5 py-8 text-center">
+                <CheckCircle2 className="w-5 h-5 mx-auto mb-2 text-[#0A3F4D]" />
+                <p className="text-sm font-semibold">Inbox clear</p>
+                <p className="text-xs text-[#6B6B6B] mt-1">No new leads waiting for review.</p>
+              </div>
+            )}
+          </div>
+
+          <div className="border border-[#E5E5E5] bg-white">
+            <div className="px-4 sm:px-5 py-4 border-b border-[#E5E5E5] flex items-start justify-between gap-4">
+              <div>
+                <p className="font-mono-code text-[10px] font-bold uppercase tracking-wider">
+                  Priority Work
+                </p>
+                <p className="text-xs text-[#6B6B6B] mt-1">
+                  Execute one task at a time: overdue, today, then upcoming.
+                </p>
+              </div>
+              <span className="font-mono-code text-[10px] text-[#6B6B6B]">
+                {priorityWork.length} visible
+              </span>
             </div>
-          ) : (
-            <div className="px-5 py-8 text-center">
-              <CheckCircle2 className="w-5 h-5 mx-auto mb-2 text-[#0A3F4D]" />
-              <p className="text-sm font-semibold">Action queue clear</p>
-              <p className="text-xs text-[#6B6B6B] mt-1">
-                No overdue, due-today or unreviewed leads.
-              </p>
-            </div>
-          )}
+
+            {priorityWork.length > 0 ? (
+              <div className="divide-y divide-[#E5E5E5]">
+                {priorityWork.map((lead) => {
+                  const bucket = getFollowUpBucket(lead);
+                  const queueLabel =
+                    bucket === 'OVERDUE'
+                      ? 'OVERDUE'
+                      : bucket === 'TODAY'
+                      ? 'TODAY'
+                      : bucket === 'UPCOMING'
+                      ? 'UPCOMING'
+                      : 'ACTION';
+
+                  const queueClass =
+                    bucket === 'OVERDUE'
+                      ? 'border-red-300 text-red-700 bg-red-50'
+                      : bucket === 'TODAY'
+                      ? 'border-amber-300 text-amber-800 bg-amber-50'
+                      : bucket === 'UPCOMING'
+                      ? 'border-slate-300 text-slate-700 bg-slate-50'
+                      : 'border-[#0A3F4D]/30 text-[#0A3F4D] bg-white';
+
+                  return (
+                    <div key={lead.id} className="px-4 sm:px-5 py-4 hover:bg-[#FAFAFA] transition-colors">
+                      <div className="flex items-start justify-between gap-4">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedId(lead.id)}
+                          className="min-w-0 flex-1 text-left"
+                        >
+                          <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                            <span className={`font-mono-code text-[9px] px-2 py-1 border ${queueClass}`}>
+                              {queueLabel}
+                            </span>
+                            <span className="font-bold text-sm truncate">{lead.name}</span>
+                            {lead.company && (
+                              <span className="text-xs text-[#6B6B6B] truncate">
+                                {lead.company}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-[#6B6B6B]">
+                            <span>{lead.nextAction || 'Scheduled follow-up'}</span>
+                            {lead.followUpAt && (
+                              <span className="font-mono-code">{formatDate(lead.followUpAt)}</span>
+                            )}
+                            <span>Owner: {lead.assignedTo || 'Unassigned'}</span>
+                          </div>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleCompleteAction(lead)}
+                          disabled={completingActionId === lead.id}
+                          className="shrink-0 inline-flex items-center border border-[#0A3F4D] px-2.5 py-2 text-[9px] font-mono-code uppercase tracking-wider text-[#0A3F4D] bg-white hover:bg-[#F7F7F5] disabled:opacity-50"
+                          title="Complete current action"
+                        >
+                          {completingActionId === lead.id ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
+                          )}
+                          {completingActionId === lead.id ? 'Saving' : 'Complete'}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="px-5 py-8 text-center">
+                <CheckCircle2 className="w-5 h-5 mx-auto mb-2 text-[#0A3F4D]" />
+                <p className="text-sm font-semibold">Priority work clear</p>
+                <p className="text-xs text-[#6B6B6B] mt-1">
+                  No classified leads have an active task or scheduled follow-up.
+                </p>
+              </div>
+            )}
+          </div>
         </section>
 
         <section className="border border-[#E5E5E5] bg-white">

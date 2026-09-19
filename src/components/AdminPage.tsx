@@ -9,6 +9,7 @@ import type { User } from 'firebase/auth';
 import {
   AlertCircle,
   ArrowLeft,
+  Bell,
   CheckCircle2,
   ChevronRight,
   ExternalLink,
@@ -16,7 +17,8 @@ import {
   LogOut,
   RefreshCw,
   Save,
-  ShieldCheck
+  ShieldCheck,
+  X
 } from 'lucide-react';
 import { firebaseAuth } from '../lib/firebase';
 import {
@@ -100,6 +102,68 @@ function makeDraft(lead: AdminLead | null): LeadOperationsUpdate {
   };
 }
 
+type AdminAlert = {
+  id: string;
+  leadId: string;
+  level: 'critical' | 'warning' | 'info';
+  title: string;
+  description: string;
+  createdAt: string;
+};
+
+function buildAdminAlerts(leads: AdminLead[]): AdminAlert[] {
+  const alerts: AdminAlert[] = [];
+
+  for (const lead of leads) {
+    if (lead.status === 'CLIENT' || lead.status === 'LOST') continue;
+
+    const bucket = getFollowUpBucket(lead);
+
+    if (bucket === 'OVERDUE') {
+      alerts.push({
+        id: `overdue:${lead.id}:${lead.followUpAt || ''}`,
+        leadId: lead.id,
+        level: 'critical',
+        title: `Overdue follow-up · ${lead.name}`,
+        description: lead.nextAction || 'Follow-up is overdue.',
+        createdAt: lead.followUpAt || lead.createdAt
+      });
+      continue;
+    }
+
+    if (bucket === 'TODAY') {
+      alerts.push({
+        id: `today:${lead.id}:${lead.followUpAt || ''}`,
+        leadId: lead.id,
+        level: 'warning',
+        title: `Follow-up today · ${lead.name}`,
+        description: lead.nextAction || 'Follow-up is due today.',
+        createdAt: lead.followUpAt || lead.createdAt
+      });
+      continue;
+    }
+
+    if (lead.status === 'PENDING_REVIEW' || lead.status === 'NEW') {
+      alerts.push({
+        id: `new:${lead.id}:${lead.createdAt}`,
+        leadId: lead.id,
+        level: 'info',
+        title: `New lead · ${lead.name}`,
+        description: lead.company || lead.email,
+        createdAt: lead.createdAt
+      });
+    }
+  }
+
+  const rank = { critical: 0, warning: 1, info: 2 } as const;
+
+  return alerts.sort((a, b) => {
+    const levelDiff = rank[a.level] - rank[b.level];
+    if (levelDiff !== 0) return levelDiff;
+    return (Date.parse(b.createdAt) || 0) - (Date.parse(a.createdAt) || 0);
+  });
+}
+
 export const AdminPage: React.FC = () => {
   const [user, setUser] = useState<User | null>(firebaseAuth.currentUser);
   const [authLoading, setAuthLoading] = useState(true);
@@ -110,6 +174,19 @@ export const AdminPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [queryText, setQueryText] = useState('');
+  const [alertsOpen, setAlertsOpen] = useState(false);
+  const [readAlertIds, setReadAlertIds] = useState<string[]>(() => {
+    try {
+      const raw = window.localStorage.getItem('gkais-admin-read-alerts');
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed.filter((value) => typeof value === 'string') : [];
+    } catch {
+      return [];
+    }
+  });
+  const [browserAlertStatus, setBrowserAlertStatus] = useState<
+    'idle' | 'enabled' | 'unsupported' | 'blocked'
+  >('idle');
   const [statusFilter, setStatusFilter] = useState<'ALL' | LeadStatus>('ALL');
   const [followUpFilter, setFollowUpFilter] = useState<'ALL' | FollowUpBucket>('ALL');
   const [draft, setDraft] = useState<LeadOperationsUpdate>(
@@ -242,6 +319,87 @@ export const AdminPage: React.FC = () => {
       .slice(0, 8);
   }, [leads]);
 
+  const adminAlerts = useMemo(() => buildAdminAlerts(leads), [leads]);
+  const unreadAlerts = useMemo(
+    () => adminAlerts.filter((alert) => !readAlertIds.includes(alert.id)),
+    [adminAlerts, readAlertIds]
+  );
+
+  useEffect(() => {
+    const activeIds = new Set(adminAlerts.map((alert) => alert.id));
+    setReadAlertIds((current) => {
+      const next = current.filter((id) => activeIds.has(id));
+      if (next.length === current.length && next.every((id, index) => id === current[index])) {
+        return current;
+      }
+      try {
+        window.localStorage.setItem('gkais-admin-read-alerts', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  }, [adminAlerts]);
+
+  useEffect(() => {
+    if (
+      typeof window === 'undefined' ||
+      !('Notification' in window) ||
+      Notification.permission !== 'granted' ||
+      unreadAlerts.length === 0
+    ) {
+      return;
+    }
+
+    const latest = unreadAlerts[0];
+    const notificationKey = `gkais-browser-alert:${latest.id}`;
+
+    try {
+      if (window.sessionStorage.getItem(notificationKey) === '1') return;
+      new Notification(latest.title, {
+        body: latest.description,
+        tag: latest.id
+      });
+      window.sessionStorage.setItem(notificationKey, '1');
+    } catch {
+      // Embedded previews may block native notifications. In-app alerts remain available.
+    }
+  }, [unreadAlerts]);
+
+  const persistReadAlerts = (ids: string[]) => {
+    const unique = Array.from(new Set(ids)).slice(-200);
+    setReadAlertIds(unique);
+    try {
+      window.localStorage.setItem('gkais-admin-read-alerts', JSON.stringify(unique));
+    } catch {}
+  };
+
+  const markAlertRead = (alertId: string) => {
+    persistReadAlerts([...readAlertIds, alertId]);
+  };
+
+  const markAllAlertsRead = () => {
+    persistReadAlerts(adminAlerts.map((alert) => alert.id));
+  };
+
+  const openAlertLead = (alert: AdminAlert) => {
+    markAlertRead(alert.id);
+    setSelectedId(alert.leadId);
+    setAlertsOpen(false);
+  };
+
+  const enableBrowserAlerts = async () => {
+    if (typeof window === 'undefined' || !('Notification' in window)) {
+      setBrowserAlertStatus('unsupported');
+      return;
+    }
+
+    try {
+      const permission = await Notification.requestPermission();
+      setBrowserAlertStatus(permission === 'granted' ? 'enabled' : 'blocked');
+    } catch {
+      setBrowserAlertStatus('blocked');
+    }
+  };
+
   const handleGoogleSignIn = async () => {
     setError(null);
     try {
@@ -367,6 +525,20 @@ export const AdminPage: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setAlertsOpen((current) => !current)}
+              className="relative inline-flex items-center border border-[#E5E5E5] bg-white px-3 py-2 text-xs hover:bg-[#F7F7F5]"
+              aria-label="Open alerts"
+            >
+              <Bell className="w-3.5 h-3.5 mr-2" />
+              Alerts
+              {unreadAlerts.length > 0 && (
+                <span className="ml-2 min-w-5 h-5 px-1 inline-flex items-center justify-center bg-[#0A0A0A] text-white font-mono-code text-[9px]">
+                  {unreadAlerts.length > 99 ? '99+' : unreadAlerts.length}
+                </span>
+              )}
+            </button>
             <div className="hidden md:block text-right">
               <p className="text-xs font-semibold">{user.displayName || user.email}</p>
               <p className="font-mono-code text-[9px] text-[#6B6B6B]">Authenticated admin preview</p>
@@ -382,6 +554,115 @@ export const AdminPage: React.FC = () => {
           </div>
         </div>
       </header>
+
+      {alertsOpen && (
+        <div className="fixed inset-0 z-50 bg-black/20 flex justify-end" onClick={() => setAlertsOpen(false)}>
+          <aside
+            className="w-full max-w-md h-full bg-white border-l border-[#E5E5E5] shadow-xl flex flex-col"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="p-5 border-b border-[#E5E5E5] flex items-start justify-between gap-4">
+              <div>
+                <p className="font-mono-code text-[10px] uppercase tracking-wider text-[#6B6B6B]">
+                  Alert Center
+                </p>
+                <h2 className="text-2xl font-extrabold tracking-tight mt-1">Operational alerts</h2>
+                <p className="text-xs text-[#6B6B6B] mt-1">
+                  {unreadAlerts.length} unread · {adminAlerts.length} active
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAlertsOpen(false)}
+                className="p-2 border border-[#E5E5E5] hover:bg-[#F7F7F5]"
+                aria-label="Close alerts"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-4 border-b border-[#E5E5E5] flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={markAllAlertsRead}
+                disabled={adminAlerts.length === 0}
+                className="px-3 py-2 border border-[#E5E5E5] text-[10px] font-semibold uppercase tracking-wider hover:bg-[#F7F7F5] disabled:opacity-50"
+              >
+                Mark all read
+              </button>
+              <button
+                type="button"
+                onClick={enableBrowserAlerts}
+                className="px-3 py-2 border border-[#0A0A0A] text-[10px] font-semibold uppercase tracking-wider hover:bg-[#F7F7F5]"
+              >
+                Enable browser alerts
+              </button>
+            </div>
+
+            {browserAlertStatus === 'blocked' && (
+              <div className="mx-4 mt-4 border border-amber-200 bg-amber-50 p-3 text-[10px] text-amber-900">
+                Browser notifications are blocked in this environment. The in-app Alert Center still works.
+              </div>
+            )}
+
+            {browserAlertStatus === 'unsupported' && (
+              <div className="mx-4 mt-4 border border-[#E5E5E5] bg-[#FAFAFA] p-3 text-[10px] text-[#6B6B6B]">
+                Native browser notifications are not supported here. The in-app Alert Center still works.
+              </div>
+            )}
+
+            <div className="flex-1 overflow-y-auto divide-y divide-[#E5E5E5]">
+              {adminAlerts.length === 0 ? (
+                <div className="p-8 text-center">
+                  <CheckCircle2 className="w-6 h-6 mx-auto text-[#0A3F4D]" />
+                  <p className="mt-3 font-semibold">No active alerts</p>
+                  <p className="mt-1 text-xs text-[#6B6B6B]">
+                    There are no overdue, due-today or new lead alerts.
+                  </p>
+                </div>
+              ) : (
+                adminAlerts.map((alert) => {
+                  const unread = !readAlertIds.includes(alert.id);
+                  const levelClass =
+                    alert.level === 'critical'
+                      ? 'border-red-300 text-red-700 bg-red-50'
+                      : alert.level === 'warning'
+                      ? 'border-amber-300 text-amber-800 bg-amber-50'
+                      : 'border-[#0A3F4D]/30 text-[#0A3F4D] bg-white';
+
+                  return (
+                    <button
+                      key={alert.id}
+                      type="button"
+                      onClick={() => openAlertLead(alert)}
+                      className="w-full p-4 text-left hover:bg-[#FAFAFA] transition-colors"
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className={`font-mono-code text-[8px] px-1.5 py-0.5 border ${levelClass}`}>
+                              {alert.level.toUpperCase()}
+                            </span>
+                            {unread && (
+                              <span className="w-2 h-2 rounded-full bg-[#0A3F4D]" aria-label="Unread" />
+                            )}
+                          </div>
+                          <p className="text-sm font-bold">{alert.title}</p>
+                          <p className="text-xs text-[#6B6B6B] mt-1">{alert.description}</p>
+                          <p className="font-mono-code text-[9px] text-[#8A8A8A] mt-2">
+                            {formatDate(alert.createdAt)}
+                          </p>
+                        </div>
+                        <ChevronRight className="w-4 h-4 shrink-0 text-[#6B6B6B] mt-1" />
+                      </div>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </aside>
+        </div>
+      )}
 
       <div className="max-w-[1600px] mx-auto px-5 sm:px-8 py-8">
         <div className="mb-6 flex flex-col lg:flex-row lg:items-end lg:justify-between gap-5">

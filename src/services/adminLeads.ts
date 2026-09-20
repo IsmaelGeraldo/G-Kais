@@ -304,3 +304,40 @@ export async function completeLeadAction(
     followUpAt: playbook.followUpAt
   };
 }
+
+
+export async function rescheduleLeadAction(
+  lead: AdminLead,
+  actorLabel: string,
+  hoursFromNow: number
+): Promise<LeadActionCompletion> {
+  const collectionName =
+    lead.source === 'AUDIT' ? 'audit_submissions' : 'contact_submissions';
+
+  const nextAction = lead.nextAction?.trim() || 'Follow up';
+  const followUpAt = addHours(hoursFromNow);
+
+  const activity: LeadActivity = {
+    at: new Date().toISOString(),
+    actor: actorLabel.trim().slice(0, 120) || 'Admin',
+    fromStatus: lead.status,
+    toStatus: lead.status,
+    nextAction: `Rescheduled: ${nextAction}`
+  };
+
+  const activityLog = [...(lead.activityLog || []), activity].slice(-20);
+
+  await updateDoc(doc(firestoreDb, collectionName, lead.id), {
+    nextAction,
+    followUpAt,
+    activityLog,
+    updatedAt: serverTimestamp()
+  });
+
+  return {
+    activity,
+    status: lead.status,
+    nextAction,
+    followUpAt
+  };
+}

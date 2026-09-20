@@ -379,6 +379,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
   const [leadEmailMessage, setLeadEmailMessage] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | LeadStatus>('ALL');
   const [followUpFilter, setFollowUpFilter] = useState<'ALL' | FollowUpBucket>('ALL');
+  const [priorityFilter, setPriorityFilter] = useState<'ALL' | 'HIGH' | 'MEDIUM' | 'NORMAL'>('ALL');
   const [needsActionOnly, setNeedsActionOnly] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
   const [draft, setDraft] = useState<LeadOperationsUpdate>(
@@ -458,9 +459,26 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
           )
         );
 
-      return matchesStatus && matchesFollowUp && matchesSearch && matchesNeedsAction;
+      const matchesPriority =
+        priorityFilter === 'ALL' ||
+        getWorkPriority(lead).label === priorityFilter;
+
+      return (
+        matchesStatus &&
+        matchesFollowUp &&
+        matchesSearch &&
+        matchesNeedsAction &&
+        matchesPriority
+      );
     });
-  }, [leads, queryText, statusFilter, followUpFilter, needsActionOnly]);
+  }, [
+    leads,
+    queryText,
+    statusFilter,
+    followUpFilter,
+    priorityFilter,
+    needsActionOnly
+  ]);
 
   const selectedLead =
     leads.find((lead) => lead.id === selectedId) ||
@@ -948,6 +966,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
 
   const filterPipelineByStage = (status: LeadStatus) => {
     setNeedsActionOnly(false);
+    setPriorityFilter('ALL');
     setStatusFilter(status);
 
     window.requestAnimationFrame(() => {
@@ -961,6 +980,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
   const showNeedsAction = () => {
     setStatusFilter('ALL');
     setFollowUpFilter('ALL');
+    setPriorityFilter('ALL');
     setNeedsActionOnly(true);
 
     window.requestAnimationFrame(() => {
@@ -1785,6 +1805,22 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                 <option value="UNSCHEDULED">Unscheduled</option>
               </select>
 
+              <select
+                value={priorityFilter}
+                onChange={(event) => {
+                  setNeedsActionOnly(false);
+                  setPriorityFilter(
+                    event.target.value as 'ALL' | 'HIGH' | 'MEDIUM' | 'NORMAL'
+                  );
+                }}
+                className="border border-[#E5E5E5] bg-[#FAFAFA] px-3 py-2 text-xs focus:outline-none focus:border-[#0A3F4D]"
+              >
+                <option value="ALL">All priorities</option>
+                <option value="HIGH">High priority</option>
+                <option value="MEDIUM">Medium priority</option>
+                <option value="NORMAL">Normal priority</option>
+              </select>
+
               <input
                 value={queryText}
                 onChange={(event) => setQueryText(event.target.value)}
@@ -1796,12 +1832,13 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
 
           <div className="grid grid-cols-1 xl:grid-cols-12 min-h-[640px] xl:h-[760px]">
             <div className="xl:col-span-8 overflow-auto border-b xl:border-b-0 xl:border-r border-[#E5E5E5]">
-              <table className="w-full min-w-[980px] text-left text-xs">
+              <table className="w-full min-w-[1080px] text-left text-xs">
                 <thead className="sticky top-0 z-10 bg-[#FAFAFA] border-b border-[#E5E5E5] font-mono-code text-[10px] uppercase text-[#6B6B6B] shadow-[0_1px_0_rgba(0,0,0,0.06)]">
                   <tr>
                     <th className="px-4 py-3">Lead</th>
                     <th className="px-3 py-3">Source</th>
                     <th className="px-3 py-3">Status</th>
+                    <th className="px-3 py-3">Priority</th>
                     <th className="px-3 py-3">Owner</th>
                     <th className="px-3 py-3">Next action</th>
                     <th className="px-3 py-3">Follow-up</th>
@@ -1812,13 +1849,13 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                 <tbody className="divide-y divide-[#E5E5E5]">
                   {dataLoading && leads.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="py-16 text-center">
+                      <td colSpan={8} className="py-16 text-center">
                         <Loader2 className="w-5 h-5 animate-spin mx-auto" />
                       </td>
                     </tr>
                   ) : filteredLeads.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="py-16 text-center text-[#6B6B6B]">
+                      <td colSpan={8} className="py-16 text-center text-[#6B6B6B]">
                         No records found.
                       </td>
                     </tr>
@@ -1842,6 +1879,19 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                         </td>
                         <td className="px-3 py-4 font-medium">
                           {STATUS_OPTIONS.find((option) => option.value === lead.status)?.label || lead.status}
+                        </td>
+                        <td className="px-3 py-4">
+                          <span
+                            className={`font-mono-code text-[8px] px-2 py-1 border ${
+                              getWorkPriority(lead).label === 'HIGH'
+                                ? 'border-red-200 text-red-700 bg-red-50'
+                                : getWorkPriority(lead).label === 'MEDIUM'
+                                ? 'border-amber-200 text-amber-800 bg-amber-50'
+                                : 'border-[#E5E5E5] text-[#777] bg-white'
+                            }`}
+                          >
+                            {getWorkPriority(lead).label}
+                          </span>
                         </td>
                         <td className="px-3 py-4">{lead.assignedTo || '—'}</td>
                         <td className="px-3 py-4 max-w-[220px] truncate">

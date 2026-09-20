@@ -9,8 +9,10 @@ import { firestoreDb } from '../lib/firebase';
 import type {
   AdminLead,
   LeadActivity,
+  LeadActionCompletion,
   LeadOperationsUpdate,
-  LeadStatus
+  LeadStatus,
+  TaskOutcome
 } from '../types/admin';
 
 function normalizeCreatedAt(value: unknown): string {
@@ -78,7 +80,11 @@ function normalizeActivityLog(value: unknown): LeadActivity[] {
       actor: String(entry.actor || 'Admin'),
       fromStatus: normalizeStatus(entry.fromStatus),
       toStatus: normalizeStatus(entry.toStatus),
-      nextAction: String(entry.nextAction || '')
+      nextAction: String(entry.nextAction || ''),
+      result:
+        typeof entry.result === 'string'
+          ? (entry.result as TaskOutcome)
+          : undefined
     }))
     .filter((entry) => entry.at)
     .slice(-20);
@@ -201,31 +207,100 @@ export async function updateLeadOperations(
 }
 
 
+function addHours(hours: number): string {
+  const date = new Date();
+  date.setHours(date.getHours() + hours);
+  return date.toISOString();
+}
+
+function outcomePlaybook(
+  lead: AdminLead,
+  outcome: TaskOutcome
+): { status: LeadStatus; nextAction: string; followUpAt: string } {
+  const keepClientStatus = (nextStatus: LeadStatus): LeadStatus =>
+    lead.status === 'CLIENT' ? 'CLIENT' : nextStatus;
+
+  switch (outcome) {
+    case 'NO_ANSWER':
+      return {
+        status: keepClientStatus('FOLLOW_UP'),
+        nextAction: 'Follow up',
+        followUpAt: addHours(24)
+      };
+    case 'INTERESTED':
+      return {
+        status: keepClientStatus('CONTACTED'),
+        nextAction: 'Schedule meeting',
+        followUpAt: addHours(24)
+      };
+    case 'MEETING_BOOKED':
+      return {
+        status: keepClientStatus('MEETING'),
+        nextAction: 'Confirm meeting',
+        followUpAt: ''
+      };
+    case 'PROPOSAL_SENT':
+      return {
+        status: keepClientStatus('FOLLOW_UP'),
+        nextAction: 'Follow up',
+        followUpAt: addHours(48)
+      };
+    case 'SALE_CLOSED':
+      return {
+        status: 'CLIENT',
+        nextAction: '',
+        followUpAt: ''
+      };
+    case 'NOT_INTERESTED':
+      return {
+        status: keepClientStatus('LOST'),
+        nextAction: '',
+        followUpAt: ''
+      };
+    case 'COMPLETED':
+    default:
+      return {
+        status: lead.status,
+        nextAction: '',
+        followUpAt: ''
+      };
+  }
+}
+
 export async function completeLeadAction(
   lead: AdminLead,
-  actorLabel: string
-): Promise<LeadActivity> {
+  actorLabel: string,
+  outcome: TaskOutcome
+): Promise<LeadActionCompletion> {
   const collectionName =
     lead.source === 'AUDIT' ? 'audit_submissions' : 'contact_submissions';
 
   const completedLabel = (lead.nextAction?.trim() || 'Scheduled follow-up').slice(0, 220);
+  const playbook = outcomePlaybook(lead, outcome);
 
   const activity: LeadActivity = {
     at: new Date().toISOString(),
     actor: actorLabel.trim().slice(0, 120) || 'Admin',
     fromStatus: lead.status,
-    toStatus: lead.status,
-    nextAction: `Completed: ${completedLabel}`
+    toStatus: playbook.status,
+    nextAction: `Completed: ${completedLabel}`,
+    result: outcome
   };
 
   const activityLog = [...(lead.activityLog || []), activity].slice(-20);
 
   await updateDoc(doc(firestoreDb, collectionName, lead.id), {
-    nextAction: '',
-    followUpAt: '',
+    status: playbook.status,
+    nextAction: playbook.nextAction,
+    followUpAt: playbook.followUpAt,
     activityLog,
     updatedAt: serverTimestamp()
   });
 
-  return activity;
+  return {
+    activity,
+    status: playbook.status,
+    nextAction: playbook.nextAction,
+    followUpAt: playbook.followUpAt
+  };
 }

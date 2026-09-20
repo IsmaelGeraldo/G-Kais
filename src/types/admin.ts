@@ -15,12 +15,29 @@ export type FollowUpBucket =
   | 'UPCOMING'
   | 'UNSCHEDULED';
 
+export type TaskOutcome =
+  | 'COMPLETED'
+  | 'NO_ANSWER'
+  | 'INTERESTED'
+  | 'MEETING_BOOKED'
+  | 'PROPOSAL_SENT'
+  | 'SALE_CLOSED'
+  | 'NOT_INTERESTED';
+
 export interface LeadActivity {
   at: string;
   actor: string;
   fromStatus: LeadStatus;
   toStatus: LeadStatus;
   nextAction: string;
+  result?: TaskOutcome;
+}
+
+export interface LeadActionCompletion {
+  activity: LeadActivity;
+  status: LeadStatus;
+  nextAction: string;
+  followUpAt: string;
 }
 
 export interface AdminLead {

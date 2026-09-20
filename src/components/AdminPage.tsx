@@ -342,6 +342,7 @@ function buildAdminAlerts(leads: AdminLead[]): AdminAlert[] {
 
 export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }) => {
   const crmPanelRef = useRef<HTMLElement | null>(null);
+  const pipelineSectionRef = useRef<HTMLElement | null>(null);
   const [user, setUser] = useState<User | null>(firebaseAuth.currentUser);
   const [authLoading, setAuthLoading] = useState(true);
   const [leads, setLeads] = useState<AdminLead[]>([]);
@@ -535,6 +536,24 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
           lead.status === 'MEETING')
     ).length;
 
+    const stageCounts = STATUS_OPTIONS.reduce<Record<LeadStatus, number>>(
+      (counts, option) => {
+        counts[option.value] = leads.filter(
+          (lead) => lead.status === option.value
+        ).length;
+        return counts;
+      },
+      {
+        PENDING_REVIEW: 0,
+        NEW: 0,
+        CONTACTED: 0,
+        FOLLOW_UP: 0,
+        MEETING: 0,
+        CLIENT: 0,
+        LOST: 0
+      }
+    );
+
     return {
       total: leads.length,
       overdueCount,
@@ -543,7 +562,8 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
       clientCount,
       tasksDoneToday,
       outcomesToday,
-      needsActionCount
+      needsActionCount,
+      stageCounts
     };
   }, [leads]);
 
@@ -912,6 +932,17 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
     } finally {
       setCompletingActionId(null);
     }
+  };
+
+  const filterPipelineByStage = (status: LeadStatus) => {
+    setStatusFilter(status);
+
+    window.requestAnimationFrame(() => {
+      pipelineSectionRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start'
+      });
+    });
   };
 
   const applyQuickPlaybook = (playbookId: string) => {
@@ -1429,6 +1460,57 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
           </div>
         </section>
 
+        <section className="border border-[#E5E5E5] bg-white mb-6">
+          <div className="px-4 sm:px-5 py-4 border-b border-[#E5E5E5] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div>
+              <p className="font-mono-code text-[10px] font-bold uppercase tracking-wider">
+                Pipeline by Stage
+              </p>
+              <p className="text-xs text-[#6B6B6B] mt-1">
+                See where opportunities are accumulating and jump directly to that stage.
+              </p>
+            </div>
+            {statusFilter !== 'ALL' && (
+              <button
+                type="button"
+                onClick={() => setStatusFilter('ALL')}
+                className="font-mono-code text-[9px] uppercase tracking-wider underline text-[#6B6B6B] hover:text-[#0A0A0A]"
+              >
+                Clear stage filter
+              </button>
+            )}
+          </div>
+
+          <div className="overflow-x-auto">
+            <div className="grid grid-cols-7 min-w-[820px]">
+              {STATUS_OPTIONS.map((option) => {
+                const active = statusFilter === option.value;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => filterPipelineByStage(option.value)}
+                    className={`px-4 py-4 text-left border-r last:border-r-0 border-[#E5E5E5] transition-colors ${
+                      active ? 'bg-[#0A0A0A] text-white' : 'bg-white hover:bg-[#FAFAFA]'
+                    }`}
+                  >
+                    <p
+                      className={`font-mono-code text-[8px] uppercase tracking-wider ${
+                        active ? 'text-white/60' : 'text-[#777]'
+                      }`}
+                    >
+                      {option.label}
+                    </p>
+                    <p className="text-2xl font-extrabold mt-1">
+                      {metrics.stageCounts[option.value]}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+
         <section className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
           <div className="border border-[#E5E5E5] bg-white">
             <div className="px-4 sm:px-5 py-4 border-b border-[#E5E5E5] flex items-start justify-between gap-4">
@@ -1616,7 +1698,10 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
           </div>
         </section>
 
-        <section className="border border-[#E5E5E5] bg-white">
+        <section
+          ref={pipelineSectionRef}
+          className="border border-[#E5E5E5] bg-white scroll-mt-6"
+        >
           <div className="p-4 border-b border-[#E5E5E5] flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
             <div>
               <p className="font-mono-code text-[10px] font-bold uppercase tracking-wider">Lead pipeline</p>

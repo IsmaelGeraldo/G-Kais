@@ -20,9 +20,9 @@ const STAGES: StageItem[] = [
     explanation: 'Inbound demand initiates across webforms, direct email, WhatsApp, and partner channels.',
     technicalSub: 'Omnichannel Ingestion',
     specItems: [
-      { key: 'Channels', value: 'Web, Email, WhatsApp, API' },
-      { key: 'Format', value: 'Unstructured text, audio, form data' },
-      { key: 'Reliability', value: 'Continuous failover redundancy' }
+      { key: 'Channels', value: 'Configured per business and integration' },
+      { key: 'Input', value: 'Forms, messages and structured lead data' },
+      { key: 'Control', value: 'Validation, routing and human oversight' }
     ]
   },
   {
@@ -33,9 +33,9 @@ const STAGES: StageItem[] = [
     explanation: 'Collect opportunities from the channels your business already uses.',
     technicalSub: 'Real-Time Ingestion Pipeline',
     specItems: [
-      { key: 'Capture speed', value: 'Real-time event capture' },
-      { key: 'Spam filter', value: 'Deterministic DKIM / SPF verification' },
-      { key: 'Encryption', value: 'Standard TLS in transit and at rest' }
+      { key: 'Capture', value: 'Immediate intake when a connected source sends data' },
+      { key: 'Protection', value: 'Validation and anti-abuse controls by channel' },
+      { key: 'Data handling', value: 'Protected access and controlled permissions' }
     ]
   },
   {
@@ -46,9 +46,9 @@ const STAGES: StageItem[] = [
     explanation: 'Understand intent, urgency and context before deciding what happens next.',
     technicalSub: 'Intent & Qualification Parsing',
     specItems: [
-      { key: 'Qualification score', value: '0 - 100 ICP fit matrix' },
-      { key: 'Context extraction', value: 'Budget, timeline, decision authority' },
-      { key: 'Sentiment model', value: 'Commercial intent classifier' }
+      { key: 'Analysis', value: 'Intent, urgency and commercial context' },
+      { key: 'Context', value: 'Needs, timing and relevant lead details' },
+      { key: 'Decision support', value: 'AI-assisted signals with human review where needed' }
     ]
   },
   {
@@ -59,9 +59,9 @@ const STAGES: StageItem[] = [
     explanation: 'Identify which opportunities require immediate attention.',
     technicalSub: 'Algorithmic Escalation',
     specItems: [
-      { key: 'Routing', value: 'VIP Enterprise vs Self-serve' },
-      { key: 'SLA Sentinel', value: 'Configurable response thresholds' },
-      { key: 'Rep alerts', value: 'Slack / Mobile / SMS push' }
+      { key: 'Routing', value: 'Priority rules based on business criteria' },
+      { key: 'Timing', value: 'Due today, overdue and upcoming follow-up logic' },
+      { key: 'Alerts', value: 'Operational alerts and configured notification channels' }
     ]
   },
   {
@@ -69,12 +69,12 @@ const STAGES: StageItem[] = [
     num: '05',
     label: 'CRM',
     type: 'sync',
-    explanation: 'Synchronize customer profile, intent telemetry, and deal ownership automatically.',
+    explanation: 'Keep lead context, ownership, next actions and commercial status in one operational record.',
     technicalSub: 'Bidirectional Data Sync',
     specItems: [
-      { key: 'Integrations', value: 'HubSpot, Salesforce, Pipedrive, Notion' },
-      { key: 'Manual data entry', value: 'Automated CRM logging' },
-      { key: 'Audit history', value: 'Full transcript & timeline logged' }
+      { key: 'CRM', value: 'G-KAIS workspace or external integration by project' },
+      { key: 'Operations', value: 'Status, owner, next action and follow-up tracking' },
+      { key: 'History', value: 'Activity timeline for operational changes and task results' }
     ]
   },
   {
@@ -82,12 +82,12 @@ const STAGES: StageItem[] = [
     num: '06',
     label: 'RESPONSE',
     type: 'engine',
-    explanation: 'Deliver context-grounded, branded technical answers in seconds.',
+    explanation: 'Support fast, consistent responses using approved templates or AI assistance when configured.',
     technicalSub: 'Brand-Governed Autonomous Dispatch',
     specItems: [
-      { key: 'Response speed', value: 'Real-time response' },
-      { key: 'Knowledge source', value: 'Verified company docs & pricing limits' },
-      { key: 'Tone', value: 'Calibrated B2B executive tone' }
+      { key: 'Response', value: 'Templates or AI-assisted responses when configured' },
+      { key: 'Knowledge', value: 'Business-approved information and operating rules' },
+      { key: 'Control', value: 'Human approval can remain in the loop' }
     ]
   },
   {
@@ -98,9 +98,9 @@ const STAGES: StageItem[] = [
     explanation: 'Keep conversations moving when prospects are not ready to book.',
     technicalSub: 'Autonomous Multi-Touch Cadence',
     specItems: [
-      { key: 'Touch cadence', value: 'Intelligent interval (24h, 72h, 7d)' },
-      { key: 'Value-add inject', value: 'Relevant case studies & benchmarks' },
-      { key: 'Target outcome', value: 'Recovery KPI (Illustrative)' }
+      { key: 'Cadence', value: 'Task engine, reminders and configurable intervals' },
+      { key: 'Next action', value: 'Call, WhatsApp, email, proposal, meeting or follow-up' },
+      { key: 'Outcome', value: 'Clear result and next step instead of forgotten leads' }
     ]
   },
   {
@@ -111,9 +111,9 @@ const STAGES: StageItem[] = [
     explanation: 'Turn managed opportunities into measurable outcomes.',
     technicalSub: 'Meeting & Revenue Confirmation',
     specItems: [
-      { key: 'Outcome', value: 'Confirmed calendar demo or quote acceptance' },
-      { key: 'Preparation', value: 'Automated prep briefing delivered' },
-      { key: 'Team handoff', value: 'Complete briefing delivered to rep' }
+      { key: 'Outcome', value: 'Meeting, proposal, client, lost or another defined result' },
+      { key: 'Handoff', value: 'Context available before the next human action' },
+      { key: 'Measurement', value: 'Track task completion and commercial outcomes' }
     ]
   }
 ];
@@ -152,7 +152,7 @@ export const TheSystemSection: React.FC = () => {
                 COMMERCIAL WORKFLOW GRAPH
               </span>
               <span className="text-[#0A0A0A]/30 hidden sm:inline">|</span>
-              <span className="hidden sm:inline">8 STAGES DETERMINISTIC</span>
+              <span className="hidden sm:inline">8 STAGE EXAMPLE WORKFLOW</span>
             </div>
             <div className="text-[11px] text-[#0A3F4D] font-medium">
               ACTIVE STAGE: {selectedStage.num} // {selectedStage.label}

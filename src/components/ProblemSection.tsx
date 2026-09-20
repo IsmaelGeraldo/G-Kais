@@ -20,7 +20,7 @@ const PROBLEMS: ProblemItem[] = [
   {
     num: '03',
     title: 'Missed follow-ups',
-    detail: 'Over 80% of sales require multiple touches, yet most opportunities are dropped after a single silence.'
+    detail: 'Many opportunities need more than one interaction, but follow-up is often forgotten once the first conversation goes quiet.'
   },
   {
     num: '04',

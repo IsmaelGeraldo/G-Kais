@@ -7,6 +7,7 @@ import React, { useEffect, useState } from 'react';
 import { Header } from './components/Header.tsx';
 import { Hero } from './components/Hero.tsx';
 import { ProblemSection } from './components/ProblemSection.tsx';
+import { OpportunityRecoverySection } from './components/OpportunityRecoverySection.tsx';
 import { TheSystemSection } from './components/TheSystemSection.tsx';
 import { LeadFlowSection } from './components/LeadFlowSection.tsx';
 import { HumanControlSection } from './components/HumanControlSection.tsx';
@@ -62,25 +63,28 @@ function PublicApp({ onOpenAdmin }: { onOpenAdmin: () => void }) {
         {/* 3. Problem Section */}
         <ProblemSection />
 
-        {/* 4. The System ("One system. Every opportunity.") */}
+        {/* 4. Opportunity recovery example */}
+        <OpportunityRecoverySection />
+
+        {/* 5. The System ("One system. Every opportunity.") */}
         <TheSystemSection />
 
-        {/* 5. LeadFlow Section (SaaS Clean Dark Interface) */}
+        {/* 6. LeadFlow Section (SaaS Clean Dark Interface) */}
         <LeadFlowSection onExplore={handleOpenLeadFlow} onOpenAudit={handleOpenAudit} />
 
-        {/* 6. Human + AI ("AI handles the process. Humans keep control.") */}
+        {/* 7. Human + AI ("AI handles the process. Humans keep control.") */}
         <HumanControlSection />
 
-        {/* 7. Works with your existing tools */}
+        {/* 8. Works with your existing tools */}
         <ExistingToolsSection />
 
-        {/* 8. Product Ecosystem ("One architecture. Multiple systems.") */}
+        {/* 9. Product Ecosystem ("One architecture. Multiple systems.") */}
         <ProductsSection />
 
-        {/* 8. Process ("From opportunity to operating system.") */}
+        {/* 10. Process ("From opportunity to operating system.") */}
         <ProcessSection />
 
-        {/* 9. Free Audit CTA & Form Section */}
+        {/* 11. Free Audit CTA & Form Section */}
         <AuditCtaSection onOpenAudit={handleOpenAudit} />
       </main>
 

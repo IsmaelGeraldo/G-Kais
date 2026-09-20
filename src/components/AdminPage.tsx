@@ -25,6 +25,7 @@ import { firebaseAuth } from '../lib/firebase';
 import {
   completeLeadAction,
   fetchAdminLeads,
+  rescheduleLeadAction,
   updateLeadOperations
 } from '../services/adminLeads';
 import type {
@@ -292,6 +293,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
   const [dataLoading, setDataLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [completingActionId, setCompletingActionId] = useState<string | null>(null);
+  const [reschedulingActionId, setReschedulingActionId] = useState<string | null>(null);
   const [taskCompletionLead, setTaskCompletionLead] = useState<AdminLead | null>(null);
   const [taskOutcome, setTaskOutcome] = useState<TaskOutcome>('COMPLETED');
   const [error, setError] = useState<string | null>(null);
@@ -702,6 +704,57 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
     setTaskOutcome('COMPLETED');
   };
 
+  const handleRescheduleAction = async (hours: number) => {
+    const lead = taskCompletionLead;
+    if (!lead || !user || reschedulingActionId || completingActionId) return;
+
+    setReschedulingActionId(lead.id);
+    setError(null);
+    setSaveMessage(null);
+
+    try {
+      const completion = await rescheduleLeadAction(
+        lead,
+        user.displayName || user.email || 'Admin',
+        hours
+      );
+
+      setLeads((current) =>
+        current.map((record) =>
+          record.id === lead.id
+            ? {
+                ...record,
+                nextAction: completion.nextAction,
+                followUpAt: completion.followUpAt,
+                updatedAt: new Date().toISOString(),
+                activityLog: [
+                  ...(record.activityLog || []),
+                  completion.activity
+                ].slice(-20)
+              }
+            : record
+        )
+      );
+
+      if (selectedId === lead.id) {
+        setDraft((current) => ({
+          ...current,
+          nextAction: completion.nextAction,
+          followUpAt: completion.followUpAt
+        }));
+      }
+
+      setSaveMessage(
+        `${lead.name} rescheduled for ${formatDate(completion.followUpAt)}.`
+      );
+      setTaskCompletionLead(null);
+    } catch (err: any) {
+      setError(err?.message || 'No se pudo reprogramar la acción.');
+    } finally {
+      setReschedulingActionId(null);
+    }
+  };
+
   const handleCompleteAction = async () => {
     const lead = taskCompletionLead;
     if (!lead || !user || completingActionId) return;
@@ -1057,7 +1110,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
         <div
           className="fixed inset-0 z-[60] bg-black/30 flex items-center justify-center px-4"
           onClick={() => {
-            if (!completingActionId) setTaskCompletionLead(null);
+            if (!completingActionId && !reschedulingActionId) setTaskCompletionLead(null);
           }}
         >
           <section
@@ -1079,7 +1132,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
               <button
                 type="button"
                 onClick={() => setTaskCompletionLead(null)}
-                disabled={Boolean(completingActionId)}
+                disabled={Boolean(completingActionId || reschedulingActionId)}
                 className="p-2 border border-[#E5E5E5] hover:bg-[#F7F7F5] disabled:opacity-50"
                 aria-label="Close task result"
               >
@@ -1120,11 +1173,34 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                 </p>
               </div>
 
+              <div className="mt-4">
+                <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#6B6B6B] mb-2">
+                  Reschedule instead
+                </p>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    ['+2 HOURS', 2],
+                    ['TOMORROW', 24],
+                    ['+2 DAYS', 48]
+                  ].map(([label, hours]) => (
+                    <button
+                      key={String(label)}
+                      type="button"
+                      onClick={() => handleRescheduleAction(Number(hours))}
+                      disabled={Boolean(completingActionId || reschedulingActionId)}
+                      className="border border-[#D8D8D8] bg-white px-2 py-2.5 text-[9px] font-mono-code uppercase tracking-wider hover:border-[#0A3F4D] hover:text-[#0A3F4D] disabled:opacity-50"
+                    >
+                      {reschedulingActionId ? 'Saving…' : label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div className="mt-5 flex gap-2">
                 <button
                   type="button"
                   onClick={() => setTaskCompletionLead(null)}
-                  disabled={Boolean(completingActionId)}
+                  disabled={Boolean(completingActionId || reschedulingActionId)}
                   className="flex-1 border border-[#D8D8D8] bg-white px-4 py-3 text-xs font-semibold uppercase tracking-wider hover:bg-[#F7F7F5] disabled:opacity-50"
                 >
                   Cancel
@@ -1132,7 +1208,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                 <button
                   type="button"
                   onClick={handleCompleteAction}
-                  disabled={Boolean(completingActionId)}
+                  disabled={Boolean(completingActionId || reschedulingActionId)}
                   className="flex-1 inline-flex items-center justify-center bg-[#0A0A0A] text-white px-4 py-3 text-xs font-semibold uppercase tracking-wider hover:bg-[#0A3F4D] disabled:opacity-50"
                 >
                   {completingActionId ? (
@@ -1774,7 +1850,8 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                             )}
                             {entry.nextAction && (
                               <p className="text-[11px] text-[#6B6B6B] mt-1">
-                                {entry.nextAction.startsWith('Completed:')
+                                {entry.nextAction.startsWith('Completed:') ||
+                                entry.nextAction.startsWith('Rescheduled:')
                                   ? entry.nextAction
                                   : `Next: ${entry.nextAction}`}
                               </p>

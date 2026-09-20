@@ -58,6 +58,62 @@ const NEXT_ACTION_OPTIONS = [
   'Close sale'
 ] as const;
 
+const QUICK_PLAYBOOKS: {
+  id: string;
+  label: string;
+  description: string;
+  status: LeadStatus;
+  nextAction: (typeof NEXT_ACTION_OPTIONS)[number];
+  hoursFromNow: number;
+}[] = [
+  {
+    id: 'new-lead-contact',
+    label: 'New lead contact',
+    description: 'Contact the lead quickly and keep it in active follow-up.',
+    status: 'CONTACTED',
+    nextAction: 'Call',
+    hoursFromNow: 2
+  },
+  {
+    id: 'whatsapp-follow-up',
+    label: 'WhatsApp follow-up',
+    description: 'Continue a conversation with a short follow-up window.',
+    status: 'FOLLOW_UP',
+    nextAction: 'Send WhatsApp',
+    hoursFromNow: 24
+  },
+  {
+    id: 'proposal-follow-up',
+    label: 'Proposal follow-up',
+    description: 'Send the proposal and schedule a commercial follow-up.',
+    status: 'FOLLOW_UP',
+    nextAction: 'Send proposal',
+    hoursFromNow: 48
+  },
+  {
+    id: 'meeting-confirmation',
+    label: 'Meeting confirmation',
+    description: 'Move the lead to Meeting and confirm the appointment.',
+    status: 'MEETING',
+    nextAction: 'Confirm meeting',
+    hoursFromNow: 24
+  },
+  {
+    id: 'client-care',
+    label: 'Client follow-up',
+    description: 'Keep an existing client active with a scheduled follow-up.',
+    status: 'CLIENT',
+    nextAction: 'Follow up',
+    hoursFromNow: 168
+  }
+];
+
+function dateHoursFromNow(hours: number): string {
+  const date = new Date();
+  date.setHours(date.getHours() + hours);
+  return date.toISOString();
+}
+
 const TASK_OUTCOME_OPTIONS: {
   value: TaskOutcome;
   label: string;
@@ -322,6 +378,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
   const [leadEmailMessage, setLeadEmailMessage] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | LeadStatus>('ALL');
   const [followUpFilter, setFollowUpFilter] = useState<'ALL' | FollowUpBucket>('ALL');
+  const [focusMode, setFocusMode] = useState(false);
   const [draft, setDraft] = useState<LeadOperationsUpdate>(
     makeDraft(null)
   );
@@ -535,6 +592,10 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
       })
       .slice(0, 6);
   }, [leads]);
+
+  const visiblePriorityWork = focusMode
+    ? priorityWork.slice(0, 1)
+    : priorityWork;
 
   const adminAlerts = useMemo(() => buildAdminAlerts(leads), [leads]);
   const unreadAlerts = useMemo(
@@ -851,6 +912,22 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
     } finally {
       setCompletingActionId(null);
     }
+  };
+
+  const applyQuickPlaybook = (playbookId: string) => {
+    const playbook = QUICK_PLAYBOOKS.find((item) => item.id === playbookId);
+    if (!playbook) return;
+
+    setDraft((current) => ({
+      ...current,
+      status: playbook.status,
+      nextAction: playbook.nextAction,
+      followUpAt: dateHoursFromNow(playbook.hoursFromNow)
+    }));
+
+    setSaveMessage(
+      `Playbook "${playbook.label}" loaded. Review the fields and save CRM changes.`
+    );
   };
 
   const handleSave = async () => {
@@ -1417,17 +1494,34 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                   Priority Work
                 </p>
                 <p className="text-xs text-[#6B6B6B] mt-1">
-                  Next-best-action queue ordered by operational urgency.
+                  {focusMode
+                    ? 'One task at a time. Complete or reschedule it to advance to the next.'
+                    : 'Next-best-action queue ordered by operational urgency.'}
                 </p>
               </div>
-              <span className="font-mono-code text-[10px] text-[#6B6B6B]">
-                {priorityWork.length} visible
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="font-mono-code text-[10px] text-[#6B6B6B]">
+                  {focusMode
+                    ? `${Math.min(priorityWork.length, 1)} of ${priorityWork.length}`
+                    : `${priorityWork.length} visible`}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setFocusMode((current) => !current)}
+                  className={`border px-2.5 py-1.5 text-[9px] font-mono-code uppercase tracking-wider transition-colors ${
+                    focusMode
+                      ? 'border-[#0A3F4D] bg-[#0A3F4D] text-white'
+                      : 'border-[#D8D8D8] bg-white text-[#6B6B6B] hover:text-[#0A0A0A]'
+                  }`}
+                >
+                  {focusMode ? 'Focus on' : 'Focus mode'}
+                </button>
+              </div>
             </div>
 
             {priorityWork.length > 0 ? (
               <div className="divide-y divide-[#E5E5E5]">
-                {priorityWork.map((lead) => {
+                {visiblePriorityWork.map((lead) => {
                   const bucket = getFollowUpBucket(lead);
                   const queueLabel =
                     bucket === 'OVERDUE'
@@ -1727,6 +1821,46 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                     </div>
 
                     <div className="space-y-4">
+                      <div className="border border-[#D8D8D8] bg-white p-3">
+                        <div className="flex items-center justify-between gap-3 mb-2">
+                          <div>
+                            <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#6B6B6B]">
+                              Quick playbook
+                            </p>
+                            <p className="text-[10px] text-[#777] mt-1">
+                              Load a proven next-step template, then review before saving.
+                            </p>
+                          </div>
+                        </div>
+                        <select
+                          defaultValue=""
+                          onChange={(event) => {
+                            if (event.target.value) {
+                              applyQuickPlaybook(event.target.value);
+                              event.currentTarget.value = '';
+                            }
+                          }}
+                          className="w-full border border-[#D8D8D8] bg-[#FAFAFA] px-3 py-2.5 text-sm focus:outline-none focus:border-[#0A3F4D]"
+                        >
+                          <option value="">Choose a playbook…</option>
+                          {QUICK_PLAYBOOKS.map((playbook) => (
+                            <option key={playbook.id} value={playbook.id}>
+                              {playbook.label}
+                            </option>
+                          ))}
+                        </select>
+                        <div className="mt-2 space-y-1">
+                          {QUICK_PLAYBOOKS.slice(0, 3).map((playbook) => (
+                            <p key={playbook.id} className="text-[9px] text-[#777]">
+                              <span className="font-semibold text-[#0A0A0A]">
+                                {playbook.label}:
+                              </span>{' '}
+                              {playbook.description}
+                            </p>
+                          ))}
+                        </div>
+                      </div>
+
                       <label className="block">
                         <span className="font-mono-code text-[9px] uppercase text-[#6B6B6B] block mb-1.5">
                           Status

@@ -90,6 +90,17 @@ function normalizeActivityLog(value: unknown): LeadActivity[] {
     .slice(-20);
 }
 
+function serializeActivityLog(entries: LeadActivity[]): Record<string, unknown>[] {
+  return entries.slice(-20).map((entry) => ({
+    at: entry.at,
+    actor: entry.actor,
+    fromStatus: entry.fromStatus,
+    toStatus: entry.toStatus,
+    nextAction: entry.nextAction,
+    ...(entry.result ? { result: entry.result } : {})
+  }));
+}
+
 function normalizeAudit(data: any, documentId: string): AdminLead {
   return {
     id: String(data.id || documentId),
@@ -199,7 +210,7 @@ export async function updateLeadOperations(
     nextAction,
     followUpAt,
     internalNotes,
-    activityLog,
+    activityLog: serializeActivityLog(activityLog),
     updatedAt: serverTimestamp()
   });
 
@@ -295,7 +306,7 @@ export async function completeLeadAction(
     nextAction: playbook.nextAction,
     followUpAt: playbook.followUpAt,
     internalNotes: lead.internalNotes?.trim() || '',
-    activityLog,
+    activityLog: serializeActivityLog(activityLog),
     updatedAt: serverTimestamp()
   });
 
@@ -335,7 +346,7 @@ export async function rescheduleLeadAction(
     nextAction,
     followUpAt,
     internalNotes: lead.internalNotes?.trim() || '',
-    activityLog,
+    activityLog: serializeActivityLog(activityLog),
     updatedAt: serverTimestamp()
   });
 

@@ -379,6 +379,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
   const [leadEmailMessage, setLeadEmailMessage] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | LeadStatus>('ALL');
   const [followUpFilter, setFollowUpFilter] = useState<'ALL' | FollowUpBucket>('ALL');
+  const [needsActionOnly, setNeedsActionOnly] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
   const [draft, setDraft] = useState<LeadOperationsUpdate>(
     makeDraft(null)
@@ -446,9 +447,20 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
           .filter(Boolean)
           .some((value) => String(value).toLowerCase().includes(needle));
 
-      return matchesStatus && matchesFollowUp && matchesSearch;
+      const matchesNeedsAction =
+        !needsActionOnly ||
+        (
+          !lead.nextAction &&
+          (
+            lead.status === 'CONTACTED' ||
+            lead.status === 'FOLLOW_UP' ||
+            lead.status === 'MEETING'
+          )
+        );
+
+      return matchesStatus && matchesFollowUp && matchesSearch && matchesNeedsAction;
     });
-  }, [leads, queryText, statusFilter, followUpFilter]);
+  }, [leads, queryText, statusFilter, followUpFilter, needsActionOnly]);
 
   const selectedLead =
     leads.find((lead) => lead.id === selectedId) ||
@@ -935,7 +947,21 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
   };
 
   const filterPipelineByStage = (status: LeadStatus) => {
+    setNeedsActionOnly(false);
     setStatusFilter(status);
+
+    window.requestAnimationFrame(() => {
+      pipelineSectionRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start'
+      });
+    });
+  };
+
+  const showNeedsAction = () => {
+    setStatusFilter('ALL');
+    setFollowUpFilter('ALL');
+    setNeedsActionOnly(true);
 
     window.requestAnimationFrame(() => {
       pipelineSectionRef.current?.scrollIntoView({
@@ -1434,9 +1460,14 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                 Outcome signals recorded by the Task Engine today.
               </p>
             </div>
-            <span className="font-mono-code text-[10px] text-[#6B6B6B]">
+            <button
+              type="button"
+              onClick={showNeedsAction}
+              disabled={metrics.needsActionCount === 0}
+              className="font-mono-code text-[10px] text-[#0A3F4D] underline disabled:no-underline disabled:text-[#A0A0A0]"
+            >
               {metrics.needsActionCount} need next action
-            </span>
+            </button>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-5">
@@ -1473,7 +1504,10 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
             {statusFilter !== 'ALL' && (
               <button
                 type="button"
-                onClick={() => setStatusFilter('ALL')}
+                onClick={() => {
+                  setStatusFilter('ALL');
+                  setNeedsActionOnly(false);
+                }}
                 className="font-mono-code text-[9px] uppercase tracking-wider underline text-[#6B6B6B] hover:text-[#0A0A0A]"
               >
                 Clear stage filter
@@ -1705,15 +1739,27 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
           <div className="p-4 border-b border-[#E5E5E5] flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
             <div>
               <p className="font-mono-code text-[10px] font-bold uppercase tracking-wider">Lead pipeline</p>
-              <p className="text-xs text-[#6B6B6B]">{filteredLeads.length} records visible</p>
+              <div className="flex items-center gap-2 mt-1">
+                <p className="text-xs text-[#6B6B6B]">{filteredLeads.length} records visible</p>
+                {needsActionOnly && (
+                  <button
+                    type="button"
+                    onClick={() => setNeedsActionOnly(false)}
+                    className="font-mono-code text-[8px] uppercase tracking-wider border border-amber-300 bg-amber-50 text-amber-800 px-2 py-1"
+                  >
+                    Needs action ×
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="flex flex-col sm:flex-row gap-2">
               <select
                 value={statusFilter}
-                onChange={(event) =>
-                  setStatusFilter(event.target.value as 'ALL' | LeadStatus)
-                }
+                onChange={(event) => {
+                  setNeedsActionOnly(false);
+                  setStatusFilter(event.target.value as 'ALL' | LeadStatus);
+                }}
                 className="border border-[#E5E5E5] bg-[#FAFAFA] px-3 py-2 text-xs focus:outline-none focus:border-[#0A3F4D]"
               >
                 <option value="ALL">All statuses</option>
@@ -1726,9 +1772,10 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
 
               <select
                 value={followUpFilter}
-                onChange={(event) =>
-                  setFollowUpFilter(event.target.value as 'ALL' | FollowUpBucket)
-                }
+                onChange={(event) => {
+                  setNeedsActionOnly(false);
+                  setFollowUpFilter(event.target.value as 'ALL' | FollowUpBucket);
+                }}
                 className="border border-[#E5E5E5] bg-[#FAFAFA] px-3 py-2 text-xs focus:outline-none focus:border-[#0A3F4D]"
               >
                 <option value="ALL">All follow-ups</option>

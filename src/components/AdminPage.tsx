@@ -353,6 +353,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
   const [reschedulingActionId, setReschedulingActionId] = useState<string | null>(null);
   const [taskCompletionLead, setTaskCompletionLead] = useState<AdminLead | null>(null);
   const [taskOutcome, setTaskOutcome] = useState<TaskOutcome>('COMPLETED');
+  const [taskModalError, setTaskModalError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [queryText, setQueryText] = useState('');
@@ -853,6 +854,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
   const openTaskCompletion = (lead: AdminLead) => {
     setTaskCompletionLead(lead);
     setTaskOutcome('COMPLETED');
+    setTaskModalError(null);
   };
 
   const handleRescheduleAction = async (hours: number) => {
@@ -861,6 +863,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
 
     setReschedulingActionId(lead.id);
     setError(null);
+    setTaskModalError(null);
     setSaveMessage(null);
 
     try {
@@ -900,7 +903,9 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
       );
       setTaskCompletionLead(null);
     } catch (err: any) {
-      setError(err?.message || 'No se pudo reprogramar la acción.');
+      const message = err?.message || 'No se pudo reprogramar la acción.';
+      setTaskModalError(message);
+      setError(message);
     } finally {
       setReschedulingActionId(null);
     }
@@ -912,6 +917,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
 
     setCompletingActionId(lead.id);
     setError(null);
+    setTaskModalError(null);
     setSaveMessage(null);
 
     try {
@@ -958,7 +964,9 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
       setTaskCompletionLead(null);
       setTaskOutcome('COMPLETED');
     } catch (err: any) {
-      setError(err?.message || 'No se pudo completar la acción.');
+      const message = err?.message || 'No se pudo completar la acción.';
+      setTaskModalError(message);
+      setError(message);
     } finally {
       setCompletingActionId(null);
     }
@@ -1325,7 +1333,10 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
               </div>
               <button
                 type="button"
-                onClick={() => setTaskCompletionLead(null)}
+                onClick={() => {
+                  setTaskCompletionLead(null);
+                  setTaskModalError(null);
+                }}
                 disabled={Boolean(completingActionId || reschedulingActionId)}
                 className="p-2 border border-[#E5E5E5] hover:bg-[#F7F7F5] disabled:opacity-50"
                 aria-label="Close task result"
@@ -1389,6 +1400,12 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                   ))}
                 </div>
               </div>
+
+              {taskModalError && (
+                <div className="mt-4 border border-red-200 bg-red-50 p-3 text-xs text-red-800">
+                  {taskModalError}
+                </div>
+              )}
 
               <div className="mt-5 flex gap-2">
                 <button

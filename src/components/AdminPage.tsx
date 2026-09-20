@@ -351,6 +351,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
   const [saving, setSaving] = useState(false);
   const [completingActionId, setCompletingActionId] = useState<string | null>(null);
   const [reschedulingActionId, setReschedulingActionId] = useState<string | null>(null);
+  const [rescheduleHours, setRescheduleHours] = useState<number | null>(null);
   const [taskCompletionLead, setTaskCompletionLead] = useState<AdminLead | null>(null);
   const [taskOutcome, setTaskOutcome] = useState<TaskOutcome>('COMPLETED');
   const [taskModalError, setTaskModalError] = useState<string | null>(null);
@@ -854,12 +855,21 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
   const openTaskCompletion = (lead: AdminLead) => {
     setTaskCompletionLead(lead);
     setTaskOutcome('COMPLETED');
+    setRescheduleHours(null);
     setTaskModalError(null);
   };
 
-  const handleRescheduleAction = async (hours: number) => {
+  const handleRescheduleAction = async () => {
     const lead = taskCompletionLead;
-    if (!lead || !user || reschedulingActionId || completingActionId) return;
+    if (
+      !lead ||
+      !user ||
+      rescheduleHours === null ||
+      reschedulingActionId ||
+      completingActionId
+    ) {
+      return;
+    }
 
     setReschedulingActionId(lead.id);
     setError(null);
@@ -870,7 +880,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
       const completion = await rescheduleLeadAction(
         lead,
         user.displayName || user.email || 'Admin',
-        hours
+        rescheduleHours
       );
 
       setLeads((current) =>
@@ -901,7 +911,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
       setSaveMessage(
         `${lead.name} rescheduled for ${formatDate(completion.followUpAt)}.`
       );
-      setTaskCompletionLead(null);
+      setTaskCompletionLead(null); setRescheduleHours(null);
     } catch (err: any) {
       const message = err?.message || 'No se pudo reprogramar la acción.';
       setTaskModalError(message);
@@ -961,8 +971,9 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
       setSaveMessage(
         `${taskOutcomeLabel(taskOutcome)} recorded for ${lead.name}.${nextStep}`
       );
-      setTaskCompletionLead(null);
+      setTaskCompletionLead(null); setRescheduleHours(null);
       setTaskOutcome('COMPLETED');
+      setRescheduleHours(null);
     } catch (err: any) {
       const message = err?.message || 'No se pudo completar la acción.';
       setTaskModalError(message);
@@ -1312,7 +1323,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
         <div
           className="fixed inset-0 z-[60] bg-black/30 flex items-center justify-center px-4"
           onClick={() => {
-            if (!completingActionId && !reschedulingActionId) setTaskCompletionLead(null);
+            if (!completingActionId && !reschedulingActionId) setTaskCompletionLead(null); setRescheduleHours(null);
           }}
         >
           <section
@@ -1334,7 +1345,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
               <button
                 type="button"
                 onClick={() => {
-                  setTaskCompletionLead(null);
+                  setTaskCompletionLead(null); setRescheduleHours(null);
                   setTaskModalError(null);
                 }}
                 disabled={Boolean(completingActionId || reschedulingActionId)}
@@ -1387,18 +1398,44 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                     ['+2 HOURS', 2],
                     ['TOMORROW', 24],
                     ['+2 DAYS', 48]
-                  ].map(([label, hours]) => (
-                    <button
-                      key={String(label)}
-                      type="button"
-                      onClick={() => handleRescheduleAction(Number(hours))}
-                      disabled={Boolean(completingActionId || reschedulingActionId)}
-                      className="border border-[#D8D8D8] bg-white px-2 py-2.5 text-[9px] font-mono-code uppercase tracking-wider hover:border-[#0A3F4D] hover:text-[#0A3F4D] disabled:opacity-50"
-                    >
-                      {reschedulingActionId ? 'Saving…' : label}
-                    </button>
-                  ))}
+                  ].map(([label, hours]) => {
+                    const value = Number(hours);
+                    const selected = rescheduleHours === value;
+
+                    return (
+                      <button
+                        key={String(label)}
+                        type="button"
+                        onClick={() => setRescheduleHours(value)}
+                        disabled={Boolean(completingActionId || reschedulingActionId)}
+                        className={`border px-2 py-2.5 text-[9px] font-mono-code uppercase tracking-wider disabled:opacity-50 ${
+                          selected
+                            ? 'border-[#0A3F4D] bg-[#0A3F4D] text-white'
+                            : 'border-[#D8D8D8] bg-white hover:border-[#0A3F4D] hover:text-[#0A3F4D]'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
                 </div>
+
+                <button
+                  type="button"
+                  onClick={handleRescheduleAction}
+                  disabled={
+                    rescheduleHours === null ||
+                    Boolean(completingActionId || reschedulingActionId)
+                  }
+                  className="mt-2 w-full inline-flex items-center justify-center border border-[#0A3F4D] text-[#0A3F4D] bg-white px-4 py-3 text-xs font-semibold uppercase tracking-wider hover:bg-[#F7F7F5] disabled:opacity-40"
+                >
+                  {reschedulingActionId ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                  )}
+                  {reschedulingActionId ? 'Rescheduling' : 'Reschedule task'}
+                </button>
               </div>
 
               {taskModalError && (

@@ -440,13 +440,53 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
       return count + completedToday;
     }, 0);
 
+    const outcomesToday = {
+      noAnswer: 0,
+      interested: 0,
+      meetings: 0,
+      proposals: 0,
+      sales: 0
+    };
+
+    for (const lead of leads) {
+      for (const entry of lead.activityLog || []) {
+        if (!entry.result) continue;
+
+        const date = new Date(entry.at);
+        if (Number.isNaN(date.getTime())) continue;
+
+        const isToday =
+          date.getFullYear() === now.getFullYear() &&
+          date.getMonth() === now.getMonth() &&
+          date.getDate() === now.getDate();
+
+        if (!isToday) continue;
+
+        if (entry.result === 'NO_ANSWER') outcomesToday.noAnswer += 1;
+        if (entry.result === 'INTERESTED') outcomesToday.interested += 1;
+        if (entry.result === 'MEETING_BOOKED') outcomesToday.meetings += 1;
+        if (entry.result === 'PROPOSAL_SENT') outcomesToday.proposals += 1;
+        if (entry.result === 'SALE_CLOSED') outcomesToday.sales += 1;
+      }
+    }
+
+    const needsActionCount = leads.filter(
+      (lead) =>
+        !lead.nextAction &&
+        (lead.status === 'CONTACTED' ||
+          lead.status === 'FOLLOW_UP' ||
+          lead.status === 'MEETING')
+    ).length;
+
     return {
       total: leads.length,
       overdueCount,
       todayCount,
       upcomingCount,
       clientCount,
-      tasksDoneToday
+      tasksDoneToday,
+      outcomesToday,
+      needsActionCount
     };
   }, [leads]);
 
@@ -1274,6 +1314,42 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
               <p className="text-3xl font-extrabold">{value}</p>
             </div>
           ))}
+        </section>
+
+        <section className="border border-[#E5E5E5] bg-white mb-6">
+          <div className="px-4 sm:px-5 py-4 border-b border-[#E5E5E5] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div>
+              <p className="font-mono-code text-[10px] font-bold uppercase tracking-wider">
+                Today&apos;s Results
+              </p>
+              <p className="text-xs text-[#6B6B6B] mt-1">
+                Outcome signals recorded by the Task Engine today.
+              </p>
+            </div>
+            <span className="font-mono-code text-[10px] text-[#6B6B6B]">
+              {metrics.needsActionCount} need next action
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-5">
+            {[
+              ['NO ANSWER', metrics.outcomesToday.noAnswer],
+              ['INTERESTED', metrics.outcomesToday.interested],
+              ['MEETINGS', metrics.outcomesToday.meetings],
+              ['PROPOSALS', metrics.outcomesToday.proposals],
+              ['SALES CLOSED', metrics.outcomesToday.sales]
+            ].map(([label, value]) => (
+              <div
+                key={String(label)}
+                className="px-4 sm:px-5 py-4 border-r border-b md:border-b-0 border-[#E5E5E5] last:border-r-0"
+              >
+                <p className="font-mono-code text-[8px] uppercase tracking-wider text-[#777]">
+                  {label}
+                </p>
+                <p className="text-xl font-extrabold mt-1">{value}</p>
+              </div>
+            ))}
+          </div>
         </section>
 
         <section className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">

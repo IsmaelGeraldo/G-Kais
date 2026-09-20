@@ -217,28 +217,31 @@ function outcomePlaybook(
   lead: AdminLead,
   outcome: TaskOutcome
 ): { status: LeadStatus; nextAction: string; followUpAt: string } {
+  const keepClientStatus = (nextStatus: LeadStatus): LeadStatus =>
+    lead.status === 'CLIENT' ? 'CLIENT' : nextStatus;
+
   switch (outcome) {
     case 'NO_ANSWER':
       return {
-        status: 'FOLLOW_UP',
+        status: keepClientStatus('FOLLOW_UP'),
         nextAction: 'Follow up',
         followUpAt: addHours(24)
       };
     case 'INTERESTED':
       return {
-        status: 'CONTACTED',
+        status: keepClientStatus('CONTACTED'),
         nextAction: 'Schedule meeting',
         followUpAt: addHours(24)
       };
     case 'MEETING_BOOKED':
       return {
-        status: 'MEETING',
+        status: keepClientStatus('MEETING'),
         nextAction: 'Confirm meeting',
         followUpAt: ''
       };
     case 'PROPOSAL_SENT':
       return {
-        status: 'FOLLOW_UP',
+        status: keepClientStatus('FOLLOW_UP'),
         nextAction: 'Follow up',
         followUpAt: addHours(48)
       };
@@ -250,7 +253,7 @@ function outcomePlaybook(
       };
     case 'NOT_INTERESTED':
       return {
-        status: 'LOST',
+        status: keepClientStatus('LOST'),
         nextAction: '',
         followUpAt: ''
       };

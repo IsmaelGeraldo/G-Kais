@@ -31,7 +31,8 @@ import type {
   AdminLead,
   FollowUpBucket,
   LeadOperationsUpdate,
-  LeadStatus
+  LeadStatus,
+  TaskOutcome
 } from '../types/admin';
 
 const STATUS_OPTIONS: { value: LeadStatus; label: string }[] = [
@@ -55,6 +56,78 @@ const NEXT_ACTION_OPTIONS = [
   'Follow up',
   'Close sale'
 ] as const;
+
+const TASK_OUTCOME_OPTIONS: {
+  value: TaskOutcome;
+  label: string;
+  description: string;
+}[] = [
+  {
+    value: 'COMPLETED',
+    label: 'Completed',
+    description: 'Close the current task with no automatic next step.'
+  },
+  {
+    value: 'NO_ANSWER',
+    label: 'No answer',
+    description: 'Create Follow up automatically for 24 hours from now.'
+  },
+  {
+    value: 'INTERESTED',
+    label: 'Interested',
+    description: 'Move to Contacted and create Schedule meeting for 24 hours from now.'
+  },
+  {
+    value: 'MEETING_BOOKED',
+    label: 'Meeting booked',
+    description: 'Move to Meeting and create Confirm meeting as the next action.'
+  },
+  {
+    value: 'PROPOSAL_SENT',
+    label: 'Proposal sent',
+    description: 'Move to Follow-up and create a follow-up task for 48 hours from now.'
+  },
+  {
+    value: 'SALE_CLOSED',
+    label: 'Sale closed',
+    description: 'Move the lead to Client and close the current task.'
+  },
+  {
+    value: 'NOT_INTERESTED',
+    label: 'Not interested',
+    description: 'Move the lead to Lost and close the current task.'
+  }
+];
+
+function taskOutcomeLabel(value?: TaskOutcome): string {
+  return (
+    TASK_OUTCOME_OPTIONS.find((option) => option.value === value)?.label ||
+    value ||
+    ''
+  );
+}
+
+function getWorkPriority(lead: AdminLead): {
+  label: 'HIGH' | 'MEDIUM' | 'NORMAL';
+  score: number;
+} {
+  const bucket = getFollowUpBucket(lead);
+
+  if (bucket === 'OVERDUE') return { label: 'HIGH', score: 100 };
+  if (bucket === 'TODAY') return { label: 'HIGH', score: 90 };
+  if (
+    lead.status !== 'PENDING_REVIEW' &&
+    lead.status !== 'NEW' &&
+    !lead.nextAction
+  ) {
+    return { label: 'HIGH', score: 80 };
+  }
+  if (lead.status === 'PENDING_REVIEW' || lead.status === 'NEW') {
+    return { label: 'MEDIUM', score: 70 };
+  }
+  if (bucket === 'UPCOMING') return { label: 'MEDIUM', score: 50 };
+  return { label: 'NORMAL', score: 20 };
+}
 
 function getFollowUpBucket(lead: AdminLead): FollowUpBucket {
   if (lead.status === 'LOST' || !lead.followUpAt) {
@@ -129,7 +202,7 @@ function buildAdminAlerts(leads: AdminLead[]): AdminAlert[] {
   const alerts: AdminAlert[] = [];
 
   for (const lead of leads) {
-    if (lead.status === 'CLIENT' || lead.status === 'LOST') continue;
+    if (lead.status === 'LOST') continue;
 
     const bucket = getFollowUpBucket(lead);
 
@@ -187,6 +260,8 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
   const [dataLoading, setDataLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [completingActionId, setCompletingActionId] = useState<string | null>(null);
+  const [taskCompletionLead, setTaskCompletionLead] = useState<AdminLead | null>(null);
+  const [taskOutcome, setTaskOutcome] = useState<TaskOutcome>('COMPLETED');
   const [error, setError] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [queryText, setQueryText] = useState('');
@@ -311,12 +386,33 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
     const upcomingCount = leads.filter((lead) => getFollowUpBucket(lead) === 'UPCOMING').length;
     const clientCount = leads.filter((lead) => lead.status === 'CLIENT').length;
 
+    const now = new Date();
+    const tasksDoneToday = leads.reduce((count, lead) => {
+      const completedToday = (lead.activityLog || []).filter((entry) => {
+        const date = new Date(entry.at);
+        if (Number.isNaN(date.getTime())) return false;
+
+        const isToday =
+          date.getFullYear() === now.getFullYear() &&
+          date.getMonth() === now.getMonth() &&
+          date.getDate() === now.getDate();
+
+        const isCompletion =
+          Boolean(entry.result) || entry.nextAction.startsWith('Completed:');
+
+        return isToday && isCompletion;
+      }).length;
+
+      return count + completedToday;
+    }, 0);
+
     return {
       total: leads.length,
       overdueCount,
       todayCount,
       upcomingCount,
-      clientCount
+      clientCount,
+      tasksDoneToday
     };
   }, [leads]);
 
@@ -344,18 +440,10 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
       );
     });
 
-    const priority = (lead: AdminLead) => {
-      const bucket = getFollowUpBucket(lead);
-      if (bucket === 'OVERDUE') return 0;
-      if (bucket === 'TODAY') return 1;
-      if (!lead.nextAction) return 2;
-      if (bucket === 'UPCOMING') return 3;
-      return 4;
-    };
-
     return [...actionable]
       .sort((a, b) => {
-        const priorityDiff = priority(a) - priority(b);
+        const priorityDiff =
+          getWorkPriority(b).score - getWorkPriority(a).score;
         if (priorityDiff !== 0) return priorityDiff;
 
         const aFollowUp = a.followUpAt
@@ -577,17 +665,24 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
     });
   };
 
-  const handleCompleteAction = async (lead: AdminLead) => {
-    if (!user || completingActionId) return;
+  const openTaskCompletion = (lead: AdminLead) => {
+    setTaskCompletionLead(lead);
+    setTaskOutcome('COMPLETED');
+  };
+
+  const handleCompleteAction = async () => {
+    const lead = taskCompletionLead;
+    if (!lead || !user || completingActionId) return;
 
     setCompletingActionId(lead.id);
     setError(null);
     setSaveMessage(null);
 
     try {
-      const activity = await completeLeadAction(
+      const completion = await completeLeadAction(
         lead,
-        user.displayName || user.email || 'Admin'
+        user.displayName || user.email || 'Admin',
+        taskOutcome
       );
 
       setLeads((current) =>
@@ -595,10 +690,14 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
           record.id === lead.id
             ? {
                 ...record,
-                nextAction: undefined,
-                followUpAt: undefined,
+                status: completion.status,
+                nextAction: completion.nextAction || undefined,
+                followUpAt: completion.followUpAt || undefined,
                 updatedAt: new Date().toISOString(),
-                activityLog: [...(record.activityLog || []), activity].slice(-20)
+                activityLog: [
+                  ...(record.activityLog || []),
+                  completion.activity
+                ].slice(-20)
               }
             : record
         )
@@ -607,12 +706,21 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
       if (selectedId === lead.id) {
         setDraft((current) => ({
           ...current,
-          nextAction: '',
-          followUpAt: ''
+          status: completion.status,
+          nextAction: completion.nextAction,
+          followUpAt: completion.followUpAt
         }));
       }
 
-      setSaveMessage(`Completed action for ${lead.name}.`);
+      const nextStep = completion.nextAction
+        ? ` Next: ${completion.nextAction}.`
+        : '';
+
+      setSaveMessage(
+        `${taskOutcomeLabel(taskOutcome)} recorded for ${lead.name}.${nextStep}`
+      );
+      setTaskCompletionLead(null);
+      setTaskOutcome('COMPLETED');
     } catch (err: any) {
       setError(err?.message || 'No se pudo completar la acción.');
     } finally {
@@ -716,7 +824,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
           </button>
 
           <p className="mt-4 text-[10px] leading-relaxed font-mono-code text-[#8A8A8A]">
-            Preview interno. No publicar hasta desplegar las Security Rules de administrador.
+            Acceso interno protegido por Firebase Authentication y Security Rules de administrador.
           </p>
         </section>
       </main>
@@ -913,6 +1021,101 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
         </div>
       )}
 
+      {taskCompletionLead && (
+        <div
+          className="fixed inset-0 z-[60] bg-black/30 flex items-center justify-center px-4"
+          onClick={() => {
+            if (!completingActionId) setTaskCompletionLead(null);
+          }}
+        >
+          <section
+            className="w-full max-w-lg bg-white border border-[#D8D8D8] shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="p-5 border-b border-[#E5E5E5] flex items-start justify-between gap-4">
+              <div>
+                <p className="font-mono-code text-[10px] uppercase tracking-wider text-[#0A3F4D]">
+                  Task Engine
+                </p>
+                <h2 className="text-xl font-extrabold tracking-tight mt-1">
+                  Complete task
+                </h2>
+                <p className="text-xs text-[#6B6B6B] mt-1">
+                  {taskCompletionLead.name} · {taskCompletionLead.nextAction || 'Current action'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTaskCompletionLead(null)}
+                disabled={Boolean(completingActionId)}
+                className="p-2 border border-[#E5E5E5] hover:bg-[#F7F7F5] disabled:opacity-50"
+                aria-label="Close task result"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5">
+              <label className="block">
+                <span className="font-mono-code text-[9px] uppercase text-[#6B6B6B] block mb-1.5">
+                  Result
+                </span>
+                <select
+                  value={taskOutcome}
+                  onChange={(event) =>
+                    setTaskOutcome(event.target.value as TaskOutcome)
+                  }
+                  className="w-full border border-[#D8D8D8] bg-white px-3 py-3 text-sm focus:outline-none focus:border-[#0A3F4D]"
+                >
+                  {TASK_OUTCOME_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <div className="mt-4 border border-[#E5E5E5] bg-[#FAFAFA] p-4">
+                <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#6B6B6B]">
+                  Automatic next step
+                </p>
+                <p className="text-sm mt-2 leading-relaxed">
+                  {
+                    TASK_OUTCOME_OPTIONS.find(
+                      (option) => option.value === taskOutcome
+                    )?.description
+                  }
+                </p>
+              </div>
+
+              <div className="mt-5 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setTaskCompletionLead(null)}
+                  disabled={Boolean(completingActionId)}
+                  className="flex-1 border border-[#D8D8D8] bg-white px-4 py-3 text-xs font-semibold uppercase tracking-wider hover:bg-[#F7F7F5] disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCompleteAction}
+                  disabled={Boolean(completingActionId)}
+                  className="flex-1 inline-flex items-center justify-center bg-[#0A0A0A] text-white px-4 py-3 text-xs font-semibold uppercase tracking-wider hover:bg-[#0A3F4D] disabled:opacity-50"
+                >
+                  {completingActionId ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="w-4 h-4 mr-2" />
+                  )}
+                  {completingActionId ? 'Saving' : 'Apply result'}
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
+
       <div className="max-w-[1600px] mx-auto px-5 sm:px-8 py-8">
         <div className="mb-6 flex flex-col lg:flex-row lg:items-end lg:justify-between gap-5">
           <div>
@@ -949,12 +1152,13 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
           </div>
         )}
 
-        <section className="grid grid-cols-2 md:grid-cols-5 border border-[#E5E5E5] bg-white mb-6">
+        <section className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 border border-[#E5E5E5] bg-white mb-6">
           {[
             ['TOTAL', metrics.total],
             ['OVERDUE', metrics.overdueCount],
             ['TODAY', metrics.todayCount],
             ['UPCOMING', metrics.upcomingCount],
+            ['TASKS DONE', metrics.tasksDoneToday],
             ['CLIENTS', metrics.clientCount]
           ].map(([label, value]) => (
             <div key={String(label)} className="p-5 border-r border-b md:border-b-0 border-[#E5E5E5] last:border-r-0">
@@ -1029,7 +1233,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                   Priority Work
                 </p>
                 <p className="text-xs text-[#6B6B6B] mt-1">
-                  Execute one task at a time: overdue, today, then upcoming.
+                  Next-best-action queue ordered by operational urgency.
                 </p>
               </div>
               <span className="font-mono-code text-[10px] text-[#6B6B6B]">
@@ -1075,6 +1279,17 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                             <span className={`font-mono-code text-[9px] px-2 py-1 border ${queueClass}`}>
                               {queueLabel}
                             </span>
+                            <span
+                              className={`font-mono-code text-[8px] px-2 py-1 border ${
+                                getWorkPriority(lead).label === 'HIGH'
+                                  ? 'border-red-200 text-red-700'
+                                  : getWorkPriority(lead).label === 'MEDIUM'
+                                  ? 'border-amber-200 text-amber-800'
+                                  : 'border-[#E5E5E5] text-[#777]'
+                              }`}
+                            >
+                              {getWorkPriority(lead).label}
+                            </span>
                             <span className="font-bold text-sm truncate">{lead.name}</span>
                             {lead.company && (
                               <span className="text-xs text-[#6B6B6B] truncate">
@@ -1094,7 +1309,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
 
                         <button
                           type="button"
-                          onClick={() => handleCompleteAction(lead)}
+                          onClick={() => openTaskCompletion(lead)}
                           disabled={completingActionId === lead.id}
                           className="shrink-0 inline-flex items-center border border-[#0A3F4D] px-2.5 py-2 text-[9px] font-mono-code uppercase tracking-wider text-[#0A3F4D] bg-white hover:bg-[#F7F7F5] disabled:opacity-50"
                           title="Complete current action"
@@ -1490,9 +1705,16 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                             <p className="text-xs mt-1">
                               {entry.fromStatus} → {entry.toStatus}
                             </p>
+                            {entry.result && (
+                              <p className="text-[10px] font-mono-code uppercase tracking-wider text-[#0A3F4D] mt-1">
+                                Result: {taskOutcomeLabel(entry.result)}
+                              </p>
+                            )}
                             {entry.nextAction && (
                               <p className="text-[11px] text-[#6B6B6B] mt-1">
-                                Next: {entry.nextAction}
+                                {entry.nextAction.startsWith('Completed:')
+                                  ? entry.nextAction
+                                  : `Next: ${entry.nextAction}`}
                               </p>
                             )}
                           </div>
@@ -1503,8 +1725,8 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                     )}
                   </div>
 
-                  <div className="mt-5 border border-amber-200 bg-amber-50 p-3 text-[10px] leading-relaxed text-amber-900">
-                    Development environment only. Do not publish while the currently deployed Firestore rules remain permissive.
+                  <div className="mt-5 border border-[#0A3F4D]/20 bg-white p-3 text-[10px] leading-relaxed text-[#0A3F4D]">
+                    Internal workspace. Firestore CRM reads and operational updates are restricted to authenticated administrators.
                   </div>
                 </div>
               ) : (

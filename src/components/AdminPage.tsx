@@ -129,6 +129,21 @@ function getWorkPriority(lead: AdminLead): {
   return { label: 'NORMAL', score: 20 };
 }
 
+function suggestedNextAction(status: LeadStatus): string | undefined {
+  switch (status) {
+    case 'PENDING_REVIEW':
+    case 'NEW':
+      return 'Call';
+    case 'CONTACTED':
+    case 'FOLLOW_UP':
+      return 'Follow up';
+    case 'MEETING':
+      return 'Confirm meeting';
+    default:
+      return undefined;
+  }
+}
+
 function getFollowUpBucket(lead: AdminLead): FollowUpBucket {
   if (lead.status === 'LOST' || !lead.followUpAt) {
     return 'UNSCHEDULED';
@@ -1488,13 +1503,26 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
             >
               {selectedLead ? (
                 <div>
-                  <div className="flex items-center justify-between pb-4 mb-5 border-b border-[#E5E5E5]">
+                  <div className="flex items-center justify-between pb-4 mb-5 border-b border-[#E5E5E5] gap-4">
                     <span className="font-mono-code text-[10px] uppercase tracking-wider text-[#6B6B6B]">
                       CRM RECORD // {selectedLead.source}
                     </span>
-                    <span className="font-mono-code text-[9px] text-[#6B6B6B]">
-                      {selectedLead.id}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`font-mono-code text-[8px] px-2 py-1 border ${
+                          getWorkPriority(selectedLead).label === 'HIGH'
+                            ? 'border-red-200 text-red-700'
+                            : getWorkPriority(selectedLead).label === 'MEDIUM'
+                            ? 'border-amber-200 text-amber-800'
+                            : 'border-[#E5E5E5] text-[#777]'
+                        }`}
+                      >
+                        {getWorkPriority(selectedLead).label} PRIORITY
+                      </span>
+                      <span className="font-mono-code text-[9px] text-[#6B6B6B]">
+                        {selectedLead.id}
+                      </span>
+                    </div>
                   </div>
 
                   <h2 className="text-2xl font-extrabold tracking-tight">{selectedLead.name}</h2>
@@ -1619,6 +1647,23 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                         <p className="mt-1.5 text-[10px] text-[#777]">
                           Use Internal notes for details, context or instructions.
                         </p>
+                        {suggestedNextAction(draft.status) &&
+                          draft.nextAction !== suggestedNextAction(draft.status) && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setDraft((current) => ({
+                                  ...current,
+                                  nextAction:
+                                    suggestedNextAction(current.status) ||
+                                    current.nextAction
+                                }))
+                              }
+                              className="mt-2 inline-flex items-center border border-[#0A3F4D]/30 bg-white px-2.5 py-1.5 text-[9px] font-mono-code uppercase tracking-wider text-[#0A3F4D] hover:bg-[#F7F7F5]"
+                            >
+                              Use suggestion · {suggestedNextAction(draft.status)}
+                            </button>
+                          )}
                       </label>
 
                       <label className="block">

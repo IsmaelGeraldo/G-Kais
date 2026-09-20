@@ -291,8 +291,10 @@ export async function completeLeadAction(
 
   await updateDoc(doc(firestoreDb, collectionName, lead.id), {
     status: playbook.status,
+    assignedTo: lead.assignedTo?.trim() || '',
     nextAction: playbook.nextAction,
     followUpAt: playbook.followUpAt,
+    internalNotes: lead.internalNotes?.trim() || '',
     activityLog,
     updatedAt: serverTimestamp()
   });
@@ -328,8 +330,11 @@ export async function rescheduleLeadAction(
   const activityLog = [...(lead.activityLog || []), activity].slice(-20);
 
   await updateDoc(doc(firestoreDb, collectionName, lead.id), {
+    status: lead.status,
+    assignedTo: lead.assignedTo?.trim() || '',
     nextAction,
     followUpAt,
+    internalNotes: lead.internalNotes?.trim() || '',
     activityLog,
     updatedAt: serverTimestamp()
   });

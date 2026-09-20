@@ -230,6 +230,23 @@ function buildAdminAlerts(leads: AdminLead[]): AdminAlert[] {
       continue;
     }
 
+    if (
+      !lead.nextAction &&
+      (lead.status === 'CONTACTED' ||
+        lead.status === 'FOLLOW_UP' ||
+        lead.status === 'MEETING')
+    ) {
+      alerts.push({
+        id: `missing-action:${lead.id}:${lead.updatedAt || lead.createdAt}`,
+        leadId: lead.id,
+        level: 'warning',
+        title: `No next action · ${lead.name}`,
+        description: 'This classified lead needs an explicit next action.',
+        createdAt: lead.updatedAt || lead.createdAt
+      });
+      continue;
+    }
+
     if (lead.status === 'PENDING_REVIEW' || lead.status === 'NEW') {
       alerts.push({
         id: `new:${lead.id}:${lead.createdAt}`,
@@ -845,7 +862,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                 G-KAIS
               </button>
               <span className="font-mono-code text-[9px] border border-[#E5E5E5] px-2 py-1 text-[#6B6B6B]">
-                CRM // PREVIEW
+                CRM // INTERNAL
               </span>
             </div>
             <p className="text-xs text-[#6B6B6B] mt-1">Lead operations workspace</p>
@@ -868,7 +885,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
             </button>
             <div className="hidden md:block text-right">
               <p className="text-xs font-semibold">{user.displayName || user.email}</p>
-              <p className="font-mono-code text-[9px] text-[#6B6B6B]">Authenticated admin preview</p>
+              <p className="font-mono-code text-[9px] text-[#6B6B6B]">Authenticated administrator</p>
             </div>
             <button
               type="button"
@@ -1524,7 +1541,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                           CRM controls
                         </p>
                         <p className="text-[10px] text-[#777] mt-1">
-                          Authenticated internal preview
+                          Authenticated internal workspace
                         </p>
                       </div>
                     </div>

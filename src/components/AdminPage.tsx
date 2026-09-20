@@ -70,7 +70,7 @@ const QUICK_PLAYBOOKS: {
     id: 'new-lead-contact',
     label: 'New lead contact',
     description: 'Contact the lead quickly and keep it in active follow-up.',
-    status: 'CONTACTED',
+    status: 'NEW',
     nextAction: 'Call',
     hoursFromNow: 2
   },
@@ -85,9 +85,9 @@ const QUICK_PLAYBOOKS: {
   {
     id: 'proposal-follow-up',
     label: 'Proposal follow-up',
-    description: 'Send the proposal and schedule a commercial follow-up.',
+    description: 'Schedule a commercial follow-up after a proposal has been sent.',
     status: 'FOLLOW_UP',
-    nextAction: 'Send proposal',
+    nextAction: 'Follow up',
     hoursFromNow: 48
   },
   {

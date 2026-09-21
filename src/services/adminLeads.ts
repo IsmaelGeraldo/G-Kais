@@ -1,4 +1,5 @@
 import {
+  arrayUnion,
   collection,
   doc,
   getDocs,
@@ -10,6 +11,7 @@ import type {
   AdminLead,
   LeadActivity,
   LeadActionCompletion,
+  LeadNote,
   LeadOperationsUpdate,
   LeadStatus,
   TaskOutcome
@@ -70,6 +72,22 @@ function optionalString(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() ? value : undefined;
 }
 
+function normalizeLeadNotes(value: unknown): LeadNote[] {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .filter((entry) => entry && typeof entry === 'object')
+    .map((entry: any) => ({
+      id: String(entry.id || ''),
+      title: String(entry.title || ''),
+      body: String(entry.body || ''),
+      author: String(entry.author || 'Admin'),
+      createdAt: normalizeCreatedAt(entry.createdAt)
+    }))
+    .filter((entry) => entry.id && entry.title && entry.body && entry.createdAt)
+    .slice(-50);
+}
+
 function normalizeActivityLog(value: unknown): LeadActivity[] {
   if (!Array.isArray(value)) return [];
 
@@ -119,6 +137,7 @@ function normalizeAudit(data: any, documentId: string): AdminLead {
     nextAction: optionalString(data.nextAction),
     followUpAt: normalizeCreatedAt(data.followUpAt) || undefined,
     internalNotes: optionalString(data.internalNotes),
+    leadNotes: normalizeLeadNotes(data.leadNotes),
     activityLog: normalizeActivityLog(data.activityLog)
   };
 }
@@ -138,6 +157,7 @@ function normalizeContact(data: any, documentId: string): AdminLead {
     nextAction: optionalString(data.nextAction),
     followUpAt: normalizeCreatedAt(data.followUpAt) || undefined,
     internalNotes: optionalString(data.internalNotes),
+    leadNotes: normalizeLeadNotes(data.leadNotes),
     activityLog: normalizeActivityLog(data.activityLog)
   };
 }
@@ -167,6 +187,43 @@ export async function fetchAdminLeads(): Promise<AdminLead[]> {
   });
 }
 
+
+export async function addLeadNote(
+  lead: AdminLead,
+  titleInput: string,
+  bodyInput: string,
+  actorLabel: string
+): Promise<LeadNote> {
+  const title = titleInput.trim();
+  const body = bodyInput.trim();
+  const author = actorLabel.trim().slice(0, 120) || 'Admin';
+
+  if (!title) throw new Error('Note title is required.');
+  if (!body) throw new Error('Note content is required.');
+  if (title.length > 120) throw new Error('Note title cannot exceed 120 characters.');
+  if (body.length > 3000) throw new Error('Note content cannot exceed 3,000 characters.');
+  if ((lead.leadNotes || []).length >= 50) {
+    throw new Error('This lead has reached the 50-note limit.');
+  }
+
+  const note: LeadNote = {
+    id: `NOTE-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
+    title,
+    body,
+    author,
+    createdAt: new Date().toISOString()
+  };
+
+  const collectionName =
+    lead.source === 'AUDIT' ? 'audit_submissions' : 'contact_submissions';
+
+  await updateDoc(doc(firestoreDb, collectionName, lead.id), {
+    leadNotes: arrayUnion(note),
+    updatedAt: serverTimestamp()
+  });
+
+  return note;
+}
 
 export async function updateLeadOperations(
   lead: AdminLead,

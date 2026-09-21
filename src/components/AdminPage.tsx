@@ -1261,7 +1261,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
               className="inline-flex items-center border border-[#E5E5E5] bg-white px-3 py-2 text-xs hover:bg-[#F7F7F5]"
             >
               <ArrowLeft className="w-3.5 h-3.5 mr-2" />
-              Back to site
+              {tr('Volver al sitio', 'Back to site')}
             </button>
             <button
               type="button"
@@ -1286,9 +1286,9 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                 <p className="font-mono-code text-[10px] uppercase tracking-wider text-[#6B6B6B]">
                   {tr('Centro de alertas', 'Alert Center')}
                 </p>
-                <h2 className="text-2xl font-extrabold tracking-tight mt-1">Operational alerts</h2>
+                <h2 className="text-2xl font-extrabold tracking-tight mt-1">{tr('Alertas operativas', 'Operational alerts')}</h2>
                 <p className="text-xs text-[#6B6B6B] mt-1">
-                  {unreadAlerts.length} unread · {adminAlerts.length} active
+                  {unreadAlerts.length} {tr('sin leer', 'unread')} · {adminAlerts.length} {tr('activas', 'active')}
                 </p>
               </div>
               <button
@@ -1329,13 +1329,13 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
 
             {browserAlertStatus === 'blocked' && (
               <div className="mx-4 mt-4 border border-amber-200 bg-amber-50 p-3 text-[10px] text-amber-900">
-                Browser notifications are blocked in this environment. The in-app Alert Center still works.
+                {tr('Las notificaciones del navegador están bloqueadas en este entorno. El Centro de alertas interno sigue funcionando.', 'Browser notifications are blocked in this environment. The in-app Alert Center still works.')}
               </div>
             )}
 
             {browserAlertStatus === 'unsupported' && (
               <div className="mx-4 mt-4 border border-[#E5E5E5] bg-[#FAFAFA] p-3 text-[10px] text-[#6B6B6B]">
-                Native browser notifications are not supported here. The in-app Alert Center still works.
+                {tr('Las notificaciones nativas del navegador no están disponibles aquí. El Centro de alertas interno sigue funcionando.', 'Native browser notifications are not supported here. The in-app Alert Center still works.')}
               </div>
             )}
 
@@ -2312,7 +2312,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                           }
                           maxLength={3000}
                           rows={5}
-                          placeholder="Private commercial context, objections, next steps..."
+                          placeholder={tr('Contexto comercial privado, objeciones, próximos pasos...', 'Private commercial context, objections, next steps...')}
                           className="w-full border border-[#D8D8D8] bg-white px-3 py-2.5 text-sm leading-relaxed resize-y focus:outline-none focus:border-[#0A3F4D]"
                         />
                       </label>

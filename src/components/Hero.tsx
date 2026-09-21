@@ -1,7 +1,8 @@
-import React from 'react';
-import { ArrowRight, ArrowDown } from 'lucide-react';
-import { HeroSystemVisual } from './HeroSystemVisual.tsx';
-import { useLanguage } from '../i18n/LanguageContext';
+import React from "react";
+import { ArrowRight, Play, MessageCircle, Instagram } from "lucide-react";
+import { HeroSystemVisual } from "./HeroSystemVisual";
+import { useLanguage } from "../i18n/LanguageContext";
+import "./hero-conversations.css";
 
 interface HeroProps {
   onOpenAudit: () => void;
@@ -9,99 +10,88 @@ interface HeroProps {
 
 export const Hero: React.FC<HeroProps> = ({ onOpenAudit }) => {
   const { language } = useLanguage();
-  const scrollToSystem = () => {
-    const element = document.getElementById('the-system');
-    if (element) {
-      const offset = 80;
-      const bodyRect = document.body.getBoundingClientRect().top;
-      const elementRect = element.getBoundingClientRect().top;
-      const elementPosition = elementRect - bodyRect;
-      const offsetPosition = elementPosition - offset;
-
-      window.scrollTo({
-        top: offsetPosition,
-        behavior: 'smooth'
-      });
-    }
+  const es = language === "es";
+  const showDemo = () => {
+    const demo = document.getElementById("hero-system-visual");
+    demo?.scrollIntoView({
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        ? "auto"
+        : "smooth",
+      block: "center",
+    });
+    const replay = document.getElementById("hero-demo-replay");
+    replay?.click();
+    replay?.focus({ preventScroll: true });
   };
-
   return (
-    <section className="relative pt-16 pb-24 md:pt-24 md:pb-36 lg:pt-32 lg:pb-44 border-b border-[#0A0A0A]/10">
-      <div className="max-w-7xl mx-auto px-6 lg:px-12">
-        {/* Top small label */}
-        <div className="mb-8">
-          <span className="inline-block font-mono-code text-xs uppercase tracking-[0.28em] text-[#0A3F4D] font-semibold">
-            AI BUSINESS SYSTEMS
-          </span>
-        </div>
-
-        {/* Giant Title & Second Line */}
-        <div className="max-w-5xl mb-8">
-          <h1 className="text-4xl sm:text-6xl lg:text-7xl xl:text-8xl font-extrabold tracking-[-0.04em] text-[#0A0A0A] leading-[1.03]">
-            {language === 'es'
-              ? 'Encuentra dónde tu negocio está perdiendo oportunidades.'
-              : 'Find where your business is losing opportunities.'}
+    <section className="gk-hero" aria-labelledby="gk-hero-title">
+      <div className="gk-hero-layout">
+        <div className="gk-hero-copy">
+          <p className="gk-eyebrow">
+            <span /> G-KAIS /{" "}
+            {es
+              ? "CONVERSACIONES QUE AVANZAN"
+              : "CONVERSATIONS THAT MOVE FORWARD"}
+          </p>
+          <h1 id="gk-hero-title">
+            {es ? "Cada conversación," : "Every conversation,"}
+            <br />
+            <span>{es ? "una oportunidad." : "an opportunity."}</span>
           </h1>
-          <p className="mt-4 text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-[-0.03em] text-[#777777] leading-[1.05]">
-            {language === 'es'
-              ? 'Luego construye el sistema que las recupera.'
-              : 'Then build the system that recovers them.'}
+          <p className="gk-hero-description">
+            {es
+              ? "Convierte el interés de Instagram y WhatsApp en el siguiente paso: una respuesta, una reserva o una venta. Diseñamos el sistema y tu equipo mantiene el control."
+              : "Turn interest on Instagram and WhatsApp into the next step: a reply, a booking or a sale. We design the system. Your team stays in control."}
           </p>
-        </div>
-
-        {/* Third explanatory text */}
-        <div className="max-w-3xl mb-12">
-          <p className="text-lg sm:text-xl text-[#777777] leading-relaxed">
-            {language === 'es'
-              ? 'G-KAIS diseña sistemas empresariales con IA que capturan, califican, responden y hacen seguimiento a oportunidades comerciales, manteniendo a tu equipo en control.'
-              : 'G-KAIS designs AI-powered business systems that capture, qualify, respond to and follow up with commercial opportunities — while keeping your team in control.'}
-          </p>
-        </div>
-
-        {/* CTA Buttons */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-6 mb-20 md:mb-28">
-          <button
-            onClick={onOpenAudit}
-            id="hero-book-audit-btn"
-            className="group inline-flex items-center justify-center px-8 py-4 bg-[#0A0A0A] text-[#F7F7F5] font-semibold text-xs tracking-wider uppercase hover:bg-[#0A3F4D] transition-all duration-200"
-          >
-            <span>{language === 'es' ? 'SOLICITAR AUDITORÍA GRATIS' : 'BOOK A FREE AUDIT'}</span>
-            <ArrowRight className="w-4 h-4 ml-3 transition-transform duration-200 group-hover:translate-x-1" />
-          </button>
-
-          <button
-            onClick={scrollToSystem}
-            id="hero-see-how-it-works-btn"
-            className="inline-flex items-center justify-center px-8 py-4 border border-[#0A0A0A]/20 bg-transparent text-[#0A0A0A] font-semibold text-xs tracking-wider uppercase hover:bg-white/60 transition-all duration-200"
-          >
-            <span>{language === 'es' ? 'VER CÓMO FUNCIONA' : 'SEE HOW IT WORKS'}</span>
-            <ArrowDown className="w-4 h-4 ml-2.5 text-[#777777]" />
-          </button>
-
-          <span className="text-xs font-mono-code tracking-wide text-[#777777] sm:pl-2">
-            {language === 'es'
-              ? 'Sin compromiso. Sin configuraciones complicadas.'
-              : 'No commitment. No complicated setup.'}
-          </span>
-        </div>
-
-        {/* Minimalist G-KAIS SYSTEM Architecture Visual */}
-        <div className="w-full" id="hero-system-visual">
-          <div className="mb-3 flex items-center justify-between text-xs font-mono-code text-[#777777]">
-            <div className="flex items-center space-x-2">
-              <span className="w-2 h-2 rounded-full bg-[#0A3F4D]" />
-              <span className="font-semibold text-[#0A0A0A]">
-                {language === 'es' ? 'ARQUITECTURA DEL SISTEMA G-KAIS' : 'G-KAIS SYSTEM ARCHITECTURE'}
-              </span>
-            </div>
-            <span className="text-[#0A3F4D] font-semibold">
-              {language === 'es' ? 'DEMO INTERACTIVA DEL SISTEMA' : 'INTERACTIVE SYSTEM DEMO'}
-            </span>
+          <div className="gk-hero-actions">
+            <button
+              type="button"
+              id="hero-book-audit-btn"
+              onClick={onOpenAudit}
+              className="gk-primary"
+            >
+              {es ? "Evaluar mi negocio" : "Assess my business"}
+              <ArrowRight size={17} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              id="hero-see-how-it-works-btn"
+              onClick={showDemo}
+              className="gk-secondary"
+            >
+              <Play size={15} aria-hidden="true" />
+              {es ? "Ver en 10 segundos" : "See it in 10 seconds"}
+            </button>
           </div>
-          <HeroSystemVisual />
+          <p className="gk-hero-note">
+            {es
+              ? "Auditoría gratuita · Implementación según tu negocio"
+              : "Free audit · Implementation tailored to your business"}
+          </p>
+          <div className="gk-channel-line">
+            <Instagram size={16} aria-hidden="true" />
+            <span>Instagram</span>
+            <span className="gk-channel-divider" />
+            <MessageCircle size={16} aria-hidden="true" />
+            <span>WhatsApp</span>
+            <span className="gk-channel-divider" />
+            <span>{es ? "Tu equipo" : "Your team"}</span>
+          </div>
         </div>
+        <HeroSystemVisual />
+      </div>
+      <div className="gk-hero-foot">
+        <span>
+          01 /{" "}
+          {es ? "DEL MENSAJE AL SIGUIENTE PASO" : "FROM MESSAGE TO NEXT STEP"}
+        </span>
+        <p>
+          {es
+            ? "Responde. Organiza. Da seguimiento."
+            : "Respond. Organize. Follow up."}
+        </p>
+        <span>{es ? "IA + CONTROL HUMANO" : "AI + HUMAN CONTROL"}</span>
       </div>
     </section>
   );
 };
-

@@ -1347,7 +1347,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
   if (!user) {
     return (
       <main className="min-h-screen bg-[#F7F7F5] text-[#0A0A0A] flex items-center justify-center px-6">
-        <section className="w-full max-w-lg border border-[#0A0A0A]/15 bg-white p-8 sm:p-10">
+        <section className="w-full max-w-lg border border-[#0A0A0A]/15 bg-white rounded-3xl p-8 sm:p-10">
           <div className="flex items-center justify-between mb-10">
             <button
               type="button"
@@ -1377,7 +1377,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
           </p>
 
           {error && (
-            <div className="mb-5 border border-red-200 bg-red-50 text-red-800 p-3 text-xs flex items-start gap-2">
+            <div className="mb-5 border border-red-200 bg-red-50 rounded-xl text-red-800 p-3 text-xs flex items-start gap-2">
               <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
               <span>{error}</span>
             </div>
@@ -1386,7 +1386,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
           <button
             type="button"
             onClick={handleGoogleSignIn}
-            className="w-full bg-[#0A0A0A] text-white px-5 py-3 text-xs font-semibold uppercase tracking-wider hover:bg-[#0A3F4D] transition-colors"
+            className="w-full bg-[#0A0A0A] text-white rounded-xl px-5 py-3 text-xs font-semibold uppercase tracking-wider hover:bg-[#0A3F4D] transition-colors"
           >
             {tr('Ingresar con Google', 'Sign in with Google')}
           </button>
@@ -1402,7 +1402,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
   return (
     <main className="min-h-screen bg-[#F7F7F5] text-[#0A0A0A]">
       <header className="border-b border-[#E5E5E5] bg-white">
-        <div className="max-w-[1600px] mx-auto px-5 sm:px-8 py-4 flex flex-wrap items-center justify-between gap-4">
+        <div className="max-w-[1380px] mx-auto px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-3">
               <button
@@ -1424,7 +1424,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
             <button
               type="button"
               onClick={() => setAlertsOpen((current) => !current)}
-              className="relative inline-flex items-center border border-[#E5E5E5] bg-white px-3 py-2 text-xs hover:bg-[#F7F7F5]"
+              className="relative inline-flex items-center border border-[#E5E5E5] bg-white rounded-xl px-3 py-2 text-xs hover:bg-[#F7F7F5]"
               aria-label="Open alerts"
             >
               <Bell className="w-3.5 h-3.5 mr-2" />
@@ -1442,7 +1442,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
             <button
               type="button"
               onClick={onExitAdmin}
-              className="inline-flex items-center border border-[#E5E5E5] bg-white px-3 py-2 text-xs hover:bg-[#F7F7F5]"
+              className="inline-flex items-center border border-[#E5E5E5] bg-white rounded-xl px-3 py-2 text-xs hover:bg-[#F7F7F5]"
             >
               <ArrowLeft className="w-3.5 h-3.5 mr-2" />
               {tr('Volver al sitio', 'Back to site')}
@@ -1450,7 +1450,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
             <button
               type="button"
               onClick={() => signOut(firebaseAuth)}
-              className="inline-flex items-center border border-[#E5E5E5] bg-white px-3 py-2 text-xs hover:bg-[#F7F7F5]"
+              className="inline-flex items-center border border-[#E5E5E5] bg-white rounded-xl px-3 py-2 text-xs hover:bg-[#F7F7F5]"
             >
               <LogOut className="w-3.5 h-3.5 mr-2" />
               {tr('Cerrar sesión', 'Sign out')}
@@ -1462,7 +1462,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
       {alertsOpen && (
         <div className="fixed inset-0 z-50 bg-black/20 flex justify-end" onClick={() => setAlertsOpen(false)}>
           <aside
-            className="w-full max-w-md h-full bg-white border-l border-[#E5E5E5] shadow-xl flex flex-col"
+            className="w-full max-w-md h-full bg-white border-l border-[#E5E5E5] shadow-xl flex flex-col rounded-l-3xl overflow-hidden"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="p-5 border-b border-[#E5E5E5] flex items-start justify-between gap-4">
@@ -1598,7 +1598,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
           }}
         >
           <section
-            className="w-full max-w-lg bg-white border border-[#D8D8D8] shadow-2xl"
+            className="w-full max-w-lg bg-white border border-[#D8D8D8] rounded-3xl shadow-2xl overflow-hidden"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="p-5 border-b border-[#E5E5E5] flex items-start justify-between gap-4">
@@ -1637,7 +1637,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                   onChange={(event) =>
                     setTaskOutcome(event.target.value as TaskOutcome)
                   }
-                  className="w-full border border-[#D8D8D8] bg-white px-3 py-3 text-sm focus:outline-none focus:border-[#0A3F4D]"
+                  className="w-full border border-[#D8D8D8] bg-white rounded-xl px-3 py-3 text-sm focus:outline-none focus:border-[#0A3F4D]"
                 >
                   {TASK_OUTCOME_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -1694,7 +1694,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                     rescheduleHours === null ||
                     Boolean(completingActionId || reschedulingActionId)
                   }
-                  className="mt-2 w-full inline-flex items-center justify-center border border-[#0A3F4D] text-[#0A3F4D] bg-white px-4 py-3 text-xs font-semibold uppercase tracking-wider hover:bg-[#F7F7F5] disabled:opacity-40"
+                  className="mt-2 w-full inline-flex items-center justify-center border border-[#0A3F4D] text-[#0A3F4D] bg-white rounded-xl px-4 py-3 text-xs font-semibold uppercase tracking-wider hover:bg-[#F7F7F5] disabled:opacity-40"
                 >
                   {reschedulingActionId ? (
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -1706,7 +1706,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
               </div>
 
               {taskModalError && (
-                <div className="mt-4 border border-red-200 bg-red-50 p-3 text-xs text-red-800">
+                <div className="mt-4 border border-red-200 bg-red-50 rounded-xl p-3 text-xs text-red-800">
                   {taskModalError}
                 </div>
               )}
@@ -1724,7 +1724,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                   type="button"
                   onClick={handleCompleteAction}
                   disabled={Boolean(completingActionId || reschedulingActionId)}
-                  className="flex-1 inline-flex items-center justify-center bg-[#0A0A0A] text-white px-4 py-3 text-xs font-semibold uppercase tracking-wider hover:bg-[#0A3F4D] disabled:opacity-50"
+                  className="flex-1 inline-flex items-center justify-center bg-[#0A0A0A] text-white rounded-xl px-4 py-3 text-xs font-semibold uppercase tracking-wider hover:bg-[#0A3F4D] disabled:opacity-50"
                 >
                   {completingActionId ? (
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -1739,7 +1739,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
         </div>
       )}
 
-      <div className="max-w-[1600px] mx-auto px-5 sm:px-8 py-8">
+      <div className="max-w-[1380px] mx-auto px-4 sm:px-6 py-8">
         <div className="mb-6 flex flex-col lg:flex-row lg:items-end lg:justify-between gap-5">
           <div>
             <p className="font-mono-code text-[10px] uppercase tracking-[0.2em] text-[#0A3F4D] font-bold mb-2">
@@ -1754,7 +1754,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
             type="button"
             onClick={loadLeads}
             disabled={dataLoading}
-            className="inline-flex items-center justify-center border border-[#0A0A0A] px-4 py-2.5 text-xs font-semibold uppercase tracking-wider bg-white hover:bg-[#F0F0EE] disabled:opacity-50"
+            className="inline-flex items-center justify-center border border-[#0A0A0A] rounded-xl px-4 py-2.5 text-xs font-semibold uppercase tracking-wider bg-white hover:bg-[#F0F0EE] disabled:opacity-50"
           >
             <RefreshCw className={`w-3.5 h-3.5 mr-2 ${dataLoading ? 'animate-spin' : ''}`} />
             {tr('Actualizar', 'Refresh')}
@@ -1762,7 +1762,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
         </div>
 
         {error && (
-          <div className="mb-6 border border-red-200 bg-red-50 text-red-800 p-3 text-xs flex items-start gap-2">
+          <div className="mb-6 border border-red-200 bg-red-50 rounded-xl text-red-800 p-3 text-xs flex items-start gap-2">
             <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
             <span>{error}</span>
           </div>
@@ -1775,7 +1775,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
           </div>
         )}
 
-        <section className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 border border-[#E5E5E5] bg-white mb-6">
+        <section className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 border border-[#E5E5E5] bg-white rounded-2xl overflow-hidden mb-6">
           {[
             [tr('TOTAL', 'TOTAL'), metrics.total],
             [tr('VENCIDOS', 'OVERDUE'), metrics.overdueCount],
@@ -1791,7 +1791,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
           ))}
         </section>
 
-        <section className="border border-[#E5E5E5] bg-white mb-6">
+        <section className="border border-[#E5E5E5] bg-white rounded-2xl overflow-hidden mb-6">
           <div className="px-4 sm:px-5 py-4 border-b border-[#E5E5E5] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div>
               <p className="font-mono-code text-[10px] font-bold uppercase tracking-wider">
@@ -1832,7 +1832,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
           </div>
         </section>
 
-        <section className="border border-[#E5E5E5] bg-white mb-6">
+        <section className="border border-[#E5E5E5] bg-white rounded-2xl overflow-hidden mb-6">
           <div className="px-4 sm:px-5 py-4 border-b border-[#E5E5E5] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div>
               <p className="font-mono-code text-[10px] font-bold uppercase tracking-wider">
@@ -1887,7 +1887,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
         </section>
 
         <section className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
-          <div className="border border-[#E5E5E5] bg-white">
+          <div className="border border-[#E5E5E5] bg-white rounded-2xl overflow-hidden">
             <div className="px-4 sm:px-5 py-4 border-b border-[#E5E5E5] flex items-start justify-between gap-4">
               <div>
                 <p className="font-mono-code text-[10px] font-bold uppercase tracking-wider">
@@ -1944,7 +1944,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
             )}
           </div>
 
-          <div className="border border-[#E5E5E5] bg-white">
+          <div className="border border-[#E5E5E5] bg-white rounded-2xl overflow-hidden">
             <div className="px-4 sm:px-5 py-4 border-b border-[#E5E5E5] flex items-start justify-between gap-4">
               <div>
                 <p className="font-mono-code text-[10px] font-bold uppercase tracking-wider">
@@ -2054,7 +2054,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                           type="button"
                           onClick={() => openTaskCompletion(lead)}
                           disabled={completingActionId === lead.id}
-                          className="shrink-0 inline-flex items-center border border-[#0A3F4D] px-2.5 py-2 text-[9px] font-mono-code uppercase tracking-wider text-[#0A3F4D] bg-white hover:bg-[#F7F7F5] disabled:opacity-50"
+                          className="shrink-0 inline-flex items-center border border-[#0A3F4D] rounded-xl px-2.5 py-2 text-[9px] font-mono-code uppercase tracking-wider text-[#0A3F4D] bg-white hover:bg-[#F7F7F5] disabled:opacity-50"
                           title="Complete current action"
                         >
                           {completingActionId === lead.id ? (
@@ -2083,7 +2083,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
 
         <section
           ref={pipelineSectionRef}
-          className="border border-[#E5E5E5] bg-white scroll-mt-6"
+          className="border border-[#E5E5E5] bg-white rounded-2xl overflow-hidden scroll-mt-6"
         >
           <div className="p-4 border-b border-[#E5E5E5] flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
             <div>
@@ -2109,7 +2109,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                   setNeedsActionOnly(false);
                   setStatusFilter(event.target.value as 'ALL' | LeadStatus);
                 }}
-                className="border border-[#E5E5E5] bg-[#FAFAFA] px-3 py-2 text-xs focus:outline-none focus:border-[#0A3F4D]"
+                className="border border-[#E5E5E5] bg-[#FAFAFA] rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-[#0A3F4D]"
               >
                 <option value="ALL">{tr('Todos los estados', 'All statuses')}</option>
                 {STATUS_OPTIONS.map((option) => (
@@ -2125,7 +2125,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                   setNeedsActionOnly(false);
                   setFollowUpFilter(event.target.value as 'ALL' | FollowUpBucket);
                 }}
-                className="border border-[#E5E5E5] bg-[#FAFAFA] px-3 py-2 text-xs focus:outline-none focus:border-[#0A3F4D]"
+                className="border border-[#E5E5E5] bg-[#FAFAFA] rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-[#0A3F4D]"
               >
                 <option value="ALL">{tr('Todos los seguimientos', 'All follow-ups')}</option>
                 <option value="OVERDUE">{tr('Vencidos', 'Overdue')}</option>
@@ -2142,7 +2142,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                     event.target.value as 'ALL' | 'HIGH' | 'MEDIUM' | 'NORMAL'
                   );
                 }}
-                className="border border-[#E5E5E5] bg-[#FAFAFA] px-3 py-2 text-xs focus:outline-none focus:border-[#0A3F4D]"
+                className="border border-[#E5E5E5] bg-[#FAFAFA] rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-[#0A3F4D]"
               >
                 <option value="ALL">{tr('Todas las prioridades', 'All priorities')}</option>
                 <option value="HIGH">{tr('Prioridad alta', 'High priority')}</option>
@@ -2154,7 +2154,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                 value={queryText}
                 onChange={(event) => setQueryText(event.target.value)}
                 placeholder={tr('Buscar nombre, empresa, responsable, acción...', 'Search name, company, owner, action...')}
-                className="w-full sm:w-80 border border-[#E5E5E5] bg-[#FAFAFA] px-3 py-2 text-xs focus:outline-none focus:border-[#0A3F4D]"
+                className="w-full sm:w-80 border border-[#E5E5E5] bg-[#FAFAFA] rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-[#0A3F4D]"
               />
             </div>
           </div>
@@ -2310,7 +2310,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                     </a>
                   )}
 
-                  <div className="mt-6 border border-[#E5E5E5] bg-white p-4">
+                  <div className="mt-6 border border-[#E5E5E5] bg-white rounded-2xl p-4">
                     <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#6B6B6B] font-bold mb-2">
                       {tr('Contexto de ingreso', 'Intake context')}
                     </p>
@@ -2332,7 +2332,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                     </div>
 
                     <div className="space-y-4">
-                      <div className="border border-[#D8D8D8] bg-white p-3">
+                      <div className="border border-[#D8D8D8] bg-white rounded-2xl p-3">
                         <div className="flex items-center justify-between gap-3 mb-2">
                           <div>
                             <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#6B6B6B]">
@@ -2354,7 +2354,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                               event.currentTarget.value = '';
                             }
                           }}
-                          className="w-full border border-[#D8D8D8] bg-[#FAFAFA] px-3 py-2.5 text-sm focus:outline-none focus:border-[#0A3F4D]"
+                          className="w-full border border-[#D8D8D8] bg-[#FAFAFA] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#0A3F4D]"
                         >
                           <option value="">{tr('Elige un playbook…', 'Choose a playbook…')}</option>
                           <optgroup label={tr('Operación comercial', 'Core sales operations')}>
@@ -2409,7 +2409,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                               status: event.target.value as LeadStatus
                             }))
                           }
-                          className="w-full border border-[#D8D8D8] bg-white px-3 py-2.5 text-sm focus:outline-none focus:border-[#0A3F4D]"
+                          className="w-full border border-[#D8D8D8] bg-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#0A3F4D]"
                         >
                           {STATUS_OPTIONS.map((option) => (
                             <option key={option.value} value={option.value}>
@@ -2433,7 +2433,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                           }
                           maxLength={100}
                           placeholder={tr('ej. Ismael', 'e.g. Ismael')}
-                          className="w-full border border-[#D8D8D8] bg-white px-3 py-2.5 text-sm focus:outline-none focus:border-[#0A3F4D]"
+                          className="w-full border border-[#D8D8D8] bg-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#0A3F4D]"
                         />
                       </label>
 
@@ -2449,7 +2449,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                               nextAction: event.target.value
                             }))
                           }
-                          className="w-full border border-[#D8D8D8] bg-white px-3 py-2.5 text-sm focus:outline-none focus:border-[#0A3F4D]"
+                          className="w-full border border-[#D8D8D8] bg-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#0A3F4D]"
                         >
                           <option value="">{tr('Selecciona próxima acción', 'Select next action')}</option>
                           {draft.nextAction &&
@@ -2501,7 +2501,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                               followUpAt: fromDatetimeLocal(event.target.value)
                             }))
                           }
-                          className="w-full border border-[#D8D8D8] bg-white px-3 py-2.5 text-sm focus:outline-none focus:border-[#0A3F4D]"
+                          className="w-full border border-[#D8D8D8] bg-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#0A3F4D]"
                         />
                       </label>
 
@@ -2520,7 +2520,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                           maxLength={3000}
                           rows={5}
                           placeholder={tr('Contexto comercial privado, objeciones, próximos pasos...', 'Private commercial context, objections, next steps...')}
-                          className="w-full border border-[#D8D8D8] bg-white px-3 py-2.5 text-sm leading-relaxed resize-y focus:outline-none focus:border-[#0A3F4D]"
+                          className="w-full border border-[#D8D8D8] bg-white rounded-xl px-3 py-2.5 text-sm leading-relaxed resize-y focus:outline-none focus:border-[#0A3F4D]"
                         />
                       </label>
 
@@ -2528,7 +2528,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                         type="button"
                         onClick={handleSave}
                         disabled={saving}
-                        className="w-full inline-flex items-center justify-center bg-[#0A0A0A] text-white px-4 py-3 text-xs font-semibold uppercase tracking-wider hover:bg-[#0A3F4D] disabled:opacity-50 transition-colors"
+                        className="w-full inline-flex items-center justify-center bg-[#0A0A0A] text-white rounded-xl px-4 py-3 text-xs font-semibold uppercase tracking-wider hover:bg-[#0A3F4D] disabled:opacity-50 transition-colors"
                       >
                         {saving ? (
                           <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -2542,7 +2542,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                         type="button"
                         onClick={sendSelectedLeadEmail}
                         disabled={leadEmailStatus === 'sending'}
-                        className="w-full inline-flex items-center justify-center border border-[#0A3F4D] text-[#0A3F4D] bg-white px-4 py-3 text-xs font-semibold uppercase tracking-wider hover:bg-[#F7F7F5] disabled:opacity-50 transition-colors"
+                        className="w-full inline-flex items-center justify-center border border-[#0A3F4D] text-[#0A3F4D] bg-white rounded-xl px-4 py-3 text-xs font-semibold uppercase tracking-wider hover:bg-[#F7F7F5] disabled:opacity-50 transition-colors"
                       >
                         {leadEmailStatus === 'sending' ? (
                           <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -2610,7 +2610,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                     )}
                   </div>
 
-                  <div className="mt-5 border border-[#0A3F4D]/20 bg-white p-3 text-[10px] leading-relaxed text-[#0A3F4D]">
+                  <div className="mt-5 border border-[#0A3F4D]/20 bg-white rounded-xl p-3 text-[10px] leading-relaxed text-[#0A3F4D]">
                     {tr('Espacio interno. Las lecturas y actualizaciones operativas del CRM en Firestore están restringidas a administradores autenticados.', 'Internal workspace. Firestore CRM reads and operational updates are restricted to authenticated administrators.')}
                   </div>
                 </div>

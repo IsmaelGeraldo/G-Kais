@@ -24,6 +24,14 @@ export type TaskOutcome =
   | 'SALE_CLOSED'
   | 'NOT_INTERESTED';
 
+export interface LeadNote {
+  id: string;
+  title: string;
+  body: string;
+  author: string;
+  createdAt: string;
+}
+
 export interface LeadActivity {
   at: string;
   actor: string;
@@ -58,6 +66,7 @@ export interface AdminLead {
   nextAction?: string;
   followUpAt?: string;
   internalNotes?: string;
+  leadNotes?: LeadNote[];
   activityLog?: LeadActivity[];
 }
 

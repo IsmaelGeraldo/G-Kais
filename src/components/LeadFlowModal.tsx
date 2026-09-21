@@ -27,7 +27,7 @@ export const LeadFlowModal: React.FC<LeadFlowModalProps> = ({ isOpen, onClose, o
     >
       <div 
         ref={modalRef}
-        className="relative w-full max-w-3xl bg-[#F7F7F5] border border-[#0A0A0A] p-6 sm:p-10 shadow-2xl my-8 text-left max-h-[90vh] overflow-y-auto"
+        className="relative w-full max-w-3xl bg-[#F7F7F5] border border-[#0A0A0A] p-6 sm:p-10 shadow-2xl rounded-3xl my-8 text-left max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <button
@@ -84,19 +84,19 @@ export const LeadFlowModal: React.FC<LeadFlowModalProps> = ({ isOpen, onClose, o
 
           {/* Key System Attributes Grid */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center pt-2">
-            <div className="p-3 bg-white border border-[#0A0A0A]/10">
+            <div className="p-3 bg-white border border-[#0A0A0A]/10 rounded-xl">
               <span className="font-mono-code text-[10px] text-[#777777] block">Ingestion Latency</span>
               <span className="font-mono-code text-sm font-bold text-[#0A0A0A]">Real-Time</span>
             </div>
-            <div className="p-3 bg-white border border-[#0A0A0A]/10">
+            <div className="p-3 bg-white border border-[#0A0A0A]/10 rounded-xl">
               <span className="font-mono-code text-[10px] text-[#777777] block">Pipeline Recovery</span>
               <span className="font-mono-code text-xs font-bold text-[#0A3F4D]">Illustrative Recovery KPI</span>
             </div>
-            <div className="p-3 bg-white border border-[#0A0A0A]/10">
+            <div className="p-3 bg-white border border-[#0A0A0A]/10 rounded-xl">
               <span className="font-mono-code text-[10px] text-[#777777] block">Data Privacy</span>
               <span className="font-mono-code text-sm font-bold text-[#0A0A0A]">Encrypted</span>
             </div>
-            <div className="p-3 bg-white border border-[#0A0A0A]/10">
+            <div className="p-3 bg-white border border-[#0A0A0A]/10 rounded-xl">
               <span className="font-mono-code text-[10px] text-[#777777] block">Compatibility</span>
               <span className="font-mono-code text-sm font-bold text-[#0A0A0A]">Universal API</span>
             </div>

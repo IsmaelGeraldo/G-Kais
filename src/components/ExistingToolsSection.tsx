@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLanguage } from '../i18n/LanguageContext';
 import { Database, MessageSquare, Mail, Calendar, Globe, FileSpreadsheet, Cpu, ArrowRight } from 'lucide-react';
 
 interface ToolCategory {
@@ -62,6 +63,8 @@ const TOOL_CATEGORIES: ToolCategory[] = [
 ];
 
 export const ExistingToolsSection: React.FC = () => {
+  const { language } = useLanguage();
+  const tr = (es: string, en: string) => (language === 'es' ? es : en);
   return (
     <section className="py-24 md:py-36 lg:py-48 border-b border-[#0A0A0A]/10 bg-[#F7F7F5]">
       <div className="max-w-7xl mx-auto px-6 lg:px-12">
@@ -69,15 +72,15 @@ export const ExistingToolsSection: React.FC = () => {
         <div className="mb-20 lg:mb-28 flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div>
             <span className="font-mono-code text-xs uppercase tracking-[0.24em] text-[#0A3F4D] font-semibold block mb-4">
-              INTEROPERABILITY & CONNECTIVITY
+              {tr('INTEROPERABILIDAD Y CONECTIVIDAD', 'INTEROPERABILITY & CONNECTIVITY')}
             </span>
             <h2 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-[-0.03em] text-[#0A0A0A] leading-tight">
-              Works with your existing tools.
+              {tr('Funciona con las herramientas que ya utilizas.', 'Works with your existing tools.')}
             </h2>
           </div>
           <div className="max-w-md">
             <p className="text-lg md:text-xl text-[#777777] font-normal leading-relaxed">
-              G-KAIS connects the systems your business already uses — with no disruptive migration or replacement of current software.
+              {tr('G-KAIS conecta los sistemas que tu negocio ya utiliza, sin migraciones disruptivas ni reemplazar tu software actual.', 'G-KAIS connects the systems your business already uses — with no disruptive migration or replacement of current software.')}
             </p>
           </div>
         </div>
@@ -96,22 +99,36 @@ export const ExistingToolsSection: React.FC = () => {
                     <div className="flex items-center space-x-3">
                       <Icon className="w-5 h-5 text-[#0A3F4D]" />
                       <h3 className="text-lg font-bold tracking-tight text-[#0A0A0A]">
-                        {tool.name}
+                        {language === 'es'
+                          ? tool.id === 'crm' ? 'Sistemas CRM'
+                            : tool.id === 'whatsapp' ? 'WhatsApp Business'
+                            : tool.id === 'email' ? 'Correo corporativo'
+                            : tool.id === 'calendar' ? 'Calendario y agendamiento'
+                            : tool.id === 'web' ? 'Web y formularios digitales'
+                            : 'Hojas de cálculo'
+                          : tool.name}
                       </h3>
                     </div>
                     <span className="font-mono-code text-[10px] text-[#777777] uppercase">
-                      CONNECTED
+                      {tr('CONECTADO', 'CONNECTED')}
                     </span>
                   </div>
 
                   <p className="text-sm text-[#777777] leading-relaxed mb-6">
-                    {tool.description}
+                    {language === 'es'
+                    ? tool.id === 'crm' ? 'Creación automática de registros, avance del ciclo comercial y sincronización bidireccional.'
+                      : tool.id === 'whatsapp' ? 'Calificación conversacional y agendamiento directamente dentro del canal que usan tus clientes.'
+                      : tool.id === 'email' ? 'Detecta consultas, extrae contexto e intención y prepara seguimientos.'
+                      : tool.id === 'calendar' ? 'Verifica disponibilidad, reserva espacios y prepara contexto antes de reuniones.'
+                      : tool.id === 'web' ? 'Captura consultas desde formularios, landing pages y embudos en tiempo real.'
+                      : 'Sincroniza oportunidades y contactos con hojas de cálculo operativas existentes.'
+                    : tool.description}
                   </p>
                 </div>
 
                 <div className="pt-4 border-t border-[#0A0A0A]/10">
                   <span className="font-mono-code text-[10px] text-[#777777] uppercase block mb-1">
-                    TYPICAL ENVIRONMENTS
+                    {tr('ENTORNOS HABITUALES', 'TYPICAL ENVIRONMENTS')}
                   </span>
                   <span className="font-mono-code text-xs text-[#0A0A0A] font-medium">
                     {tool.examples}
@@ -126,9 +143,9 @@ export const ExistingToolsSection: React.FC = () => {
         <div className="mt-12 p-6 bg-white border border-[#0A0A0A]/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs font-mono-code text-[#777777]">
           <div className="flex items-center space-x-3">
             <span className="w-2 h-2 rounded-full bg-[#0A3F4D]" />
-            <span>INTEGRATION PROTOCOL: Standard REST APIs, Secure Webhooks & Native Event Streams</span>
+            <span>{tr('PROTOCOLO DE INTEGRACIÓN: APIs REST, Webhooks seguros y eventos nativos', 'INTEGRATION PROTOCOL: Standard REST APIs, Secure Webhooks & Native Event Streams')}</span>
           </div>
-          <span className="text-[#0A0A0A] font-semibold">ZERO DISRUPTION TO CURRENT WORKFLOWS</span>
+          <span className="text-[#0A0A0A] font-semibold">{tr('SIN INTERRUMPIR LOS FLUJOS ACTUALES', 'ZERO DISRUPTION TO CURRENT WORKFLOWS')}</span>
         </div>
       </div>
     </section>

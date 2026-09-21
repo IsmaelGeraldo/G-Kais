@@ -22,6 +22,8 @@ import {
   X
 } from 'lucide-react';
 import { firebaseAuth } from '../lib/firebase';
+import { LanguageSelector } from './LanguageSelector';
+import { useLanguage } from '../i18n/LanguageContext';
 import {
   completeLeadAction,
   fetchAdminLeads,
@@ -156,12 +158,53 @@ const TASK_OUTCOME_OPTIONS: {
   }
 ];
 
-function taskOutcomeLabel(value?: TaskOutcome): string {
-  return (
-    TASK_OUTCOME_OPTIONS.find((option) => option.value === value)?.label ||
-    value ||
-    ''
-  );
+function taskOutcomeLabel(value: TaskOutcome | undefined, language: 'es' | 'en'): string {
+  const labels: Record<TaskOutcome, { es: string; en: string }> = {
+    COMPLETED: { es: 'Completado', en: 'Completed' },
+    NO_ANSWER: { es: 'Sin respuesta', en: 'No answer' },
+    INTERESTED: { es: 'Interesado', en: 'Interested' },
+    MEETING_BOOKED: { es: 'Reunión agendada', en: 'Meeting booked' },
+    PROPOSAL_SENT: { es: 'Propuesta enviada', en: 'Proposal sent' },
+    SALE_CLOSED: { es: 'Venta cerrada', en: 'Sale closed' },
+    NOT_INTERESTED: { es: 'No interesado', en: 'Not interested' }
+  };
+  return value ? labels[value][language] : '';
+}
+
+function statusLabel(status: LeadStatus, language: 'es' | 'en'): string {
+  const labels: Record<LeadStatus, { es: string; en: string }> = {
+    PENDING_REVIEW: { es: 'Pendiente de revisión', en: 'Pending review' },
+    NEW: { es: 'Nuevo', en: 'New' },
+    CONTACTED: { es: 'Contactado', en: 'Contacted' },
+    FOLLOW_UP: { es: 'Seguimiento', en: 'Follow-up' },
+    MEETING: { es: 'Reunión', en: 'Meeting' },
+    CLIENT: { es: 'Cliente', en: 'Client' },
+    LOST: { es: 'Perdido', en: 'Lost' }
+  };
+  return labels[status][language];
+}
+
+function nextActionLabel(action: string | undefined, language: 'es' | 'en'): string {
+  if (!action) return '';
+  const labels: Record<string, { es: string; en: string }> = {
+    'Call': { es: 'Llamar', en: 'Call' },
+    'Send WhatsApp': { es: 'Enviar WhatsApp', en: 'Send WhatsApp' },
+    'Send email': { es: 'Enviar email', en: 'Send email' },
+    'Send proposal': { es: 'Enviar propuesta', en: 'Send proposal' },
+    'Schedule meeting': { es: 'Agendar reunión', en: 'Schedule meeting' },
+    'Confirm meeting': { es: 'Confirmar reunión', en: 'Confirm meeting' },
+    'Request information': { es: 'Solicitar información', en: 'Request information' },
+    'Follow up': { es: 'Hacer seguimiento', en: 'Follow up' },
+    'Close sale': { es: 'Cerrar venta', en: 'Close sale' }
+  };
+  return labels[action]?.[language] || action;
+}
+
+function priorityLabel(label: 'HIGH' | 'MEDIUM' | 'NORMAL', language: 'es' | 'en'): string {
+  if (language === 'en') return label;
+  if (label === 'HIGH') return 'ALTA';
+  if (label === 'MEDIUM') return 'MEDIA';
+  return 'NORMAL';
 }
 
 function getWorkPriority(lead: AdminLead): {
@@ -219,18 +262,22 @@ function getFollowUpBucket(lead: AdminLead): FollowUpBucket {
   return 'UPCOMING';
 }
 
-function followUpLabel(bucket: FollowUpBucket): string {
-  if (bucket === 'OVERDUE') return 'Overdue';
-  if (bucket === 'TODAY') return 'Today';
-  if (bucket === 'UPCOMING') return 'Upcoming';
-  return 'Unscheduled';
+function followUpLabel(bucket: FollowUpBucket, language: 'es' | 'en'): string {
+  if (bucket === 'OVERDUE') return language === 'es' ? 'Vencido' : 'Overdue';
+  if (bucket === 'TODAY') return language === 'es' ? 'Hoy' : 'Today';
+  if (bucket === 'UPCOMING') return language === 'es' ? 'Próximo' : 'Upcoming';
+  return language === 'es' ? 'Sin programar' : 'Unscheduled';
 }
 
 function formatDate(value: string): string {
   if (!value) return '—';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat('es-CL', {
+  const locale =
+    typeof document !== 'undefined' && document.documentElement.lang === 'en'
+      ? 'en-US'
+      : 'es-CL';
+  return new Intl.DateTimeFormat(locale, {
     dateStyle: 'medium',
     timeStyle: 'short'
   }).format(date);
@@ -341,6 +388,8 @@ function buildAdminAlerts(leads: AdminLead[]): AdminAlert[] {
 }
 
 export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }) => {
+  const { language } = useLanguage();
+  const tr = (es: string, en: string) => (language === 'es' ? es : en);
   const crmPanelRef = useRef<HTMLElement | null>(null);
   const pipelineSectionRef = useRef<HTMLElement | null>(null);
   const [user, setUser] = useState<User | null>(firebaseAuth.currentUser);
@@ -969,7 +1018,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
         : '';
 
       setSaveMessage(
-        `${taskOutcomeLabel(taskOutcome)} recorded for ${lead.name}.${nextStep}`
+        `${taskOutcomeLabel(taskOutcome, language)} recorded for ${lead.name}.${nextStep}`
       );
       setTaskCompletionLead(null); setRescheduleHours(null);
       setTaskOutcome('COMPLETED');
@@ -1088,22 +1137,25 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
               className="inline-flex items-center text-xs font-mono-code uppercase tracking-wider text-[#6B6B6B] hover:text-[#0A0A0A]"
             >
               <ArrowLeft className="w-3.5 h-3.5 mr-2" />
-              Back to site
+              {tr('Volver al sitio', 'Back to site')}
             </button>
-            <span className="font-mono-code text-[10px] border border-[#E5E5E5] px-2 py-1 text-[#6B6B6B]">
-              INTERNAL
-            </span>
+            <div className="flex items-center gap-2">
+              <LanguageSelector compact />
+              <span className="font-mono-code text-[10px] border border-[#E5E5E5] px-2 py-1 text-[#6B6B6B]">
+                {tr('INTERNO', 'INTERNAL')}
+              </span>
+            </div>
           </div>
 
           <ShieldCheck className="w-8 h-8 mb-5" />
           <p className="font-mono-code text-[11px] uppercase tracking-[0.22em] text-[#0A3F4D] font-semibold mb-2">
-            PRIVATE OPERATIONS
+            {tr('OPERACIONES PRIVADAS', 'PRIVATE OPERATIONS')}
           </p>
           <h1 className="text-3xl font-extrabold tracking-tight mb-3">
             G-KAIS Admin
           </h1>
           <p className="text-sm text-[#6B6B6B] leading-relaxed mb-8">
-            Acceso interno para revisar y gestionar oportunidades registradas en Firestore.
+            {tr('Acceso interno para revisar y gestionar oportunidades registradas en Firestore.', 'Internal access to review and manage opportunities registered in Firestore.')}
           </p>
 
           {error && (
@@ -1118,11 +1170,11 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
             onClick={handleGoogleSignIn}
             className="w-full bg-[#0A0A0A] text-white px-5 py-3 text-xs font-semibold uppercase tracking-wider hover:bg-[#0A3F4D] transition-colors"
           >
-            Sign in with Google
+            {tr('Ingresar con Google', 'Sign in with Google')}
           </button>
 
           <p className="mt-4 text-[10px] leading-relaxed font-mono-code text-[#8A8A8A]">
-            Acceso interno protegido por Firebase Authentication y Security Rules de administrador.
+            {tr('Acceso interno protegido por Firebase Authentication y reglas de seguridad de administrador.', 'Internal access protected by Firebase Authentication and administrator security rules.')}
           </p>
         </section>
       </main>
@@ -1150,6 +1202,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
           </div>
 
           <div className="flex items-center gap-3">
+            <LanguageSelector compact />
             <button
               type="button"
               onClick={() => setAlertsOpen((current) => !current)}
@@ -1157,7 +1210,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
               aria-label="Open alerts"
             >
               <Bell className="w-3.5 h-3.5 mr-2" />
-              Alerts
+              {tr('Alertas', 'Alerts')}
               {unreadAlerts.length > 0 && (
                 <span className="ml-2 min-w-5 h-5 px-1 inline-flex items-center justify-center bg-[#0A0A0A] text-white font-mono-code text-[9px]">
                   {unreadAlerts.length > 99 ? '99+' : unreadAlerts.length}
@@ -1182,7 +1235,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
               className="inline-flex items-center border border-[#E5E5E5] bg-white px-3 py-2 text-xs hover:bg-[#F7F7F5]"
             >
               <LogOut className="w-3.5 h-3.5 mr-2" />
-              Sign out
+              {tr('Cerrar sesión', 'Sign out')}
             </button>
           </div>
         </div>
@@ -1197,7 +1250,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
             <div className="p-5 border-b border-[#E5E5E5] flex items-start justify-between gap-4">
               <div>
                 <p className="font-mono-code text-[10px] uppercase tracking-wider text-[#6B6B6B]">
-                  Alert Center
+                  {tr('Centro de alertas', 'Alert Center')}
                 </p>
                 <h2 className="text-2xl font-extrabold tracking-tight mt-1">Operational alerts</h2>
                 <p className="text-xs text-[#6B6B6B] mt-1">
@@ -1221,14 +1274,14 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                 disabled={adminAlerts.length === 0}
                 className="px-3 py-2 border border-[#E5E5E5] text-[10px] font-semibold uppercase tracking-wider hover:bg-[#F7F7F5] disabled:opacity-50"
               >
-                Mark all read
+                {tr('Marcar todo leído', 'Mark all read')}
               </button>
               <button
                 type="button"
                 onClick={enableBrowserAlerts}
                 className="px-3 py-2 border border-[#0A0A0A] text-[10px] font-semibold uppercase tracking-wider hover:bg-[#F7F7F5]"
               >
-                Enable browser alerts
+                {tr('Activar alertas del navegador', 'Enable browser alerts')}
               </button>
               <button
                 type="button"
@@ -1272,7 +1325,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                   <CheckCircle2 className="w-6 h-6 mx-auto text-[#0A3F4D]" />
                   <p className="mt-3 font-semibold">No active alerts</p>
                   <p className="mt-1 text-xs text-[#6B6B6B]">
-                    There are no overdue, due-today or new lead alerts.
+                    {tr('No hay seguimientos vencidos, para hoy ni nuevos leads pendientes.', 'There are no overdue, due-today or new lead alerts.')}
                   </p>
                 </div>
               ) : (
@@ -1333,10 +1386,10 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
             <div className="p-5 border-b border-[#E5E5E5] flex items-start justify-between gap-4">
               <div>
                 <p className="font-mono-code text-[10px] uppercase tracking-wider text-[#0A3F4D]">
-                  Task Engine
+                  {tr('Motor de Tareas', 'Task Engine')}
                 </p>
                 <h2 className="text-xl font-extrabold tracking-tight mt-1">
-                  Complete task
+                  {tr('Completar tarea', 'Complete task')}
                 </h2>
                 <p className="text-xs text-[#6B6B6B] mt-1">
                   {taskCompletionLead.name} · {taskCompletionLead.nextAction || 'Current action'}
@@ -1359,7 +1412,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
             <div className="p-5">
               <label className="block">
                 <span className="font-mono-code text-[9px] uppercase text-[#6B6B6B] block mb-1.5">
-                  Result
+                  {tr('Resultado', 'Result')}
                 </span>
                 <select
                   value={taskOutcome}
@@ -1370,7 +1423,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                 >
                   {TASK_OUTCOME_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>
-                      {option.label}
+                      {statusLabel(option.value, language)}
                     </option>
                   ))}
                 </select>
@@ -1378,7 +1431,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
 
               <div className="mt-4 border border-[#E5E5E5] bg-[#FAFAFA] p-4">
                 <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#6B6B6B]">
-                  Automatic next step
+                  {tr('Próximo paso automático', 'Automatic next step')}
                 </p>
                 <p className="text-sm mt-2 leading-relaxed">
                   {
@@ -1451,7 +1504,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                   disabled={Boolean(completingActionId || reschedulingActionId)}
                   className="flex-1 border border-[#D8D8D8] bg-white px-4 py-3 text-xs font-semibold uppercase tracking-wider hover:bg-[#F7F7F5] disabled:opacity-50"
                 >
-                  Cancel
+                  {tr('Cancelar', 'Cancel')}
                 </button>
                 <button
                   type="button"
@@ -1464,7 +1517,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                   ) : (
                     <CheckCircle2 className="w-4 h-4 mr-2" />
                   )}
-                  {completingActionId ? 'Saving' : 'Apply result'}
+                  {completingActionId ? tr('Guardando', 'Saving') : tr('Aplicar resultado', 'Apply result')}
                 </button>
               </div>
             </div>
@@ -1479,7 +1532,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
               LIVE FIRESTORE CRM
             </p>
             <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
-              Opportunities pipeline
+              {tr('Pipeline de oportunidades', 'Opportunities pipeline')}
             </h1>
           </div>
 
@@ -1490,7 +1543,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
             className="inline-flex items-center justify-center border border-[#0A0A0A] px-4 py-2.5 text-xs font-semibold uppercase tracking-wider bg-white hover:bg-[#F0F0EE] disabled:opacity-50"
           >
             <RefreshCw className={`w-3.5 h-3.5 mr-2 ${dataLoading ? 'animate-spin' : ''}`} />
-            Refresh
+            {tr('Actualizar', 'Refresh')}
           </button>
         </div>
 
@@ -1510,12 +1563,12 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
 
         <section className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 border border-[#E5E5E5] bg-white mb-6">
           {[
-            ['TOTAL', metrics.total],
-            ['OVERDUE', metrics.overdueCount],
-            ['TODAY', metrics.todayCount],
-            ['UPCOMING', metrics.upcomingCount],
-            ['TASKS DONE', metrics.tasksDoneToday],
-            ['CLIENTS', metrics.clientCount]
+            [tr('TOTAL', 'TOTAL'), metrics.total],
+            [tr('VENCIDOS', 'OVERDUE'), metrics.overdueCount],
+            [tr('HOY', 'TODAY'), metrics.todayCount],
+            [tr('PRÓXIMOS', 'UPCOMING'), metrics.upcomingCount],
+            [tr('TAREAS HECHAS', 'TASKS DONE'), metrics.tasksDoneToday],
+            [tr('CLIENTES', 'CLIENTS'), metrics.clientCount]
           ].map(([label, value]) => (
             <div key={String(label)} className="p-5 border-r border-b md:border-b-0 border-[#E5E5E5] last:border-r-0">
               <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#6B6B6B] mb-2">{label}</p>
@@ -1607,7 +1660,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                         active ? 'text-white/60' : 'text-[#777]'
                       }`}
                     >
-                      {option.label}
+                      {statusLabel(option.value, language)}
                     </p>
                     <p className="text-2xl font-extrabold mt-1">
                       {metrics.stageCounts[option.value]}
@@ -1624,10 +1677,10 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
             <div className="px-4 sm:px-5 py-4 border-b border-[#E5E5E5] flex items-start justify-between gap-4">
               <div>
                 <p className="font-mono-code text-[10px] font-bold uppercase tracking-wider">
-                  New Leads
+                  {tr('Nuevos Leads', 'New Leads')}
                 </p>
                 <p className="text-xs text-[#6B6B6B] mt-1">
-                  Inbox for new and unreviewed opportunities.
+                  {tr('Bandeja de entrada para oportunidades nuevas y sin revisar.', 'Inbox for new and unreviewed opportunities.')}
                 </p>
               </div>
               <span className="font-mono-code text-[10px] text-[#6B6B6B]">
@@ -1647,7 +1700,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2 mb-1.5">
                         <span className="font-mono-code text-[9px] px-2 py-1 border border-[#0A3F4D]/30 text-[#0A3F4D]">
-                          NEW LEAD
+                          {tr('NUEVO LEAD', 'NEW LEAD')}
                         </span>
                         <span className="font-bold text-sm truncate">{lead.name}</span>
                         {lead.company && (
@@ -1657,12 +1710,12 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                         )}
                       </div>
                       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-[#6B6B6B]">
-                        <span>Review and classify in CRM</span>
+                        <span>{tr('Revisar y clasificar en CRM', 'Review and classify in CRM')}</span>
                         <span className="font-mono-code">{formatDate(lead.createdAt)}</span>
                       </div>
                     </div>
                     <span className="shrink-0 inline-flex items-center gap-1.5 font-mono-code text-[9px] uppercase tracking-wider text-[#0A3F4D]">
-                      Review in CRM
+                      {tr('Revisar en CRM', 'Review in CRM')}
                       <ChevronRight className="w-4 h-4" />
                     </span>
                   </button>
@@ -1671,8 +1724,8 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
             ) : (
               <div className="px-5 py-8 text-center">
                 <CheckCircle2 className="w-5 h-5 mx-auto mb-2 text-[#0A3F4D]" />
-                <p className="text-sm font-semibold">Inbox clear</p>
-                <p className="text-xs text-[#6B6B6B] mt-1">No new leads waiting for review.</p>
+                <p className="text-sm font-semibold">{tr('Bandeja al día', 'Inbox clear')}</p>
+                <p className="text-xs text-[#6B6B6B] mt-1">{tr('No hay nuevos leads esperando revisión.', 'No new leads waiting for review.')}</p>
               </div>
             )}
           </div>
@@ -1681,7 +1734,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
             <div className="px-4 sm:px-5 py-4 border-b border-[#E5E5E5] flex items-start justify-between gap-4">
               <div>
                 <p className="font-mono-code text-[10px] font-bold uppercase tracking-wider">
-                  Priority Work
+                  {tr('Trabajo Prioritario', 'Priority Work')}
                 </p>
                 <p className="text-xs text-[#6B6B6B] mt-1">
                   {focusMode
@@ -1756,7 +1809,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                                   : 'border-[#E5E5E5] text-[#777]'
                               }`}
                             >
-                              {getWorkPriority(lead).label}
+                              {priorityLabel(getWorkPriority(lead).label, language)}
                             </span>
                             <span className="font-bold text-sm truncate">{lead.name}</span>
                             {lead.company && (
@@ -1767,11 +1820,11 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                           </div>
 
                           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-[#6B6B6B]">
-                            <span>{lead.nextAction || 'Set the next action in CRM'}</span>
+                            <span>{lead.nextAction ? nextActionLabel(lead.nextAction, language) : tr('Define la próxima acción en CRM', 'Set the next action in CRM')}</span>
                             {lead.followUpAt && (
                               <span className="font-mono-code">{formatDate(lead.followUpAt)}</span>
                             )}
-                            <span>Owner: {lead.assignedTo || 'Unassigned'}</span>
+                            <span>{tr('Responsable', 'Owner')}: {lead.assignedTo || tr('Sin asignar', 'Unassigned')}</span>
                           </div>
                         </button>
 
@@ -1787,7 +1840,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                           ) : (
                             <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
                           )}
-                          {completingActionId === lead.id ? 'Saving' : 'Complete'}
+                          {completingActionId === lead.id ? tr('Guardando', 'Saving') : tr('Completar', 'Complete')}
                         </button>
                       </div>
                     </div>
@@ -1797,9 +1850,9 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
             ) : (
               <div className="px-5 py-8 text-center">
                 <CheckCircle2 className="w-5 h-5 mx-auto mb-2 text-[#0A3F4D]" />
-                <p className="text-sm font-semibold">Priority work clear</p>
+                <p className="text-sm font-semibold">{tr('Trabajo prioritario al día', 'Priority work clear')}</p>
                 <p className="text-xs text-[#6B6B6B] mt-1">
-                  No classified leads have an active task or scheduled follow-up.
+                  {tr('No hay leads clasificados con tareas activas o seguimientos programados.', 'No classified leads have an active task or scheduled follow-up.')}
                 </p>
               </div>
             )}
@@ -1836,10 +1889,10 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                 }}
                 className="border border-[#E5E5E5] bg-[#FAFAFA] px-3 py-2 text-xs focus:outline-none focus:border-[#0A3F4D]"
               >
-                <option value="ALL">All statuses</option>
+                <option value="ALL">{tr('Todos los estados', 'All statuses')}</option>
                 {STATUS_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
-                    {option.label}
+                    {statusLabel(option.value, language)}
                   </option>
                 ))}
               </select>
@@ -1852,11 +1905,11 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                 }}
                 className="border border-[#E5E5E5] bg-[#FAFAFA] px-3 py-2 text-xs focus:outline-none focus:border-[#0A3F4D]"
               >
-                <option value="ALL">All follow-ups</option>
-                <option value="OVERDUE">Overdue</option>
-                <option value="TODAY">Today</option>
-                <option value="UPCOMING">Upcoming</option>
-                <option value="UNSCHEDULED">Unscheduled</option>
+                <option value="ALL">{tr('Todos los seguimientos', 'All follow-ups')}</option>
+                <option value="OVERDUE">{tr('Vencidos', 'Overdue')}</option>
+                <option value="TODAY">{tr('Hoy', 'Today')}</option>
+                <option value="UPCOMING">{tr('Próximos', 'Upcoming')}</option>
+                <option value="UNSCHEDULED">{tr('Sin programar', 'Unscheduled')}</option>
               </select>
 
               <select
@@ -1878,7 +1931,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
               <input
                 value={queryText}
                 onChange={(event) => setQueryText(event.target.value)}
-                placeholder="Search name, company, owner, action..."
+                placeholder={tr('Buscar nombre, empresa, responsable, acción...', 'Search name, company, owner, action...')}
                 className="w-full sm:w-80 border border-[#E5E5E5] bg-[#FAFAFA] px-3 py-2 text-xs focus:outline-none focus:border-[#0A3F4D]"
               />
             </div>
@@ -1890,13 +1943,13 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                 <thead className="sticky top-0 z-10 bg-[#FAFAFA] border-b border-[#E5E5E5] font-mono-code text-[10px] uppercase text-[#6B6B6B] shadow-[0_1px_0_rgba(0,0,0,0.06)]">
                   <tr>
                     <th className="px-4 py-3">Lead</th>
-                    <th className="px-3 py-3">Source</th>
-                    <th className="px-3 py-3">Status</th>
+                    <th className="px-3 py-3">{tr('Origen', 'Source')}</th>
+                    <th className="px-3 py-3">{tr('Estado', 'Status')}</th>
                     <th className="px-3 py-3">Priority</th>
-                    <th className="px-3 py-3">Owner</th>
-                    <th className="px-3 py-3">Next action</th>
-                    <th className="px-3 py-3">Follow-up</th>
-                    <th className="px-4 py-3 text-right">Created</th>
+                    <th className="px-3 py-3">{tr('Responsable', 'Owner')}</th>
+                    <th className="px-3 py-3">{tr('Próxima acción', 'Next action')}</th>
+                    <th className="px-3 py-3">{tr('Seguimiento', 'Follow-up')}</th>
+                    <th className="px-4 py-3 text-right">{tr('Creado', 'Created')}</th>
                   </tr>
                 </thead>
 
@@ -1932,7 +1985,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                           </span>
                         </td>
                         <td className="px-3 py-4 font-medium">
-                          {STATUS_OPTIONS.find((option) => option.value === lead.status)?.label || lead.status}
+                          {statusLabel(lead.status, language)}
                         </td>
                         <td className="px-3 py-4">
                           <span
@@ -1949,7 +2002,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                         </td>
                         <td className="px-3 py-4">{lead.assignedTo || '—'}</td>
                         <td className="px-3 py-4 max-w-[220px] truncate">
-                          {lead.nextAction || '—'}
+                          {lead.nextAction ? nextActionLabel(lead.nextAction, language) : '—'}
                         </td>
                         <td className="px-3 py-4">
                           <span className={`font-mono-code text-[9px] px-2 py-1 border ${
@@ -1961,7 +2014,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                               ? 'border-[#0A3F4D]/30 text-[#0A3F4D] bg-white'
                               : 'border-[#E5E5E5] text-[#777] bg-white'
                           }`}>
-                            {followUpLabel(getFollowUpBucket(lead))}
+                            {followUpLabel(getFollowUpBucket(lead), language)}
                           </span>
                           {lead.followUpAt && (
                             <div className="mt-1 text-[9px] text-[#777] font-mono-code">
@@ -2048,7 +2101,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                     <div className="flex items-center justify-between mb-4">
                       <div>
                         <p className="font-mono-code text-[10px] font-bold uppercase tracking-wider">
-                          CRM controls
+                          {tr('Controles CRM', 'CRM controls')}
                         </p>
                         <p className="text-[10px] text-[#777] mt-1">
                           Authenticated internal workspace
@@ -2099,7 +2152,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
 
                       <label className="block">
                         <span className="font-mono-code text-[9px] uppercase text-[#6B6B6B] block mb-1.5">
-                          Status
+                          {tr('Estado', 'Status')}
                         </span>
                         <select
                           value={draft.status}
@@ -2113,7 +2166,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                         >
                           {STATUS_OPTIONS.map((option) => (
                             <option key={option.value} value={option.value}>
-                              {option.label}
+                              {statusLabel(option.value, language)}
                             </option>
                           ))}
                         </select>
@@ -2121,7 +2174,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
 
                       <label className="block">
                         <span className="font-mono-code text-[9px] uppercase text-[#6B6B6B] block mb-1.5">
-                          Responsible
+                          {tr('Responsable', 'Responsible')}
                         </span>
                         <input
                           value={draft.assignedTo || ''}
@@ -2139,7 +2192,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
 
                       <label className="block">
                         <span className="font-mono-code text-[9px] uppercase text-[#6B6B6B] block mb-1.5">
-                          Next action
+                          {tr('Próxima acción', 'Next action')}
                         </span>
                         <select
                           value={draft.nextAction || ''}
@@ -2151,7 +2204,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                           }
                           className="w-full border border-[#D8D8D8] bg-white px-3 py-2.5 text-sm focus:outline-none focus:border-[#0A3F4D]"
                         >
-                          <option value="">Select next action</option>
+                          <option value="">{tr('Selecciona próxima acción', 'Select next action')}</option>
                           {draft.nextAction &&
                             !NEXT_ACTION_OPTIONS.includes(
                               draft.nextAction as (typeof NEXT_ACTION_OPTIONS)[number]
@@ -2162,12 +2215,12 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                             )}
                           {NEXT_ACTION_OPTIONS.map((action) => (
                             <option key={action} value={action}>
-                              {action}
+                              {nextActionLabel(action, language)}
                             </option>
                           ))}
                         </select>
                         <p className="mt-1.5 text-[10px] text-[#777]">
-                          Use Internal notes for details, context or instructions.
+                          {tr('Usa Notas internas para detalles, contexto o instrucciones.', 'Use Internal notes for details, context or instructions.')}
                         </p>
                         {suggestedNextAction(draft.status) &&
                           draft.nextAction !== suggestedNextAction(draft.status) && (
@@ -2190,7 +2243,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
 
                       <label className="block">
                         <span className="font-mono-code text-[9px] uppercase text-[#6B6B6B] block mb-1.5">
-                          Follow-up date
+                          {tr('Fecha de seguimiento', 'Follow-up date')}
                         </span>
                         <input
                           type="datetime-local"
@@ -2207,7 +2260,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
 
                       <label className="block">
                         <span className="font-mono-code text-[9px] uppercase text-[#6B6B6B] block mb-1.5">
-                          Internal notes
+                          {tr('Notas internas', 'Internal notes')}
                         </span>
                         <textarea
                           value={draft.internalNotes || ''}
@@ -2235,7 +2288,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                         ) : (
                           <Save className="w-4 h-4 mr-2" />
                         )}
-                        Save CRM changes
+                        {tr('Guardar cambios CRM', 'Save CRM changes')}
                       </button>
 
                       <button
@@ -2249,7 +2302,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                         ) : (
                           <Mail className="w-4 h-4 mr-2" />
                         )}
-                        {leadEmailStatus === 'sending' ? 'Sending alert…' : 'Send email alert'}
+                        {leadEmailStatus === 'sending' ? tr('Enviando alerta…', 'Sending alert…') : tr('Enviar alerta por email', 'Send email alert')}
                       </button>
 
                       {leadEmailMessage && (
@@ -2268,7 +2321,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
 
                   <div className="mt-6 border-t border-[#D8D8D8] pt-6">
                     <p className="font-mono-code text-[10px] font-bold uppercase tracking-wider mb-4">
-                      Activity history
+                      {tr('Historial de actividad', 'Activity history')}
                     </p>
 
                     {selectedLead.activityLog && selectedLead.activityLog.length > 0 ? (
@@ -2291,7 +2344,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                             </p>
                             {entry.result && (
                               <p className="text-[10px] font-mono-code uppercase tracking-wider text-[#0A3F4D] mt-1">
-                                Result: {taskOutcomeLabel(entry.result)}
+                                Result: {taskOutcomeLabel(entry.result, language)}
                               </p>
                             )}
                             {entry.nextAction && (
@@ -2306,7 +2359,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                         ))}
                       </div>
                     ) : (
-                      <p className="text-xs text-[#777]">No CRM changes recorded yet.</p>
+                      <p className="text-xs text-[#777]">{tr('Aún no hay cambios registrados en CRM.', 'No CRM changes recorded yet.')}</p>
                     )}
                   </div>
 
@@ -2316,7 +2369,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                 </div>
               ) : (
                 <div className="h-full min-h-[300px] flex items-center justify-center text-center text-xs text-[#6B6B6B]">
-                  Select a lead to inspect.
+                  {tr('Selecciona un lead para revisar.', 'Select a lead to inspect.')}
                 </div>
               )}
             </aside>

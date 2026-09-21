@@ -288,11 +288,11 @@ export const AuditCtaSection: React.FC<AuditCtaSectionProps> = () => {
                   {/* What happens after someone contacts? */}
                   <div>
                     <label className="block text-xs font-mono-code text-white/80 uppercase tracking-wider mb-2">
-                      What happens after someone makes an inquiry? <span className="text-white/40 lowercase">(optional)</span>
+                      {tr('¿Qué sucede después de que alguien hace una consulta?', 'What happens after someone makes an inquiry?')} <span className="text-white/40 lowercase">{tr('(opcional)', '(optional)')}</span>
                     </label>
                     <textarea
                       rows={2}
-                      placeholder="e.g. Inquiries wait in our inbox, sales reps follow up when free, leads get dropped after 1 touch..."
+                      placeholder={tr('Ej.: Las consultas quedan en una bandeja compartida, el equipo responde cuando puede y algunos seguimientos se pierden...', 'e.g. Inquiries wait in our inbox, sales reps follow up when free, leads get dropped after 1 touch...')}
                       value={formData.inquiryNotes}
                       onChange={(e) => setFormData({ ...formData, inquiryNotes: e.target.value })}
                       className="w-full px-4 py-2.5 bg-black border border-white/20 text-white placeholder-white/30 text-xs focus:outline-none focus:border-white transition-colors"
@@ -310,7 +310,7 @@ export const AuditCtaSection: React.FC<AuditCtaSectionProps> = () => {
                       {isLoading ? (
                         <>
                           <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          <span>Processing Request...</span>
+                          <span>{tr('Procesando solicitud...', 'Processing Request...')}</span>
                         </>
                       ) : (
                         <>
@@ -320,7 +320,7 @@ export const AuditCtaSection: React.FC<AuditCtaSectionProps> = () => {
                       )}
                     </button>
                     <p className="font-mono-code text-[10px] text-white/40 text-center mt-2.5">
-                      No commitment. We respond within 24–48 hours with concrete recommendations.
+                      {tr('Sin compromiso. Respondemos en 24–48 horas con recomendaciones concretas.', 'No commitment. We respond within 24–48 hours with concrete recommendations.')}
                     </p>
                   </div>
                 </form>

@@ -335,62 +335,10 @@ function taskOutcomeDescription(value: TaskOutcome, language: 'es' | 'en'): stri
   return descriptions[value][language];
 }
 
-type OpportunityScoreReasonKey =
-  | 'OVERDUE'
-  | 'DUE_TODAY'
-  | 'UPCOMING'
-  | 'MISSING_NEXT_ACTION'
-  | 'MEETING_STAGE'
-  | 'FOLLOW_UP_STAGE'
-  | 'CONTACTED_STAGE'
-  | 'CLIENT_STAGE'
-  | 'NEW_STAGE'
-  | 'HIGH_INTENT_NEXT_ACTION'
-  | 'NEXT_ACTION_DEFINED'
-  | 'UNASSIGNED'
-  | 'RECENT_ACTIVITY'
-  | 'OUTCOME_INTERESTED'
-  | 'OUTCOME_MEETING_BOOKED'
-  | 'OUTCOME_PROPOSAL_SENT'
-  | 'OUTCOME_NO_ANSWER';
-
-type OpportunityScoreReason = {
-  key: OpportunityScoreReasonKey;
-  points: number;
-};
-
-type OpportunityScore = {
+type WorkPriority = {
   label: 'HIGH' | 'MEDIUM' | 'NORMAL';
   score: number;
-  reasons: OpportunityScoreReason[];
 };
-
-function scoreReasonLabel(
-  key: OpportunityScoreReasonKey,
-  language: 'es' | 'en'
-): string {
-  const labels: Record<OpportunityScoreReasonKey, { es: string; en: string }> = {
-    OVERDUE: { es: 'Seguimiento vencido', en: 'Overdue follow-up' },
-    DUE_TODAY: { es: 'Acción para hoy', en: 'Action due today' },
-    UPCOMING: { es: 'Seguimiento próximo', en: 'Upcoming follow-up' },
-    MISSING_NEXT_ACTION: { es: 'Sin próxima acción', en: 'Missing next action' },
-    MEETING_STAGE: { es: 'Reunión en curso', en: 'Meeting stage' },
-    FOLLOW_UP_STAGE: { es: 'Seguimiento activo', en: 'Active follow-up' },
-    CONTACTED_STAGE: { es: 'Oportunidad contactada', en: 'Contacted opportunity' },
-    CLIENT_STAGE: { es: 'Cliente activo', en: 'Active client' },
-    NEW_STAGE: { es: 'Oportunidad nueva', en: 'New opportunity' },
-    HIGH_INTENT_NEXT_ACTION: { es: 'Próxima acción de alto avance', en: 'High-progress next action' },
-    NEXT_ACTION_DEFINED: { es: 'Próxima acción definida', en: 'Next action defined' },
-    UNASSIGNED: { es: 'Sin responsable', en: 'No owner assigned' },
-    RECENT_ACTIVITY: { es: 'Actividad reciente', en: 'Recent activity' },
-    OUTCOME_INTERESTED: { es: 'Resultado: interesado', en: 'Outcome: interested' },
-    OUTCOME_MEETING_BOOKED: { es: 'Resultado: reunión agendada', en: 'Outcome: meeting booked' },
-    OUTCOME_PROPOSAL_SENT: { es: 'Resultado: propuesta enviada', en: 'Outcome: proposal sent' },
-    OUTCOME_NO_ANSWER: { es: 'Resultado: sin respuesta', en: 'Outcome: no answer' }
-  };
-
-  return labels[key][language];
-}
 
 function hoursSince(value?: string): number | null {
   if (!value) return null;
@@ -399,40 +347,39 @@ function hoursSince(value?: string): number | null {
   return Math.max(0, (Date.now() - timestamp) / 3_600_000);
 }
 
-function getWorkPriority(lead: AdminLead): OpportunityScore {
+function getWorkPriority(lead: AdminLead): WorkPriority {
   if (lead.status === 'LOST') {
-    return { label: 'NORMAL', score: 0, reasons: [] };
+    return { label: 'NORMAL', score: 0 };
   }
 
-  let score = 0;
-  const reasons: OpportunityScoreReason[] = [];
-  const add = (key: OpportunityScoreReasonKey, points: number) => {
-    score += points;
-    reasons.push({ key, points });
-  };
-
   const bucket = getFollowUpBucket(lead);
-
-  if (bucket === 'OVERDUE') add('OVERDUE', 38);
-  if (bucket === 'TODAY') add('DUE_TODAY', 30);
-  if (bucket === 'UPCOMING') add('UPCOMING', 18);
-
   const activeStage =
     lead.status === 'CONTACTED' ||
     lead.status === 'FOLLOW_UP' ||
     lead.status === 'MEETING' ||
     lead.status === 'CLIENT';
 
+  let score = 0;
+
+  // Operational urgency must dominate every other signal.
+  if (bucket === 'OVERDUE') score += 70;
+  if (bucket === 'TODAY') score += 55;
+  if (bucket === 'UPCOMING') score += 15;
+
   if (activeStage && !lead.nextAction) {
-    add('MISSING_NEXT_ACTION', 22);
+    score += 45;
   }
 
-  if (lead.status === 'MEETING') add('MEETING_STAGE', 20);
-  if (lead.status === 'FOLLOW_UP') add('FOLLOW_UP_STAGE', 16);
-  if (lead.status === 'CONTACTED') add('CONTACTED_STAGE', 14);
-  if (lead.status === 'CLIENT') add('CLIENT_STAGE', 10);
+  if (!lead.assignedTo) {
+    score += 15;
+  }
+
+  if (lead.status === 'MEETING') score += 18;
+  if (lead.status === 'FOLLOW_UP') score += 14;
+  if (lead.status === 'CONTACTED') score += 12;
+  if (lead.status === 'CLIENT') score += 8;
   if (lead.status === 'PENDING_REVIEW' || lead.status === 'NEW') {
-    add('NEW_STAGE', 8);
+    score += 10;
   }
 
   const highProgressActions = new Set([
@@ -447,24 +394,16 @@ function getWorkPriority(lead: AdminLead): OpportunityScore {
   ]);
 
   if (lead.nextAction) {
-    if (highProgressActions.has(lead.nextAction)) {
-      add('HIGH_INTENT_NEXT_ACTION', lead.nextAction === 'Close sale' ? 16 : 12);
-    } else {
-      add('NEXT_ACTION_DEFINED', 6);
-    }
-  }
-
-  if (activeStage && !lead.assignedTo) {
-    add('UNASSIGNED', 6);
+    score += highProgressActions.has(lead.nextAction) ? 12 : 6;
   }
 
   const recentHours = hoursSince(lead.updatedAt || lead.createdAt);
   if (recentHours !== null && recentHours <= 24) {
-    add('RECENT_ACTIVITY', 8);
+    score += 8;
   } else if (recentHours !== null && recentHours <= 72) {
-    add('RECENT_ACTIVITY', 5);
+    score += 5;
   } else if (recentHours !== null && recentHours <= 168) {
-    add('RECENT_ACTIVITY', 2);
+    score += 2;
   }
 
   const recentOutcome = [...(lead.activityLog || [])]
@@ -474,25 +413,28 @@ function getWorkPriority(lead: AdminLead): OpportunityScore {
       return Boolean(entry.result) && age !== null && age <= 168;
     });
 
-  if (recentOutcome?.result === 'MEETING_BOOKED') {
-    add('OUTCOME_MEETING_BOOKED', 14);
-  } else if (recentOutcome?.result === 'PROPOSAL_SENT') {
-    add('OUTCOME_PROPOSAL_SENT', 12);
-  } else if (recentOutcome?.result === 'INTERESTED') {
-    add('OUTCOME_INTERESTED', 10);
-  } else if (recentOutcome?.result === 'NO_ANSWER') {
-    add('OUTCOME_NO_ANSWER', 4);
-  }
+  if (recentOutcome?.result === 'MEETING_BOOKED') score += 14;
+  if (recentOutcome?.result === 'PROPOSAL_SENT') score += 12;
+  if (recentOutcome?.result === 'INTERESTED') score += 10;
+  if (recentOutcome?.result === 'NO_ANSWER') score += 4;
 
   const cappedScore = Math.min(100, score);
-  const label =
-    cappedScore >= 70 ? 'HIGH' : cappedScore >= 40 ? 'MEDIUM' : 'NORMAL';
 
-  return {
-    label,
-    score: cappedScore,
-    reasons: reasons.sort((a, b) => b.points - a.points)
-  };
+  // Hard rules: these situations are always operationally urgent.
+  const forcedHigh =
+    bucket === 'OVERDUE' ||
+    bucket === 'TODAY' ||
+    (activeStage && !lead.nextAction);
+
+  const label = forcedHigh
+    ? 'HIGH'
+    : cappedScore >= 60
+    ? 'HIGH'
+    : cappedScore >= 30
+    ? 'MEDIUM'
+    : 'NORMAL';
+
+  return { label, score: cappedScore };
 }
 
 function suggestedNextAction(status: LeadStatus): string | undefined {
@@ -931,11 +873,17 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
 
   const priorityWork = useMemo(() => {
     const actionable = leads.filter((lead) => {
-      return (
-        lead.status !== 'LOST' &&
-        lead.status !== 'PENDING_REVIEW' &&
-        lead.status !== 'NEW'
-      );
+      if (lead.status === 'LOST') return false;
+
+      const bucket = getFollowUpBucket(lead);
+      const isNewLead =
+        lead.status === 'PENDING_REVIEW' || lead.status === 'NEW';
+
+      if (isNewLead) {
+        return bucket === 'OVERDUE' || bucket === 'TODAY';
+      }
+
+      return true;
     });
 
     return [...actionable]
@@ -2008,8 +1956,8 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                         'One task at a time. Complete or reschedule it to advance to the next.'
                       )
                     : tr(
-                        'Ordenado por score explicable: urgencia, etapa, actividad y siguiente acción.',
-                        'Ordered by explainable score: urgency, stage, activity and next action.'
+                        'Ordenado por urgencia operativa y próxima acción.',
+                        'Ordered by operational urgency and next action.'
                       )}
                 </p>
               </div>
@@ -2081,7 +2029,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                                   : 'border-[#E5E5E5] text-[#777]'
                               }`}
                             >
-                              {opportunityScore.score} · {priorityLabel(opportunityScore.label, language)}
+                              {priorityLabel(opportunityScore.label, language)}
                             </span>
                             <span className="font-bold text-sm truncate">{lead.name}</span>
                             {lead.company && (
@@ -2099,18 +2047,6 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                             <span>{tr('Responsable', 'Owner')}: {lead.assignedTo || tr('Sin asignar', 'Unassigned')}</span>
                           </div>
 
-                          {opportunityScore.reasons.length > 0 && (
-                            <div className="flex flex-wrap gap-1.5 mt-2">
-                              {opportunityScore.reasons.slice(0, 3).map((reason) => (
-                                <span
-                                  key={reason.key}
-                                  className="font-mono-code text-[8px] px-2 py-1 border border-[#E5E5E5] bg-white text-[#6B6B6B]"
-                                >
-                                  +{reason.points} {scoreReasonLabel(reason.key, language)}
-                                </span>
-                              ))}
-                            </div>
-                          )}
                         </button>
 
                         <button
@@ -2230,7 +2166,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                     <th className="px-4 py-3">Lead</th>
                     <th className="px-3 py-3">{tr('Origen', 'Source')}</th>
                     <th className="px-3 py-3">{tr('Estado', 'Status')}</th>
-                    <th className="px-3 py-3">{tr('Score / prioridad', 'Score / priority')}</th>
+                    <th className="px-3 py-3">{tr('Prioridad', 'Priority')}</th>
                     <th className="px-3 py-3">{tr('Responsable', 'Owner')}</th>
                     <th className="px-3 py-3">{tr('Próxima acción', 'Next action')}</th>
                     <th className="px-3 py-3">{tr('Seguimiento', 'Follow-up')}</th>
@@ -2282,7 +2218,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                                 : 'border-[#E5E5E5] text-[#777] bg-white'
                             }`}
                           >
-                            {getWorkPriority(lead).score} · {priorityLabel(getWorkPriority(lead).label, language)}
+                            {priorityLabel(getWorkPriority(lead).label, language)}
                           </span>
                         </td>
                         <td className="px-3 py-4">{lead.assignedTo || '—'}</td>
@@ -2337,7 +2273,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                             : 'border-[#E5E5E5] text-[#777]'
                         }`}
                       >
-                        {getWorkPriority(selectedLead).score} · {priorityLabel(getWorkPriority(selectedLead).label, language)} {tr('PRIORIDAD', 'PRIORITY')}
+                        {priorityLabel(getWorkPriority(selectedLead).label, language)} {tr('PRIORIDAD', 'PRIORITY')}
                       </span>
                       <span className="font-mono-code text-[9px] text-[#6B6B6B]">
                         {selectedLead.id}
@@ -2380,47 +2316,6 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                     <p className="text-sm leading-relaxed">
                       {selectedLead.inquiryNotes || selectedLead.message || 'No additional notes.'}
                     </p>
-                  </div>
-
-                  <div className="mt-4 border border-[#0A3F4D]/20 bg-white p-4">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#0A3F4D] font-bold">
-                          {tr('Score de oportunidad', 'Opportunity score')}
-                        </p>
-                        <p className="text-[10px] text-[#777] mt-1">
-                          {tr(
-                            'V1 operacional basada en urgencia, etapa, actividad, responsable y próxima acción.',
-                            'Operational v1 based on urgency, stage, activity, ownership and next action.'
-                          )}
-                        </p>
-                      </div>
-                      <span className="font-mono-code text-lg font-bold text-[#0A3F4D]">
-                        {getWorkPriority(selectedLead).score}
-                      </span>
-                    </div>
-
-                    <div className="mt-3 space-y-2">
-                      {getWorkPriority(selectedLead).reasons.length > 0 ? (
-                        getWorkPriority(selectedLead).reasons.slice(0, 5).map((reason) => (
-                          <div
-                            key={reason.key}
-                            className="flex items-center justify-between gap-3 text-[10px]"
-                          >
-                            <span className="text-[#6B6B6B]">
-                              {scoreReasonLabel(reason.key, language)}
-                            </span>
-                            <span className="font-mono-code text-[#0A3F4D]">
-                              +{reason.points}
-                            </span>
-                          </div>
-                        ))
-                      ) : (
-                        <p className="text-[10px] text-[#777]">
-                          {tr('Aún no hay señales suficientes para priorizar esta oportunidad.', 'There are not enough signals yet to prioritize this opportunity.')}
-                        </p>
-                      )}
-                    </div>
                   </div>
 
                   <div className="mt-6 border-t border-[#D8D8D8] pt-6">

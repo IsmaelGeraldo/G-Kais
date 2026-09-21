@@ -71,12 +71,12 @@ export const LeadFlowSection: React.FC<LeadFlowSectionProps> = ({
 
   return (
     <section id="leadflow" className="py-24 md:py-36 lg:py-48 border-b border-[#0A0A0A]/10 bg-[#F7F7F5]">
-      <div className="max-w-7xl mx-auto px-6 lg:px-12">
+      <div className="max-w-6xl mx-auto px-5 sm:px-6 lg:px-8">
         {/* 1. Header & Architectural Connection */}
         <LeadFlowHeader />
 
         {/* 2. LeadFlow Clean Editorial Dashboard (Pure B2B Minimalist) */}
-        <div className="border border-[#E5E5E5] bg-white shadow-sm overflow-hidden" id="leadflow-dashboard-container">
+        <div className="border border-[#E5E5E5] bg-white shadow-sm overflow-hidden rounded-3xl" id="leadflow-dashboard-container">
           {/* Top Telemetry Header */}
           <div className="flex flex-wrap items-center justify-between px-6 py-4 border-b border-[#E5E5E5] bg-white text-xs font-mono-code text-[#6B6B6B]">
             <div className="flex items-center space-x-3">
@@ -88,7 +88,7 @@ export const LeadFlowSection: React.FC<LeadFlowSectionProps> = ({
               <span className="hidden sm:inline text-[#6B6B6B]">VERSION 2.4.0</span>
             </div>
             <div className="flex items-center space-x-3">
-              <span className="px-2 py-0.5 border border-[#E5E5E5] bg-[#F7F7F5] text-[10px] uppercase tracking-wider text-[#6B6B6B] font-medium">
+              <span className="px-2 py-0.5 border border-[#E5E5E5] rounded-full bg-[#F7F7F5] text-[10px] uppercase tracking-wider text-[#6B6B6B] font-medium">
                 {tr('ENTORNO DEMO // DATOS SIMULADOS', 'DEMO ENVIRONMENT // SIMULATED DATA')}
               </span>
             </div>
@@ -158,7 +158,7 @@ export const LeadFlowSection: React.FC<LeadFlowSectionProps> = ({
                   type="button"
                   onClick={onExplore}
                   id="leadflow-system-spec-btn"
-                  className="px-4 py-2 border border-[#E5E5E5] text-xs font-mono-code text-[#0A0A0A] hover:bg-[#F7F7F5] transition-colors"
+                  className="px-4 py-2 border border-[#E5E5E5] rounded-xl text-xs font-mono-code text-[#0A0A0A] hover:bg-[#F7F7F5] transition-colors"
                 >
                   {tr('VER ESPECIFICACIÓN', 'VIEW SYSTEM SPEC')}
                 </button>

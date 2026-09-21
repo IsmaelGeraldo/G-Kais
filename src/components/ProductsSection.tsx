@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useLanguage } from '../i18n/LanguageContext';
 import { ArrowUpRight, ChevronDown } from 'lucide-react';
 
 interface ProductItem {
@@ -60,6 +61,8 @@ const PRODUCTS: ProductItem[] = [
 ];
 
 export const ProductsSection: React.FC = () => {
+  const { language } = useLanguage();
+  const tr = (es: string, en: string) => (language === 'es' ? es : en);
   const [expandedId, setExpandedId] = useState<string | null>('leadflow');
 
   const toggleExpand = (id: string) => {
@@ -73,14 +76,14 @@ export const ProductsSection: React.FC = () => {
         <div className="mb-20 lg:mb-28 flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div>
             <span className="font-mono-code text-xs uppercase tracking-[0.24em] text-[#0A3F4D] font-semibold block mb-4">
-              PRODUCT ECOSYSTEM
+              {tr('ECOSISTEMA DE PRODUCTOS', 'PRODUCT ECOSYSTEM')}
             </span>
             <h2 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-[-0.03em] text-[#0A0A0A] leading-tight">
-              One architecture. Multiple systems.
+              {tr('Una arquitectura. Múltiples sistemas.', 'One architecture. Multiple systems.')}
             </h2>
           </div>
           <p className="text-lg md:text-xl text-[#777777] max-w-md font-normal leading-relaxed">
-            Modular business systems built on a shared operational backbone, designed to deploy independently or as a unified suite.
+            {tr('Sistemas empresariales modulares construidos sobre una base operativa común, desplegables de forma independiente o como una suite unificada.', 'Modular business systems built on a shared operational backbone, designed to deploy independently or as a unified suite.')}
           </p>
         </div>
 
@@ -109,7 +112,13 @@ export const ProductsSection: React.FC = () => {
                         {prod.name}
                       </h3>
                       <span className="font-mono-code text-xs text-[#0A3F4D] tracking-wider uppercase mt-1.5 block font-semibold">
-                        {prod.category}
+                        {language === 'es'
+                          ? prod.id === 'leadflow' ? 'Recuperación de leads'
+                            : prod.id === 'bookingflow' ? 'Automatización de reservas'
+                            : prod.id === 'supportflow' ? 'Soporte al cliente'
+                            : prod.id === 'quoteflow' ? 'Automatización de cotizaciones'
+                            : 'Gestión de reseñas'
+                          : prod.category}
                       </span>
                     </div>
                   </div>
@@ -119,7 +128,13 @@ export const ProductsSection: React.FC = () => {
                     <p className={`text-sm sm:text-base text-[#0A0A0A]/90 leading-relaxed mb-4 ${
                       isExpanded ? 'opacity-100' : 'opacity-70 line-clamp-2'
                     }`}>
-                      {prod.description}
+                      {language === 'es'
+                      ? prod.id === 'leadflow' ? 'Captura consultas no atendidas, califica intención y ejecuta seguimientos persistentes hasta que la oportunidad avance.'
+                        : prod.id === 'bookingflow' ? 'Coordina horarios, califica antes de reservar y entrega contexto previo a tu equipo.'
+                        : prod.id === 'supportflow' ? 'Resuelve consultas repetitivas y escala excepciones complejas a personas.'
+                        : prod.id === 'quoteflow' ? 'Procesa requerimientos, calcula precios dentro de límites definidos y prepara propuestas.'
+                        : 'Monitorea satisfacción, solicita feedback en el momento adecuado y ayuda a convertir resultados positivos en reseñas.'
+                      : prod.description}
                     </p>
 
                     {isExpanded && (
@@ -155,7 +170,7 @@ export const ProductsSection: React.FC = () => {
 
         <div className="mt-4 text-right">
           <span className="font-mono-code text-[10px] text-[#777777]">
-            *Illustrative target metrics based on automated system simulations. Individual outcomes vary by industry and volume.
+            {tr('*Métricas objetivo ilustrativas basadas en simulaciones. Los resultados reales varían según industria y volumen.', '*Illustrative target metrics based on automated system simulations. Individual outcomes vary by industry and volume.')}
           </span>
         </div>
       </div>

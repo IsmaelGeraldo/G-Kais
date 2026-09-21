@@ -1,658 +1,398 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { 
-  ArrowRight, 
-  Terminal, 
-  Cpu, 
-  Activity, 
-  CheckCircle2, 
-  Zap,
-  Clock,
-  Radio,
-  Share2,
-  RefreshCw
-} from 'lucide-react';
-import { useLanguage } from '../i18n/LanguageContext';
+import React, { useEffect, useRef, useState } from "react";
+import {
+  ArrowUpRight,
+  CalendarCheck,
+  Check,
+  CheckCheck,
+  Instagram,
+  MessageCircle,
+  Pause,
+  Play,
+  RotateCcw,
+  Sparkles,
+} from "lucide-react";
+import { useLanguage } from "../i18n/LanguageContext";
+import "./hero-conversations.css";
 
-export interface SystemNode {
-  id: string;
-  num: string;
-  name: string;
-  category: string;
-  payload: Record<string, string>;
-  route: string[];
-  latency: string;
-  targetPipeline: 'ANALIZAR' | 'DECIDIR' | 'ACTUAR' | 'SEGUIMIENTO';
-  description: string;
-  // Node coordinate percentages for responsive SVG diagram (0-100)
-  x: number;
-  y: number;
-}
+const stories = {
+  es: [
+    {
+      label: "Nueva consulta",
+      business: "Estudio Norte",
+      channel: "Instagram",
+      source: "Anuncio en Instagram",
+      ad: "Un espacio para ti.",
+      offer: "Conoce nuestras clases. Encuentra tu horario.",
+      incoming: "¡Hola! Vi el anuncio. ¿Tienen una clase de prueba?",
+      reply: "¡Sí! Puedes venir el jueves a las 18:00. ¿Te reservo un lugar?",
+      answer: "¡Perfecto, a las 18:00!",
+      result: "Reserva confirmada",
+      detail: "Jueves · 18:00 · Clase de prueba",
+      next: "Recordatorio antes de la clase",
+      intent: "Quiere probar una clase",
+      steps: [
+        "Ve el anuncio",
+        "Pregunta por Instagram",
+        "G-Kais responde",
+        "Elige un horario",
+        "Reserva confirmada",
+      ],
+    },
+    {
+      label: "Cotización pendiente",
+      business: "Casa Atelier",
+      channel: "WhatsApp",
+      source: "Consulta por WhatsApp",
+      ad: "Tu próximo espacio.",
+      offer: "Una propuesta a medida, con atención cercana.",
+      incoming: "Hola, me interesa la cotización que me enviaron.",
+      reply:
+        "¡Hola! ¿Quieres revisar algún detalle? Puedo coordinar una llamada con tu asesora.",
+      answer: "Sí, mañana por la tarde.",
+      result: "Conversación retomada",
+      detail: "El cliente solicita hablar con su asesora",
+      next: "Coordinar llamada · Equipo comercial",
+      intent: "Interés en la propuesta",
+      steps: [
+        "Recibe la propuesta",
+        "Retoma la conversación",
+        "G-Kais da seguimiento",
+        "Pide hablar con alguien",
+        "Tu equipo continúa",
+      ],
+    },
+    {
+      label: "Recuperar una reserva",
+      business: "Estudio Norte",
+      channel: "WhatsApp",
+      source: "Seguimiento por WhatsApp",
+      ad: "Siempre puedes volver.",
+      offer: "Una nueva oportunidad para encontrar tu momento.",
+      incoming: "Hola, al final no pude asistir a la clase.",
+      reply: "Podemos buscar otro horario. ¿Te acomoda el sábado a las 10:00?",
+      answer: "Sí, ese horario me sirve.",
+      result: "Reserva reprogramada",
+      detail: "Sábado · 10:00 · Clase de prueba",
+      next: "Recordatorio actualizado",
+      intent: "Necesita otro horario",
+      steps: [
+        "Reserva sin asistir",
+        "El cliente escribe",
+        "G-Kais propone opciones",
+        "Confirma otro horario",
+        "Reserva recuperada",
+      ],
+    },
+  ],
+  en: [
+    {
+      label: "New inquiry",
+      business: "Estudio Norte",
+      channel: "Instagram",
+      source: "Instagram ad",
+      ad: "A space for you.",
+      offer: "Discover our classes. Find your time.",
+      incoming: "Hi! I saw your ad. Do you offer a trial class?",
+      reply: "Yes! You can join us Thursday at 6 pm. Shall I save you a spot?",
+      answer: "Perfect, 6 pm works!",
+      result: "Booking confirmed",
+      detail: "Thursday · 6 pm · Trial class",
+      next: "Reminder before the class",
+      intent: "Interested in a trial class",
+      steps: [
+        "Sees the ad",
+        "Asks on Instagram",
+        "G-Kais responds",
+        "Chooses a time",
+        "Booking confirmed",
+      ],
+    },
+    {
+      label: "Pending quote",
+      business: "Casa Atelier",
+      channel: "WhatsApp",
+      source: "WhatsApp inquiry",
+      ad: "Your next space.",
+      offer: "A tailored proposal, with personal attention.",
+      incoming: "Hi, I’m interested in the quote you sent me.",
+      reply:
+        "Hi! Would you like to review any details? I can arrange a call with your advisor.",
+      answer: "Yes, tomorrow afternoon.",
+      result: "Conversation reopened",
+      detail: "The customer wants to speak with their advisor",
+      next: "Arrange a call · Sales team",
+      intent: "Interested in the proposal",
+      steps: [
+        "Receives the quote",
+        "Reopens the conversation",
+        "G-Kais follows up",
+        "Asks to speak to someone",
+        "Your team takes over",
+      ],
+    },
+    {
+      label: "Recover a booking",
+      business: "Estudio Norte",
+      channel: "WhatsApp",
+      source: "WhatsApp follow-up",
+      ad: "There’s another chance.",
+      offer: "A new opportunity to find your moment.",
+      incoming: "Hi, I couldn’t make it to the class after all.",
+      reply: "Let’s find another time. Would Saturday at 10 am work for you?",
+      answer: "Yes, that works for me.",
+      result: "Booking rescheduled",
+      detail: "Saturday · 10 am · Trial class",
+      next: "Reminder updated",
+      intent: "Needs a different time",
+      steps: [
+        "Misses the booking",
+        "Customer writes",
+        "G-Kais offers options",
+        "Confirms another time",
+        "Booking recovered",
+      ],
+    },
+  ],
+};
 
-const SYSTEM_NODES: SystemNode[] = [
-  {
-    id: 'leads',
-    num: '01',
-    name: 'CLIENTES POTENCIALES',
-    category: 'INBOUND STREAM',
-    payload: {
-      source: 'website',
-      intent: 'request_quote',
-      status: 'new',
-      priority: 'high'
-    },
-    route: ['CLIENTES POTENCIALES', 'MOTOR G-KAIS', 'ANALIZAR', 'DECIDIR', 'CRM'],
-    latency: '14ms',
-    targetPipeline: 'ANALIZAR',
-    description: 'Inbound demand arriving continuously from digital touchpoints with immediate capture.',
-    x: 50,
-    y: 12
-  },
-  {
-    id: 'crm',
-    num: '02',
-    name: 'CRM',
-    category: 'RECORD SYSTEM',
-    payload: {
-      contact: 'existing_lead',
-      stage: 'qualified',
-      last_contact: '2h ago',
-      next_action: 'follow_up'
-    },
-    route: ['CRM', 'MOTOR G-KAIS', 'ANALIZAR', 'DECIDIR', 'SEGUIMIENTO'],
-    latency: '28ms',
-    targetPipeline: 'DECIDIR',
-    description: 'Bidirectional sync with central pipeline of record, logging events with zero manual entry.',
-    x: 16,
-    y: 35
-  },
-  {
-    id: 'email',
-    num: '03',
-    name: 'CORREO ELECTRÓNICO',
-    category: 'COMMUNICATION',
-    payload: {
-      type: 'incoming_email',
-      intent: 'pricing',
-      sentiment: 'positive',
-      priority: 'medium'
-    },
-    route: ['CORREO ELECTRÓNICO', 'MOTOR G-KAIS', 'ANALIZAR', 'ACTUAR', 'CRM'],
-    latency: '45ms',
-    targetPipeline: 'ACTUAR',
-    description: 'Inbound correspondence parsed for buying intent and routed into deterministic follow-up cadences.',
-    x: 84,
-    y: 35
-  },
-  {
-    id: 'whatsapp',
-    num: '04',
-    name: 'WHATSAPP',
-    category: 'CONVERSATIONAL',
-    payload: {
-      type: 'new_conversation',
-      intent: 'booking',
-      priority: 'high'
-    },
-    route: ['WHATSAPP', 'MOTOR G-KAIS', 'ANALIZAR', 'DECIDIR', 'CALENDARIO'],
-    latency: '8ms',
-    targetPipeline: 'ANALIZAR',
-    description: 'Ultra-low-latency conversational channel triggering autonomous instant qualification messaging.',
-    x: 18,
-    y: 78
-  },
-  {
-    id: 'calendario',
-    num: '05',
-    name: 'CALENDARIO',
-    category: 'SCHEDULING',
-    payload: {
-      event: 'booking_request',
-      availability: 'available',
-      action: 'schedule'
-    },
-    route: ['CALENDARIO', 'MOTOR G-KAIS', 'ACTUAR', 'SEGUIMIENTO', 'CRM'],
-    latency: '32ms',
-    targetPipeline: 'ACTUAR',
-    description: 'Two-way calendar coordination verifying qualified availability before locking meetings.',
-    x: 39,
-    y: 88
-  },
-  {
-    id: 'equipo',
-    num: '06',
-    name: 'EQUIPO',
-    category: 'HUMAN ESCALATION',
-    payload: {
-      user: 'sales',
-      task: 'follow_up',
-      priority: 'high'
-    },
-    route: ['EQUIPO', 'MOTOR G-KAIS', 'DECIDIR', 'ACTUAR', 'SEGUIMIENTO'],
-    latency: '19ms',
-    targetPipeline: 'DECIDIR',
-    description: 'Selective human escalation dispatching high-context briefing dossiers to executive closers.',
-    x: 61,
-    y: 88
-  },
-  {
-    id: 'clientes',
-    num: '07',
-    name: 'CLIENTES',
-    category: 'RELATIONSHIP',
-    payload: {
-      customer: 'existing',
-      signal: 're-engagement',
-      opportunity: 'renewal'
-    },
-    route: ['CLIENTES', 'MOTOR G-KAIS', 'ANALIZAR', 'DECIDIR', 'EQUIPO'],
-    latency: '22ms',
-    targetPipeline: 'SEGUIMIENTO',
-    description: 'Continuous monitoring of client milestones to reactivate dormant opportunities automatically.',
-    x: 82,
-    y: 78
-  }
-];
-
-interface PipelineStage {
-  id: string;
-  name: 'ANALIZAR' | 'DECIDIR' | 'ACTUAR' | 'SEGUIMIENTO';
-  num: string;
-  metric1: { label: string; value: string };
-  metric2: { label: string; value: string };
-  description: string;
-}
-
-const PIPELINE_STAGES: PipelineStage[] = [
-  {
-    id: 'stage-analizar',
-    name: 'ANALIZAR',
-    num: '01',
-    metric1: { label: 'SIGNALS PROCESSED', value: '128' },
-    metric2: { label: 'AVG. LATENCY', value: '184ms' },
-    description: 'Evaluates intent, timeline urgency, budget context, and qualification metrics in under 200ms.'
-  },
-  {
-    id: 'stage-decidir',
-    name: 'DECIDIR',
-    num: '02',
-    metric1: { label: 'HIGH PRIORITY', value: '24' },
-    metric2: { label: 'DECISIONS', value: '42' },
-    description: 'Deterministic rules determine immediate automated response or human team escalation.'
-  },
-  {
-    id: 'stage-actuar',
-    name: 'ACTUAR',
-    num: '03',
-    metric1: { label: 'ACTIONS EXECUTED', value: '67' },
-    metric2: { label: 'AVG. LATENCY', value: '312ms' },
-    description: 'Dispatches precision messaging, updates CRM records, and coordinates meeting slots.'
-  },
-  {
-    id: 'stage-seguimiento',
-    name: 'SEGUIMIENTO',
-    num: '04',
-    metric1: { label: 'FOLLOW-UPS ACTIVE', value: '17' },
-    metric2: { label: 'RECOVERED', value: '4' },
-    description: 'Executes persistent multi-touch cadence until the deal progresses or reaches conclusion.'
-  }
-];
-
+/** Self-contained illustrative demo. Never reads leads or sends messages. */
 export const HeroSystemVisual: React.FC = () => {
   const { language } = useLanguage();
-  const tr = (es: string, en: string) => (language === 'es' ? es : en);
-
-  const nodeDescription = (node: SystemNode): string => {
-    if (language === 'en') return node.description;
-    const values: Record<string, string> = {
-      leads: 'Demanda entrante capturada de forma inmediata desde puntos de contacto digitales.',
-      crm: 'Sincronización bidireccional con el pipeline central, registrando eventos sin ingreso manual.',
-      email: 'Correos entrantes analizados por intención de compra y enviados a una cadencia de seguimiento.',
-      whatsapp: 'Canal conversacional de baja latencia que puede activar calificación y respuesta inmediata.',
-      calendario: 'Coordinación de calendario que verifica disponibilidad antes de reservar reuniones.',
-      equipo: 'Escalación selectiva a personas con contexto suficiente para tomar la siguiente acción.',
-      clientes: 'Seguimiento continuo de hitos de clientes para detectar oportunidades de reactivación.'
-    };
-    return values[node.id] || node.description;
-  };
-
-  const stageDescription = (stage: PipelineStage): string => {
-    if (language === 'en') return stage.description;
-    const values: Record<string, string> = {
-      'stage-analizar': 'Evalúa intención, urgencia, contexto y señales de calificación.',
-      'stage-decidir': 'Las reglas determinan la respuesta automática o la escalación al equipo.',
-      'stage-actuar': 'Ejecuta mensajes, actualiza registros y coordina próximos pasos.',
-      'stage-seguimiento': 'Mantiene seguimientos hasta que la oportunidad avance o llegue a un resultado.'
-    };
-    return values[stage.id] || stage.description;
-  };
-
-  const metricLabel = (label: string): string => {
-    if (language === 'en') return label;
-    const values: Record<string, string> = {
-      'SIGNALS PROCESSED': 'SEÑALES PROCESADAS',
-      'AVG. LATENCY': 'LATENCIA PROM.',
-      'HIGH PRIORITY': 'ALTA PRIORIDAD',
-      'DECISIONS': 'DECISIONES',
-      'ACTIONS EXECUTED': 'ACCIONES EJECUTADAS',
-      'FOLLOW-UPS ACTIVE': 'SEGUIMIENTOS ACTIVOS',
-      'RECOVERED': 'RECUPERADOS'
-    };
-    return values[label] || label;
-  };
-
-  // Currently active node
-  const [selectedNodeId, setSelectedNodeId] = useState<string>('whatsapp');
-  
-  // Pipeline processing animation state: 'IDLE' | 'PROCESSING' | 'COMPLETED'
-  const [systemState, setSystemState] = useState<'IDLE' | 'PROCESSING' | 'COMPLETED'>('IDLE');
-  
-  // Currently highlighted pipeline stage during processing
-  const [activePipelineStage, setActivePipelineStage] = useState<string | null>(null);
-  
-  // Dynamic live timestamp and latency fluctuation
-  const [lastSignalTime, setLastSignalTime] = useState<string>('10:42:18');
-  const [liveLatency, setLiveLatency] = useState<string>('184ms');
-
-  const processingTimerRef = useRef<NodeJS.Timeout[]>([]);
-
-  // Find active node object
-  const activeNode = SYSTEM_NODES.find(n => n.id === selectedNodeId) || SYSTEM_NODES[0];
-
-  // Handle node selection with real cascading execution
-  const handleSelectNode = (node: SystemNode) => {
-    setSelectedNodeId(node.id);
-    
-    // Clear any previous animations
-    processingTimerRef.current.forEach(clearTimeout);
-    processingTimerRef.current = [];
-
-    // Trigger timestamp update
-    const now = new Date();
-    const timeStr = now.toTimeString().split(' ')[0];
-    setLastSignalTime(timeStr);
-    setLiveLatency(node.latency);
-
-    // State: PROCESSING
-    setSystemState('PROCESSING');
-    setActivePipelineStage('ANALIZAR');
-
-    // Cascade through the 4 pipeline stages
-    const t1 = setTimeout(() => {
-      setActivePipelineStage('DECIDIR');
-    }, 450);
-
-    const t2 = setTimeout(() => {
-      setActivePipelineStage('ACTUAR');
-    }, 900);
-
-    const t3 = setTimeout(() => {
-      setActivePipelineStage('SEGUIMIENTO');
-    }, 1350);
-
-    const t4 = setTimeout(() => {
-      setSystemState('COMPLETED');
-      // Return to subtle idle after completion
-      const t5 = setTimeout(() => {
-        setSystemState('IDLE');
-        setActivePipelineStage(null);
-      }, 1200);
-      processingTimerRef.current.push(t5);
-    }, 1800);
-
-    processingTimerRef.current.push(t1, t2, t3, t4);
-  };
+  const es = language === "es";
+  const [scenario, setScenario] = useState(0);
+  const [step, setStep] = useState(0);
+  const [playing, setPlaying] = useState(false);
+  const [reducedMotion, setReducedMotion] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+  const story = stories[language][scenario];
 
   useEffect(() => {
+    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    let started = false;
+    const sync = () => {
+      setReducedMotion(media.matches);
+      if (media.matches) {
+        setPlaying(false);
+        setStep(4);
+      }
+    };
+    sync();
+    media.addEventListener("change", sync);
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !started) {
+          started = true;
+          if (!media.matches) setPlaying(true);
+        } else if (!entry.isIntersecting && started) setPlaying(false);
+      },
+      { threshold: 0.35 },
+    );
+    if (root.current) observer.observe(root.current);
+    const hide = () => {
+      if (document.hidden) setPlaying(false);
+    };
+    document.addEventListener("visibilitychange", hide);
     return () => {
-      processingTimerRef.current.forEach(clearTimeout);
+      observer.disconnect();
+      media.removeEventListener("change", sync);
+      document.removeEventListener("visibilitychange", hide);
     };
   }, []);
 
+  useEffect(() => {
+    if (!playing || step >= 4) return;
+    const timer = window.setTimeout(() => {
+      setStep(step + 1);
+      if (step === 3) setPlaying(false);
+    }, 2500);
+    return () => window.clearTimeout(timer);
+  }, [playing, step, scenario]);
+
+  const selectStory = (index: number) => {
+    setScenario(index);
+    setStep(reducedMotion ? 4 : 0);
+    setPlaying(!reducedMotion);
+  };
+  const replay = () => {
+    setStep(0);
+    setPlaying(true);
+  };
+  const Channel = story.channel === "Instagram" ? Instagram : MessageCircle;
+
   return (
-    <div className="w-full border border-[#0A0A0A]/15 bg-[#F7F7F5] select-none shadow-sm overflow-hidden">
-      {/* 1. TOP TELEMETRY BAR */}
-      <div className="flex flex-wrap items-center justify-between px-5 py-3.5 border-b border-[#0A0A0A]/10 text-xs font-mono-code bg-white/70">
-        <div className="flex items-center space-x-3">
-          <span className="flex h-2 w-2 relative">
-            <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${
-              systemState === 'PROCESSING' ? 'bg-[#0A3F4D]' : 'bg-[#0A3F4D]/60'
-            } opacity-75`} />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-[#0A3F4D]" />
-          </span>
-          <span className="text-[#0A0A0A] font-bold tracking-wider">{tr('● SISTEMA EN LÍNEA', '● SYSTEM ONLINE')}</span>
-          <span className="text-[#0A0A0A]/20">|</span>
-          <span className="text-[#777777] hidden sm:inline">MOTOR G-KAIS V2.4</span>
-        </div>
-
-        <div className="flex items-center space-x-3 text-[11px] text-[#777777]">
-          <span className="px-2 py-0.5 border border-[#0A3F4D]/30 bg-[#0A3F4D]/5 font-mono-code text-[10px] text-[#0A3F4D] font-bold uppercase tracking-wider">
-            {tr('DEMO INTERACTIVA DEL SISTEMA', 'INTERACTIVE SYSTEM DEMO')}
-          </span>
-          <span className="text-[#0A0A0A]/20 hidden sm:inline">|</span>
-          <div className="hidden sm:flex items-center space-x-1.5">
-            <Clock className="w-3.5 h-3.5 text-[#0A3F4D]" />
-            <span>{tr('SEÑAL:', 'SIGNAL:')}</span>
-            <span className="text-[#0A0A0A] font-bold font-mono-code">{lastSignalTime}</span>
-          </div>
-          <span className="text-[#0A0A0A]/20 hidden sm:inline">|</span>
-          <div className="flex items-center space-x-1.5">
-            <Zap className="w-3.5 h-3.5 text-[#0A3F4D]" />
-            <span>{tr('LATENCIA:', 'LATENCY:')}</span>
-            <span className="text-[#0A3F4D] font-bold">{liveLatency}</span>
-          </div>
-        </div>
+    <div
+      ref={root}
+      id="hero-system-visual"
+      className="gk-demo"
+      aria-label={
+        es ? "Demostración del Motor G-Kais" : "G-Kais engine demonstration"
+      }
+    >
+      <div className="gk-demo-heading">
+        <span>
+          <Sparkles size={15} aria-hidden="true" /> MOTOR G-KAIS
+        </span>
+        <span className="gk-demo-tag">{es ? "SIMULACIÓN" : "SIMULATION"}</span>
       </div>
-
-      {/* 1B. COMMERCIAL WORKFLOW WALKTHROUGH (Input -> AI Analysis -> Decision -> Action -> Follow-up -> Recovery) */}
-      <div className="px-5 py-3 border-b border-[#0A0A0A]/10 bg-[#F7F7F5] flex flex-wrap items-center justify-between gap-3 text-xs font-mono-code">
-        <div className="flex items-center space-x-2 text-[#777777]">
-          <span className="text-[#0A0A0A] font-bold uppercase">{tr('CÓMO FUNCIONA:', 'HOW IT WORKS:')}</span>
-        </div>
-        <div className="flex flex-wrap items-center gap-1.5 text-[10px] sm:text-[11px] text-[#777777]">
-          <span className="px-2 py-0.5 bg-white border border-[#0A0A0A]/15 text-[#0A0A0A] font-medium">{tr('Entrada', 'Input')}</span>
-          <span className="text-[#0A0A0A]/30">→</span>
-          <span className="px-2 py-0.5 bg-white border border-[#0A0A0A]/15 text-[#0A0A0A] font-medium">{tr('Análisis IA', 'AI Analysis')}</span>
-          <span className="text-[#0A0A0A]/30">→</span>
-          <span className="px-2 py-0.5 bg-white border border-[#0A0A0A]/15 text-[#0A0A0A] font-medium">{tr('Decisión', 'Decision')}</span>
-          <span className="text-[#0A0A0A]/30">→</span>
-          <span className="px-2 py-0.5 bg-white border border-[#0A0A0A]/15 text-[#0A0A0A] font-medium">{tr('Acción', 'Action')}</span>
-          <span className="text-[#0A0A0A]/30">→</span>
-          <span className="px-2 py-0.5 bg-white border border-[#0A0A0A]/15 text-[#0A0A0A] font-medium">{tr('Seguimiento', 'Follow-up')}</span>
-          <span className="text-[#0A0A0A]/30">→</span>
-          <span className="px-2 py-0.5 bg-[#0A0A0A] text-[#F7F7F5] font-semibold">{tr('Recuperación', 'Recovery')}</span>
-        </div>
+      <div
+        className="gk-scenarios"
+        aria-label={es ? "Elegir escenario" : "Choose a scenario"}
+      >
+        {stories[language].map((item, index) => (
+          <button
+            type="button"
+            key={index}
+            aria-pressed={scenario === index}
+            onClick={() => selectStory(index)}
+          >
+            {item.label}
+          </button>
+        ))}
       </div>
-
-      {/* 2. THE ENGINE NETWORK (MOTOR G-KAIS + 7 EXTERNAL NODES) */}
-      <div className="p-6 md:p-10 lg:p-12 relative bg-gradient-to-b from-white to-[#F7F7F5]">
-        <div className="mb-4 flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <Radio className="w-4 h-4 text-[#0A3F4D]" />
-            <span className="font-mono-code text-[11px] uppercase tracking-[0.24em] text-[#0A0A0A] font-bold">
-              {tr('ARQUITECTURA DEL PIPELINE DE SEÑALES', 'SIGNAL PIPELINE ARCHITECTURE')}
-            </span>
-          </div>
-          <span className="font-mono-code text-[10px] text-[#777777] hidden sm:inline">
-            {tr('HAZ CLIC EN UN NODO PARA EMITIR UNA SEÑAL // TOPOLOGÍA INTERACTIVA', 'CLICK ANY NODE TO EMIT SIGNAL // INTERACTIVE LIVE TOPOLOGY')}
-          </span>
-        </div>
-
-        {/* Network Diagram Viewport */}
-        <div className="relative w-full min-h-[380px] sm:min-h-[440px] md:min-h-[480px] border border-[#0A0A0A]/10 bg-[#FAFAFA] overflow-hidden flex items-center justify-center p-4">
-          {/* Subtle Grid Background */}
-          <div 
-            className="absolute inset-0 opacity-[0.035] pointer-events-none"
-            style={{
-              backgroundImage: 'radial-gradient(#0A0A0A 1px, transparent 1px)',
-              backgroundSize: '24px 24px'
-            }}
-          />
-
-          {/* SVG Vector Connection Lines Between Center (50%, 50%) and the 7 Nodes */}
-          <svg className="absolute inset-0 w-full h-full pointer-events-none z-0">
-            {SYSTEM_NODES.map((node) => {
-              const isSelected = selectedNodeId === node.id;
-              // Center coordinates are (50%, 50%)
-              return (
-                <g key={`connector-${node.id}`}>
-                  {/* Base fine connection line */}
-                  <line
-                    x1={`${node.x}%`}
-                    y1={`${node.y}%`}
-                    x2="50%"
-                    y2="50%"
-                    stroke={isSelected ? '#0A3F4D' : '#0A0A0A'}
-                    strokeWidth={isSelected ? '2' : '1'}
-                    strokeOpacity={isSelected ? 0.9 : 0.15}
-                    strokeDasharray={isSelected ? 'none' : '3 4'}
-                  />
-
-                  {/* Active animated transmission packet */}
-                  {isSelected && (
-                    <circle
-                      r="4"
-                      fill="#0A3F4D"
-                      className="transition-all"
-                    >
-                      <animateMotion
-                        dur={systemState === 'PROCESSING' ? '0.8s' : '2s'}
-                        repeatCount="indefinite"
-                        path={`M ${node.x * 10} ${node.y * 10} L 500 500`}
-                      />
-                    </circle>
-                  )}
-                </g>
-              );
-            })}
-          </svg>
-
-          {/* Central Core: MOTOR G-KAIS */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
-            <div className={`p-4 sm:p-5 border transition-all duration-300 bg-white text-center shadow-sm ${
-              systemState === 'PROCESSING' 
-                ? 'border-[#0A3F4D] shadow-md ring-2 ring-[#0A3F4D]/20' 
-                : 'border-[#0A0A0A] hover:border-[#0A3F4D]'
-            }`}>
-              <div className="flex items-center justify-center space-x-2 mb-1">
-                <div className={`w-2 h-2 rounded-full ${
-                  systemState === 'PROCESSING' ? 'bg-[#0A3F4D] animate-ping' : 'bg-[#0A0A0A]'
-                }`} />
-                <span className="font-mono-code text-[10px] text-[#0A3F4D] uppercase tracking-widest font-semibold">
-                  {tr('NÚCLEO CENTRAL', 'CENTRAL CORE')}
-                </span>
-              </div>
-              <div className="text-sm sm:text-base md:text-lg font-black tracking-tight text-[#0A0A0A] whitespace-nowrap">
-                MOTOR G-KAIS
-              </div>
-              <div className="font-mono-code text-[9px] text-[#777777] uppercase tracking-wider mt-0.5">
-                {tr('ORQUESTADOR AUTÓNOMO', 'AUTONOMOUS ORCHESTRATOR')}
-              </div>
-            </div>
-          </div>
-
-          {/* 7 External Nodes positioned around the center */}
-          {SYSTEM_NODES.map((node) => {
-            const isSelected = selectedNodeId === node.id;
-            return (
-              <button
-                key={node.id}
-                onClick={() => handleSelectNode(node)}
-                id={`hero-node-${node.id}`}
-                aria-pressed={isSelected}
-                style={{
-                  left: `${node.x}%`,
-                  top: `${node.y}%`,
-                  transform: 'translate(-50%, -50%)'
-                }}
-                className={`absolute z-20 group text-left transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#0A3F4D] px-2.5 sm:px-3 py-2 sm:py-2.5 border ${
-                  isSelected
-                    ? 'border-[#0A3F4D] bg-[#0A3F4D] text-[#F7F7F5] shadow-md'
-                    : 'border-[#0A0A0A]/20 bg-white/95 text-[#0A0A0A] hover:border-[#0A0A0A] hover:bg-white'
-                }`}
-              >
-                <div className="flex items-center space-x-2">
-                  <span className={`font-mono-code text-[9px] font-bold ${
-                    isSelected ? 'text-white/80' : 'text-[#777777]'
-                  }`}>
-                    {node.num}
-                  </span>
-                  <div className={`w-1.5 h-1.5 rounded-full ${
-                    isSelected ? 'bg-white' : 'bg-[#0A0A0A]/40 group-hover:bg-[#0A3F4D]'
-                  }`} />
-                  <span className="text-[10px] sm:text-xs font-bold tracking-tight whitespace-nowrap">
-                    {node.name}
-                  </span>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* 3. TECHNICAL CONSOLE: INCOMING PAYLOAD & ROUTE */}
-        <div className="mt-6 border border-[#0A0A0A]/15 bg-white shadow-sm overflow-hidden">
-          {/* Console Header Bar */}
-          <div className="flex items-center justify-between px-4 sm:px-5 py-2.5 border-b border-[#0A0A0A]/10 bg-[#F7F7F5] text-xs font-mono-code">
-            <div className="flex items-center space-x-2 text-[#0A0A0A]">
-              <Terminal className="w-3.5 h-3.5 text-[#0A3F4D]" />
-              <span className="font-bold tracking-wider">{tr('INSPECTOR DEL SISTEMA // TELEMETRÍA EN VIVO', 'SYSTEM INSPECTOR // LIVE TELEMETRY CONSOLE')}</span>
-            </div>
-            <div className="flex items-center space-x-2 text-[10px] text-[#777777]">
-              <span>{tr('FUENTE:', 'SOURCE:')}</span>
-              <span className="font-bold text-[#0A3F4D]">{activeNode.name}</span>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-[#0A0A0A]/10">
-            {/* Left Box: Incoming Signal (JSON Payload) */}
-            <div className="lg:col-span-6 p-4 sm:p-5">
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-mono-code text-[10px] uppercase tracking-wider text-[#777777] font-semibold">
-                  {tr('SEÑAL ENTRANTE // PAYLOAD', 'INCOMING SIGNAL // RAW PAYLOAD')}
-                </span>
-                <span className="font-mono-code text-[9px] text-[#0A3F4D] font-bold">
-                  {tr('TLS CIFRADO', 'ENCRYPTED TLS')} // {activeNode.latency}
-                </span>
-              </div>
-
-              <div className="p-3 bg-[#0A0A0A] text-[#F7F7F5] font-mono-code text-xs rounded-none overflow-x-auto">
-                <pre className="text-white/90 leading-relaxed text-[11px] sm:text-xs">
-{JSON.stringify(activeNode.payload, null, 2)}
-                </pre>
-              </div>
-
-              <p className="mt-3 text-xs text-[#777777] leading-relaxed">
-                {nodeDescription(activeNode)}
-              </p>
-            </div>
-
-            {/* Right Box: Transmission Route */}
-            <div className="lg:col-span-6 p-4 sm:p-5 flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <span className="font-mono-code text-[10px] uppercase tracking-wider text-[#777777] font-semibold">
-                    {tr('RUTA DE TRANSMISIÓN // FLUJO DE EJECUCIÓN', 'TRANSMISSION ROUTE // EXECUTION FLOW')}
-                  </span>
-                  <span className={`font-mono-code text-[9px] px-2 py-0.5 border ${
-                    systemState === 'PROCESSING'
-                      ? 'border-[#0A3F4D] text-[#0A3F4D] bg-[#0A3F4D]/5'
-                      : 'border-[#0A0A0A]/10 text-[#777777]'
-                  }`}>
-                    {systemState === 'PROCESSING' ? tr('PROPAGACIÓN ACTIVA', 'ACTIVE PROPAGATION') : tr('FLUJO LISTO', 'FLOW READY')}
-                  </span>
-                </div>
-
-                {/* Horizontal / Wrapped Route Flow Breadcrumb */}
-                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 pt-2">
-                  {activeNode.route.map((step, idx) => {
-                    const isLast = idx === activeNode.route.length - 1;
-                    const isCore = step === 'MOTOR G-KAIS';
-                    const isCurrent = activePipelineStage === step;
-
-                    return (
-                      <React.Fragment key={step}>
-                        <div className={`px-2.5 py-1.5 font-mono-code text-[10px] sm:text-[11px] font-bold border transition-all duration-150 ${
-                          isCurrent
-                            ? 'border-[#0A3F4D] bg-[#0A3F4D] text-[#F7F7F5] scale-105 shadow-sm'
-                            : isCore
-                            ? 'border-[#0A0A0A] bg-[#0A0A0A] text-[#F7F7F5]'
-                            : 'border-[#0A0A0A]/20 bg-[#F7F7F5] text-[#0A0A0A]'
-                        }`}>
-                          {step}
-                        </div>
-                        {!isLast && (
-                          <ArrowRight className="w-3.5 h-3.5 text-[#0A3F4D] shrink-0" />
-                        )}
-                      </React.Fragment>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Status footer for console */}
-              <div className="mt-6 pt-3 border-t border-[#0A0A0A]/10 flex items-center justify-between text-[10px] font-mono-code text-[#777777]">
-                <span>{tr('PROPAGACIÓN: DETERMINISTA', 'PROPAGATION: DETERMINISTIC')}</span>
-                <span className="text-[#0A3F4D] font-bold">{tr('CONTROL HUMANO PROTEGIDO', 'HUMAN-IN-THE-LOOP SAFEGUARDED')}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* 4. PIPELINE G-KAIS (ANALIZAR → DECIDIR → ACTUAR → SEGUIMIENTO) */}
-        <div className="mt-8 pt-8 border-t border-[#0A0A0A]/15">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center space-x-2">
-              <Activity className="w-4 h-4 text-[#0A3F4D]" />
-              <span className="font-mono-code text-[11px] uppercase tracking-[0.24em] text-[#0A0A0A] font-bold">
-                {tr('PIPELINE G-KAIS // ETAPAS CENTRALES', 'PIPELINE G-KAIS // CORE STAGES')}
+      <div className="gk-story-stage">
+        <div className="gk-phone">
+          <div className="gk-chat-heading">
+            <div className="gk-avatar">{scenario === 1 ? "ca" : "n."}</div>
+            <div>
+              <strong>{story.business}</strong>
+              <span>
+                {story.channel} ·{" "}
+                {es ? "Ejemplo de conversación" : "Example conversation"}
               </span>
             </div>
-            <span className="font-mono-code text-[10px] text-[#777777]">
-              {tr('CASCADA: ANALIZAR → DECIDIR → ACTUAR → SEGUIMIENTO', 'CASCADE: ANALIZAR → DECIDIR → ACTUAR → SEGUIMIENTO')}
-            </span>
+            <Channel size={19} aria-hidden="true" />
           </div>
-
-          {/* 4 Connected Stages Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-            {PIPELINE_STAGES.map((stage) => {
-              const isStageActive = activePipelineStage === stage.name;
-
-              return (
-                <div
-                  key={stage.id}
-                  id={`pipeline-stage-${stage.name.toLowerCase()}`}
-                  className={`p-4 sm:p-5 border transition-all duration-200 flex flex-col justify-between ${
-                    isStageActive
-                      ? 'border-[#0A3F4D] bg-white shadow-md ring-2 ring-[#0A3F4D]/15'
-                      : 'border-[#0A0A0A]/15 bg-white/70 hover:border-[#0A0A0A]/40'
-                  }`}
+          <div className="gk-chat-content" key={scenario}>
+            <div className="gk-ad">
+              <div className="gk-ad-art">
+                <span>{story.business.toUpperCase()}</span>
+                <strong>{story.ad}</strong>
+                <ArrowUpRight size={26} aria-hidden="true" />
+              </div>
+              <div className="gk-ad-caption">
+                <span>{story.source}</span>
+                <p>{story.offer}</p>
+              </div>
+            </div>
+            {step >= 1 && (
+              <div className="gk-bubble gk-incoming">{story.incoming}</div>
+            )}
+            {step >= 2 && (
+              <div className="gk-bubble gk-outgoing">
+                <span className="gk-ai-label">
+                  <Sparkles size={11} aria-hidden="true" /> G-KAIS
+                </span>
+                {story.reply}
+                <CheckCheck size={13} className="gk-read" aria-hidden="true" />
+              </div>
+            )}
+            {step >= 3 && (
+              <div className="gk-bubble gk-incoming">{story.answer}</div>
+            )}
+            {step === 0 && (
+              <p className="gk-chat-wait">
+                {es
+                  ? "Todo comienza con una conversación."
+                  : "It all starts with a conversation."}
+              </p>
+            )}
+          </div>
+        </div>
+        <div className="gk-engine-panel">
+          <div
+            className={`gk-engine-mark ${playing ? "is-running" : ""}`}
+            aria-hidden="true"
+          >
+            <span>G</span>
+            <i />
+          </div>
+          <p className="gk-engine-caption">
+            {es ? "DEL INTERÉS A LA ACCIÓN" : "FROM INTEREST TO ACTION"}
+          </p>
+          <ol className="gk-story-steps">
+            {story.steps.map((label, index) => (
+              <li key={index} className={index <= step ? "is-reached" : ""}>
+                <button
+                  type="button"
+                  aria-current={index === step ? "step" : undefined}
+                  onClick={() => {
+                    setStep(index);
+                    setPlaying(false);
+                  }}
                 >
-                  <div>
-                    {/* Stage Header */}
-                    <div className="flex items-center justify-between pb-3 border-b border-[#0A0A0A]/10 mb-4">
-                      <div className="flex items-baseline space-x-2">
-                        <span className="font-mono-code text-[11px] text-[#777777]">
-                          {stage.num} //
-                        </span>
-                        <h4 className="font-extrabold text-sm sm:text-base tracking-tight text-[#0A0A0A]">
-                          {stage.name}
-                        </h4>
-                      </div>
-                      <span className={`w-2 h-2 rounded-full ${
-                        isStageActive ? 'bg-[#0A3F4D] animate-pulse' : 'bg-[#0A0A0A]/20'
-                      }`} />
-                    </div>
-
-                    <p className="text-xs text-[#777777] leading-relaxed mb-6">
-                      {stageDescription(stage)}
-                    </p>
-                  </div>
-
-                  {/* Stage Metrics */}
-                  <div className="pt-3 border-t border-[#0A0A0A]/10 grid grid-cols-2 gap-2 font-mono-code">
-                    <div>
-                      <span className="text-[9px] uppercase tracking-wider text-[#777777] block">
-                        {metricLabel(stage.metric1.label)}
-                      </span>
-                      <span className="text-sm font-bold text-[#0A0A0A] block">
-                        {stage.metric1.value}
-                      </span>
-                    </div>
-
-                    <div>
-                      <span className="text-[9px] uppercase tracking-wider text-[#777777] block">
-                        {metricLabel(stage.metric2.label)}
-                      </span>
-                      <span className="text-sm font-bold text-[#0A3F4D] block">
-                        {stage.metric2.value}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+                  <span className="gk-step-number">
+                    {index < step ? (
+                      <Check size={12} aria-hidden="true" />
+                    ) : (
+                      index + 1
+                    )}
+                  </span>
+                  {label}
+                </button>
+              </li>
+            ))}
+          </ol>
+          <div className="gk-result" aria-live="polite" aria-atomic="true">
+            {step === 4 ? (
+              <>
+                <CalendarCheck size={21} aria-hidden="true" />
+                <strong>{story.result}</strong>
+                <p>{story.detail}</p>
+                <span>{story.next}</span>
+              </>
+            ) : (
+              <>
+                <span className="gk-result-label">
+                  {es ? "SIGUIENTE PASO" : "NEXT STEP"}
+                </span>
+                <strong>{story.steps[Math.min(step + 1, 4)]}</strong>
+                <p>
+                  {step >= 2
+                    ? story.intent
+                    : es
+                      ? "Cada mensaje mantiene el contexto."
+                      : "Every message keeps the context."}
+                </p>
+              </>
+            )}
           </div>
         </div>
       </div>
+      <div className="gk-demo-controls">
+        <div>
+          <button
+            type="button"
+            aria-label={
+              playing
+                ? es
+                  ? "Pausar demostración"
+                  : "Pause demo"
+                : es
+                  ? "Reproducir demostración"
+                  : "Play demo"
+            }
+            onClick={() => (step === 4 ? replay() : setPlaying(!playing))}
+          >
+            {playing ? <Pause size={15} /> : <Play size={15} />}
+          </button>
+          <button type="button" id="hero-demo-replay" onClick={replay}>
+            <RotateCcw size={14} aria-hidden="true" />
+            {es ? "Repetir" : "Replay"}
+          </button>
+        </div>
+        <span>
+          {step === 4
+            ? es
+              ? "Tu equipo siempre en control"
+              : "Your team always in control"
+            : `${step + 1} / 5`}
+        </span>
+      </div>
+      <p className="gk-demo-disclaimer">
+        {es
+          ? "Ejemplo ilustrativo. Canales y automatizaciones se configuran durante la implementación."
+          : "Illustrative example. Channels and automations are configured during implementation."}
+      </p>
     </div>
   );
 };

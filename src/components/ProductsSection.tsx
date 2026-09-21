@@ -71,7 +71,7 @@ export const ProductsSection: React.FC = () => {
 
   return (
     <section id="about" className="py-24 md:py-36 lg:py-48 border-b border-[#0A0A0A]/10 bg-[#F7F7F5]">
-      <div className="max-w-7xl mx-auto px-6 lg:px-12">
+      <div className="max-w-6xl mx-auto px-5 sm:px-6 lg:px-8">
         {/* Section Header */}
         <div className="mb-20 lg:mb-28 flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div>
@@ -88,7 +88,7 @@ export const ProductsSection: React.FC = () => {
         </div>
 
         {/* Editorial Modular List */}
-        <div className="border-t border-b border-[#0A0A0A]/15 divide-y divide-[#0A0A0A]/15">
+        <div className="border border-[#0A0A0A]/15 rounded-3xl overflow-hidden divide-y divide-[#0A0A0A]/15 bg-white">
           {PRODUCTS.map((prod, index) => {
             const isExpanded = expandedId === prod.id;
 
@@ -142,7 +142,7 @@ export const ProductsSection: React.FC = () => {
                         {prod.architecture.map((tech, i) => (
                           <span
                             key={i}
-                            className="font-mono-code text-[10px] uppercase tracking-wider px-2.5 py-1 bg-[#F7F7F5] border border-[#0A0A0A]/10 text-[#0A0A0A]"
+                            className="font-mono-code text-[10px] uppercase tracking-wider px-2.5 py-1 bg-[#F7F7F5] border border-[#0A0A0A]/10 rounded-full text-[#0A0A0A]"
                           >
                             {tech}
                           </span>

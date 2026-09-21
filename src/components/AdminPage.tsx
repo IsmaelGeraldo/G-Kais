@@ -2192,8 +2192,8 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                     </tr>
                   ) : (
                     filteredLeads.map((lead) => (
+                      <React.Fragment key={lead.id}>
                       <tr
-                        key={lead.id}
                         onClick={() => setSelectedId(lead.id)}
                         className={`cursor-pointer hover:bg-[#FAFAFA] ${selectedLead?.id === lead.id ? 'bg-[#F7F7F5]' : ''}`}
                       >
@@ -2250,6 +2250,74 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                           {formatDate(lead.createdAt)}
                         </td>
                       </tr>
+
+                      {!crmPanelOpen && selectedLead?.id === lead.id && (
+                        <tr className="bg-[#FAFAFA]">
+                          <td colSpan={8} className="p-3 sm:p-4">
+                            <div className="rounded-2xl border border-[#E5E5E5] bg-white p-4 sm:p-5 shadow-[0_8px_30px_rgba(0,0,0,0.03)]">
+                              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                                <div className="min-w-0">
+                                  <div className="flex flex-wrap items-center gap-2 mb-2">
+                                    <span className="font-mono-code text-[9px] uppercase tracking-wider text-[#0A3F4D]">
+                                      {tr('Resumen CRM', 'CRM summary')}
+                                    </span>
+                                    <span
+                                      className={`font-mono-code text-[8px] px-2 py-1 border rounded-full ${
+                                        getWorkPriority(lead).label === 'HIGH'
+                                          ? 'border-red-200 text-red-700 bg-red-50'
+                                          : getWorkPriority(lead).label === 'MEDIUM'
+                                          ? 'border-amber-200 text-amber-800 bg-amber-50'
+                                          : 'border-[#E5E5E5] text-[#777] bg-white'
+                                      }`}
+                                    >
+                                      {priorityLabel(getWorkPriority(lead).label, language)}
+                                    </span>
+                                  </div>
+
+                                  <div className="flex flex-col sm:flex-row sm:items-end gap-1 sm:gap-3">
+                                    <h3 className="text-lg font-extrabold tracking-tight">{lead.name}</h3>
+                                    <span className="text-xs text-[#6B6B6B]">{lead.company || lead.email}</span>
+                                  </div>
+
+                                  <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-[11px] text-[#6B6B6B]">
+                                    <span>
+                                      {tr('Estado', 'Status')}: <strong className="text-[#0A0A0A]">{statusLabel(lead.status, language)}</strong>
+                                    </span>
+                                    <span>
+                                      {tr('Responsable', 'Owner')}: <strong className="text-[#0A0A0A]">{lead.assignedTo || tr('Sin asignar', 'Unassigned')}</strong>
+                                    </span>
+                                    <span>
+                                      {tr('Próxima acción', 'Next action')}: <strong className="text-[#0A0A0A]">{lead.nextAction ? nextActionLabel(lead.nextAction, language) : '—'}</strong>
+                                    </span>
+                                    <span>
+                                      {tr('Seguimiento', 'Follow-up')}: <strong className="text-[#0A0A0A]">{lead.followUpAt ? formatDate(lead.followUpAt) : '—'}</strong>
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <div className="flex flex-wrap gap-2 shrink-0">
+                                  <button
+                                    type="button"
+                                    onClick={() => setCrmPanelOpen(true)}
+                                    className="inline-flex items-center justify-center rounded-xl border border-[#D8D8D8] bg-white px-3.5 py-2.5 text-[10px] font-semibold uppercase tracking-wider hover:bg-[#F7F7F5]"
+                                  >
+                                    {tr('Editar CRM', 'Edit CRM')}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setLeadDetailOpen(true)}
+                                    className="inline-flex items-center justify-center rounded-xl bg-[#0A0A0A] px-3.5 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-white hover:bg-[#0A3F4D]"
+                                  >
+                                    {tr('Historial / ficha completa', 'History / full record')}
+                                    <ChevronRight className="w-3.5 h-3.5 ml-1.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                      </React.Fragment>
                     ))
                   )}
                 </tbody>
@@ -2633,70 +2701,6 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
             </aside>
             )}
 
-            {!crmPanelOpen && selectedLead && (
-              <div className="xl:col-span-12 border-t border-[#E5E5E5] bg-[#FAFAFA] p-4 sm:p-5">
-                <div className="rounded-2xl border border-[#E5E5E5] bg-white p-4 sm:p-5">
-                  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2 mb-2">
-                        <span className="font-mono-code text-[9px] uppercase tracking-wider text-[#0A3F4D]">
-                          {tr('Resumen CRM', 'CRM summary')}
-                        </span>
-                        <span
-                          className={`font-mono-code text-[8px] px-2 py-1 border rounded-full ${
-                            getWorkPriority(selectedLead).label === 'HIGH'
-                              ? 'border-red-200 text-red-700 bg-red-50'
-                              : getWorkPriority(selectedLead).label === 'MEDIUM'
-                              ? 'border-amber-200 text-amber-800 bg-amber-50'
-                              : 'border-[#E5E5E5] text-[#777] bg-white'
-                          }`}
-                        >
-                          {priorityLabel(getWorkPriority(selectedLead).label, language)}
-                        </span>
-                      </div>
-                      <div className="flex flex-col sm:flex-row sm:items-end gap-1 sm:gap-3">
-                        <h3 className="text-lg font-extrabold tracking-tight">{selectedLead.name}</h3>
-                        <span className="text-xs text-[#6B6B6B]">
-                          {selectedLead.company || selectedLead.email}
-                        </span>
-                      </div>
-                      <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-[11px] text-[#6B6B6B]">
-                        <span>
-                          {tr('Estado', 'Status')}: <strong className="text-[#0A0A0A]">{statusLabel(selectedLead.status, language)}</strong>
-                        </span>
-                        <span>
-                          {tr('Responsable', 'Owner')}: <strong className="text-[#0A0A0A]">{selectedLead.assignedTo || tr('Sin asignar', 'Unassigned')}</strong>
-                        </span>
-                        <span>
-                          {tr('Próxima acción', 'Next action')}: <strong className="text-[#0A0A0A]">{selectedLead.nextAction ? nextActionLabel(selectedLead.nextAction, language) : '—'}</strong>
-                        </span>
-                        <span>
-                          {tr('Seguimiento', 'Follow-up')}: <strong className="text-[#0A0A0A]">{selectedLead.followUpAt ? formatDate(selectedLead.followUpAt) : '—'}</strong>
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => setCrmPanelOpen(true)}
-                        className="inline-flex items-center justify-center rounded-xl border border-[#D8D8D8] bg-white px-3.5 py-2.5 text-[10px] font-semibold uppercase tracking-wider hover:bg-[#F7F7F5]"
-                      >
-                        {tr('Editar CRM', 'Edit CRM')}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setLeadDetailOpen(true)}
-                        className="inline-flex items-center justify-center rounded-xl bg-[#0A0A0A] px-3.5 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-white hover:bg-[#0A3F4D]"
-                      >
-                        {tr('Historial / ficha completa', 'History / full record')}
-                        <ChevronRight className="w-3.5 h-3.5 ml-1.5" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         </section>
 

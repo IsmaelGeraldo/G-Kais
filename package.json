@@ -9,7 +9,8 @@
     "start": "node dist/server.cjs",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "deploy:firestore-rules": "npx firebase-tools deploy --only firestore:rules --project careful-bloom-jmn89"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

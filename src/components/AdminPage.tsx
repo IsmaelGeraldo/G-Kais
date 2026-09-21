@@ -1130,8 +1130,9 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
     });
   };
 
-  const openLeadFullRecord = (leadId: string) => {
-    setSelectedId(leadId);
+  const openLeadFullRecord = (lead: AdminLead) => {
+    setSelectedId(lead.id);
+    setDraft(makeDraft(lead));
     setLeadDetailOpen(true);
   };
 
@@ -2033,7 +2034,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                       <div className="flex items-start justify-between gap-4">
                         <button
                           type="button"
-                          onClick={() => openLeadFullRecord(lead.id)}
+                          onClick={() => openLeadFullRecord(lead)}
                           className="min-w-0 flex-1 text-left"
                         >
                           <div className="flex flex-wrap items-center gap-2 mb-1.5">
@@ -2288,7 +2289,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                                 type="button"
                                 onClick={(event) => {
                                   event.stopPropagation();
-                                  setLeadDetailOpen(true);
+                                  openLeadFullRecord(lead);
                                 }}
                                 className="inline-flex items-center justify-center rounded-lg bg-[#0A0A0A] px-2.5 py-2 text-[9px] font-semibold uppercase tracking-wider text-white hover:bg-[#0A3F4D]"
                               >
@@ -2758,6 +2759,11 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                       )}
                       {tr('Guardar información', 'Save information')}
                     </button>
+                    {saveMessage && (
+                      <p className="mt-2 text-[10px] font-mono-code text-[#0A3F4D]">
+                        {tr('Información guardada en CRM.', 'Information saved in CRM.')}
+                      </p>
+                    )}
                   </div>
 
                   <button

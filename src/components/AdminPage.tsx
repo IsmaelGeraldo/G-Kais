@@ -2646,47 +2646,14 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                   </div>
 
                   <div className="mt-6 border-t border-[#D8D8D8] pt-6">
-                    <p className="font-mono-code text-[10px] font-bold uppercase tracking-wider mb-4">
-                      {tr('Historial de actividad', 'Activity history')}
-                    </p>
-
-                    {selectedLead.activityLog && selectedLead.activityLog.length > 0 ? (
-                      <div className="space-y-3">
-                        {[...selectedLead.activityLog].reverse().map((entry, index) => (
-                          <div
-                            key={`${entry.at}-${index}`}
-                            className="border-l-2 border-[#0A3F4D] pl-3 py-1"
-                          >
-                            <div className="flex items-center justify-between gap-3">
-                              <span className="font-mono-code text-[9px] text-[#6B6B6B]">
-                                {formatDate(entry.at)}
-                              </span>
-                              <span className="font-mono-code text-[9px] text-[#6B6B6B]">
-                                {entry.actor}
-                              </span>
-                            </div>
-                            <p className="text-xs mt-1">
-                              {statusLabel(entry.fromStatus, language)} → {statusLabel(entry.toStatus, language)}
-                            </p>
-                            {entry.result && (
-                              <p className="text-[10px] font-mono-code uppercase tracking-wider text-[#0A3F4D] mt-1">
-                                {tr('Resultado', 'Result')}: {taskOutcomeLabel(entry.result, language)}
-                              </p>
-                            )}
-                            {entry.nextAction && (
-                              <p className="text-[11px] text-[#6B6B6B] mt-1">
-                                {entry.nextAction.startsWith('Completed:') ||
-                                entry.nextAction.startsWith('Rescheduled:')
-                                  ? entry.nextAction
-                                  : `Next: ${entry.nextAction}`}
-                              </p>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-xs text-[#777]">{tr('Aún no hay cambios registrados en CRM.', 'No CRM changes recorded yet.')}</p>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => setLeadDetailOpen(true)}
+                      className="w-full inline-flex items-center justify-between rounded-xl border border-[#D8D8D8] bg-white px-4 py-3 text-xs font-semibold hover:bg-[#F7F7F5]"
+                    >
+                      <span>{tr('Ver historial y ficha completa', 'View history and full record')}</span>
+                      <ChevronRight className="w-4 h-4 text-[#0A3F4D]" />
+                    </button>
                   </div>
 
                   <div className="mt-5 border border-[#0A3F4D]/20 bg-white rounded-xl p-3 text-[10px] leading-relaxed text-[#0A3F4D]">

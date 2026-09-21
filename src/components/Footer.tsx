@@ -26,7 +26,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAudit, onOpenContact }) =>
 
   return (
     <footer className="bg-[#F7F7F5] border-t border-[#0A0A0A]/10 py-16 lg:py-24">
-      <div className="max-w-7xl mx-auto px-6 lg:px-12">
+      <div className="max-w-6xl mx-auto px-5 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-12 pb-16 border-b border-[#0A0A0A]/10">
           {/* Brand Info */}
           <div className="md:col-span-5 flex flex-col justify-between">

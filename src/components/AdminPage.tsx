@@ -2251,30 +2251,32 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                           {formatDate(lead.createdAt)}
                         </td>
                         <td className="px-4 py-4">
-                          <div className="flex items-center justify-end gap-2">
-                            <button
-                              type="button"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                setSelectedId(lead.id);
-                                setCrmPanelOpen(true);
-                              }}
-                              className="inline-flex items-center justify-center rounded-lg border border-[#D8D8D8] bg-white px-2.5 py-2 text-[9px] font-semibold uppercase tracking-wider hover:bg-[#F7F7F5]"
-                            >
-                              {tr('Editar CRM', 'Edit CRM')}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                setSelectedId(lead.id);
-                                setLeadDetailOpen(true);
-                              }}
-                              className="inline-flex items-center justify-center rounded-lg bg-[#0A0A0A] px-2.5 py-2 text-[9px] font-semibold uppercase tracking-wider text-white hover:bg-[#0A3F4D]"
-                            >
-                              {tr('Ficha', 'Record')}
-                            </button>
-                          </div>
+                          {selectedLead?.id === lead.id ? (
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setCrmPanelOpen(true);
+                                }}
+                                className="inline-flex items-center justify-center rounded-lg border border-[#D8D8D8] bg-white px-2.5 py-2 text-[9px] font-semibold uppercase tracking-wider hover:bg-[#F7F7F5]"
+                              >
+                                {tr('Editar CRM', 'Edit CRM')}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setLeadDetailOpen(true);
+                                }}
+                                className="inline-flex items-center justify-center rounded-lg bg-[#0A0A0A] px-2.5 py-2 text-[9px] font-semibold uppercase tracking-wider text-white hover:bg-[#0A3F4D]"
+                              >
+                                {tr('Ficha completa', 'Full record')}
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="block text-right text-[#B0B0B0]">—</span>
+                          )}
                         </td>
                       </tr>
 

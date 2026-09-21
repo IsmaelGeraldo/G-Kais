@@ -1,12 +1,14 @@
 import React from 'react';
 import { ArrowRight, ArrowDown } from 'lucide-react';
 import { HeroSystemVisual } from './HeroSystemVisual.tsx';
+import { useLanguage } from '../i18n/LanguageContext';
 
 interface HeroProps {
   onOpenAudit: () => void;
 }
 
 export const Hero: React.FC<HeroProps> = ({ onOpenAudit }) => {
+  const { language } = useLanguage();
   const scrollToSystem = () => {
     const element = document.getElementById('the-system');
     if (element) {
@@ -36,17 +38,23 @@ export const Hero: React.FC<HeroProps> = ({ onOpenAudit }) => {
         {/* Giant Title & Second Line */}
         <div className="max-w-5xl mb-8">
           <h1 className="text-4xl sm:text-6xl lg:text-7xl xl:text-8xl font-extrabold tracking-[-0.04em] text-[#0A0A0A] leading-[1.03]">
-            Find where your business is losing opportunities.
+            {language === 'es'
+              ? 'Encuentra dónde tu negocio está perdiendo oportunidades.'
+              : 'Find where your business is losing opportunities.'}
           </h1>
           <p className="mt-4 text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-[-0.03em] text-[#777777] leading-[1.05]">
-            Then build the system that recovers them.
+            {language === 'es'
+              ? 'Luego construye el sistema que las recupera.'
+              : 'Then build the system that recovers them.'}
           </p>
         </div>
 
         {/* Third explanatory text */}
         <div className="max-w-3xl mb-12">
           <p className="text-lg sm:text-xl text-[#777777] leading-relaxed">
-            G-KAIS designs AI-powered business systems that capture, qualify, respond to and follow up with commercial opportunities — while keeping your team in control.
+            {language === 'es'
+              ? 'G-KAIS diseña sistemas empresariales con IA que capturan, califican, responden y hacen seguimiento a oportunidades comerciales, manteniendo a tu equipo en control.'
+              : 'G-KAIS designs AI-powered business systems that capture, qualify, respond to and follow up with commercial opportunities — while keeping your team in control.'}
           </p>
         </div>
 
@@ -57,7 +65,7 @@ export const Hero: React.FC<HeroProps> = ({ onOpenAudit }) => {
             id="hero-book-audit-btn"
             className="group inline-flex items-center justify-center px-8 py-4 bg-[#0A0A0A] text-[#F7F7F5] font-semibold text-xs tracking-wider uppercase hover:bg-[#0A3F4D] transition-all duration-200"
           >
-            <span>BOOK A FREE AUDIT</span>
+            <span>{language === 'es' ? 'SOLICITAR AUDITORÍA GRATIS' : 'BOOK A FREE AUDIT'}</span>
             <ArrowRight className="w-4 h-4 ml-3 transition-transform duration-200 group-hover:translate-x-1" />
           </button>
 
@@ -66,12 +74,14 @@ export const Hero: React.FC<HeroProps> = ({ onOpenAudit }) => {
             id="hero-see-how-it-works-btn"
             className="inline-flex items-center justify-center px-8 py-4 border border-[#0A0A0A]/20 bg-transparent text-[#0A0A0A] font-semibold text-xs tracking-wider uppercase hover:bg-white/60 transition-all duration-200"
           >
-            <span>SEE HOW IT WORKS</span>
+            <span>{language === 'es' ? 'VER CÓMO FUNCIONA' : 'SEE HOW IT WORKS'}</span>
             <ArrowDown className="w-4 h-4 ml-2.5 text-[#777777]" />
           </button>
 
           <span className="text-xs font-mono-code tracking-wide text-[#777777] sm:pl-2">
-            No commitment. No complicated setup.
+            {language === 'es'
+              ? 'Sin compromiso. Sin configuraciones complicadas.'
+              : 'No commitment. No complicated setup.'}
           </span>
         </div>
 
@@ -80,9 +90,13 @@ export const Hero: React.FC<HeroProps> = ({ onOpenAudit }) => {
           <div className="mb-3 flex items-center justify-between text-xs font-mono-code text-[#777777]">
             <div className="flex items-center space-x-2">
               <span className="w-2 h-2 rounded-full bg-[#0A3F4D]" />
-              <span className="font-semibold text-[#0A0A0A]">G-KAIS SYSTEM ARCHITECTURE</span>
+              <span className="font-semibold text-[#0A0A0A]">
+                {language === 'es' ? 'ARQUITECTURA DEL SISTEMA G-KAIS' : 'G-KAIS SYSTEM ARCHITECTURE'}
+              </span>
             </div>
-            <span className="text-[#0A3F4D] font-semibold">INTERACTIVE SYSTEM DEMO</span>
+            <span className="text-[#0A3F4D] font-semibold">
+              {language === 'es' ? 'DEMO INTERACTIVA DEL SISTEMA' : 'INTERACTIVE SYSTEM DEMO'}
+            </span>
           </div>
           <HeroSystemVisual />
         </div>

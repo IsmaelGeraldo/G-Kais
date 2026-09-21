@@ -359,16 +359,29 @@ function getWorkPriority(lead: AdminLead): WorkPriority {
     lead.status === 'MEETING' ||
     lead.status === 'CLIENT';
 
-  let score = 0;
+  const followUpTimestamp = lead.followUpAt ? Date.parse(lead.followUpAt) : Number.NaN;
+  const hasPastDueAction =
+    Boolean(lead.nextAction) &&
+    Number.isFinite(followUpTimestamp) &&
+    followUpTimestamp < Date.now();
 
-  // Operational urgency must dominate every other signal.
-  if (bucket === 'OVERDUE') score += 70;
-  if (bucket === 'TODAY') score += 55;
-  if (bucket === 'UPCOMING') score += 15;
+  // Absolute operational rules. These must never be downgraded by ownership,
+  // stage changes or score recalculation while the task is still incomplete.
+  if (hasPastDueAction || bucket === 'OVERDUE') {
+    return { label: 'HIGH', score: 100 };
+  }
+
+  if (bucket === 'TODAY') {
+    return { label: 'HIGH', score: 90 };
+  }
 
   if (activeStage && !lead.nextAction) {
-    score += 45;
+    return { label: 'HIGH', score: 85 };
   }
+
+  let score = 0;
+
+  if (bucket === 'UPCOMING') score += 15;
 
   if (!lead.assignedTo) {
     score += 15;
@@ -419,20 +432,8 @@ function getWorkPriority(lead: AdminLead): WorkPriority {
   if (recentOutcome?.result === 'NO_ANSWER') score += 4;
 
   const cappedScore = Math.min(100, score);
-
-  // Hard rules: these situations are always operationally urgent.
-  const forcedHigh =
-    bucket === 'OVERDUE' ||
-    bucket === 'TODAY' ||
-    (activeStage && !lead.nextAction);
-
-  const label = forcedHigh
-    ? 'HIGH'
-    : cappedScore >= 60
-    ? 'HIGH'
-    : cappedScore >= 30
-    ? 'MEDIUM'
-    : 'NORMAL';
+  const label =
+    cappedScore >= 60 ? 'HIGH' : cappedScore >= 30 ? 'MEDIUM' : 'NORMAL';
 
   return { label, score: cappedScore };
 }

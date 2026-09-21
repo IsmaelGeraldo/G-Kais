@@ -642,6 +642,8 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
   const [priorityFilter, setPriorityFilter] = useState<'ALL' | 'HIGH' | 'MEDIUM' | 'NORMAL'>('ALL');
   const [needsActionOnly, setNeedsActionOnly] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
+  const [crmPanelOpen, setCrmPanelOpen] = useState(false);
+  const [leadDetailOpen, setLeadDetailOpen] = useState(false);
   const [draft, setDraft] = useState<LeadOperationsUpdate>(
     makeDraft(null)
   );
@@ -2160,7 +2162,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
           </div>
 
           <div className="grid grid-cols-1 xl:grid-cols-12 min-h-[640px] xl:h-[760px]">
-            <div className="xl:col-span-8 overflow-auto border-b xl:border-b-0 xl:border-r border-[#E5E5E5]">
+            <div className={`${crmPanelOpen ? 'xl:col-span-8 xl:border-r' : 'xl:col-span-12'} overflow-auto border-b xl:border-b-0 border-[#E5E5E5]`}>
               <table className="w-full min-w-[1080px] text-left text-xs">
                 <thead className="sticky top-0 z-10 bg-[#FAFAFA] border-b border-[#E5E5E5] font-mono-code text-[10px] uppercase text-[#6B6B6B] shadow-[0_1px_0_rgba(0,0,0,0.06)]">
                   <tr>
@@ -2190,8 +2192,8 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                     </tr>
                   ) : (
                     filteredLeads.map((lead) => (
+                      <React.Fragment key={lead.id}>
                       <tr
-                        key={lead.id}
                         onClick={() => setSelectedId(lead.id)}
                         className={`cursor-pointer hover:bg-[#FAFAFA] ${selectedLead?.id === lead.id ? 'bg-[#F7F7F5]' : ''}`}
                       >
@@ -2248,12 +2250,81 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                           {formatDate(lead.createdAt)}
                         </td>
                       </tr>
+
+                      {!crmPanelOpen && selectedLead?.id === lead.id && (
+                        <tr className="bg-[#FAFAFA]">
+                          <td colSpan={8} className="p-3 sm:p-4">
+                            <div className="rounded-2xl border border-[#E5E5E5] bg-white p-4 sm:p-5 shadow-[0_8px_30px_rgba(0,0,0,0.03)]">
+                              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                                <div className="min-w-0">
+                                  <div className="flex flex-wrap items-center gap-2 mb-2">
+                                    <span className="font-mono-code text-[9px] uppercase tracking-wider text-[#0A3F4D]">
+                                      {tr('Resumen CRM', 'CRM summary')}
+                                    </span>
+                                    <span
+                                      className={`font-mono-code text-[8px] px-2 py-1 border rounded-full ${
+                                        getWorkPriority(lead).label === 'HIGH'
+                                          ? 'border-red-200 text-red-700 bg-red-50'
+                                          : getWorkPriority(lead).label === 'MEDIUM'
+                                          ? 'border-amber-200 text-amber-800 bg-amber-50'
+                                          : 'border-[#E5E5E5] text-[#777] bg-white'
+                                      }`}
+                                    >
+                                      {priorityLabel(getWorkPriority(lead).label, language)}
+                                    </span>
+                                  </div>
+
+                                  <div className="flex flex-col sm:flex-row sm:items-end gap-1 sm:gap-3">
+                                    <h3 className="text-lg font-extrabold tracking-tight">{lead.name}</h3>
+                                    <span className="text-xs text-[#6B6B6B]">{lead.company || lead.email}</span>
+                                  </div>
+
+                                  <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-[11px] text-[#6B6B6B]">
+                                    <span>
+                                      {tr('Estado', 'Status')}: <strong className="text-[#0A0A0A]">{statusLabel(lead.status, language)}</strong>
+                                    </span>
+                                    <span>
+                                      {tr('Responsable', 'Owner')}: <strong className="text-[#0A0A0A]">{lead.assignedTo || tr('Sin asignar', 'Unassigned')}</strong>
+                                    </span>
+                                    <span>
+                                      {tr('Próxima acción', 'Next action')}: <strong className="text-[#0A0A0A]">{lead.nextAction ? nextActionLabel(lead.nextAction, language) : '—'}</strong>
+                                    </span>
+                                    <span>
+                                      {tr('Seguimiento', 'Follow-up')}: <strong className="text-[#0A0A0A]">{lead.followUpAt ? formatDate(lead.followUpAt) : '—'}</strong>
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <div className="flex flex-wrap gap-2 shrink-0">
+                                  <button
+                                    type="button"
+                                    onClick={() => setCrmPanelOpen(true)}
+                                    className="inline-flex items-center justify-center rounded-xl border border-[#D8D8D8] bg-white px-3.5 py-2.5 text-[10px] font-semibold uppercase tracking-wider hover:bg-[#F7F7F5]"
+                                  >
+                                    {tr('Editar CRM', 'Edit CRM')}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setLeadDetailOpen(true)}
+                                    className="inline-flex items-center justify-center rounded-xl bg-[#0A0A0A] px-3.5 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-white hover:bg-[#0A3F4D]"
+                                  >
+                                    {tr('Historial / ficha completa', 'History / full record')}
+                                    <ChevronRight className="w-3.5 h-3.5 ml-1.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                      </React.Fragment>
                     ))
                   )}
                 </tbody>
               </table>
             </div>
 
+            {crmPanelOpen && (
             <aside
               ref={crmPanelRef}
               className="xl:col-span-4 bg-[#FAFAFA] p-5 sm:p-6 scroll-mt-6 xl:overflow-y-auto xl:h-full"
@@ -2279,6 +2350,14 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                       <span className="font-mono-code text-[9px] text-[#6B6B6B]">
                         {selectedLead.id}
                       </span>
+                      <button
+                        type="button"
+                        onClick={() => setCrmPanelOpen(false)}
+                        className="p-1.5 rounded-lg border border-[#E5E5E5] bg-white hover:bg-[#F7F7F5]"
+                        aria-label={tr('Ocultar registro CRM', 'Hide CRM record')}
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
 
@@ -2567,47 +2646,14 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                   </div>
 
                   <div className="mt-6 border-t border-[#D8D8D8] pt-6">
-                    <p className="font-mono-code text-[10px] font-bold uppercase tracking-wider mb-4">
-                      {tr('Historial de actividad', 'Activity history')}
-                    </p>
-
-                    {selectedLead.activityLog && selectedLead.activityLog.length > 0 ? (
-                      <div className="space-y-3">
-                        {[...selectedLead.activityLog].reverse().map((entry, index) => (
-                          <div
-                            key={`${entry.at}-${index}`}
-                            className="border-l-2 border-[#0A3F4D] pl-3 py-1"
-                          >
-                            <div className="flex items-center justify-between gap-3">
-                              <span className="font-mono-code text-[9px] text-[#6B6B6B]">
-                                {formatDate(entry.at)}
-                              </span>
-                              <span className="font-mono-code text-[9px] text-[#6B6B6B]">
-                                {entry.actor}
-                              </span>
-                            </div>
-                            <p className="text-xs mt-1">
-                              {statusLabel(entry.fromStatus, language)} → {statusLabel(entry.toStatus, language)}
-                            </p>
-                            {entry.result && (
-                              <p className="text-[10px] font-mono-code uppercase tracking-wider text-[#0A3F4D] mt-1">
-                                {tr('Resultado', 'Result')}: {taskOutcomeLabel(entry.result, language)}
-                              </p>
-                            )}
-                            {entry.nextAction && (
-                              <p className="text-[11px] text-[#6B6B6B] mt-1">
-                                {entry.nextAction.startsWith('Completed:') ||
-                                entry.nextAction.startsWith('Rescheduled:')
-                                  ? entry.nextAction
-                                  : `Next: ${entry.nextAction}`}
-                              </p>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-xs text-[#777]">{tr('Aún no hay cambios registrados en CRM.', 'No CRM changes recorded yet.')}</p>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => setLeadDetailOpen(true)}
+                      className="w-full inline-flex items-center justify-between rounded-xl border border-[#D8D8D8] bg-white px-4 py-3 text-xs font-semibold hover:bg-[#F7F7F5]"
+                    >
+                      <span>{tr('Ver historial y ficha completa', 'View history and full record')}</span>
+                      <ChevronRight className="w-4 h-4 text-[#0A3F4D]" />
+                    </button>
                   </div>
 
                   <div className="mt-5 border border-[#0A3F4D]/20 bg-white rounded-xl p-3 text-[10px] leading-relaxed text-[#0A3F4D]">
@@ -2620,8 +2666,148 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                 </div>
               )}
             </aside>
+            )}
+
           </div>
         </section>
+
+        {leadDetailOpen && selectedLead && (
+          <div
+            className="fixed inset-0 z-[70] bg-black/35 backdrop-blur-[2px] p-3 sm:p-6 flex items-center justify-center"
+            onClick={() => setLeadDetailOpen(false)}
+          >
+            <section
+              className="w-full max-w-5xl max-h-[92vh] overflow-y-auto rounded-3xl border border-[#D8D8D8] bg-[#F7F7F5] shadow-2xl"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-[#E5E5E5] bg-[#F7F7F5]/95 backdrop-blur px-5 sm:px-7 py-5 rounded-t-3xl">
+                <div>
+                  <p className="font-mono-code text-[9px] uppercase tracking-[0.2em] text-[#0A3F4D] font-bold">
+                    {tr('Ficha completa del lead', 'Full lead record')}
+                  </p>
+                  <h2 className="mt-1 text-2xl sm:text-3xl font-extrabold tracking-tight">{selectedLead.name}</h2>
+                  <p className="text-sm text-[#6B6B6B] mt-1">{selectedLead.company || selectedLead.email}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setLeadDetailOpen(false)}
+                  className="p-2 rounded-xl border border-[#D8D8D8] bg-white hover:bg-[#F0F0EE]"
+                  aria-label={tr('Cerrar ficha', 'Close record')}
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="p-5 sm:p-7 grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <div className="lg:col-span-5 space-y-5">
+                  <div className="rounded-2xl border border-[#E5E5E5] bg-white p-5">
+                    <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#6B6B6B] mb-4">
+                      {tr('Información', 'Information')}
+                    </p>
+                    <div className="space-y-3 text-xs">
+                      {[
+                        [tr('Email', 'Email'), selectedLead.email],
+                        [tr('Canal', 'Channel'), selectedLead.contactChannel || '—'],
+                        [tr('Origen', 'Source'), selectedLead.source],
+                        [tr('Estado', 'Status'), statusLabel(selectedLead.status, language)],
+                        [tr('Responsable', 'Owner'), selectedLead.assignedTo || tr('Sin asignar', 'Unassigned')],
+                        [tr('Próxima acción', 'Next action'), selectedLead.nextAction ? nextActionLabel(selectedLead.nextAction, language) : '—'],
+                        [tr('Seguimiento', 'Follow-up'), selectedLead.followUpAt ? formatDate(selectedLead.followUpAt) : '—'],
+                        [tr('Creado', 'Created'), formatDate(selectedLead.createdAt)]
+                      ].map(([label, value]) => (
+                        <div key={String(label)} className="flex justify-between gap-4 border-b border-[#EFEFEF] pb-2 last:border-0 last:pb-0">
+                          <span className="text-[#6B6B6B]">{label}</span>
+                          <span className="text-right font-semibold break-all">{value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-[#E5E5E5] bg-white p-5">
+                    <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#6B6B6B] mb-2">
+                      {tr('Contexto de ingreso', 'Intake context')}
+                    </p>
+                    <p className="text-sm leading-relaxed">
+                      {selectedLead.inquiryNotes || selectedLead.message || tr('Sin contexto adicional.', 'No additional context.')}
+                    </p>
+                  </div>
+
+                  {selectedLead.internalNotes && (
+                    <div className="rounded-2xl border border-[#E5E5E5] bg-white p-5">
+                      <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#6B6B6B] mb-2">
+                        {tr('Notas internas', 'Internal notes')}
+                      </p>
+                      <p className="text-sm leading-relaxed whitespace-pre-wrap">{selectedLead.internalNotes}</p>
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLeadDetailOpen(false);
+                      setCrmPanelOpen(true);
+                    }}
+                    className="w-full rounded-xl bg-[#0A0A0A] text-white px-4 py-3 text-xs font-semibold uppercase tracking-wider hover:bg-[#0A3F4D]"
+                  >
+                    {tr('Editar registro CRM', 'Edit CRM record')}
+                  </button>
+                </div>
+
+                <div className="lg:col-span-7">
+                  <div className="rounded-2xl border border-[#E5E5E5] bg-white p-5 sm:p-6">
+                    <div className="flex items-center justify-between gap-4 mb-5">
+                      <div>
+                        <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#0A3F4D] font-bold">
+                          {tr('Historial de actividad', 'Activity history')}
+                        </p>
+                        <p className="text-xs text-[#777] mt-1">
+                          {tr('Cambios, resultados y próximas acciones del lead.', 'Lead changes, outcomes and next actions.')}
+                        </p>
+                      </div>
+                      <span className="font-mono-code text-[9px] text-[#6B6B6B]">
+                        {(selectedLead.activityLog || []).length} {tr('eventos', 'events')}
+                      </span>
+                    </div>
+
+                    {selectedLead.activityLog && selectedLead.activityLog.length > 0 ? (
+                      <div className="space-y-4">
+                        {[...selectedLead.activityLog].reverse().map((entry, index) => (
+                          <div key={`${entry.at}-${index}`} className="relative pl-5">
+                            <span className="absolute left-0 top-1.5 w-2.5 h-2.5 rounded-full bg-[#0A3F4D]" />
+                            {index < selectedLead.activityLog!.length - 1 && (
+                              <span className="absolute left-[4px] top-4 bottom-[-18px] w-px bg-[#D8D8D8]" />
+                            )}
+                            <div className="rounded-xl border border-[#E5E5E5] bg-[#FAFAFA] p-3.5">
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <span className="font-mono-code text-[9px] text-[#6B6B6B]">{formatDate(entry.at)}</span>
+                                <span className="font-mono-code text-[9px] text-[#6B6B6B]">{entry.actor}</span>
+                              </div>
+                              <p className="text-xs font-semibold mt-2">
+                                {statusLabel(entry.fromStatus, language)} → {statusLabel(entry.toStatus, language)}
+                              </p>
+                              {entry.result && (
+                                <p className="text-[10px] font-mono-code uppercase tracking-wider text-[#0A3F4D] mt-1.5">
+                                  {tr('Resultado', 'Result')}: {taskOutcomeLabel(entry.result, language)}
+                                </p>
+                              )}
+                              {entry.nextAction && (
+                                <p className="text-[11px] text-[#6B6B6B] mt-1.5">{entry.nextAction}</p>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="py-12 text-center text-xs text-[#777]">
+                        {tr('Aún no hay actividad registrada para este lead.', 'No activity has been recorded for this lead yet.')}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+        )}
       </div>
     </main>
   );

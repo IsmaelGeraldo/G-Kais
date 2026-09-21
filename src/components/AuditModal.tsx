@@ -7,21 +7,33 @@ import { useLanguage } from '../i18n/LanguageContext';
 
 interface AuditModalProps {
   isOpen: boolean;
-  on{tr('Cerrar', 'Close')}: () => void;
+  onClose: () => void;
 }
 
 const CONTACT_CHANNELS: ContactChannel[] = [
   'WhatsApp',
-  '{tr('Sitio web', 'Website')}',
+  'Website',
   'Email',
   'Instagram',
   'Phone',
   'Multiple channels'
 ];
 
-export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, on{tr('Cerrar', 'Close')} }) => {
+export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose }) => {
   const { language } = useLanguage();
   const tr = (es: string, en: string) => (language === 'es' ? es : en);
+  const channelLabel = (channel: ContactChannel) => {
+    if (language === 'en') return channel;
+    const labels: Record<ContactChannel, string> = {
+      WhatsApp: 'WhatsApp',
+      Website: 'Sitio web',
+      Email: 'Email',
+      Instagram: 'Instagram',
+      Phone: 'Teléfono',
+      'Multiple channels': 'Múltiples canales'
+    };
+    return labels[channel];
+  };
   const modalRef = useRef<HTMLDivElement | null>(null);
   const renderedAtRef = useRef<number>(Date.now());
   const [honeypot, setHoneypot] = useState('');
@@ -38,7 +50,7 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, on{tr('Cerrar', 
   const [submissionId, setSubmissionId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  useModalAccessibility({ isOpen, on{tr('Cerrar', 'Close')}, containerRef: modalRef });
+  useModalAccessibility({ isOpen, onClose, containerRef: modalRef });
 
   if (!isOpen) return null;
 
@@ -83,7 +95,7 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, on{tr('Cerrar', 
   return (
     <div 
       className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
-      onClick={on{tr('Cerrar', 'Close')}}
+      onClick={onClose}
       role="dialog"
       aria-modal="true"
       aria-labelledby="audit-modal-title"
@@ -93,11 +105,11 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, on{tr('Cerrar', 
         className="relative w-full max-w-2xl bg-[#F7F7F5] border border-[#0A0A0A] p-6 sm:p-10 shadow-2xl my-8 text-left max-h-[92vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* {tr('Cerrar', 'Close')} Button */}
+        {/* Close Button */}
         <button
-          onClick={on{tr('Cerrar', 'Close')}}
+          onClick={onClose}
           className="absolute top-6 right-6 p-2 text-[#777777] hover:text-[#0A0A0A] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A3F4D]"
-          aria-label="{tr('Cerrar ventana', '{tr('Cerrar', 'Close')} modal')}"
+          aria-label={tr('Cerrar ventana', 'Close modal')}
           id="close-audit-modal-btn"
         >
           <X className="w-5 h-5" />
@@ -135,7 +147,7 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, on{tr('Cerrar', 
               </div>
               <div className="flex justify-between">
                 <span className="text-[#777777]">{tr('CANAL PRINCIPAL:', 'PRIMARY INBOUND CHANNEL:')}</span>
-                <span className="font-semibold text-[#0A0A0A]">{formData.contactChannel}</span>
+                <span className="font-semibold text-[#0A0A0A]">{channelLabel(formData.contactChannel)}</span>
               </div>
             </div>
 
@@ -169,7 +181,7 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, on{tr('Cerrar', 
               </button>
               <button
                 type="button"
-                onClick={on{tr('Cerrar', 'Close')}}
+                onClick={onClose}
                 className="px-6 py-2.5 bg-[#0A0A0A] text-[#F7F7F5] text-xs font-semibold uppercase tracking-wider hover:bg-[#0A3F4D] transition-colors"
               >
                 {tr('Cerrar', 'Close')}
@@ -194,7 +206,7 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, on{tr('Cerrar', 
             {/* {tr('QUÉ RECIBES', 'WHAT YOU RECEIVE')} Section */}
             <div className="mb-6 p-4 sm:p-5 bg-white border border-[#0A0A0A]/15 text-left">
               <span className="font-mono-code text-[11px] uppercase tracking-wider text-[#0A3F4D] font-bold block mb-3">
-                {tr('QUÉ RECIBES', 'WHAT YOU RECEIVE')}
+                WHAT YOU RECEIVE
               </span>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                 <div className="flex items-start space-x-2.5">
@@ -294,7 +306,7 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, on{tr('Cerrar', 
                 </div>
               </div>
 
-              {/* {tr('¿Cómo suelen contactarte tus clientes? *', 'How do customers usually contact you? *')}/}
+              {/* How do customers usually contact you? */}
               <div>
                 <label className="block text-xs font-mono-code uppercase text-[#777777] mb-1.5">
                   {tr('¿Cómo suelen contactarte tus clientes? *', 'How do customers usually contact you? *')}
@@ -313,7 +325,7 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, on{tr('Cerrar', 
                             : 'border-[#0A0A0A]/15 bg-white text-[#0A0A0A] hover:border-[#0A0A0A]/40'
                         }`}
                       >
-                        {channel}
+                        {channelLabel(channel)}
                       </button>
                     );
                   })}

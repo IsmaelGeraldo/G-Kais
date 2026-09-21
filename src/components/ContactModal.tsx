@@ -75,7 +75,7 @@ export const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose, onO
     >
       <div 
         ref={modalRef}
-        className="relative w-full max-w-xl bg-[#F7F7F5] border border-[#0A0A0A] p-6 sm:p-10 shadow-2xl my-8 text-left"
+        className="relative w-full max-w-xl bg-[#F7F7F5] border border-[#0A0A0A] p-6 sm:p-10 shadow-2xl rounded-3xl my-8 text-left"
         onClick={(e) => e.stopPropagation()}
       >
         <button
@@ -103,7 +103,7 @@ export const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose, onO
               </div>
             </div>
 
-            <div className="p-4 bg-white border border-[#0A0A0A]/15 space-y-2 text-xs font-mono-code">
+            <div className="p-4 bg-white border border-[#0A0A0A]/15 rounded-2xl space-y-2 text-xs font-mono-code">
               <div className="flex justify-between">
                 <span className="text-[#777777]">{tr('ID DE ENVÍO:', 'TRANSMISSION ID:')}</span>
                 <span className="font-bold text-[#0A0A0A]">{submissionId}</span>
@@ -150,7 +150,7 @@ export const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose, onO
             </div>
 
             {errorMessage && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-800 text-xs flex items-center space-x-2">
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-800 text-xs flex items-center space-x-2">
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 <span>{errorMessage}</span>
               </div>
@@ -178,7 +178,7 @@ export const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose, onO
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   placeholder="Elena Vance"
-                  className="w-full bg-white border border-[#0A0A0A]/15 px-3.5 py-2.5 text-sm text-[#0A0A0A] focus:outline-none focus:border-[#0A3F4D] focus:ring-1 focus:ring-[#0A3F4D]"
+                  className="w-full bg-white border border-[#0A0A0A]/15 rounded-xl px-3.5 py-2.5 text-sm text-[#0A0A0A] focus:outline-none focus:border-[#0A3F4D] focus:ring-1 focus:ring-[#0A3F4D]"
                 />
               </div>
 
@@ -192,7 +192,7 @@ export const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose, onO
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   placeholder="name@company.com"
-                  className="w-full bg-white border border-[#0A0A0A]/15 px-3.5 py-2.5 text-sm text-[#0A0A0A] focus:outline-none focus:border-[#0A3F4D] focus:ring-1 focus:ring-[#0A3F4D]"
+                  className="w-full bg-white border border-[#0A0A0A]/15 rounded-xl px-3.5 py-2.5 text-sm text-[#0A0A0A] focus:outline-none focus:border-[#0A3F4D] focus:ring-1 focus:ring-[#0A3F4D]"
                 />
               </div>
 
@@ -206,7 +206,7 @@ export const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose, onO
                   value={formData.message}
                   onChange={(e) => setFormData({ ...formData, message: e.target.value })}
                   placeholder="Describe your current systems setup or commercial pipeline bottlenecks..."
-                  className="w-full bg-white border border-[#0A0A0A]/15 px-3.5 py-2.5 text-sm text-[#0A0A0A] focus:outline-none focus:border-[#0A3F4D] focus:ring-1 focus:ring-[#0A3F4D]"
+                  className="w-full bg-white border border-[#0A0A0A]/15 rounded-xl px-3.5 py-2.5 text-sm text-[#0A0A0A] focus:outline-none focus:border-[#0A3F4D] focus:ring-1 focus:ring-[#0A3F4D]"
                 />
               </div>
 

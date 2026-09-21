@@ -25,6 +25,7 @@ import { firebaseAuth } from '../lib/firebase';
 import { LanguageSelector } from './LanguageSelector';
 import { useLanguage } from '../i18n/LanguageContext';
 import {
+  addLeadNote,
   completeLeadAction,
   fetchAdminLeads,
   rescheduleLeadAction,
@@ -644,6 +645,10 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
   const [focusMode, setFocusMode] = useState(false);
   const [crmPanelOpen, setCrmPanelOpen] = useState(false);
   const [leadDetailOpen, setLeadDetailOpen] = useState(false);
+  const [noteTitle, setNoteTitle] = useState('');
+  const [noteBody, setNoteBody] = useState('');
+  const [savingNote, setSavingNote] = useState(false);
+  const [noteMessage, setNoteMessage] = useState<string | null>(null);
   const [draft, setDraft] = useState<LeadOperationsUpdate>(
     makeDraft(null)
   );
@@ -705,7 +710,10 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
           lead.status,
           lead.assignedTo,
           lead.nextAction,
-          lead.internalNotes
+          lead.internalNotes,
+          (lead.leadNotes || [])
+            .map((note) => `${note.title} ${note.body} ${note.author}`)
+            .join(' ')
         ]
           .filter(Boolean)
           .some((value) => String(value).toLowerCase().includes(needle));
@@ -752,6 +760,9 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
     setSaveMessage(null);
     setLeadEmailStatus('idle');
     setLeadEmailMessage('');
+    setNoteTitle('');
+    setNoteBody('');
+    setNoteMessage(null);
   }, [selectedLead?.id]);
 
   useEffect(() => {
@@ -1312,6 +1323,60 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
         `Playbook "${playbook.label}" loaded. Review the fields and save CRM changes.`
       )
     );
+  };
+
+  const handleAddLeadNote = async () => {
+    if (!selectedLead || !user || savingNote) return;
+
+    const title = noteTitle.trim();
+    const body = noteBody.trim();
+
+    if (!title || !body) {
+      setNoteMessage(
+        tr(
+          'Agrega un nombre y contenido antes de guardar la nota.',
+          'Add a title and content before saving the note.'
+        )
+      );
+      return;
+    }
+
+    setSavingNote(true);
+    setError(null);
+    setNoteMessage(null);
+
+    try {
+      const note = await addLeadNote(
+        selectedLead,
+        title,
+        body,
+        user.displayName || user.email || 'Admin'
+      );
+
+      setLeads((current) =>
+        current.map((lead) =>
+          lead.id === selectedLead.id
+            ? {
+                ...lead,
+                leadNotes: [...(lead.leadNotes || []), note].slice(-50),
+                updatedAt: new Date().toISOString()
+              }
+            : lead
+        )
+      );
+
+      setNoteTitle('');
+      setNoteBody('');
+      setNoteMessage(
+        tr('Nota agregada al historial.', 'Note added to history.')
+      );
+    } catch (err: any) {
+      const message = err?.message || tr('No se pudo guardar la nota.', 'Could not save the note.');
+      setNoteMessage(message);
+      setError(message);
+    } finally {
+      setSavingNote(false);
+    }
   };
 
   const handleSave = async () => {
@@ -2718,53 +2783,115 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                   </div>
 
                   <div className="rounded-2xl border border-[#E5E5E5] bg-white p-5">
-                    <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className="flex items-start justify-between gap-3 mb-4">
                       <div>
                         <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#0A3F4D] font-bold">
-                          {tr('Notas de trabajo / durante llamada', 'Work notes / during call')}
+                          {tr('Bitácora del lead', 'Lead notes timeline')}
                         </p>
                         <p className="text-[10px] text-[#777] mt-1">
                           {tr(
-                            'Registra contexto, objeciones, necesidades y próximos pasos sin salir de la ficha.',
-                            'Capture context, objections, needs and next steps without leaving the record.'
+                            'Agrega una nota nueva sin sobrescribir lo hablado anteriormente.',
+                            'Add a new note without overwriting previous context.'
                           )}
                         </p>
                       </div>
+                      <span className="font-mono-code text-[9px] text-[#6B6B6B]">
+                        {(selectedLead.leadNotes || []).length}/50
+                      </span>
                     </div>
-                    <textarea
-                      value={draft.internalNotes || ''}
-                      onChange={(event) =>
-                        setDraft((current) => ({
-                          ...current,
-                          internalNotes: event.target.value
-                        }))
-                      }
-                      maxLength={3000}
-                      rows={6}
+
+                    <input
+                      value={noteTitle}
+                      onChange={(event) => setNoteTitle(event.target.value)}
+                      maxLength={120}
                       placeholder={tr(
-                        'Ej.: objetivo del cliente, problema principal, presupuesto, decisión pendiente, compromiso acordado...',
-                        'e.g. client goal, main problem, budget, pending decision, agreed next step...'
+                        'Nombre de la nota · Ej.: Llamada inicial',
+                        'Note title · e.g. Initial call'
                       )}
-                      className="w-full rounded-xl border border-[#D8D8D8] bg-[#FAFAFA] px-3 py-3 text-sm leading-relaxed resize-y focus:outline-none focus:border-[#0A3F4D]"
+                      className="w-full rounded-xl border border-[#D8D8D8] bg-[#FAFAFA] px-3 py-2.5 text-sm focus:outline-none focus:border-[#0A3F4D]"
                     />
+
+                    <textarea
+                      value={noteBody}
+                      onChange={(event) => setNoteBody(event.target.value)}
+                      maxLength={3000}
+                      rows={5}
+                      placeholder={tr(
+                        'Último acuerdo, objeciones, necesidades, instrucciones para el siguiente responsable...',
+                        'Latest agreement, objections, needs, instructions for the next owner...'
+                      )}
+                      className="mt-3 w-full rounded-xl border border-[#D8D8D8] bg-[#FAFAFA] px-3 py-3 text-sm leading-relaxed resize-y focus:outline-none focus:border-[#0A3F4D]"
+                    />
+
                     <button
                       type="button"
-                      onClick={handleSave}
-                      disabled={saving}
-                      className="mt-3 w-full inline-flex items-center justify-center rounded-xl bg-[#0A3F4D] text-white px-4 py-3 text-xs font-semibold uppercase tracking-wider hover:bg-[#08333E] disabled:opacity-50"
+                      onClick={handleAddLeadNote}
+                      disabled={savingNote || !noteTitle.trim() || !noteBody.trim()}
+                      className="mt-3 w-full inline-flex items-center justify-center rounded-xl bg-[#0A3F4D] text-white px-4 py-3 text-xs font-semibold uppercase tracking-wider hover:bg-[#08333E] disabled:opacity-40"
                     >
-                      {saving ? (
+                      {savingNote ? (
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                       ) : (
                         <Save className="w-4 h-4 mr-2" />
                       )}
-                      {tr('Guardar información', 'Save information')}
+                      {tr('Agregar nota', 'Add note')}
                     </button>
-                    {saveMessage && (
+
+                    {noteMessage && (
                       <p className="mt-2 text-[10px] font-mono-code text-[#0A3F4D]">
-                        {tr('Información guardada en CRM.', 'Information saved in CRM.')}
+                        {noteMessage}
                       </p>
                     )}
+
+                    <div className="mt-5 border-t border-[#E5E5E5] pt-4">
+                      <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#6B6B6B] mb-3">
+                        {tr('Notas registradas', 'Saved notes')}
+                      </p>
+
+                      {selectedLead.leadNotes && selectedLead.leadNotes.length > 0 ? (
+                        <div className="space-y-3">
+                          {[...selectedLead.leadNotes].reverse().map((note) => (
+                            <article
+                              key={note.id}
+                              className="rounded-xl border border-[#E5E5E5] bg-[#FAFAFA] p-3.5"
+                            >
+                              <div className="flex flex-wrap items-start justify-between gap-2">
+                                <div>
+                                  <h4 className="text-sm font-bold">{note.title}</h4>
+                                  <p className="font-mono-code text-[9px] text-[#777] mt-1">
+                                    {note.author}
+                                  </p>
+                                </div>
+                                <time className="font-mono-code text-[9px] text-[#777]">
+                                  {formatDate(note.createdAt)}
+                                </time>
+                              </div>
+                              <p className="text-sm leading-relaxed whitespace-pre-wrap mt-3">
+                                {note.body}
+                              </p>
+                            </article>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-[#777]">
+                          {tr(
+                            'Aún no hay notas registradas para este lead.',
+                            'No notes have been recorded for this lead yet.'
+                          )}
+                        </p>
+                      )}
+
+                      {selectedLead.internalNotes && (
+                        <div className="mt-4 rounded-xl border border-dashed border-[#D8D8D8] bg-white p-3">
+                          <p className="font-mono-code text-[8px] uppercase tracking-wider text-[#777]">
+                            {tr('Nota interna anterior', 'Previous internal note')}
+                          </p>
+                          <p className="text-xs leading-relaxed whitespace-pre-wrap mt-2 text-[#5F5F5F]">
+                            {selectedLead.internalNotes}
+                          </p>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   <button

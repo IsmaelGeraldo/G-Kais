@@ -102,7 +102,7 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose }) => {
     >
       <div 
         ref={modalRef}
-        className="relative w-full max-w-2xl bg-[#F7F7F5] border border-[#0A0A0A] p-6 sm:p-10 shadow-2xl my-8 text-left max-h-[92vh] overflow-y-auto"
+        className="relative w-full max-w-2xl bg-[#F7F7F5] border border-[#0A0A0A] p-6 sm:p-10 shadow-2xl rounded-3xl my-8 text-left max-h-[92vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close Button */}
@@ -132,7 +132,7 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose }) => {
               </div>
             </div>
 
-            <div className="p-4 bg-white border border-[#0A0A0A]/15 space-y-2 text-xs font-mono-code">
+            <div className="p-4 bg-white border border-[#0A0A0A]/15 rounded-2xl space-y-2 text-xs font-mono-code">
               <div className="flex justify-between">
                 <span className="text-[#777777]">{tr('ID DE ENVÍO:', 'SUBMISSION ID:')}</span>
                 <span className="font-bold text-[#0A0A0A]">{submissionId}</span>
@@ -204,7 +204,7 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose }) => {
             </div>
 
             {/* {tr('QUÉ RECIBES', 'WHAT YOU RECEIVE')} Section */}
-            <div className="mb-6 p-4 sm:p-5 bg-white border border-[#0A0A0A]/15 text-left">
+            <div className="mb-6 p-4 sm:p-5 bg-white border border-[#0A0A0A]/15 rounded-2xl text-left">
               <span className="font-mono-code text-[11px] uppercase tracking-wider text-[#0A3F4D] font-bold block mb-3">
                 WHAT YOU RECEIVE
               </span>
@@ -229,7 +229,7 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose }) => {
             </div>
 
             {errorMessage && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-800 text-xs flex items-center space-x-2">
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-800 text-xs flex items-center space-x-2">
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 <span>{errorMessage}</span>
               </div>
@@ -258,7 +258,7 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose }) => {
                     placeholder="Elena Vance"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full bg-white border border-[#0A0A0A]/15 px-3.5 py-2.5 text-sm text-[#0A0A0A] focus:outline-none focus:border-[#0A3F4D] focus:ring-1 focus:ring-[#0A3F4D]"
+                    className="w-full bg-white border border-[#0A0A0A]/15 rounded-xl px-3.5 py-2.5 text-sm text-[#0A0A0A] focus:outline-none focus:border-[#0A3F4D] focus:ring-1 focus:ring-[#0A3F4D]"
                   />
                 </div>
 
@@ -272,7 +272,7 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose }) => {
                     placeholder="Acme Corp"
                     value={formData.company}
                     onChange={(e) => setFormData({ ...formData, company: e.target.value })}
-                    className="w-full bg-white border border-[#0A0A0A]/15 px-3.5 py-2.5 text-sm text-[#0A0A0A] focus:outline-none focus:border-[#0A3F4D] focus:ring-1 focus:ring-[#0A3F4D]"
+                    className="w-full bg-white border border-[#0A0A0A]/15 rounded-xl px-3.5 py-2.5 text-sm text-[#0A0A0A] focus:outline-none focus:border-[#0A3F4D] focus:ring-1 focus:ring-[#0A3F4D]"
                   />
                 </div>
               </div>
@@ -288,7 +288,7 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose }) => {
                     placeholder="elena@company.com"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="w-full bg-white border border-[#0A0A0A]/15 px-3.5 py-2.5 text-sm text-[#0A0A0A] focus:outline-none focus:border-[#0A3F4D] focus:ring-1 focus:ring-[#0A3F4D]"
+                    className="w-full bg-white border border-[#0A0A0A]/15 rounded-xl px-3.5 py-2.5 text-sm text-[#0A0A0A] focus:outline-none focus:border-[#0A3F4D] focus:ring-1 focus:ring-[#0A3F4D]"
                   />
                 </div>
 
@@ -301,7 +301,7 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose }) => {
                     placeholder="https://company.com"
                     value={formData.website}
                     onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-                    className="w-full bg-white border border-[#0A0A0A]/15 px-3.5 py-2.5 text-sm text-[#0A0A0A] focus:outline-none focus:border-[#0A3F4D] focus:ring-1 focus:ring-[#0A3F4D]"
+                    className="w-full bg-white border border-[#0A0A0A]/15 rounded-xl px-3.5 py-2.5 text-sm text-[#0A0A0A] focus:outline-none focus:border-[#0A3F4D] focus:ring-1 focus:ring-[#0A3F4D]"
                   />
                 </div>
               </div>
@@ -342,7 +342,7 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose }) => {
                   placeholder="e.g. Sales reps reply when they have time, inquiries wait in a shared inbox, follow-ups are irregular..."
                   value={formData.inquiryNotes}
                   onChange={(e) => setFormData({ ...formData, inquiryNotes: e.target.value })}
-                  className="w-full bg-white border border-[#0A0A0A]/15 px-3.5 py-2.5 text-xs text-[#0A0A0A] focus:outline-none focus:border-[#0A3F4D] focus:ring-1 focus:ring-[#0A3F4D]"
+                  className="w-full bg-white border border-[#0A0A0A]/15 rounded-xl px-3.5 py-2.5 text-xs text-[#0A0A0A] focus:outline-none focus:border-[#0A3F4D] focus:ring-1 focus:ring-[#0A3F4D]"
                 />
               </div>
 

@@ -1106,16 +1106,33 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
 
   const reviewLeadInCrm = (leadId: string) => {
     setSelectedId(leadId);
+    setStatusFilter('ALL');
+    setFollowUpFilter('ALL');
+    setPriorityFilter('ALL');
+    setNeedsActionOnly(false);
+    setQueryText('');
+    setCrmPanelOpen(false);
 
     window.requestAnimationFrame(() => {
-      if (crmPanelRef.current) {
-        crmPanelRef.current.scrollTop = 0;
-        crmPanelRef.current.scrollIntoView({
-          behavior: 'smooth',
-          block: 'start'
-        });
-      }
+      pipelineSectionRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start'
+      });
+
+      window.requestAnimationFrame(() => {
+        document
+          .getElementById(`pipeline-lead-${leadId}`)
+          ?.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center'
+          });
+      });
     });
+  };
+
+  const openLeadFullRecord = (leadId: string) => {
+    setSelectedId(leadId);
+    setLeadDetailOpen(true);
   };
 
   const openTaskCompletion = (lead: AdminLead) => {
@@ -1931,7 +1948,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                       </div>
                     </div>
                     <span className="shrink-0 inline-flex items-center gap-1.5 font-mono-code text-[9px] uppercase tracking-wider text-[#0A3F4D]">
-                      {tr('Revisar en CRM', 'Review in CRM')}
+                      {tr('Ir al CRM', 'Go to CRM')}
                       <ChevronRight className="w-4 h-4" />
                     </span>
                   </button>
@@ -2016,7 +2033,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                       <div className="flex items-start justify-between gap-4">
                         <button
                           type="button"
-                          onClick={() => setSelectedId(lead.id)}
+                          onClick={() => openLeadFullRecord(lead.id)}
                           className="min-w-0 flex-1 text-left"
                         >
                           <div className="flex flex-wrap items-center gap-2 mb-1.5">
@@ -2048,6 +2065,9 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                               <span className="font-mono-code">{formatDate(lead.followUpAt)}</span>
                             )}
                             <span>{tr('Responsable', 'Owner')}: {lead.assignedTo || tr('Sin asignar', 'Unassigned')}</span>
+                            <span className="font-mono-code text-[9px] text-[#0A3F4D]">
+                              {tr('Abrir ficha completa', 'Open full record')} →
+                            </span>
                           </div>
 
                         </button>
@@ -2195,6 +2215,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                     filteredLeads.map((lead) => (
                       <tr
                         key={lead.id}
+                        id={`pipeline-lead-${lead.id}`}
                         onClick={() => setSelectedId(lead.id)}
                         className={`cursor-pointer hover:bg-[#FAFAFA] ${selectedLead?.id === lead.id ? 'bg-[#F7F7F5]' : ''}`}
                       >
@@ -2694,14 +2715,50 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                     </p>
                   </div>
 
-                  {selectedLead.internalNotes && (
-                    <div className="rounded-2xl border border-[#E5E5E5] bg-white p-5">
-                      <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#6B6B6B] mb-2">
-                        {tr('Notas internas', 'Internal notes')}
-                      </p>
-                      <p className="text-sm leading-relaxed whitespace-pre-wrap">{selectedLead.internalNotes}</p>
+                  <div className="rounded-2xl border border-[#E5E5E5] bg-white p-5">
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div>
+                        <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#0A3F4D] font-bold">
+                          {tr('Notas de trabajo / durante llamada', 'Work notes / during call')}
+                        </p>
+                        <p className="text-[10px] text-[#777] mt-1">
+                          {tr(
+                            'Registra contexto, objeciones, necesidades y próximos pasos sin salir de la ficha.',
+                            'Capture context, objections, needs and next steps without leaving the record.'
+                          )}
+                        </p>
+                      </div>
                     </div>
-                  )}
+                    <textarea
+                      value={draft.internalNotes || ''}
+                      onChange={(event) =>
+                        setDraft((current) => ({
+                          ...current,
+                          internalNotes: event.target.value
+                        }))
+                      }
+                      maxLength={3000}
+                      rows={6}
+                      placeholder={tr(
+                        'Ej.: objetivo del cliente, problema principal, presupuesto, decisión pendiente, compromiso acordado...',
+                        'e.g. client goal, main problem, budget, pending decision, agreed next step...'
+                      )}
+                      className="w-full rounded-xl border border-[#D8D8D8] bg-[#FAFAFA] px-3 py-3 text-sm leading-relaxed resize-y focus:outline-none focus:border-[#0A3F4D]"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleSave}
+                      disabled={saving}
+                      className="mt-3 w-full inline-flex items-center justify-center rounded-xl bg-[#0A3F4D] text-white px-4 py-3 text-xs font-semibold uppercase tracking-wider hover:bg-[#08333E] disabled:opacity-50"
+                    >
+                      {saving ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Save className="w-4 h-4 mr-2" />
+                      )}
+                      {tr('Guardar información', 'Save information')}
+                    </button>
+                  </div>
 
                   <button
                     type="button"

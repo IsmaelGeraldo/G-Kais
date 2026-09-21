@@ -10,7 +10,7 @@ interface AuditCtaSectionProps {
 
 const CONTACT_CHANNELS: ContactChannel[] = [
   'WhatsApp',
-  '{tr('Sitio web', 'Website')}',
+  'Website',
   'Email',
   'Instagram',
   'Phone',
@@ -20,6 +20,18 @@ const CONTACT_CHANNELS: ContactChannel[] = [
 export const AuditCtaSection: React.FC<AuditCtaSectionProps> = () => {
   const { language } = useLanguage();
   const tr = (es: string, en: string) => (language === 'es' ? es : en);
+  const channelLabel = (channel: ContactChannel) => {
+    if (language === 'en') return channel;
+    const labels: Record<ContactChannel, string> = {
+      WhatsApp: 'WhatsApp',
+      Website: 'Sitio web',
+      Email: 'Email',
+      Instagram: 'Instagram',
+      Phone: 'Teléfono',
+      'Multiple channels': 'Múltiples canales'
+    };
+    return labels[channel];
+  };
   const renderedAtRef = useRef<number>(Date.now());
   const [honeypot, setHoneypot] = useState('');
   const [formData, setFormData] = useState({
@@ -88,30 +100,30 @@ export const AuditCtaSection: React.FC<AuditCtaSectionProps> = () => {
             </h2>
 
             <p className="text-lg sm:text-xl text-white/70 leading-relaxed font-normal mb-10 max-w-xl">
-              We'll review your current commercial process and identify where AI and automation can remove friction, recover opportunities, and keep execution reliable.
+              {tr('Revisaremos tu proceso comercial para detectar dónde la IA y la automatización pueden reducir fricción, recuperar oportunidades y mejorar la ejecución.', "We'll review your current commercial process and identify where AI and automation can remove friction, recover opportunities, and keep execution reliable.")}
             </p>
 
-            {/* {tr('QUÉ RECIBES', 'WHAT YOU RECEIVE')} section */}
+            {/* WHAT YOU RECEIVE section */}
             <div className="p-6 bg-white/5 border border-white/15 mb-10">
               <span className="font-mono-code text-xs uppercase tracking-wider text-white font-bold block mb-4">
-                {tr('QUÉ RECIBES', 'WHAT YOU RECEIVE')}:
+                {tr('QUÉ RECIBES:', 'WHAT YOU RECEIVE:')}
               </span>
               <ul className="space-y-3 font-mono-code text-xs text-white/80">
                 <li className="flex items-start">
                   <span className="w-1.5 h-1.5 rounded-full bg-white mt-1.5 mr-3 shrink-0" />
-                  <span>1. Thorough review of your current lead flow</span>
+                  <span>{tr('1. Revisión completa de tu flujo actual de leads', '1. Thorough review of your current lead flow')}</span>
                 </li>
                 <li className="flex items-start">
                   <span className="w-1.5 h-1.5 rounded-full bg-white mt-1.5 mr-3 shrink-0" />
-                  <span>2. {tr('Tres posibles fugas de oportunidades', 'Three potential opportunity leaks')} pinpointed</span>
+                  <span>{tr('2. Tres posibles fugas de oportunidades identificadas', '2. Three potential opportunity leaks pinpointed')}</span>
                 </li>
                 <li className="flex items-start">
                   <span className="w-1.5 h-1.5 rounded-full bg-white mt-1.5 mr-3 shrink-0" />
-                  <span>3. Clear automation & recovery opportunities</span>
+                  <span>{tr('3. Oportunidades claras de automatización y recuperación', '3. Clear automation & recovery opportunities')}</span>
                 </li>
                 <li className="flex items-start">
                   <span className="w-1.5 h-1.5 rounded-full bg-white mt-1.5 mr-3 shrink-0" />
-                  <span>4. {tr('Primer sistema recomendado', 'Recommended first system')} architecture</span>
+                  <span>{tr('4. Arquitectura recomendada para el primer sistema', '4. Recommended first system architecture')}</span>
                 </li>
               </ul>
             </div>
@@ -119,15 +131,15 @@ export const AuditCtaSection: React.FC<AuditCtaSectionProps> = () => {
             <div className="space-y-3 font-mono-code text-xs text-white/50 border-t border-white/10 pt-6">
               <div className="flex items-center space-x-3">
                 <span className="w-1 h-1 rounded-full bg-white/60" />
-                <span>Direct review of your workflow</span>
+                <span>{tr('Revisión directa de tu flujo de trabajo', 'Direct review of your workflow')}</span>
               </div>
               <div className="flex items-center space-x-3">
                 <span className="w-1 h-1 rounded-full bg-white/60" />
-                <span>No software installation required</span>
+                <span>{tr('No requiere instalar software', 'No software installation required')}</span>
               </div>
               <div className="flex items-center space-x-3">
                 <span className="w-1 h-1 rounded-full bg-white/60" />
-                <span>Confidential review of your workflow</span>
+                <span>{tr('Revisión confidencial de tu flujo', 'Confidential review of your workflow')}</span>
               </div>
             </div>
           </div>
@@ -144,7 +156,7 @@ export const AuditCtaSection: React.FC<AuditCtaSectionProps> = () => {
                     {tr('Solicitud de auditoría recibida', 'Audit Request Received')}
                   </h3>
                   <p className="text-xs font-mono-code text-white/60 mb-6">
-                    {tr('ID DE ENVÍO:', 'SUBMISSION ID:')} <span className="text-white font-bold">{submissionId}</span>
+                    SUBMISSION ID: <span className="text-white font-bold">{submissionId}</span>
                   </p>
                   <p className="text-sm text-white/70 leading-relaxed max-w-sm mx-auto mb-8">
                     {tr('G-KAIS revisa tu flujo actual de leads y continúa con los próximos pasos.', 'G-KAIS reviews your current lead flow and follows up with next steps.')}
@@ -247,7 +259,7 @@ export const AuditCtaSection: React.FC<AuditCtaSectionProps> = () => {
                     />
                   </div>
 
-                  {/* {tr('¿Cómo suelen contactarte tus clientes? *', 'How do customers usually contact you? *')}/}
+                  {/* How do customers usually contact you? */}
                   <div>
                     <label className="block text-xs font-mono-code text-white/80 uppercase tracking-wider mb-2">
                       {tr('¿Cómo suelen contactarte tus clientes? *', 'How do customers usually contact you? *')}
@@ -266,7 +278,7 @@ export const AuditCtaSection: React.FC<AuditCtaSectionProps> = () => {
                                 : 'border-white/20 bg-black text-white/80 hover:border-white/50'
                             }`}
                           >
-                            {channel}
+                            {channelLabel(channel)}
                           </button>
                         );
                       })}
@@ -276,7 +288,7 @@ export const AuditCtaSection: React.FC<AuditCtaSectionProps> = () => {
                   {/* What happens after someone contacts? */}
                   <div>
                     <label className="block text-xs font-mono-code text-white/80 uppercase tracking-wider mb-2">
-                      {tr('¿Qué sucede después de que alguien hace una consulta?', 'What happens after someone makes an inquiry?')} <span className="text-white/40 lowercase">{tr('(opcional)', '(optional)')}</span>
+                      What happens after someone makes an inquiry? <span className="text-white/40 lowercase">(optional)</span>
                     </label>
                     <textarea
                       rows={2}

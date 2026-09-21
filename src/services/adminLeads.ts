@@ -218,6 +218,12 @@ export async function addLeadNote(
     lead.source === 'AUDIT' ? 'audit_submissions' : 'contact_submissions';
 
   await updateDoc(doc(firestoreDb, collectionName, lead.id), {
+    status: lead.status,
+    assignedTo: lead.assignedTo?.trim() || '',
+    nextAction: lead.nextAction?.trim() || '',
+    followUpAt: lead.followUpAt?.trim() || '',
+    internalNotes: lead.internalNotes?.trim() || '',
+    activityLog: serializeActivityLog(lead.activityLog || []),
     leadNotes: arrayUnion(note),
     updatedAt: serverTimestamp()
   });

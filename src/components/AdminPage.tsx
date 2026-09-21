@@ -207,6 +207,40 @@ function priorityLabel(label: 'HIGH' | 'MEDIUM' | 'NORMAL', language: 'es' | 'en
   return 'NORMAL';
 }
 
+function taskOutcomeDescription(value: TaskOutcome, language: 'es' | 'en'): string {
+  const descriptions: Record<TaskOutcome, { es: string; en: string }> = {
+    COMPLETED: {
+      es: 'Cierra la tarea actual sin crear un próximo paso automático.',
+      en: 'Close the current task with no automatic next step.'
+    },
+    NO_ANSWER: {
+      es: 'Crea automáticamente un seguimiento para dentro de 24 horas.',
+      en: 'Create Follow up automatically for 24 hours from now.'
+    },
+    INTERESTED: {
+      es: 'Mueve el lead a Contactado y crea Agendar reunión para dentro de 24 horas.',
+      en: 'Move to Contacted and create Schedule meeting for 24 hours from now.'
+    },
+    MEETING_BOOKED: {
+      es: 'Mueve el lead a Reunión y crea Confirmar reunión como próxima acción.',
+      en: 'Move to Meeting and create Confirm meeting as the next action.'
+    },
+    PROPOSAL_SENT: {
+      es: 'Mueve el lead a Seguimiento y crea una tarea para dentro de 48 horas.',
+      en: 'Move to Follow-up and create a follow-up task for 48 hours from now.'
+    },
+    SALE_CLOSED: {
+      es: 'Mueve el lead a Cliente y cierra la tarea actual.',
+      en: 'Move the lead to Client and close the current task.'
+    },
+    NOT_INTERESTED: {
+      es: 'Mueve el lead a Perdido y cierra la tarea actual.',
+      en: 'Move the lead to Lost and close the current task.'
+    }
+  };
+  return descriptions[value][language];
+}
+
 function getWorkPriority(lead: AdminLead): {
   label: 'HIGH' | 'MEDIUM' | 'NORMAL';
   score: number;
@@ -1195,10 +1229,10 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                 G-KAIS
               </button>
               <span className="font-mono-code text-[9px] border border-[#E5E5E5] px-2 py-1 text-[#6B6B6B]">
-                CRM // INTERNAL
+                {tr('CRM // INTERNO', 'CRM // INTERNAL')}
               </span>
             </div>
-            <p className="text-xs text-[#6B6B6B] mt-1">Lead operations workspace</p>
+            <p className="text-xs text-[#6B6B6B] mt-1">{tr('Espacio de operaciones comerciales', 'Lead operations workspace')}</p>
           </div>
 
           <div className="flex items-center gap-3">
@@ -1219,7 +1253,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
             </button>
             <div className="hidden md:block text-right">
               <p className="text-xs font-semibold">{user.displayName || user.email}</p>
-              <p className="font-mono-code text-[9px] text-[#6B6B6B]">Authenticated administrator</p>
+              <p className="font-mono-code text-[9px] text-[#6B6B6B]">{tr('Administrador autenticado', 'Authenticated administrator')}</p>
             </div>
             <button
               type="button"
@@ -1423,7 +1457,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                 >
                   {TASK_OUTCOME_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>
-                      {statusLabel(option.value, language)}
+                      {taskOutcomeLabel(option.value, language)}
                     </option>
                   ))}
                 </select>
@@ -1434,23 +1468,19 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                   {tr('Próximo paso automático', 'Automatic next step')}
                 </p>
                 <p className="text-sm mt-2 leading-relaxed">
-                  {
-                    TASK_OUTCOME_OPTIONS.find(
-                      (option) => option.value === taskOutcome
-                    )?.description
-                  }
+                  {taskOutcomeDescription(taskOutcome, language)}
                 </p>
               </div>
 
               <div className="mt-4">
                 <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#6B6B6B] mb-2">
-                  Reschedule instead
+                  {tr('Reprogramar en su lugar', 'Reschedule instead')}
                 </p>
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    ['+2 HOURS', 2],
-                    ['TOMORROW', 24],
-                    ['+2 DAYS', 48]
+                    [tr('+2 HORAS', '+2 HOURS'), 2],
+                    [tr('MAÑANA', 'TOMORROW'), 24],
+                    [tr('+2 DÍAS', '+2 DAYS'), 48]
                   ].map(([label, hours]) => {
                     const value = Number(hours);
                     const selected = rescheduleHours === value;
@@ -1637,7 +1667,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                 }}
                 className="font-mono-code text-[9px] uppercase tracking-wider underline text-[#6B6B6B] hover:text-[#0A0A0A]"
               >
-                Clear stage filter
+                {tr('Limpiar filtro de etapa', 'Clear stage filter')}
               </button>
             )}
           </div>
@@ -1684,7 +1714,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                 </p>
               </div>
               <span className="font-mono-code text-[10px] text-[#6B6B6B]">
-                {newLeadInbox.length} visible
+                {newLeadInbox.length} {tr('visibles', 'visible')}
               </span>
             </div>
 
@@ -1997,7 +2027,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                                 : 'border-[#E5E5E5] text-[#777] bg-white'
                             }`}
                           >
-                            {getWorkPriority(lead).label}
+                            {priorityLabel(getWorkPriority(lead).label, language)}
                           </span>
                         </td>
                         <td className="px-3 py-4">{lead.assignedTo || '—'}</td>
@@ -2040,7 +2070,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                 <div>
                   <div className="flex items-center justify-between pb-4 mb-5 border-b border-[#E5E5E5] gap-4">
                     <span className="font-mono-code text-[10px] uppercase tracking-wider text-[#6B6B6B]">
-                      CRM RECORD // {selectedLead.source}
+                      {tr('REGISTRO CRM', 'CRM RECORD')} // {selectedLead.source}
                     </span>
                     <div className="flex items-center gap-2">
                       <span
@@ -2084,13 +2114,13 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                       rel="noreferrer"
                       className="mt-5 inline-flex items-center text-xs underline text-[#0A3F4D]"
                     >
-                      Open website <ExternalLink className="w-3 h-3 ml-1" />
+                      {tr('Abrir sitio web', 'Open website')} <ExternalLink className="w-3 h-3 ml-1" />
                     </a>
                   )}
 
                   <div className="mt-6 border border-[#E5E5E5] bg-white p-4">
                     <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#6B6B6B] font-bold mb-2">
-                      Intake context
+                      {tr('Contexto de ingreso', 'Intake context')}
                     </p>
                     <p className="text-sm leading-relaxed">
                       {selectedLead.inquiryNotes || selectedLead.message || 'No additional notes.'}
@@ -2142,7 +2172,17 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                           {QUICK_PLAYBOOKS.slice(0, 3).map((playbook) => (
                             <p key={playbook.id} className="text-[9px] text-[#777]">
                               <span className="font-semibold text-[#0A0A0A]">
-                                {playbook.label}:
+                                {language === 'es'
+                                  ? playbook.id === 'new-lead-contact'
+                                    ? 'Contacto de nuevo lead'
+                                    : playbook.id === 'whatsapp-follow-up'
+                                    ? 'Seguimiento por WhatsApp'
+                                    : playbook.id === 'proposal-follow-up'
+                                    ? 'Seguimiento de propuesta'
+                                    : playbook.id === 'meeting-confirmation'
+                                    ? 'Confirmación de reunión'
+                                    : 'Seguimiento de cliente'
+                                  : playbook.label}:
                               </span>{' '}
                               {playbook.description}
                             </p>
@@ -2185,7 +2225,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                             }))
                           }
                           maxLength={100}
-                          placeholder="e.g. Ismael"
+                          placeholder={tr('ej. Ismael', 'e.g. Ismael')}
                           className="w-full border border-[#D8D8D8] bg-white px-3 py-2.5 text-sm focus:outline-none focus:border-[#0A3F4D]"
                         />
                       </label>
@@ -2210,7 +2250,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                               draft.nextAction as (typeof NEXT_ACTION_OPTIONS)[number]
                             ) && (
                               <option value={draft.nextAction}>
-                                Existing: {draft.nextAction}
+                                {tr('Existente', 'Existing')}: {draft.nextAction}
                               </option>
                             )}
                           {NEXT_ACTION_OPTIONS.map((action) => (
@@ -2236,7 +2276,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                               }
                               className="mt-2 inline-flex items-center border border-[#0A3F4D]/30 bg-white px-2.5 py-1.5 text-[9px] font-mono-code uppercase tracking-wider text-[#0A3F4D] hover:bg-[#F7F7F5]"
                             >
-                              Use suggestion · {suggestedNextAction(draft.status)}
+                              {tr('Usar sugerencia', 'Use suggestion')} · {nextActionLabel(suggestedNextAction(draft.status), language)}
                             </button>
                           )}
                       </label>
@@ -2340,11 +2380,11 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                               </span>
                             </div>
                             <p className="text-xs mt-1">
-                              {entry.fromStatus} → {entry.toStatus}
+                              {statusLabel(entry.fromStatus, language)} → {statusLabel(entry.toStatus, language)}
                             </p>
                             {entry.result && (
                               <p className="text-[10px] font-mono-code uppercase tracking-wider text-[#0A3F4D] mt-1">
-                                Result: {taskOutcomeLabel(entry.result, language)}
+                                {tr('Resultado', 'Result')}: {taskOutcomeLabel(entry.result, language)}
                               </p>
                             )}
                             {entry.nextAction && (
@@ -2364,7 +2404,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                   </div>
 
                   <div className="mt-5 border border-[#0A3F4D]/20 bg-white p-3 text-[10px] leading-relaxed text-[#0A3F4D]">
-                    Internal workspace. Firestore CRM reads and operational updates are restricted to authenticated administrators.
+                    {tr('Espacio interno. Las lecturas y actualizaciones operativas del CRM en Firestore están restringidas a administradores autenticados.', 'Internal workspace. Firestore CRM reads and operational updates are restricted to authenticated administrators.')}
                   </div>
                 </div>
               ) : (

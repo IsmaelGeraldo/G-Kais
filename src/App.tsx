@@ -20,6 +20,7 @@ import { AuditModal } from './components/AuditModal.tsx';
 import { LeadFlowModal } from './components/LeadFlowModal.tsx';
 import { ContactModal } from './components/ContactModal.tsx';
 import { AdminPage } from './components/AdminPage.tsx';
+import { LanguageProvider } from './i18n/LanguageContext.tsx';
 
 function PublicApp({ onOpenAdmin }: { onOpenAdmin: () => void }) {
   const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
@@ -112,7 +113,7 @@ function isAdminRoute(): boolean {
     window.location.pathname.startsWith('/admin/');
 }
 
-export default function App() {
+function AppContent() {
   const [showAdmin, setShowAdmin] = useState<boolean>(() => {
     return (
       isAdminRoute() ||
@@ -146,4 +147,13 @@ export default function App() {
   return showAdmin
     ? <AdminPage onExitAdmin={exitAdmin} />
     : <PublicApp onOpenAdmin={openAdmin} />;
+}
+
+
+export default function App() {
+  return (
+    <LanguageProvider>
+      <AppContent />
+    </LanguageProvider>
+  );
 }

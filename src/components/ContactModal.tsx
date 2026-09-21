@@ -6,11 +6,11 @@ import { useLanguage } from '../i18n/LanguageContext';
 
 interface ContactModalProps {
   isOpen: boolean;
-  on{tr('Cerrar', 'Close')}: () => void;
+  onClose: () => void;
   onOpenAudit: () => void;
 }
 
-export const ContactModal: React.FC<ContactModalProps> = ({ isOpen, on{tr('Cerrar', 'Close')}, onOpenAudit }) => {
+export const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose, onOpenAudit }) => {
   const { language } = useLanguage();
   const tr = (es: string, en: string) => (language === 'es' ? es : en);
   const modalRef = useRef<HTMLDivElement | null>(null);
@@ -26,7 +26,7 @@ export const ContactModal: React.FC<ContactModalProps> = ({ isOpen, on{tr('Cerra
   const [submissionId, setSubmissionId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  useModalAccessibility({ isOpen, on{tr('Cerrar', 'Close')}, containerRef: modalRef });
+  useModalAccessibility({ isOpen, onClose, containerRef: modalRef });
 
   if (!isOpen) return null;
 
@@ -68,7 +68,7 @@ export const ContactModal: React.FC<ContactModalProps> = ({ isOpen, on{tr('Cerra
   return (
     <div 
       className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
-      onClick={on{tr('Cerrar', 'Close')}}
+      onClick={onClose}
       role="dialog"
       aria-modal="true"
       aria-labelledby="contact-modal-title"
@@ -79,9 +79,9 @@ export const ContactModal: React.FC<ContactModalProps> = ({ isOpen, on{tr('Cerra
         onClick={(e) => e.stopPropagation()}
       >
         <button
-          onClick={on{tr('Cerrar', 'Close')}}
+          onClick={onClose}
           className="absolute top-6 right-6 p-2 text-[#777777] hover:text-[#0A0A0A] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A3F4D]"
-          aria-label="{tr('Cerrar ventana', '{tr('Cerrar', 'Close')} modal')}"
+          aria-label={tr('Cerrar ventana', 'Close modal')}
           id="close-contact-modal-btn"
         >
           <X className="w-5 h-5" />
@@ -128,7 +128,7 @@ export const ContactModal: React.FC<ContactModalProps> = ({ isOpen, on{tr('Cerra
               </button>
               <button
                 type="button"
-                onClick={on{tr('Cerrar', 'Close')}}
+                onClick={onClose}
                 className="px-6 py-2.5 bg-[#0A0A0A] text-[#F7F7F5] text-xs font-semibold uppercase tracking-wider hover:bg-[#0A3F4D] transition-colors"
               >
                 {tr('Cerrar', 'Close')}
@@ -233,7 +233,7 @@ export const ContactModal: React.FC<ContactModalProps> = ({ isOpen, on{tr('Cerra
                   <button
                     type="button"
                     onClick={() => {
-                      on{tr('Cerrar', 'Close')}();
+                      onClose();
                       onOpenAudit();
                     }}
                     className="text-xs text-[#0A3F4D] font-mono-code hover:underline"

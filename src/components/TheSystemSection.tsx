@@ -222,7 +222,7 @@ export const TheSystemSection: React.FC = () => {
 
   return (
     <section id="the-system" className="py-24 md:py-36 lg:py-48 border-b border-[#0A0A0A]/10 bg-[#F7F7F5]">
-      <div className="max-w-7xl mx-auto px-6 lg:px-12">
+      <div className="max-w-6xl mx-auto px-5 sm:px-6 lg:px-8">
         {/* Section Header */}
         <div className="mb-20 lg:mb-28 flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div>
@@ -239,7 +239,7 @@ export const TheSystemSection: React.FC = () => {
         </div>
 
         {/* The Master Interactive Diagram Container */}
-        <div className="border border-[#0A0A0A]/15 bg-white p-6 sm:p-8 lg:p-12 shadow-sm">
+        <div className="border border-[#0A0A0A]/15 bg-white p-6 sm:p-8 lg:p-12 shadow-sm rounded-3xl">
           {/* Top Stage Tracker Bar */}
           <div className="flex flex-wrap items-center justify-between pb-6 mb-8 border-b border-[#0A0A0A]/10 text-xs font-mono-code text-[#777777]">
             <div className="flex items-center space-x-3">
@@ -334,7 +334,7 @@ export const TheSystemSection: React.FC = () => {
 
             {/* Right: Explanations & Technical Architecture Panel */}
             <div className="lg:col-span-5 lg:sticky lg:top-32">
-              <div className="border border-[#0A0A0A]/15 bg-[#F7F7F5] p-6 sm:p-8">
+              <div className="border border-[#0A0A0A]/15 bg-[#F7F7F5] p-6 sm:p-8 rounded-2xl">
                 {/* Active Indicator Top */}
                 <div className="flex items-center justify-between pb-4 mb-6 border-b border-[#0A0A0A]/10">
                   <span className="font-mono-code text-[11px] uppercase tracking-widest text-[#0A3F4D] font-bold">
@@ -355,7 +355,7 @@ export const TheSystemSection: React.FC = () => {
                 </p>
 
                 {/* High-Level Editorial Explanation */}
-                <div className="p-4 bg-white border border-[#0A0A0A]/10 mb-8">
+                <div className="p-4 bg-white border border-[#0A0A0A]/10 mb-8 rounded-2xl">
                   <p className="text-base sm:text-lg font-medium tracking-tight text-[#0A0A0A] leading-snug">
                     "{stageExplanation(selectedStage)}"
                   </p>

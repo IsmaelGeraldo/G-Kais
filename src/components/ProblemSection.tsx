@@ -35,7 +35,7 @@ export const ProblemSection: React.FC = () => {
   const tr = (es: string, en: string) => (language === 'es' ? es : en);
   return (
     <section id="solutions" className="py-24 md:py-36 lg:py-48 border-b border-[#0A0A0A]/10 bg-[#F7F7F5]">
-      <div className="max-w-7xl mx-auto px-6 lg:px-12">
+      <div className="max-w-6xl mx-auto px-5 sm:px-6 lg:px-8">
         {/* Section Header */}
         <div className="mb-20 lg:mb-32">
           <span className="font-mono-code text-xs uppercase tracking-[0.24em] text-[#0A3F4D] font-semibold block mb-6">

@@ -25,15 +25,15 @@ export const LeadFlowHeader: React.FC = () => {
 
           {/* Sequential Lifecycle Breadcrumb */}
           <div className="flex flex-wrap items-center gap-1.5 font-mono-code text-[10px] sm:text-[11px] text-[#6B6B6B]">
-            <span className="px-2.5 py-1 bg-white border border-[#E5E5E5] text-[#0A0A0A]">{tr('SEÑAL', 'SIGNAL')}</span>
+            <span className="px-2.5 py-1 bg-white border border-[#E5E5E5] rounded-full text-[#0A0A0A]">{tr('SEÑAL', 'SIGNAL')}</span>
             <span className="text-[#6B6B6B]/40">→</span>
-            <span className="px-2.5 py-1 bg-white border border-[#E5E5E5] text-[#0A0A0A]">{tr('ANALIZAR', 'ANALYZE')}</span>
+            <span className="px-2.5 py-1 bg-white border border-[#E5E5E5] rounded-full text-[#0A0A0A]">{tr('ANALIZAR', 'ANALYZE')}</span>
             <span className="text-[#6B6B6B]/40">→</span>
-            <span className="px-2.5 py-1 bg-white border border-[#E5E5E5] text-[#0A0A0A]">{tr('DECIDIR', 'DECIDE')}</span>
+            <span className="px-2.5 py-1 bg-white border border-[#E5E5E5] rounded-full text-[#0A0A0A]">{tr('DECIDIR', 'DECIDE')}</span>
             <span className="text-[#6B6B6B]/40">→</span>
-            <span className="px-2.5 py-1 bg-white border border-[#E5E5E5] text-[#0A0A0A]">{tr('ACTUAR', 'ACT')}</span>
+            <span className="px-2.5 py-1 bg-white border border-[#E5E5E5] rounded-full text-[#0A0A0A]">{tr('ACTUAR', 'ACT')}</span>
             <span className="text-[#6B6B6B]/40">→</span>
-            <span className="px-2.5 py-1 bg-white border border-[#E5E5E5] text-[#0A0A0A]">{tr('SEGUIMIENTO', 'FOLLOW-UP')}</span>
+            <span className="px-2.5 py-1 bg-white border border-[#E5E5E5] rounded-full text-[#0A0A0A]">{tr('SEGUIMIENTO', 'FOLLOW-UP')}</span>
             <span className="text-[#6B6B6B]/40">→</span>
             <span className="px-2.5 py-1 bg-[#0A0A0A] text-[#F7F7F5] font-semibold">{tr('RECUPERAR', 'RECOVER')}</span>
           </div>
@@ -46,7 +46,7 @@ export const LeadFlowHeader: React.FC = () => {
           <span className="font-mono-code text-xs uppercase tracking-[0.24em] text-[#0A3F4D] font-semibold">
             {tr('SISTEMA DE RECUPERACIÓN DE LEADS', 'LEAD RECOVERY SYSTEM')}
           </span>
-          <span className="font-mono-code text-[10px] uppercase tracking-wider px-2 py-0.5 bg-white border border-[#E5E5E5] text-[#6B6B6B]">
+          <span className="font-mono-code text-[10px] uppercase tracking-wider px-2 py-0.5 bg-white border border-[#E5E5E5] rounded-full text-[#6B6B6B]">
             {tr('PRIMER PRODUCTO COMERCIAL', 'FIRST COMMERCIAL PRODUCT')}
           </span>
         </div>

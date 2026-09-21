@@ -32,7 +32,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAudit, onOpenAdmin }) => {
 
   return (
     <header className="sticky top-0 z-40 bg-[#F7F7F5]/90 backdrop-blur-md border-b border-[#0A0A0A]/10">
-      <div className="max-w-7xl mx-auto px-6 lg:px-12 h-24 flex items-center justify-between">
+      <div className="max-w-6xl mx-auto px-5 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
         {/* Large Logo */}
         <a
           href="/"
@@ -88,7 +88,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAudit, onOpenAdmin }) => {
               type="button"
               onClick={onOpenAdmin}
               id="header-admin-preview-btn"
-              className="inline-flex items-center justify-center px-3 py-2.5 text-[10px] font-mono-code font-semibold uppercase tracking-wider text-[#6B6B6B] border border-[#D8D8D8] bg-white hover:text-[#0A0A0A] hover:border-[#0A0A0A] transition-colors"
+              className="inline-flex items-center justify-center px-3 py-2.5 text-[10px] font-mono-code font-semibold uppercase tracking-wider text-[#6B6B6B] border border-[#D8D8D8] bg-white hover:text-[#0A0A0A] hover:border-[#0A0A0A] transition-colors rounded-xl"
             >
               {language === 'es' ? 'Vista Admin' : 'Admin Preview'}
             </button>
@@ -96,7 +96,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAudit, onOpenAdmin }) => {
           <button
             onClick={onOpenAudit}
             id="header-free-audit-btn"
-            className="group inline-flex items-center justify-center px-5 py-2.5 text-xs font-semibold uppercase tracking-wider text-[#F7F7F5] bg-[#0A0A0A] hover:bg-[#0A3F4D] transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A3F4D]"
+            className="group inline-flex items-center justify-center px-5 py-2.5 text-xs font-semibold uppercase tracking-wider text-[#F7F7F5] bg-[#0A0A0A] hover:bg-[#0A3F4D] rounded-xl transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A3F4D]"
           >
             <span>{language === 'es' ? 'Auditoría gratis' : 'Free Audit'}</span>
             <ArrowUpRight className="w-3.5 h-3.5 ml-1.5 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
@@ -154,7 +154,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAudit, onOpenAdmin }) => {
                   setMobileMenuOpen(false);
                   onOpenAdmin();
                 }}
-                className="w-full text-center px-5 py-3 text-xs font-semibold uppercase tracking-wider text-[#0A0A0A] border border-[#0A0A0A]/20 bg-white"
+                className="w-full rounded-xl text-center px-5 py-3 text-xs font-semibold uppercase tracking-wider text-[#0A0A0A] border border-[#0A0A0A]/20 bg-white"
               >
                 {language === 'es' ? 'Vista Admin' : 'Admin Preview'}
               </button>
@@ -164,7 +164,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAudit, onOpenAdmin }) => {
                 setMobileMenuOpen(false);
                 onOpenAudit();
               }}
-              className="w-full text-center px-5 py-3 text-xs font-semibold uppercase tracking-wider text-[#F7F7F5] bg-[#0A0A0A]"
+              className="w-full rounded-xl text-center px-5 py-3 text-xs font-semibold uppercase tracking-wider text-[#F7F7F5] bg-[#0A0A0A]"
             >
               {language === 'es' ? 'Auditoría gratis' : 'Free Audit'}
             </button>

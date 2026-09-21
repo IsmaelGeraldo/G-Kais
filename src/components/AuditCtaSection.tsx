@@ -87,7 +87,7 @@ export const AuditCtaSection: React.FC<AuditCtaSectionProps> = () => {
 
   return (
     <section id="audit" className="bg-[#000000] text-white py-28 md:py-40 lg:py-48 selection:bg-white selection:text-black border-t border-white/10">
-      <div className="max-w-7xl mx-auto px-6 lg:px-12">
+      <div className="max-w-6xl mx-auto px-5 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-start">
           {/* Left Column: Editorial Headline & Subtitle */}
           <div className="lg:col-span-6">
@@ -104,7 +104,7 @@ export const AuditCtaSection: React.FC<AuditCtaSectionProps> = () => {
             </p>
 
             {/* WHAT YOU RECEIVE section */}
-            <div className="p-6 bg-white/5 border border-white/15 mb-10">
+            <div className="p-6 bg-white/5 border border-white/15 rounded-2xl mb-10">
               <span className="font-mono-code text-xs uppercase tracking-wider text-white font-bold block mb-4">
                 {tr('QUÉ RECIBES:', 'WHAT YOU RECEIVE:')}
               </span>
@@ -146,7 +146,7 @@ export const AuditCtaSection: React.FC<AuditCtaSectionProps> = () => {
 
           {/* Right Column: Direct Form */}
           <div className="lg:col-span-6">
-            <div className="border border-white/20 bg-[#0A0A0A] p-8 sm:p-10">
+            <div className="border border-white/20 bg-[#0A0A0A] p-8 sm:p-10 rounded-3xl">
               {submissionId ? (
                 <div className="py-12 text-center">
                   <div className="w-12 h-12 rounded-full border border-white/20 flex items-center justify-center mx-auto mb-6 bg-white/10">
@@ -192,7 +192,7 @@ export const AuditCtaSection: React.FC<AuditCtaSectionProps> = () => {
                   </div>
 
                   {errorMessage && (
-                    <div className="p-3 bg-red-950/80 border border-red-800 text-red-200 text-xs flex items-center space-x-2">
+                    <div className="p-3 bg-red-950/80 border border-red-800 rounded-xl text-red-200 text-xs flex items-center space-x-2">
                       <AlertCircle className="w-4 h-4 shrink-0" />
                       <span>{errorMessage}</span>
                     </div>
@@ -208,7 +208,7 @@ export const AuditCtaSection: React.FC<AuditCtaSectionProps> = () => {
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       placeholder="Jane Doe"
-                      className="w-full px-4 py-3 bg-black border border-white/20 text-white placeholder-white/30 text-sm focus:outline-none focus:border-white transition-colors"
+                      className="w-full px-4 py-3 bg-black border border-white/20 rounded-xl text-white placeholder-white/30 text-sm focus:outline-none focus:border-white transition-colors"
                       id="audit-input-name"
                     />
                   </div>
@@ -224,7 +224,7 @@ export const AuditCtaSection: React.FC<AuditCtaSectionProps> = () => {
                         value={formData.company}
                         onChange={(e) => setFormData({ ...formData, company: e.target.value })}
                         placeholder="Acme Corp"
-                        className="w-full px-4 py-3 bg-black border border-white/20 text-white placeholder-white/30 text-sm focus:outline-none focus:border-white transition-colors"
+                        className="w-full px-4 py-3 bg-black border border-white/20 rounded-xl text-white placeholder-white/30 text-sm focus:outline-none focus:border-white transition-colors"
                         id="audit-input-company"
                       />
                     </div>
@@ -238,7 +238,7 @@ export const AuditCtaSection: React.FC<AuditCtaSectionProps> = () => {
                         value={formData.website}
                         onChange={(e) => setFormData({ ...formData, website: e.target.value })}
                         placeholder="https://company.com"
-                        className="w-full px-4 py-3 bg-black border border-white/20 text-white placeholder-white/30 text-sm focus:outline-none focus:border-white transition-colors"
+                        className="w-full px-4 py-3 bg-black border border-white/20 rounded-xl text-white placeholder-white/30 text-sm focus:outline-none focus:border-white transition-colors"
                         id="audit-input-website"
                       />
                     </div>
@@ -254,7 +254,7 @@ export const AuditCtaSection: React.FC<AuditCtaSectionProps> = () => {
                       value={formData.email}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                       placeholder="jane@company.com"
-                      className="w-full px-4 py-3 bg-black border border-white/20 text-white placeholder-white/30 text-sm focus:outline-none focus:border-white transition-colors"
+                      className="w-full px-4 py-3 bg-black border border-white/20 rounded-xl text-white placeholder-white/30 text-sm focus:outline-none focus:border-white transition-colors"
                       id="audit-input-email"
                     />
                   </div>
@@ -295,7 +295,7 @@ export const AuditCtaSection: React.FC<AuditCtaSectionProps> = () => {
                       placeholder={tr('Ej.: Las consultas quedan en una bandeja compartida, el equipo responde cuando puede y algunos seguimientos se pierden...', 'e.g. Inquiries wait in our inbox, sales reps follow up when free, leads get dropped after 1 touch...')}
                       value={formData.inquiryNotes}
                       onChange={(e) => setFormData({ ...formData, inquiryNotes: e.target.value })}
-                      className="w-full px-4 py-2.5 bg-black border border-white/20 text-white placeholder-white/30 text-xs focus:outline-none focus:border-white transition-colors"
+                      className="w-full px-4 py-2.5 bg-black border border-white/20 rounded-xl text-white placeholder-white/30 text-xs focus:outline-none focus:border-white transition-colors"
                       id="audit-input-notes"
                     />
                   </div>

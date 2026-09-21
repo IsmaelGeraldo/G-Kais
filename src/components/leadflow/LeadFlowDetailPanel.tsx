@@ -82,7 +82,7 @@ export const LeadFlowDetailPanel: React.FC<LeadFlowDetailPanelProps> = ({
         </div>
 
         {/* Context Note */}
-        <div className="p-3 bg-white border border-[#E5E5E5] text-xs text-[#6B6B6B] leading-relaxed mb-6">
+        <div className="p-3 bg-white border border-[#E5E5E5] rounded-xl text-xs text-[#6B6B6B] leading-relaxed mb-6">
           <strong className="text-[#0A0A0A] block mb-1 font-mono-code text-[10px] uppercase">
             {tr('Notas de contexto:', 'Context Notes:')}
           </strong>
@@ -92,7 +92,7 @@ export const LeadFlowDetailPanel: React.FC<LeadFlowDetailPanelProps> = ({
 
       {/* Strategic Call to Action for Free Audit */}
       <div className="pt-4 border-t border-[#E5E5E5]">
-        <div className="p-4 bg-white border border-[#E5E5E5] mb-4">
+        <div className="p-4 bg-white border border-[#E5E5E5] rounded-2xl mb-4">
           <h5 className="font-bold text-xs text-[#0A0A0A] tracking-tight uppercase font-mono-code mb-1">
             {tr('MIRA ESTO EN TU NEGOCIO', 'SEE THIS IN YOUR BUSINESS')}
           </h5>

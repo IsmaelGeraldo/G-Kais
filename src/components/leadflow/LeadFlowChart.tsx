@@ -25,7 +25,7 @@ export const LeadFlowChart: React.FC<LeadFlowChartProps> = ({
             <h3 className="font-bold text-sm tracking-tight text-[#0A0A0A] uppercase font-mono-code">
               {tr('CICLO DE RECUPERACIÓN DE OPORTUNIDADES', 'OPPORTUNITY RECOVERY CYCLE')}
             </h3>
-            <span className="font-mono-code text-[9px] uppercase tracking-wider px-1.5 py-0.5 bg-[#F7F7F5] border border-[#E5E5E5] text-[#6B6B6B]">
+            <span className="font-mono-code text-[9px] uppercase tracking-wider px-1.5 py-0.5 bg-[#F7F7F5] border border-[#E5E5E5] rounded-xl text-[#6B6B6B]">
               {tr('DATOS SIMULADOS', 'SIMULATED DATA')}
             </span>
           </div>
@@ -94,7 +94,7 @@ export const LeadFlowChart: React.FC<LeadFlowChartProps> = ({
         </div>
 
         {/* Tooltip Inspector Bar */}
-        <div className="mt-5 p-3.5 bg-[#F7F7F5] border border-[#E5E5E5] flex flex-wrap items-center justify-between text-xs font-mono-code gap-3">
+        <div className="mt-5 p-3.5 bg-[#F7F7F5] border border-[#E5E5E5] rounded-xl flex flex-wrap items-center justify-between text-xs font-mono-code gap-3">
           <div className="flex items-center space-x-3 text-[#6B6B6B]">
             <span className="text-[#0A0A0A] font-bold">{tr('DÍA', 'DAY')}: {hoveredDay.day}</span>
             <span className="text-[#E5E5E5]">|</span>

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLanguage } from '../../i18n/LanguageContext';
 import { LeadFlowKpiItem } from '../../types/leadflow';
 
 interface LeadFlowKpisProps {
@@ -12,6 +13,8 @@ export const LeadFlowKpis: React.FC<LeadFlowKpisProps> = ({
   activeFilter,
   onKpiClick
 }) => {
+  const { language } = useLanguage();
+  const tr = (es: string, en: string) => (language === 'es' ? es : en);
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 divide-x divide-y sm:divide-y-0 divide-[#E5E5E5] border-b border-[#E5E5E5] bg-white">
       {kpis.map((kpi) => {
@@ -31,7 +34,14 @@ export const LeadFlowKpis: React.FC<LeadFlowKpisProps> = ({
               <span className={`font-mono-code text-[10px] uppercase tracking-wider ${
                 isSelected ? 'text-[#0A0A0A] font-bold' : 'text-[#6B6B6B]'
               }`}>
-                {kpi.label}
+                {language === 'es'
+                  ? kpi.label === 'New Leads' ? 'Nuevos leads'
+                    : kpi.label === 'High Priority' ? 'Alta prioridad'
+                    : kpi.label === 'Follow-ups Today' ? 'Seguimientos hoy'
+                    : kpi.label === 'Bookings' ? 'Reservas'
+                    : kpi.label === 'Recovered' ? 'Recuperados'
+                    : kpi.label
+                  : kpi.label}
               </span>
               <span className="font-mono-code text-[8px] tracking-wider text-[#6B6B6B]/70 uppercase hidden xl:inline">
                 {kpi.tag}
@@ -41,7 +51,7 @@ export const LeadFlowKpis: React.FC<LeadFlowKpisProps> = ({
               {kpi.value}
             </div>
             <span className="font-mono-code text-[9px] text-[#6B6B6B] block mt-1.5">
-              {isSelected ? 'CLICK TO RESET' : 'CLICK TO FILTER'}
+              {isSelected ? tr('CLIC PARA RESTABLECER', 'CLICK TO RESET') : tr('CLIC PARA FILTRAR', 'CLICK TO FILTER')}
             </span>
 
             {/* Active bottom line */}

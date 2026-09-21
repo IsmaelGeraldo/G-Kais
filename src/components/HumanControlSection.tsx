@@ -80,7 +80,7 @@ export const HumanControlSection: React.FC = () => {
 
   return (
     <section className="py-24 md:py-36 lg:py-48 border-b border-[#0A0A0A]/10 bg-[#F7F7F5]">
-      <div className="max-w-7xl mx-auto px-6 lg:px-12">
+      <div className="max-w-6xl mx-auto px-5 sm:px-6 lg:px-8">
         <div className="mb-16 lg:mb-24">
           <span className="font-mono-code text-xs uppercase tracking-[0.24em] text-[#0A3F4D] font-semibold block mb-4">
             {tr('GOBIERNO Y RESPONSABILIDAD', 'GOVERNANCE & RESPONSIBILITY')}
@@ -95,7 +95,7 @@ export const HumanControlSection: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 border border-[#0A0A0A]/15 divide-y md:divide-y-0 md:divide-x divide-[#0A0A0A]/15 bg-white shadow-sm">
+        <div className="grid grid-cols-1 md:grid-cols-2 border border-[#0A0A0A]/15 divide-y md:divide-y-0 md:divide-x divide-[#0A0A0A]/15 bg-white shadow-sm rounded-3xl overflow-hidden">
           <div className="p-8 lg:p-14">
             <div className="flex items-center justify-between pb-6 border-b border-[#0A0A0A]/10 mb-8">
               <div className="flex items-baseline space-x-3">
@@ -104,7 +104,7 @@ export const HumanControlSection: React.FC = () => {
                   IA
                 </h3>
               </div>
-              <span className="font-mono-code text-[11px] uppercase tracking-wider text-[#0A3F4D] bg-[#F7F7F5] px-3 py-1 border border-[#0A0A0A]/10 font-semibold">
+              <span className="font-mono-code text-[11px] uppercase tracking-wider text-[#0A3F4D] bg-[#F7F7F5] px-3 py-1 border border-[#0A0A0A]/10 rounded-full font-semibold">
                 {tr('EJECUCIÓN DEL SISTEMA', 'SYSTEM EXECUTION')}
               </span>
             </div>
@@ -137,7 +137,7 @@ export const HumanControlSection: React.FC = () => {
                   {tr('PERSONA', 'HUMAN')}
                 </h3>
               </div>
-              <span className="font-mono-code text-[11px] uppercase tracking-wider text-[#0A0A0A] bg-[#F7F7F5] px-3 py-1 border border-[#0A0A0A]/10 font-semibold">
+              <span className="font-mono-code text-[11px] uppercase tracking-wider text-[#0A0A0A] bg-[#F7F7F5] px-3 py-1 border border-[#0A0A0A]/10 rounded-full font-semibold">
                 {tr('AUTORIDAD HUMANA', 'HUMAN AUTHORITY')}
               </span>
             </div>

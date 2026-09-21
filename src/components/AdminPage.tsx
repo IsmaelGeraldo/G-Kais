@@ -56,6 +56,11 @@ const NEXT_ACTION_OPTIONS = [
   'Schedule meeting',
   'Confirm meeting',
   'Request information',
+  'Review application',
+  'Prepare sales call',
+  'Send onboarding',
+  'Client check-in',
+  'Renewal follow-up',
   'Follow up',
   'Close sale'
 ] as const;
@@ -63,7 +68,10 @@ const NEXT_ACTION_OPTIONS = [
 const QUICK_PLAYBOOKS: {
   id: string;
   label: string;
+  labelEs: string;
   description: string;
+  descriptionEs: string;
+  category: 'CORE' | 'EXPERT_BUSINESS';
   status: LeadStatus;
   nextAction: (typeof NEXT_ACTION_OPTIONS)[number];
   hoursFromNow: number;
@@ -71,7 +79,10 @@ const QUICK_PLAYBOOKS: {
   {
     id: 'new-lead-contact',
     label: 'New lead contact',
+    labelEs: 'Contacto de nuevo lead',
     description: 'Contact the lead quickly and keep it in active follow-up.',
+    descriptionEs: 'Contacta al lead rápidamente y mantenlo dentro de un seguimiento activo.',
+    category: 'CORE',
     status: 'NEW',
     nextAction: 'Call',
     hoursFromNow: 2
@@ -79,7 +90,10 @@ const QUICK_PLAYBOOKS: {
   {
     id: 'whatsapp-follow-up',
     label: 'WhatsApp follow-up',
+    labelEs: 'Seguimiento por WhatsApp',
     description: 'Continue a conversation with a short follow-up window.',
+    descriptionEs: 'Continúa la conversación con una ventana corta de seguimiento.',
+    category: 'CORE',
     status: 'FOLLOW_UP',
     nextAction: 'Send WhatsApp',
     hoursFromNow: 24
@@ -87,7 +101,10 @@ const QUICK_PLAYBOOKS: {
   {
     id: 'proposal-follow-up',
     label: 'Proposal follow-up',
+    labelEs: 'Seguimiento de propuesta',
     description: 'Schedule a commercial follow-up after a proposal has been sent.',
+    descriptionEs: 'Programa el seguimiento comercial después de enviar una propuesta.',
+    category: 'CORE',
     status: 'FOLLOW_UP',
     nextAction: 'Follow up',
     hoursFromNow: 48
@@ -95,7 +112,10 @@ const QUICK_PLAYBOOKS: {
   {
     id: 'meeting-confirmation',
     label: 'Meeting confirmation',
+    labelEs: 'Confirmación de reunión',
     description: 'Move the lead to Meeting and confirm the appointment.',
+    descriptionEs: 'Mueve el lead a Reunión y confirma la cita.',
+    category: 'CORE',
     status: 'MEETING',
     nextAction: 'Confirm meeting',
     hoursFromNow: 24
@@ -103,9 +123,78 @@ const QUICK_PLAYBOOKS: {
   {
     id: 'client-care',
     label: 'Client follow-up',
+    labelEs: 'Seguimiento de cliente',
     description: 'Keep an existing client active with a scheduled follow-up.',
+    descriptionEs: 'Mantén al cliente activo con un seguimiento programado.',
+    category: 'CORE',
     status: 'CLIENT',
     nextAction: 'Follow up',
+    hoursFromNow: 168
+  },
+  {
+    id: 'expert-new-inquiry',
+    label: 'Expert business · New inquiry',
+    labelEs: 'Expertos · Nueva consulta',
+    description: 'Turn a new social or WhatsApp inquiry into an owned next action within two hours.',
+    descriptionEs: 'Convierte una nueva consulta de redes o WhatsApp en una próxima acción asignable dentro de dos horas.',
+    category: 'EXPERT_BUSINESS',
+    status: 'NEW',
+    nextAction: 'Send WhatsApp',
+    hoursFromNow: 2
+  },
+  {
+    id: 'expert-qualification',
+    label: 'Expert business · Qualification',
+    labelEs: 'Expertos · Calificación',
+    description: 'Move an engaged prospect into qualification and prepare the path to a sales call.',
+    descriptionEs: 'Pasa un prospecto con interés a calificación y prepara el camino hacia una llamada comercial.',
+    category: 'EXPERT_BUSINESS',
+    status: 'CONTACTED',
+    nextAction: 'Review application',
+    hoursFromNow: 24
+  },
+  {
+    id: 'expert-sales-call',
+    label: 'Expert business · Sales call',
+    labelEs: 'Expertos · Llamada comercial',
+    description: 'Prepare a qualified opportunity before the scheduled sales or strategy call.',
+    descriptionEs: 'Prepara una oportunidad calificada antes de la llamada comercial o estratégica.',
+    category: 'EXPERT_BUSINESS',
+    status: 'MEETING',
+    nextAction: 'Prepare sales call',
+    hoursFromNow: 24
+  },
+  {
+    id: 'expert-client-onboarding',
+    label: 'Expert business · Client onboarding',
+    labelEs: 'Expertos · Onboarding de cliente',
+    description: 'Start the post-sale journey with a clear onboarding action instead of ending at Closed Won.',
+    descriptionEs: 'Inicia el recorrido posterior a la venta con una acción clara de onboarding en lugar de terminar al cerrar la venta.',
+    category: 'EXPERT_BUSINESS',
+    status: 'CLIENT',
+    nextAction: 'Send onboarding',
+    hoursFromNow: 24
+  },
+  {
+    id: 'expert-client-checkin',
+    label: 'Expert business · Client check-in',
+    labelEs: 'Expertos · Seguimiento de cliente',
+    description: 'Schedule the next client-success touchpoint so active clients never disappear after onboarding.',
+    descriptionEs: 'Programa el próximo punto de contacto para que los clientes activos no desaparezcan después del onboarding.',
+    category: 'EXPERT_BUSINESS',
+    status: 'CLIENT',
+    nextAction: 'Client check-in',
+    hoursFromNow: 168
+  },
+  {
+    id: 'expert-renewal',
+    label: 'Expert business · Renewal',
+    labelEs: 'Expertos · Renovación',
+    description: 'Create a renewal conversation before the client reaches the end of the current program.',
+    descriptionEs: 'Crea una conversación de renovación antes de que el cliente llegue al final de su programa actual.',
+    category: 'EXPERT_BUSINESS',
+    status: 'CLIENT',
+    nextAction: 'Renewal follow-up',
     hoursFromNow: 168
   }
 ];
@@ -194,6 +283,11 @@ function nextActionLabel(action: string | undefined, language: 'es' | 'en'): str
     'Schedule meeting': { es: 'Agendar reunión', en: 'Schedule meeting' },
     'Confirm meeting': { es: 'Confirmar reunión', en: 'Confirm meeting' },
     'Request information': { es: 'Solicitar información', en: 'Request information' },
+    'Review application': { es: 'Revisar aplicación', en: 'Review application' },
+    'Prepare sales call': { es: 'Preparar llamada comercial', en: 'Prepare sales call' },
+    'Send onboarding': { es: 'Enviar onboarding', en: 'Send onboarding' },
+    'Client check-in': { es: 'Seguimiento de cliente', en: 'Client check-in' },
+    'Renewal follow-up': { es: 'Seguimiento de renovación', en: 'Renewal follow-up' },
     'Follow up': { es: 'Hacer seguimiento', en: 'Follow up' },
     'Close sale': { es: 'Cerrar venta', en: 'Close sale' }
   };
@@ -1105,7 +1199,10 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
     }));
 
     setSaveMessage(
-      `Playbook "${playbook.label}" loaded. Review the fields and save CRM changes.`
+      tr(
+        `Playbook "${playbook.labelEs}" cargado. Revisa los campos y guarda los cambios CRM.`,
+        `Playbook "${playbook.label}" loaded. Review the fields and save CRM changes.`
+      )
     );
   };
 
@@ -2144,10 +2241,13 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                         <div className="flex items-center justify-between gap-3 mb-2">
                           <div>
                             <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#6B6B6B]">
-                              Quick playbook
+                              {tr('Playbooks rápidos', 'Quick playbooks')}
                             </p>
                             <p className="text-[10px] text-[#777] mt-1">
-                              Load a proven next-step template, then review before saving.
+                              {tr(
+                                'Carga un recorrido operativo probado y revísalo antes de guardar.',
+                                'Load a proven operating path, then review before saving.'
+                              )}
                             </p>
                           </div>
                         </div>
@@ -2161,32 +2261,44 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                           }}
                           className="w-full border border-[#D8D8D8] bg-[#FAFAFA] px-3 py-2.5 text-sm focus:outline-none focus:border-[#0A3F4D]"
                         >
-                          <option value="">Choose a playbook…</option>
-                          {QUICK_PLAYBOOKS.map((playbook) => (
-                            <option key={playbook.id} value={playbook.id}>
-                              {playbook.label}
-                            </option>
-                          ))}
+                          <option value="">{tr('Elige un playbook…', 'Choose a playbook…')}</option>
+                          <optgroup label={tr('Operación comercial', 'Core sales operations')}>
+                            {QUICK_PLAYBOOKS.filter((playbook) => playbook.category === 'CORE').map((playbook) => (
+                              <option key={playbook.id} value={playbook.id}>
+                                {language === 'es' ? playbook.labelEs : playbook.label}
+                              </option>
+                            ))}
+                          </optgroup>
+                          <optgroup label={tr('Expert Businesses', 'Expert Businesses')}>
+                            {QUICK_PLAYBOOKS.filter((playbook) => playbook.category === 'EXPERT_BUSINESS').map((playbook) => (
+                              <option key={playbook.id} value={playbook.id}>
+                                {language === 'es' ? playbook.labelEs : playbook.label}
+                              </option>
+                            ))}
+                          </optgroup>
                         </select>
-                        <div className="mt-2 space-y-1">
-                          {QUICK_PLAYBOOKS.slice(0, 3).map((playbook) => (
-                            <p key={playbook.id} className="text-[9px] text-[#777]">
-                              <span className="font-semibold text-[#0A0A0A]">
-                                {language === 'es'
-                                  ? playbook.id === 'new-lead-contact'
-                                    ? 'Contacto de nuevo lead'
-                                    : playbook.id === 'whatsapp-follow-up'
-                                    ? 'Seguimiento por WhatsApp'
-                                    : playbook.id === 'proposal-follow-up'
-                                    ? 'Seguimiento de propuesta'
-                                    : playbook.id === 'meeting-confirmation'
-                                    ? 'Confirmación de reunión'
-                                    : 'Seguimiento de cliente'
-                                  : playbook.label}:
-                              </span>{' '}
-                              {playbook.description}
-                            </p>
-                          ))}
+                        <div className="mt-3 border-t border-[#E5E5E5] pt-3">
+                          <p className="font-mono-code text-[8px] uppercase tracking-wider text-[#0A3F4D] mb-2">
+                            {tr('Nuevo · Expert Businesses', 'New · Expert Businesses')}
+                          </p>
+                          <div className="space-y-2">
+                            {QUICK_PLAYBOOKS.filter((playbook) => playbook.category === 'EXPERT_BUSINESS')
+                              .slice(0, 4)
+                              .map((playbook) => (
+                                <p key={playbook.id} className="text-[9px] leading-relaxed text-[#777]">
+                                  <span className="font-semibold text-[#0A0A0A]">
+                                    {language === 'es' ? playbook.labelEs : playbook.label}:
+                                  </span>{' '}
+                                  {language === 'es' ? playbook.descriptionEs : playbook.description}
+                                </p>
+                              ))}
+                          </div>
+                          <p className="mt-2 text-[9px] text-[#8A8A8A]">
+                            {tr(
+                              'Pensados para coaches, mentores, consultores, agencias, comunidades y ofertas high-ticket.',
+                              'Designed for coaches, mentors, consultants, agencies, communities and high-ticket offers.'
+                            )}
+                          </p>
                         </div>
                       </div>
 

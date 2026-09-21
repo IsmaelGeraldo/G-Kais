@@ -67,7 +67,7 @@ export const ExistingToolsSection: React.FC = () => {
   const tr = (es: string, en: string) => (language === 'es' ? es : en);
   return (
     <section className="py-24 md:py-36 lg:py-48 border-b border-[#0A0A0A]/10 bg-[#F7F7F5]">
-      <div className="max-w-7xl mx-auto px-6 lg:px-12">
+      <div className="max-w-6xl mx-auto px-5 sm:px-6 lg:px-8">
         {/* Section Header */}
         <div className="mb-20 lg:mb-28 flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div>
@@ -92,7 +92,7 @@ export const ExistingToolsSection: React.FC = () => {
             return (
               <div
                 key={tool.id}
-                className="p-8 border border-[#0A0A0A]/15 bg-white shadow-sm flex flex-col justify-between group hover:border-[#0A0A0A]/40 transition-colors"
+                className="p-8 border border-[#0A0A0A]/15 bg-white shadow-sm rounded-2xl flex flex-col justify-between group hover:border-[#0A0A0A]/40 transition-colors"
               >
                 <div>
                   <div className="flex items-center justify-between pb-4 mb-6 border-b border-[#0A0A0A]/10">
@@ -140,7 +140,7 @@ export const ExistingToolsSection: React.FC = () => {
         </div>
 
         {/* Architecture Guarantee Note */}
-        <div className="mt-12 p-6 bg-white border border-[#0A0A0A]/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs font-mono-code text-[#777777]">
+        <div className="mt-12 p-6 bg-white border border-[#0A0A0A]/10 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs font-mono-code text-[#777777]">
           <div className="flex items-center space-x-3">
             <span className="w-2 h-2 rounded-full bg-[#0A3F4D]" />
             <span>{tr('PROTOCOLO DE INTEGRACIÓN: APIs REST, Webhooks seguros y eventos nativos', 'INTEGRATION PROTOCOL: Standard REST APIs, Secure Webhooks & Native Event Streams')}</span>

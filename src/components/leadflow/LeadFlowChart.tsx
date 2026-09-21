@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLanguage } from '../../i18n/LanguageContext';
 import { TrendingUp } from 'lucide-react';
 import { WeeklyDataPoint } from '../../types/leadflow';
 
@@ -13,6 +14,8 @@ export const LeadFlowChart: React.FC<LeadFlowChartProps> = ({
   hoveredDay,
   onSelectDay
 }) => {
+  const { language } = useLanguage();
+  const tr = (es: string, en: string) => (language === 'es' ? es : en);
   return (
     <div className="p-6 lg:p-8 border-b border-[#E5E5E5] bg-white">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 mb-6 border-b border-[#E5E5E5] gap-4">
@@ -20,14 +23,14 @@ export const LeadFlowChart: React.FC<LeadFlowChartProps> = ({
           <div className="flex items-center space-x-2 mb-1">
             <TrendingUp className="w-4 h-4 text-[#0A3F4D]" />
             <h3 className="font-bold text-sm tracking-tight text-[#0A0A0A] uppercase font-mono-code">
-              OPPORTUNITY RECOVERY CYCLE
+              {tr('CICLO DE RECUPERACIÓN DE OPORTUNIDADES', 'OPPORTUNITY RECOVERY CYCLE')}
             </h3>
             <span className="font-mono-code text-[9px] uppercase tracking-wider px-1.5 py-0.5 bg-[#F7F7F5] border border-[#E5E5E5] text-[#6B6B6B]">
-              SIMULATED DATA
+              {tr('DATOS SIMULADOS', 'SIMULATED DATA')}
             </span>
           </div>
           <p className="text-xs text-[#6B6B6B]">
-            Weekly comparison of incoming inquiries versus autonomous follow-up recoveries.
+            {tr('Comparación semanal entre consultas entrantes y oportunidades recuperadas mediante seguimiento.', 'Weekly comparison of incoming inquiries versus autonomous follow-up recoveries.')}
           </p>
         </div>
 
@@ -35,11 +38,11 @@ export const LeadFlowChart: React.FC<LeadFlowChartProps> = ({
         <div className="flex items-center space-x-6 text-xs font-mono-code">
           <div className="flex items-center space-x-2">
             <span className="w-3 h-1 bg-[#D1D1D1]" />
-            <span className="text-[#6B6B6B]">INCOMING INQUIRIES</span>
+            <span className="text-[#6B6B6B]">{tr('CONSULTAS ENTRANTES', 'INCOMING INQUIRIES')}</span>
           </div>
           <div className="flex items-center space-x-2">
             <span className="w-3 h-1 bg-[#0A0A0A]" />
-            <span className="text-[#0A0A0A] font-semibold">RECOVERED DEALS</span>
+            <span className="text-[#0A0A0A] font-semibold">{tr('OPORTUNIDADES RECUPERADAS', 'RECOVERED DEALS')}</span>
           </div>
         </div>
       </div>
@@ -93,14 +96,14 @@ export const LeadFlowChart: React.FC<LeadFlowChartProps> = ({
         {/* Tooltip Inspector Bar */}
         <div className="mt-5 p-3.5 bg-[#F7F7F5] border border-[#E5E5E5] flex flex-wrap items-center justify-between text-xs font-mono-code gap-3">
           <div className="flex items-center space-x-3 text-[#6B6B6B]">
-            <span className="text-[#0A0A0A] font-bold">DAY: {hoveredDay.day}</span>
+            <span className="text-[#0A0A0A] font-bold">{tr('DÍA', 'DAY')}: {hoveredDay.day}</span>
             <span className="text-[#E5E5E5]">|</span>
-            <span>INCOMING: <strong className="text-[#0A0A0A]">{hoveredDay.signals}</strong></span>
+            <span>{tr('ENTRANTES', 'INCOMING')}: <strong className="text-[#0A0A0A]">{hoveredDay.signals}</strong></span>
             <span className="text-[#E5E5E5]">|</span>
-            <span>RECOVERED: <strong className="text-[#0A0A0A]">{hoveredDay.recovered}</strong></span>
+            <span>{tr('RECUPERADAS', 'RECOVERED')}: <strong className="text-[#0A0A0A]">{hoveredDay.recovered}</strong></span>
           </div>
           <div className="text-[#6B6B6B]">
-            RECOVERY RATE: <span className="font-bold text-[#0A0A0A]">{hoveredDay.rate}</span>
+            {tr('TASA DE RECUPERACIÓN', 'RECOVERY RATE')}: <span className="font-bold text-[#0A0A0A]">{hoveredDay.rate}</span>
           </div>
         </div>
       </div>

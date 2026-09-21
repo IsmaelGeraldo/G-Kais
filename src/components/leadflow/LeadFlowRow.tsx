@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLanguage } from '../../i18n/LanguageContext';
 import { ChevronRight } from 'lucide-react';
 import { LeadRecord } from '../../types/leadflow';
 
@@ -13,6 +14,8 @@ export const LeadFlowRow: React.FC<LeadFlowRowProps> = ({
   isSelected,
   onSelect
 }) => {
+  const { language } = useLanguage();
+  const tr = (es: string, en: string) => (language === 'es' ? es : en);
   return (
     <tr
       onClick={() => onSelect(record)}
@@ -56,7 +59,7 @@ export const LeadFlowRow: React.FC<LeadFlowRowProps> = ({
             ? 'border-[#E5E5E5] text-[#6B6B6B]'
             : 'border-[#E5E5E5] text-[#A0A0A0]'
         }`}>
-          {record.priority}
+          {language === 'es' ? record.priority === 'HIGH' ? 'ALTA' : record.priority === 'MEDIUM' ? 'MEDIA' : 'BAJA' : record.priority}
         </span>
       </td>
 
@@ -73,7 +76,13 @@ export const LeadFlowRow: React.FC<LeadFlowRowProps> = ({
               : 'bg-[#A0A0A0]'
           }`} />
           <span className="font-medium text-[#0A0A0A]">
-            {record.status}
+            {language === 'es'
+              ? record.status === 'Booked' ? 'Agendado'
+                : record.status === 'Recovered' ? 'Recuperado'
+                : record.status === 'Follow-up' ? 'Seguimiento'
+                : record.status === 'New' ? 'Nuevo'
+                : record.status
+              : record.status}
           </span>
         </div>
       </td>

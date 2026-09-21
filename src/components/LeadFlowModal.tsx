@@ -1,6 +1,7 @@
 import React, { useRef } from 'react';
 import { X, ArrowRight, Activity, Shield, Layers } from 'lucide-react';
 import { useModalAccessibility } from '../utils/useModal';
+import { useLanguage } from '../i18n/LanguageContext';
 
 interface LeadFlowModalProps {
   isOpen: boolean;
@@ -9,6 +10,8 @@ interface LeadFlowModalProps {
 }
 
 export const LeadFlowModal: React.FC<LeadFlowModalProps> = ({ isOpen, onClose, onOpenAudit }) => {
+  const { language } = useLanguage();
+  const tr = (es: string, en: string) => (language === 'es' ? es : en);
   const modalRef = useRef<HTMLDivElement | null>(null);
   useModalAccessibility({ isOpen, onClose, containerRef: modalRef });
 
@@ -30,7 +33,7 @@ export const LeadFlowModal: React.FC<LeadFlowModalProps> = ({ isOpen, onClose, o
         <button
           onClick={onClose}
           className="absolute top-6 right-6 p-2 text-[#777777] hover:text-[#0A0A0A] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A3F4D]"
-          aria-label="Close modal"
+          aria-label={tr('Cerrar ventana', 'Close modal')}
           id="close-leadflow-modal-btn"
         >
           <X className="w-5 h-5" />
@@ -38,13 +41,13 @@ export const LeadFlowModal: React.FC<LeadFlowModalProps> = ({ isOpen, onClose, o
 
         <div className="mb-8 pr-8">
           <span className="font-mono-code text-[11px] uppercase tracking-[0.24em] text-[#0A3F4D] font-semibold block mb-2">
-            SYSTEM SPECIFICATION
+            {tr('ESPECIFICACIÓN DEL SISTEMA', 'SYSTEM SPECIFICATION')}
           </span>
           <h3 id="leadflow-modal-title" className="text-3xl sm:text-4xl font-extrabold tracking-tight text-[#0A0A0A]">
-            LeadFlow Architecture
+            {tr('Arquitectura LeadFlow', 'LeadFlow Architecture')}
           </h3>
           <p className="text-base text-[#777777] mt-2 leading-relaxed">
-            The lead recovery system that eliminates opportunity leakage between first customer touch and booked conversation.
+            {tr('El sistema de recuperación de leads que reduce pérdidas de oportunidades entre el primer contacto y la conversación agendada.', 'The lead recovery system that eliminates opportunity leakage between first customer touch and booked conversation.')}
           </p>
         </div>
 
@@ -52,30 +55,30 @@ export const LeadFlowModal: React.FC<LeadFlowModalProps> = ({ isOpen, onClose, o
           <div className="border border-[#0A0A0A]/15 bg-white p-5">
             <h4 className="font-mono-code text-xs uppercase tracking-wider text-[#0A0A0A] font-bold mb-2 flex items-center">
               <Layers className="w-4 h-4 mr-2 text-[#0A3F4D]" />
-              1. Omnichannel Ingestion Pipeline
+              {tr('1. Captura omnicanal', '1. Omnichannel Ingestion Pipeline')}
             </h4>
             <p className="text-sm text-[#777777] leading-relaxed">
-              Connects directly to your website forms, direct email inboxes, WhatsApp Business channels, and incoming webhooks. Ingests inquiries with continuous redundancy so no incoming customer request goes unregistered.
+              {tr('Se conecta a formularios web, correo, WhatsApp Business y webhooks. Registra las consultas para que ninguna solicitud entrante quede fuera del sistema.', 'Connects directly to your website forms, direct email inboxes, WhatsApp Business channels, and incoming webhooks. Ingests inquiries with continuous redundancy so no incoming customer request goes unregistered.')}
             </p>
           </div>
 
           <div className="border border-[#0A0A0A]/15 bg-white p-5">
             <h4 className="font-mono-code text-xs uppercase tracking-wider text-[#0A0A0A] font-bold mb-2 flex items-center">
               <Activity className="w-4 h-4 mr-2 text-[#0A3F4D]" />
-              2. Intent & Commercial Priority Evaluation
+              {tr('2. Evaluación de intención y prioridad comercial', '2. Intent & Commercial Priority Evaluation')}
             </h4>
             <p className="text-sm text-[#777777] leading-relaxed">
-              AI understands what the customer wants and how ready they are to act. Inquiries are scored against your business criteria and routed into clear tracks: immediate executive alert, direct quote preparation, or polite qualification follow-up.
+              {tr('La IA ayuda a comprender qué quiere el cliente y qué tan listo está para avanzar. Las consultas se priorizan según criterios del negocio y se enrutan al siguiente paso adecuado.', 'AI understands what the customer wants and how ready they are to act. Inquiries are scored against your business criteria and routed into clear tracks: immediate executive alert, direct quote preparation, or polite qualification follow-up.')}
             </p>
           </div>
 
           <div className="border border-[#0A0A0A]/15 bg-white p-5">
             <h4 className="font-mono-code text-xs uppercase tracking-wider text-[#0A0A0A] font-bold mb-2 flex items-center">
               <Shield className="w-4 h-4 mr-2 text-[#0A3F4D]" />
-              3. Grounded Responses & Automatic Follow-Up Cadence
+              {tr('3. Respuestas fundamentadas y seguimiento automático', '3. Grounded Responses & Automatic Follow-Up Cadence')}
             </h4>
             <p className="text-sm text-[#777777] leading-relaxed">
-              Delivers answers grounded in your company documentation and pricing bounds. If a prospect goes silent, the system executes polite follow-up touches over days and weeks to keep opportunities moving forward without burning rep time.
+              {tr('Entrega respuestas basadas en información aprobada por tu empresa. Si un prospecto deja de responder, el sistema mantiene seguimientos para que la oportunidad no se pierda.', 'Delivers answers grounded in your company documentation and pricing bounds. If a prospect goes silent, the system executes polite follow-up touches over days and weeks to keep opportunities moving forward without burning rep time.')}
             </p>
           </div>
 
@@ -112,7 +115,7 @@ export const LeadFlowModal: React.FC<LeadFlowModalProps> = ({ isOpen, onClose, o
             id="modal-request-audit-leadflow-btn"
             className="w-full sm:w-auto inline-flex items-center justify-center px-6 py-3 bg-[#0A0A0A] text-[#F7F7F5] font-semibold text-xs tracking-wider uppercase hover:bg-[#0A3F4D] transition-all"
           >
-            <span>Request System Audit for LeadFlow</span>
+            <span>{tr('Solicitar auditoría para LeadFlow', 'Request System Audit for LeadFlow')}</span>
             <ArrowRight className="w-3.5 h-3.5 ml-2" />
           </button>
 
@@ -120,7 +123,7 @@ export const LeadFlowModal: React.FC<LeadFlowModalProps> = ({ isOpen, onClose, o
             onClick={onClose}
             className="text-xs font-mono-code text-[#777777] hover:text-[#0A0A0A] uppercase"
           >
-            Close Overview
+            {tr('Cerrar resumen', 'Close Overview')}
           </button>
         </div>
       </div>

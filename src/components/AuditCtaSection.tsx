@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { ArrowRight, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { submitAuditRequest } from '../services/audit';
 import { ContactChannel } from '../types/audit';
+import { useLanguage } from '../i18n/LanguageContext';
 
 interface AuditCtaSectionProps {
   onOpenAudit?: () => void;
@@ -17,6 +18,20 @@ const CONTACT_CHANNELS: ContactChannel[] = [
 ];
 
 export const AuditCtaSection: React.FC<AuditCtaSectionProps> = () => {
+  const { language } = useLanguage();
+  const tr = (es: string, en: string) => (language === 'es' ? es : en);
+  const channelLabel = (channel: ContactChannel) => {
+    if (language === 'en') return channel;
+    const labels: Record<ContactChannel, string> = {
+      WhatsApp: 'WhatsApp',
+      Website: 'Sitio web',
+      Email: 'Email',
+      Instagram: 'Instagram',
+      Phone: 'Teléfono',
+      'Multiple channels': 'Múltiples canales'
+    };
+    return labels[channel];
+  };
   const renderedAtRef = useRef<number>(Date.now());
   const [honeypot, setHoneypot] = useState('');
   const [formData, setFormData] = useState({
@@ -46,10 +61,10 @@ export const AuditCtaSection: React.FC<AuditCtaSectionProps> = () => {
       if (result.success && result.submissionId) {
         setSubmissionId(result.submissionId);
       } else {
-        throw new Error(result.error || 'Failed to submit audit request.');
+        throw new Error(result.error || tr('No se pudo enviar la solicitud de auditoría.', 'Failed to submit audit request.'));
       }
     } catch (err: any) {
-      setErrorMessage(err.message || 'Something went wrong. Please try again.');
+      setErrorMessage(err.message || tr('Algo salió mal. Inténtalo nuevamente.', 'Something went wrong. Please try again.'));
     } finally {
       setIsLoading(false);
     }
@@ -77,38 +92,38 @@ export const AuditCtaSection: React.FC<AuditCtaSectionProps> = () => {
           {/* Left Column: Editorial Headline & Subtitle */}
           <div className="lg:col-span-6">
             <span className="font-mono-code text-xs uppercase tracking-[0.28em] text-white/50 font-semibold block mb-8">
-              SYSTEM DIAGNOSTIC & AUDIT
+              {tr('DIAGNÓSTICO Y AUDITORÍA DEL SISTEMA', 'SYSTEM DIAGNOSTIC & AUDIT')}
             </span>
 
             <h2 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-[-0.03em] leading-[1.08] text-white mb-8">
-              Find 3 automation opportunities in your business.
+              {tr('Encuentra 3 oportunidades de automatización en tu negocio.', 'Find 3 automation opportunities in your business.')}
             </h2>
 
             <p className="text-lg sm:text-xl text-white/70 leading-relaxed font-normal mb-10 max-w-xl">
-              We'll review your current commercial process and identify where AI and automation can remove friction, recover opportunities, and keep execution reliable.
+              {tr('Revisaremos tu proceso comercial para detectar dónde la IA y la automatización pueden reducir fricción, recuperar oportunidades y mejorar la ejecución.', "We'll review your current commercial process and identify where AI and automation can remove friction, recover opportunities, and keep execution reliable.")}
             </p>
 
             {/* WHAT YOU RECEIVE section */}
             <div className="p-6 bg-white/5 border border-white/15 mb-10">
               <span className="font-mono-code text-xs uppercase tracking-wider text-white font-bold block mb-4">
-                WHAT YOU RECEIVE:
+                {tr('QUÉ RECIBES:', 'WHAT YOU RECEIVE:')}
               </span>
               <ul className="space-y-3 font-mono-code text-xs text-white/80">
                 <li className="flex items-start">
                   <span className="w-1.5 h-1.5 rounded-full bg-white mt-1.5 mr-3 shrink-0" />
-                  <span>1. Thorough review of your current lead flow</span>
+                  <span>{tr('1. Revisión completa de tu flujo actual de leads', '1. Thorough review of your current lead flow')}</span>
                 </li>
                 <li className="flex items-start">
                   <span className="w-1.5 h-1.5 rounded-full bg-white mt-1.5 mr-3 shrink-0" />
-                  <span>2. Three potential opportunity leaks pinpointed</span>
+                  <span>{tr('2. Tres posibles fugas de oportunidades identificadas', '2. Three potential opportunity leaks pinpointed')}</span>
                 </li>
                 <li className="flex items-start">
                   <span className="w-1.5 h-1.5 rounded-full bg-white mt-1.5 mr-3 shrink-0" />
-                  <span>3. Clear automation & recovery opportunities</span>
+                  <span>{tr('3. Oportunidades claras de automatización y recuperación', '3. Clear automation & recovery opportunities')}</span>
                 </li>
                 <li className="flex items-start">
                   <span className="w-1.5 h-1.5 rounded-full bg-white mt-1.5 mr-3 shrink-0" />
-                  <span>4. Recommended first system architecture</span>
+                  <span>{tr('4. Arquitectura recomendada para el primer sistema', '4. Recommended first system architecture')}</span>
                 </li>
               </ul>
             </div>
@@ -116,15 +131,15 @@ export const AuditCtaSection: React.FC<AuditCtaSectionProps> = () => {
             <div className="space-y-3 font-mono-code text-xs text-white/50 border-t border-white/10 pt-6">
               <div className="flex items-center space-x-3">
                 <span className="w-1 h-1 rounded-full bg-white/60" />
-                <span>Direct review of your workflow</span>
+                <span>{tr('Revisión directa de tu flujo de trabajo', 'Direct review of your workflow')}</span>
               </div>
               <div className="flex items-center space-x-3">
                 <span className="w-1 h-1 rounded-full bg-white/60" />
-                <span>No software installation required</span>
+                <span>{tr('No requiere instalar software', 'No software installation required')}</span>
               </div>
               <div className="flex items-center space-x-3">
                 <span className="w-1 h-1 rounded-full bg-white/60" />
-                <span>Confidential review of your workflow</span>
+                <span>{tr('Revisión confidencial de tu flujo', 'Confidential review of your workflow')}</span>
               </div>
             </div>
           </div>
@@ -138,20 +153,20 @@ export const AuditCtaSection: React.FC<AuditCtaSectionProps> = () => {
                     <CheckCircle2 className="w-6 h-6 text-white" />
                   </div>
                   <h3 className="text-2xl font-bold tracking-tight text-white mb-2">
-                    Audit Request Received
+                    {tr('Solicitud de auditoría recibida', 'Audit Request Received')}
                   </h3>
                   <p className="text-xs font-mono-code text-white/60 mb-6">
                     SUBMISSION ID: <span className="text-white font-bold">{submissionId}</span>
                   </p>
                   <p className="text-sm text-white/70 leading-relaxed max-w-sm mx-auto mb-8">
-                    G-KAIS reviews your current lead flow and follows up with next steps.
+                    {tr('G-KAIS revisa tu flujo actual de leads y continúa con los próximos pasos.', 'G-KAIS reviews your current lead flow and follows up with next steps.')}
                   </p>
                   <button
                     type="button"
                     onClick={handleReset}
                     className="font-mono-code text-xs text-white/50 underline hover:text-white"
                   >
-                    Submit another inquiry
+                    {tr('Enviar otra consulta', 'Submit another inquiry')}
                   </button>
                 </div>
               ) : (
@@ -169,10 +184,10 @@ export const AuditCtaSection: React.FC<AuditCtaSectionProps> = () => {
                   />
                   <div className="flex items-center justify-between pb-4 border-b border-white/10 mb-6">
                     <span className="font-mono-code text-xs tracking-wider text-white/60 uppercase">
-                      REQUEST AUDIT // DIRECT INTAKE
+                      {tr('SOLICITAR AUDITORÍA // INGRESO DIRECTO', 'REQUEST AUDIT // DIRECT INTAKE')}
                     </span>
                     <span className="font-mono-code text-[10px] text-white/40">
-                      SECURE PIPELINE
+                      {tr('PIPELINE SEGURO', 'SECURE PIPELINE')}
                     </span>
                   </div>
 
@@ -185,7 +200,7 @@ export const AuditCtaSection: React.FC<AuditCtaSectionProps> = () => {
 
                   <div>
                     <label className="block text-xs font-mono-code text-white/80 uppercase tracking-wider mb-2">
-                      Name *
+                      {tr('Nombre *', 'Name *')}
                     </label>
                     <input
                       type="text"
@@ -201,7 +216,7 @@ export const AuditCtaSection: React.FC<AuditCtaSectionProps> = () => {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-mono-code text-white/80 uppercase tracking-wider mb-2">
-                        Company *
+                        {tr('Empresa *', 'Company *')}
                       </label>
                       <input
                         type="text"
@@ -216,7 +231,7 @@ export const AuditCtaSection: React.FC<AuditCtaSectionProps> = () => {
 
                     <div>
                       <label className="block text-xs font-mono-code text-white/80 uppercase tracking-wider mb-2">
-                        Website
+                        {tr('Sitio web', 'Website')}
                       </label>
                       <input
                         type="text"
@@ -231,7 +246,7 @@ export const AuditCtaSection: React.FC<AuditCtaSectionProps> = () => {
 
                   <div>
                     <label className="block text-xs font-mono-code text-white/80 uppercase tracking-wider mb-2">
-                      Business Email *
+                      {tr('Email comercial *', 'Business Email *')}
                     </label>
                     <input
                       type="email"
@@ -247,7 +262,7 @@ export const AuditCtaSection: React.FC<AuditCtaSectionProps> = () => {
                   {/* How do customers usually contact you? */}
                   <div>
                     <label className="block text-xs font-mono-code text-white/80 uppercase tracking-wider mb-2">
-                      How do customers usually contact you? *
+                      {tr('¿Cómo suelen contactarte tus clientes? *', 'How do customers usually contact you? *')}
                     </label>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                       {CONTACT_CHANNELS.map((channel) => {
@@ -263,7 +278,7 @@ export const AuditCtaSection: React.FC<AuditCtaSectionProps> = () => {
                                 : 'border-white/20 bg-black text-white/80 hover:border-white/50'
                             }`}
                           >
-                            {channel}
+                            {channelLabel(channel)}
                           </button>
                         );
                       })}
@@ -299,7 +314,7 @@ export const AuditCtaSection: React.FC<AuditCtaSectionProps> = () => {
                         </>
                       ) : (
                         <>
-                          <span>REQUEST FREE AUDIT</span>
+                          <span>{tr('SOLICITAR AUDITORÍA GRATIS', 'REQUEST FREE AUDIT')}</span>
                           <ArrowRight className="w-4 h-4 ml-3 transition-transform duration-200 group-hover:translate-x-1" />
                         </>
                       )}

@@ -11,6 +11,7 @@ import {
   Share2,
   RefreshCw
 } from 'lucide-react';
+import { useLanguage } from '../i18n/LanguageContext';
 
 export interface SystemNode {
   id: string;
@@ -197,6 +198,48 @@ const PIPELINE_STAGES: PipelineStage[] = [
 ];
 
 export const HeroSystemVisual: React.FC = () => {
+  const { language } = useLanguage();
+  const tr = (es: string, en: string) => (language === 'es' ? es : en);
+
+  const nodeDescription = (node: SystemNode): string => {
+    if (language === 'en') return node.description;
+    const values: Record<string, string> = {
+      leads: 'Demanda entrante capturada de forma inmediata desde puntos de contacto digitales.',
+      crm: 'Sincronización bidireccional con el pipeline central, registrando eventos sin ingreso manual.',
+      email: 'Correos entrantes analizados por intención de compra y enviados a una cadencia de seguimiento.',
+      whatsapp: 'Canal conversacional de baja latencia que puede activar calificación y respuesta inmediata.',
+      calendario: 'Coordinación de calendario que verifica disponibilidad antes de reservar reuniones.',
+      equipo: 'Escalación selectiva a personas con contexto suficiente para tomar la siguiente acción.',
+      clientes: 'Seguimiento continuo de hitos de clientes para detectar oportunidades de reactivación.'
+    };
+    return values[node.id] || node.description;
+  };
+
+  const stageDescription = (stage: PipelineStage): string => {
+    if (language === 'en') return stage.description;
+    const values: Record<string, string> = {
+      'stage-analizar': 'Evalúa intención, urgencia, contexto y señales de calificación.',
+      'stage-decidir': 'Las reglas determinan la respuesta automática o la escalación al equipo.',
+      'stage-actuar': 'Ejecuta mensajes, actualiza registros y coordina próximos pasos.',
+      'stage-seguimiento': 'Mantiene seguimientos hasta que la oportunidad avance o llegue a un resultado.'
+    };
+    return values[stage.id] || stage.description;
+  };
+
+  const metricLabel = (label: string): string => {
+    if (language === 'en') return label;
+    const values: Record<string, string> = {
+      'SIGNALS PROCESSED': 'SEÑALES PROCESADAS',
+      'AVG. LATENCY': 'LATENCIA PROM.',
+      'HIGH PRIORITY': 'ALTA PRIORIDAD',
+      'DECISIONS': 'DECISIONES',
+      'ACTIONS EXECUTED': 'ACCIONES EJECUTADAS',
+      'FOLLOW-UPS ACTIVE': 'SEGUIMIENTOS ACTIVOS',
+      'RECOVERED': 'RECUPERADOS'
+    };
+    return values[label] || label;
+  };
+
   // Currently active node
   const [selectedNodeId, setSelectedNodeId] = useState<string>('whatsapp');
   
@@ -276,25 +319,25 @@ export const HeroSystemVisual: React.FC = () => {
             } opacity-75`} />
             <span className="relative inline-flex rounded-full h-2 w-2 bg-[#0A3F4D]" />
           </span>
-          <span className="text-[#0A0A0A] font-bold tracking-wider">● SYSTEM ONLINE</span>
+          <span className="text-[#0A0A0A] font-bold tracking-wider">{tr('● SISTEMA EN LÍNEA', '● SYSTEM ONLINE')}</span>
           <span className="text-[#0A0A0A]/20">|</span>
           <span className="text-[#777777] hidden sm:inline">MOTOR G-KAIS V2.4</span>
         </div>
 
         <div className="flex items-center space-x-3 text-[11px] text-[#777777]">
           <span className="px-2 py-0.5 border border-[#0A3F4D]/30 bg-[#0A3F4D]/5 font-mono-code text-[10px] text-[#0A3F4D] font-bold uppercase tracking-wider">
-            INTERACTIVE SYSTEM DEMO
+            {tr('DEMO INTERACTIVA DEL SISTEMA', 'INTERACTIVE SYSTEM DEMO')}
           </span>
           <span className="text-[#0A0A0A]/20 hidden sm:inline">|</span>
           <div className="hidden sm:flex items-center space-x-1.5">
             <Clock className="w-3.5 h-3.5 text-[#0A3F4D]" />
-            <span>SIGNAL:</span>
+            <span>{tr('SEÑAL:', 'SIGNAL:')}</span>
             <span className="text-[#0A0A0A] font-bold font-mono-code">{lastSignalTime}</span>
           </div>
           <span className="text-[#0A0A0A]/20 hidden sm:inline">|</span>
           <div className="flex items-center space-x-1.5">
             <Zap className="w-3.5 h-3.5 text-[#0A3F4D]" />
-            <span>LATENCY:</span>
+            <span>{tr('LATENCIA:', 'LATENCY:')}</span>
             <span className="text-[#0A3F4D] font-bold">{liveLatency}</span>
           </div>
         </div>
@@ -303,20 +346,20 @@ export const HeroSystemVisual: React.FC = () => {
       {/* 1B. COMMERCIAL WORKFLOW WALKTHROUGH (Input -> AI Analysis -> Decision -> Action -> Follow-up -> Recovery) */}
       <div className="px-5 py-3 border-b border-[#0A0A0A]/10 bg-[#F7F7F5] flex flex-wrap items-center justify-between gap-3 text-xs font-mono-code">
         <div className="flex items-center space-x-2 text-[#777777]">
-          <span className="text-[#0A0A0A] font-bold uppercase">HOW IT WORKS:</span>
+          <span className="text-[#0A0A0A] font-bold uppercase">{tr('CÓMO FUNCIONA:', 'HOW IT WORKS:')}</span>
         </div>
         <div className="flex flex-wrap items-center gap-1.5 text-[10px] sm:text-[11px] text-[#777777]">
-          <span className="px-2 py-0.5 bg-white border border-[#0A0A0A]/15 text-[#0A0A0A] font-medium">Input</span>
+          <span className="px-2 py-0.5 bg-white border border-[#0A0A0A]/15 text-[#0A0A0A] font-medium">{tr('Entrada', 'Input')}</span>
           <span className="text-[#0A0A0A]/30">→</span>
-          <span className="px-2 py-0.5 bg-white border border-[#0A0A0A]/15 text-[#0A0A0A] font-medium">AI Analysis</span>
+          <span className="px-2 py-0.5 bg-white border border-[#0A0A0A]/15 text-[#0A0A0A] font-medium">{tr('Análisis IA', 'AI Analysis')}</span>
           <span className="text-[#0A0A0A]/30">→</span>
-          <span className="px-2 py-0.5 bg-white border border-[#0A0A0A]/15 text-[#0A0A0A] font-medium">Decision</span>
+          <span className="px-2 py-0.5 bg-white border border-[#0A0A0A]/15 text-[#0A0A0A] font-medium">{tr('Decisión', 'Decision')}</span>
           <span className="text-[#0A0A0A]/30">→</span>
-          <span className="px-2 py-0.5 bg-white border border-[#0A0A0A]/15 text-[#0A0A0A] font-medium">Action</span>
+          <span className="px-2 py-0.5 bg-white border border-[#0A0A0A]/15 text-[#0A0A0A] font-medium">{tr('Acción', 'Action')}</span>
           <span className="text-[#0A0A0A]/30">→</span>
-          <span className="px-2 py-0.5 bg-white border border-[#0A0A0A]/15 text-[#0A0A0A] font-medium">Follow-up</span>
+          <span className="px-2 py-0.5 bg-white border border-[#0A0A0A]/15 text-[#0A0A0A] font-medium">{tr('Seguimiento', 'Follow-up')}</span>
           <span className="text-[#0A0A0A]/30">→</span>
-          <span className="px-2 py-0.5 bg-[#0A0A0A] text-[#F7F7F5] font-semibold">Recovery</span>
+          <span className="px-2 py-0.5 bg-[#0A0A0A] text-[#F7F7F5] font-semibold">{tr('Recuperación', 'Recovery')}</span>
         </div>
       </div>
 
@@ -326,11 +369,11 @@ export const HeroSystemVisual: React.FC = () => {
           <div className="flex items-center space-x-2">
             <Radio className="w-4 h-4 text-[#0A3F4D]" />
             <span className="font-mono-code text-[11px] uppercase tracking-[0.24em] text-[#0A0A0A] font-bold">
-              SIGNAL PIPELINE ARCHITECTURE
+              {tr('ARQUITECTURA DEL PIPELINE DE SEÑALES', 'SIGNAL PIPELINE ARCHITECTURE')}
             </span>
           </div>
           <span className="font-mono-code text-[10px] text-[#777777] hidden sm:inline">
-            CLICK ANY NODE TO EMIT SIGNAL // INTERACTIVE LIVE TOPOLOGY
+            {tr('HAZ CLIC EN UN NODO PARA EMITIR UNA SEÑAL // TOPOLOGÍA INTERACTIVA', 'CLICK ANY NODE TO EMIT SIGNAL // INTERACTIVE LIVE TOPOLOGY')}
           </span>
         </div>
 
@@ -395,14 +438,14 @@ export const HeroSystemVisual: React.FC = () => {
                   systemState === 'PROCESSING' ? 'bg-[#0A3F4D] animate-ping' : 'bg-[#0A0A0A]'
                 }`} />
                 <span className="font-mono-code text-[10px] text-[#0A3F4D] uppercase tracking-widest font-semibold">
-                  CENTRAL CORE
+                  {tr('NÚCLEO CENTRAL', 'CENTRAL CORE')}
                 </span>
               </div>
               <div className="text-sm sm:text-base md:text-lg font-black tracking-tight text-[#0A0A0A] whitespace-nowrap">
                 MOTOR G-KAIS
               </div>
               <div className="font-mono-code text-[9px] text-[#777777] uppercase tracking-wider mt-0.5">
-                AUTONOMOUS ORCHESTRATOR
+                {tr('ORQUESTADOR AUTÓNOMO', 'AUTONOMOUS ORCHESTRATOR')}
               </div>
             </div>
           </div>
@@ -451,10 +494,10 @@ export const HeroSystemVisual: React.FC = () => {
           <div className="flex items-center justify-between px-4 sm:px-5 py-2.5 border-b border-[#0A0A0A]/10 bg-[#F7F7F5] text-xs font-mono-code">
             <div className="flex items-center space-x-2 text-[#0A0A0A]">
               <Terminal className="w-3.5 h-3.5 text-[#0A3F4D]" />
-              <span className="font-bold tracking-wider">SYSTEM INSPECTOR // LIVE TELEMETRY CONSOLE</span>
+              <span className="font-bold tracking-wider">{tr('INSPECTOR DEL SISTEMA // TELEMETRÍA EN VIVO', 'SYSTEM INSPECTOR // LIVE TELEMETRY CONSOLE')}</span>
             </div>
             <div className="flex items-center space-x-2 text-[10px] text-[#777777]">
-              <span>SOURCE:</span>
+              <span>{tr('FUENTE:', 'SOURCE:')}</span>
               <span className="font-bold text-[#0A3F4D]">{activeNode.name}</span>
             </div>
           </div>
@@ -464,10 +507,10 @@ export const HeroSystemVisual: React.FC = () => {
             <div className="lg:col-span-6 p-4 sm:p-5">
               <div className="flex items-center justify-between mb-2">
                 <span className="font-mono-code text-[10px] uppercase tracking-wider text-[#777777] font-semibold">
-                  INCOMING SIGNAL // RAW PAYLOAD
+                  {tr('SEÑAL ENTRANTE // PAYLOAD', 'INCOMING SIGNAL // RAW PAYLOAD')}
                 </span>
                 <span className="font-mono-code text-[9px] text-[#0A3F4D] font-bold">
-                  ENCRYPTED TLS // {activeNode.latency}
+                  {tr('TLS CIFRADO', 'ENCRYPTED TLS')} // {activeNode.latency}
                 </span>
               </div>
 
@@ -478,7 +521,7 @@ export const HeroSystemVisual: React.FC = () => {
               </div>
 
               <p className="mt-3 text-xs text-[#777777] leading-relaxed">
-                {activeNode.description}
+                {nodeDescription(activeNode)}
               </p>
             </div>
 
@@ -487,14 +530,14 @@ export const HeroSystemVisual: React.FC = () => {
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <span className="font-mono-code text-[10px] uppercase tracking-wider text-[#777777] font-semibold">
-                    TRANSMISSION ROUTE // EXECUTION FLOW
+                    {tr('RUTA DE TRANSMISIÓN // FLUJO DE EJECUCIÓN', 'TRANSMISSION ROUTE // EXECUTION FLOW')}
                   </span>
                   <span className={`font-mono-code text-[9px] px-2 py-0.5 border ${
                     systemState === 'PROCESSING'
                       ? 'border-[#0A3F4D] text-[#0A3F4D] bg-[#0A3F4D]/5'
                       : 'border-[#0A0A0A]/10 text-[#777777]'
                   }`}>
-                    {systemState === 'PROCESSING' ? 'ACTIVE PROPAGATION' : 'FLOW READY'}
+                    {systemState === 'PROCESSING' ? tr('PROPAGACIÓN ACTIVA', 'ACTIVE PROPAGATION') : tr('FLUJO LISTO', 'FLOW READY')}
                   </span>
                 </div>
 
@@ -527,8 +570,8 @@ export const HeroSystemVisual: React.FC = () => {
 
               {/* Status footer for console */}
               <div className="mt-6 pt-3 border-t border-[#0A0A0A]/10 flex items-center justify-between text-[10px] font-mono-code text-[#777777]">
-                <span>PROPAGATION: DETERMINISTIC</span>
-                <span className="text-[#0A3F4D] font-bold">HUMAN-IN-THE-LOOP SAFEGUARDED</span>
+                <span>{tr('PROPAGACIÓN: DETERMINISTA', 'PROPAGATION: DETERMINISTIC')}</span>
+                <span className="text-[#0A3F4D] font-bold">{tr('CONTROL HUMANO PROTEGIDO', 'HUMAN-IN-THE-LOOP SAFEGUARDED')}</span>
               </div>
             </div>
           </div>
@@ -540,11 +583,11 @@ export const HeroSystemVisual: React.FC = () => {
             <div className="flex items-center space-x-2">
               <Activity className="w-4 h-4 text-[#0A3F4D]" />
               <span className="font-mono-code text-[11px] uppercase tracking-[0.24em] text-[#0A0A0A] font-bold">
-                PIPELINE G-KAIS // CORE STAGES
+                {tr('PIPELINE G-KAIS // ETAPAS CENTRALES', 'PIPELINE G-KAIS // CORE STAGES')}
               </span>
             </div>
             <span className="font-mono-code text-[10px] text-[#777777]">
-              CASCADE: ANALIZAR → DECIDIR → ACTUAR → SEGUIMIENTO
+              {tr('CASCADA: ANALIZAR → DECIDIR → ACTUAR → SEGUIMIENTO', 'CASCADE: ANALIZAR → DECIDIR → ACTUAR → SEGUIMIENTO')}
             </span>
           </div>
 
@@ -580,7 +623,7 @@ export const HeroSystemVisual: React.FC = () => {
                     </div>
 
                     <p className="text-xs text-[#777777] leading-relaxed mb-6">
-                      {stage.description}
+                      {stageDescription(stage)}
                     </p>
                   </div>
 
@@ -588,7 +631,7 @@ export const HeroSystemVisual: React.FC = () => {
                   <div className="pt-3 border-t border-[#0A0A0A]/10 grid grid-cols-2 gap-2 font-mono-code">
                     <div>
                       <span className="text-[9px] uppercase tracking-wider text-[#777777] block">
-                        {stage.metric1.label}
+                        {metricLabel(stage.metric1.label)}
                       </span>
                       <span className="text-sm font-bold text-[#0A0A0A] block">
                         {stage.metric1.value}
@@ -597,7 +640,7 @@ export const HeroSystemVisual: React.FC = () => {
 
                     <div>
                       <span className="text-[9px] uppercase tracking-wider text-[#777777] block">
-                        {stage.metric2.label}
+                        {metricLabel(stage.metric2.label)}
                       </span>
                       <span className="text-sm font-bold text-[#0A3F4D] block">
                         {stage.metric2.value}

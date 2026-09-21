@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useLanguage } from '../i18n/LanguageContext';
 import { ArrowRight, RefreshCw } from 'lucide-react';
 import { LeadRecord, WeeklyDataPoint } from '../types/leadflow';
 import { DEMO_LEADS, DEMO_WEEKLY_DATA, DEMO_KPIS } from '../data/demo/leadflow';
@@ -18,6 +19,8 @@ export const LeadFlowSection: React.FC<LeadFlowSectionProps> = ({
   onExplore,
   onOpenAudit
 }) => {
+  const { language } = useLanguage();
+  const tr = (es: string, en: string) => (language === 'es' ? es : en);
   const [activeFilter, setActiveFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedLeadId, setSelectedLeadId] = useState<string>('lead-1');
@@ -79,14 +82,14 @@ export const LeadFlowSection: React.FC<LeadFlowSectionProps> = ({
             <div className="flex items-center space-x-3">
               <span className="w-2 h-2 rounded-full bg-[#0A3F4D]" />
               <span className="text-[#0A0A0A] font-bold tracking-wider">
-                LEADFLOW // SYSTEM DEMO
+                {tr('LEADFLOW // DEMO DEL SISTEMA', 'LEADFLOW // SYSTEM DEMO')}
               </span>
               <span className="text-[#E5E5E5] hidden sm:inline">|</span>
               <span className="hidden sm:inline text-[#6B6B6B]">VERSION 2.4.0</span>
             </div>
             <div className="flex items-center space-x-3">
               <span className="px-2 py-0.5 border border-[#E5E5E5] bg-[#F7F7F5] text-[10px] uppercase tracking-wider text-[#6B6B6B] font-medium">
-                DEMO ENVIRONMENT // SIMULATED DATA
+                {tr('ENTORNO DEMO // DATOS SIMULADOS', 'DEMO ENVIRONMENT // SIMULATED DATA')}
               </span>
             </div>
           </div>
@@ -137,7 +140,7 @@ export const LeadFlowSection: React.FC<LeadFlowSectionProps> = ({
           {/* 7. Bottom Action Bar with Audit & Technical Spec options */}
           <div className="p-4 sm:p-6 bg-white border-t border-[#E5E5E5] flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center space-x-3 text-xs font-mono-code text-[#6B6B6B]">
-              <span>SHOWING {filteredLeads.length} OF {DEMO_LEADS.length} SIMULATED RECORDS</span>
+              <span>{tr('MOSTRANDO', 'SHOWING')} {filteredLeads.length} {tr('DE', 'OF')} {DEMO_LEADS.length} {tr('REGISTROS SIMULADOS', 'SIMULATED RECORDS')}</span>
               <span className="text-[#E5E5E5]">|</span>
               <button
                 type="button"
@@ -145,7 +148,7 @@ export const LeadFlowSection: React.FC<LeadFlowSectionProps> = ({
                 className="hover:text-[#0A0A0A] flex items-center space-x-1 underline"
               >
                 <RefreshCw className="w-3 h-3" />
-                <span>Reset View</span>
+                <span>{tr('Restablecer vista', 'Reset View')}</span>
               </button>
             </div>
 
@@ -157,7 +160,7 @@ export const LeadFlowSection: React.FC<LeadFlowSectionProps> = ({
                   id="leadflow-system-spec-btn"
                   className="px-4 py-2 border border-[#E5E5E5] text-xs font-mono-code text-[#0A0A0A] hover:bg-[#F7F7F5] transition-colors"
                 >
-                  VIEW SYSTEM SPEC
+                  {tr('VER ESPECIFICACIÓN', 'VIEW SYSTEM SPEC')}
                 </button>
               )}
               {onOpenAudit && (
@@ -167,7 +170,7 @@ export const LeadFlowSection: React.FC<LeadFlowSectionProps> = ({
                   id="leadflow-bottom-audit-btn"
                   className="inline-flex items-center px-5 py-2 bg-[#0A0A0A] text-[#F7F7F5] text-xs font-semibold uppercase tracking-wider hover:bg-[#0A3F4D] transition-colors"
                 >
-                  <span>REQUEST AUDIT</span>
+                  <span>{tr('SOLICITAR AUDITORÍA', 'REQUEST AUDIT')}</span>
                   <ArrowRight className="w-3.5 h-3.5 ml-2" />
                 </button>
               )}

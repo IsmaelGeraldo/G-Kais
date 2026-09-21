@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { X, ArrowRight, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { submitContactRequest } from '../services/contact';
 import { useModalAccessibility } from '../utils/useModal';
+import { useLanguage } from '../i18n/LanguageContext';
 
 interface ContactModalProps {
   isOpen: boolean;
@@ -10,6 +11,8 @@ interface ContactModalProps {
 }
 
 export const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose, onOpenAudit }) => {
+  const { language } = useLanguage();
+  const tr = (es: string, en: string) => (language === 'es' ? es : en);
   const modalRef = useRef<HTMLDivElement | null>(null);
   const renderedAtRef = useRef<number>(Date.now());
   const [honeypot, setHoneypot] = useState('');
@@ -41,10 +44,10 @@ export const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose, onO
       if (result.success && result.submissionId) {
         setSubmissionId(result.submissionId);
       } else {
-        throw new Error(result.error || 'Failed to submit inquiry.');
+        throw new Error(result.error || tr('No se pudo enviar la consulta.', 'Failed to submit inquiry.'));
       }
     } catch (err: any) {
-      setErrorMessage(err.message || 'Something went wrong. Please try again.');
+      setErrorMessage(err.message || tr('Algo salió mal. Inténtalo nuevamente.', 'Something went wrong. Please try again.'));
     } finally {
       setIsLoading(false);
     }
@@ -78,7 +81,7 @@ export const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose, onO
         <button
           onClick={onClose}
           className="absolute top-6 right-6 p-2 text-[#777777] hover:text-[#0A0A0A] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A3F4D]"
-          aria-label="Close modal"
+          aria-label={tr('Cerrar ventana', 'Close modal')}
           id="close-contact-modal-btn"
         >
           <X className="w-5 h-5" />
@@ -92,17 +95,17 @@ export const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose, onO
               </div>
               <div>
                 <span className="font-mono-code text-[11px] uppercase tracking-wider text-[#0A3F4D] font-semibold">
-                  MESSAGE REGISTERED
+                  {tr('MENSAJE REGISTRADO', 'MESSAGE REGISTERED')}
                 </span>
                 <h3 className="text-2xl font-extrabold tracking-tight text-[#0A0A0A]">
-                  Thank you, {formData.name}
+                  {tr('Gracias', 'Thank you')}, {formData.name}
                 </h3>
               </div>
             </div>
 
             <div className="p-4 bg-white border border-[#0A0A0A]/15 space-y-2 text-xs font-mono-code">
               <div className="flex justify-between">
-                <span className="text-[#777777]">TRANSMISSION ID:</span>
+                <span className="text-[#777777]">{tr('ID DE ENVÍO:', 'TRANSMISSION ID:')}</span>
                 <span className="font-bold text-[#0A0A0A]">{submissionId}</span>
               </div>
               <div className="flex justify-between">
@@ -112,7 +115,7 @@ export const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose, onO
             </div>
 
             <p className="text-sm text-[#777777] leading-relaxed">
-              Your inquiry has been received. G-KAIS reviews your request and follows up with next steps.
+              {tr('Tu consulta fue recibida. G-KAIS revisará tu solicitud y continuará con los próximos pasos.', 'Your inquiry has been received. G-KAIS reviews your request and follows up with next steps.')}
             </p>
 
             <div className="pt-4 flex items-center justify-between border-t border-[#0A0A0A]/10">
@@ -121,14 +124,14 @@ export const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose, onO
                 onClick={handleReset}
                 className="text-xs font-mono-code text-[#777777] underline hover:text-[#0A0A0A]"
               >
-                Send another message
+                {tr('Enviar otro mensaje', 'Send another message')}
               </button>
               <button
                 type="button"
                 onClick={onClose}
                 className="px-6 py-2.5 bg-[#0A0A0A] text-[#F7F7F5] text-xs font-semibold uppercase tracking-wider hover:bg-[#0A3F4D] transition-colors"
               >
-                Close
+                {tr('Cerrar', 'Close')}
               </button>
             </div>
           </div>
@@ -136,13 +139,13 @@ export const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose, onO
           <div>
             <div className="mb-6 pr-8">
               <span className="font-mono-code text-[11px] uppercase tracking-[0.24em] text-[#0A3F4D] font-semibold block mb-2">
-                COMMUNICATIONS
+                {tr('COMUNICACIONES', 'COMMUNICATIONS')}
               </span>
               <h3 id="contact-modal-title" className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#0A0A0A]">
-                Contact Systems Architecture
+                {tr('Contacto y arquitectura de sistemas', 'Contact Systems Architecture')}
               </h3>
               <p className="text-sm text-[#777777] mt-2 leading-relaxed">
-                Connect directly with our engineering team regarding systems integrations, pilot scopes, or custom workflow design.
+                {tr('Conecta directamente con nuestro equipo para integraciones, pilotos o diseño de flujos personalizados.', 'Connect directly with our engineering team regarding systems integrations, pilot scopes, or custom workflow design.')}
               </p>
             </div>
 
@@ -167,7 +170,7 @@ export const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose, onO
               />
               <div>
                 <label className="block text-xs font-mono-code uppercase text-[#777777] mb-1.5">
-                  Name *
+                  {tr('Nombre *', 'Name *')}
                 </label>
                 <input
                   type="text"
@@ -181,7 +184,7 @@ export const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose, onO
 
               <div>
                 <label className="block text-xs font-mono-code uppercase text-[#777777] mb-1.5">
-                  Work Email *
+                  {tr('Email de trabajo *', 'Work Email *')}
                 </label>
                 <input
                   type="email"
@@ -195,7 +198,7 @@ export const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose, onO
 
               <div>
                 <label className="block text-xs font-mono-code uppercase text-[#777777] mb-1.5">
-                  Inquiry or Requirements *
+                  {tr('Consulta o requerimientos *', 'Inquiry or Requirements *')}
                 </label>
                 <textarea
                   rows={3}
@@ -217,11 +220,11 @@ export const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose, onO
                     {isLoading ? (
                       <>
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        <span>Transmitting...</span>
+                        <span>{tr('Enviando...', 'Transmitting...')}</span>
                       </>
                     ) : (
                       <>
-                        <span>Transmit Inquiry</span>
+                        <span>{tr('Enviar consulta', 'Transmit Inquiry')}</span>
                         <ArrowRight className="w-3.5 h-3.5 ml-2" />
                       </>
                     )}
@@ -235,11 +238,11 @@ export const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose, onO
                     }}
                     className="text-xs text-[#0A3F4D] font-mono-code hover:underline"
                   >
-                    Need a full audit instead? →
+                    {tr('¿Prefieres una auditoría completa? →', 'Need a full audit instead? →')}
                   </button>
                 </div>
                 <p className="font-mono-code text-[10px] text-[#777777] text-center mt-3">
-                  Your information is handled confidentially. No spam. No obligation.
+                  {tr('Tu información se maneja de forma confidencial. Sin spam. Sin obligación.', 'Your information is handled confidentially. No spam. No obligation.')}
                 </p>
               </div>
             </form>

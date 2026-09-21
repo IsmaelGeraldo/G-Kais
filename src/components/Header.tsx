@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowUpRight, Menu, X } from 'lucide-react';
+import { LanguageSelector } from './LanguageSelector';
+import { useLanguage } from '../i18n/LanguageContext';
 
 interface HeaderProps {
   onOpenAudit: () => void;
@@ -7,6 +9,7 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ onOpenAudit, onOpenAdmin }) => {
+  const { language } = useLanguage();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const showDevelopmentAdminEntry = import.meta.env.DEV && Boolean(onOpenAdmin);
 
@@ -52,7 +55,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAudit, onOpenAdmin }) => {
             className="hover:text-[#0A0A0A] transition-colors py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A3F4D]"
             id="nav-link-solutions"
           >
-            Solutions
+            {language === 'es' ? 'Soluciones' : 'Solutions'}
           </button>
           <button 
             onClick={() => scrollTo('leadflow')} 
@@ -66,19 +69,20 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAudit, onOpenAdmin }) => {
             className="hover:text-[#0A0A0A] transition-colors py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A3F4D]"
             id="nav-link-how-it-works"
           >
-            How It Works
+            {language === 'es' ? 'Cómo funciona' : 'How It Works'}
           </button>
           <button 
             onClick={() => scrollTo('about')} 
             className="hover:text-[#0A0A0A] transition-colors py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A3F4D]"
             id="nav-link-about"
           >
-            About
+            {language === 'es' ? 'Nosotros' : 'About'}
           </button>
         </nav>
 
         {/* Header Action Button */}
         <div className="hidden md:flex items-center space-x-3">
+          <LanguageSelector compact />
           {showDevelopmentAdminEntry && onOpenAdmin && (
             <button
               type="button"
@@ -86,7 +90,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAudit, onOpenAdmin }) => {
               id="header-admin-preview-btn"
               className="inline-flex items-center justify-center px-3 py-2.5 text-[10px] font-mono-code font-semibold uppercase tracking-wider text-[#6B6B6B] border border-[#D8D8D8] bg-white hover:text-[#0A0A0A] hover:border-[#0A0A0A] transition-colors"
             >
-              Admin Preview
+              {language === 'es' ? 'Vista Admin' : 'Admin Preview'}
             </button>
           )}
           <button
@@ -94,7 +98,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAudit, onOpenAdmin }) => {
             id="header-free-audit-btn"
             className="group inline-flex items-center justify-center px-5 py-2.5 text-xs font-semibold uppercase tracking-wider text-[#F7F7F5] bg-[#0A0A0A] hover:bg-[#0A3F4D] transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A3F4D]"
           >
-            <span>Free Audit</span>
+            <span>{language === 'es' ? 'Auditoría gratis' : 'Free Audit'}</span>
             <ArrowUpRight className="w-3.5 h-3.5 ml-1.5 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
           </button>
         </div>
@@ -119,7 +123,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAudit, onOpenAdmin }) => {
             onClick={() => scrollTo('solutions')} 
             className="text-left text-lg font-medium text-[#0A0A0A]"
           >
-            Solutions
+            {language === 'es' ? 'Soluciones' : 'Solutions'}
           </button>
           <button 
             onClick={() => scrollTo('leadflow')} 
@@ -131,15 +135,18 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAudit, onOpenAdmin }) => {
             onClick={() => scrollTo('the-system')} 
             className="text-left text-lg font-medium text-[#0A0A0A]"
           >
-            How It Works
+            {language === 'es' ? 'Cómo funciona' : 'How It Works'}
           </button>
           <button 
             onClick={() => scrollTo('about')} 
             className="text-left text-lg font-medium text-[#0A0A0A]"
           >
-            About
+            {language === 'es' ? 'Nosotros' : 'About'}
           </button>
           <div className="pt-4 border-t border-[#0A0A0A]/10 space-y-3">
+            <div className="flex justify-start">
+              <LanguageSelector />
+            </div>
             {showDevelopmentAdminEntry && onOpenAdmin && (
               <button
                 type="button"
@@ -149,7 +156,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAudit, onOpenAdmin }) => {
                 }}
                 className="w-full text-center px-5 py-3 text-xs font-semibold uppercase tracking-wider text-[#0A0A0A] border border-[#0A0A0A]/20 bg-white"
               >
-                Admin Preview
+                {language === 'es' ? 'Vista Admin' : 'Admin Preview'}
               </button>
             )}
             <button
@@ -159,7 +166,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAudit, onOpenAdmin }) => {
               }}
               className="w-full text-center px-5 py-3 text-xs font-semibold uppercase tracking-wider text-[#F7F7F5] bg-[#0A0A0A]"
             >
-              Free Audit
+              {language === 'es' ? 'Auditoría gratis' : 'Free Audit'}
             </button>
           </div>
         </div>

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useLanguage } from '../i18n/LanguageContext';
 
 interface ProcessStep {
   num: string;
@@ -40,6 +41,8 @@ const PROCESS_STEPS: ProcessStep[] = [
 ];
 
 export const ProcessSection: React.FC = () => {
+  const { language } = useLanguage();
+  const tr = (es: string, en: string) => (language === 'es' ? es : en);
   const [activeStep, setActiveStep] = useState<string>('01');
 
   return (
@@ -48,10 +51,10 @@ export const ProcessSection: React.FC = () => {
         {/* Section Header */}
         <div className="mb-20 lg:mb-28">
           <span className="font-mono-code text-xs uppercase tracking-[0.24em] text-[#0A3F4D] font-semibold block mb-4">
-            IMPLEMENTATION METHODOLOGY
+            {tr('METODOLOGÍA DE IMPLEMENTACIÓN', 'IMPLEMENTATION METHODOLOGY')}
           </span>
           <h2 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-[-0.03em] text-[#0A0A0A] leading-tight max-w-4xl">
-            From opportunity to operating system.
+            {tr('De la oportunidad al sistema operativo comercial.', 'From opportunity to operating system.')}
           </h2>
         </div>
 
@@ -80,24 +83,44 @@ export const ProcessSection: React.FC = () => {
                   </div>
 
                   <h3 className="text-xl sm:text-2xl font-extrabold tracking-tight text-[#0A0A0A] mb-3">
-                    {step.name}
+                    {language === 'es'
+                      ? step.num === '01' ? 'DESCUBRIR'
+                        : step.num === '02' ? 'DISEÑAR'
+                        : step.num === '03' ? 'CONSTRUIR'
+                        : 'OPTIMIZAR'
+                      : step.name}
                   </h3>
 
                   <p className="text-base font-bold text-[#0A0A0A] tracking-tight mb-4 leading-snug">
-                    {step.summary}
+                    {language === 'es'
+                    ? step.num === '01' ? 'Encuentra dónde se están perdiendo oportunidades.'
+                      : step.num === '02' ? 'Mapea el proceso y define el sistema.'
+                      : step.num === '03' ? 'Conecta herramientas, automatización e IA.'
+                      : 'Mide resultados y mejora el flujo.'
+                    : step.summary}
                   </p>
 
                   <p className="text-sm text-[#777777] leading-relaxed mb-6">
-                    {step.detail}
+                    {language === 'es'
+                    ? step.num === '01' ? 'Auditamos tu pipeline comercial, tiempos de respuesta, fragmentación de canales y pérdidas de seguimiento para detectar los puntos exactos de fuga.'
+                      : step.num === '02' ? 'Diseñamos la lógica de decisión, criterios de prioridad, tono de marca y límites de intervención humana.'
+                      : step.num === '03' ? 'Integramos CRM, canales de comunicación, calendario y conocimiento con automatizaciones personalizadas.'
+                      : 'Medimos conversión, velocidad de respuesta y recuperación del pipeline para mejorar continuamente reglas y cadencias.'
+                    : step.detail}
                   </p>
                 </div>
 
                 <div className="pt-4 border-t border-[#0A0A0A]/10">
                   <span className="font-mono-code text-[10px] text-[#777777] uppercase block mb-1">
-                    OUTCOME
+                    {tr('RESULTADO', 'OUTCOME')}
                   </span>
                   <span className="font-mono-code text-xs text-[#0A3F4D] font-medium">
-                    {step.deliverable}
+                    {language === 'es'
+                    ? step.num === '01' ? 'Informe de fricción y mapa de oportunidades'
+                      : step.num === '02' ? 'Arquitectura del sistema y reglas de gobierno'
+                      : step.num === '03' ? 'Sistema comercial integrado y operativo'
+                      : 'Panel de rendimiento y optimización continua'
+                    : step.deliverable}
                   </span>
                 </div>
               </div>

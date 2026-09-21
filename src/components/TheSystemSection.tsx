@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ArrowRight, ArrowDown, CheckCircle2, ChevronRight } from 'lucide-react';
+import { useLanguage } from '../i18n/LanguageContext';
 
 interface StageItem {
   id: string;
@@ -119,7 +120,102 @@ const STAGES: StageItem[] = [
 ];
 
 export const TheSystemSection: React.FC = () => {
+  const { language } = useLanguage();
+  const tr = (es: string, en: string) => (language === 'es' ? es : en);
   const [selectedStageId, setSelectedStageId] = useState<string>('ai-analysis');
+
+
+  const stageLabel = (stage: StageItem): string => {
+    if (language === 'en') return stage.label;
+    const labels: Record<string, string> = {
+      lead: 'LEAD',
+      capture: 'CAPTURA',
+      'ai-analysis': 'ANÁLISIS IA',
+      priority: 'PRIORIDAD',
+      crm: 'CRM',
+      response: 'RESPUESTA',
+      'follow-up': 'SEGUIMIENTO',
+      booked: 'RESULTADO'
+    };
+    return labels[stage.id] || stage.label;
+  };
+
+  const stageExplanation = (stage: StageItem): string => {
+    if (language === 'en') return stage.explanation;
+    const values: Record<string, string> = {
+      lead: 'La demanda entra desde formularios web, correo, WhatsApp y otros canales conectados.',
+      capture: 'Recolecta oportunidades desde los canales que tu negocio ya utiliza.',
+      'ai-analysis': 'Comprende intención, urgencia y contexto antes de decidir qué debe ocurrir después.',
+      priority: 'Identifica qué oportunidades requieren atención inmediata.',
+      crm: 'Mantiene contexto, responsable, próxima acción y estado comercial en un solo registro operativo.',
+      response: 'Ayuda a responder rápido y de forma consistente usando plantillas aprobadas o asistencia de IA.',
+      'follow-up': 'Mantiene las conversaciones avanzando cuando el prospecto todavía no está listo.',
+      booked: 'Convierte oportunidades gestionadas en resultados medibles.'
+    };
+    return values[stage.id] || stage.explanation;
+  };
+
+  const stageTechnicalSub = (stage: StageItem): string => {
+    if (language === 'en') return stage.technicalSub;
+    const values: Record<string, string> = {
+      lead: 'Ingreso omnicanal',
+      capture: 'Pipeline de captura en tiempo real',
+      'ai-analysis': 'Interpretación de intención y calificación',
+      priority: 'Priorización algorítmica',
+      crm: 'Sincronización de datos',
+      response: 'Respuesta gobernada por marca',
+      'follow-up': 'Cadencia automática de seguimiento',
+      booked: 'Confirmación de resultado comercial'
+    };
+    return values[stage.id] || stage.technicalSub;
+  };
+
+  const translatedSpecs = (stage: StageItem): { key: string; value: string }[] => {
+    if (language === 'en') return stage.specItems;
+    const byStage: Record<string, { key: string; value: string }[]> = {
+      lead: [
+        { key: 'Canales', value: 'Configurados según cada negocio e integración' },
+        { key: 'Entrada', value: 'Formularios, mensajes y datos estructurados' },
+        { key: 'Control', value: 'Validación, enrutamiento y supervisión humana' }
+      ],
+      capture: [
+        { key: 'Captura', value: 'Ingreso inmediato desde una fuente conectada' },
+        { key: 'Protección', value: 'Validación y controles anti-abuso por canal' },
+        { key: 'Datos', value: 'Acceso protegido y permisos controlados' }
+      ],
+      'ai-analysis': [
+        { key: 'Análisis', value: 'Intención, urgencia y contexto comercial' },
+        { key: 'Contexto', value: 'Necesidades, tiempos y datos relevantes del lead' },
+        { key: 'Apoyo', value: 'Señales asistidas por IA con revisión humana cuando corresponde' }
+      ],
+      priority: [
+        { key: 'Enrutamiento', value: 'Reglas de prioridad según criterios del negocio' },
+        { key: 'Tiempo', value: 'Lógica de vencidos, hoy y próximos seguimientos' },
+        { key: 'Alertas', value: 'Alertas operativas y canales configurados' }
+      ],
+      crm: [
+        { key: 'CRM', value: 'Espacio G-KAIS o integración externa por proyecto' },
+        { key: 'Operación', value: 'Estado, responsable, próxima acción y seguimiento' },
+        { key: 'Historial', value: 'Línea de tiempo de cambios y resultados de tareas' }
+      ],
+      response: [
+        { key: 'Respuesta', value: 'Plantillas o respuestas asistidas por IA según configuración' },
+        { key: 'Conocimiento', value: 'Información y reglas aprobadas por el negocio' },
+        { key: 'Control', value: 'La aprobación humana puede mantenerse en el flujo' }
+      ],
+      'follow-up': [
+        { key: 'Cadencia', value: 'Motor de tareas, recordatorios e intervalos configurables' },
+        { key: 'Próxima acción', value: 'Llamada, WhatsApp, email, propuesta, reunión o seguimiento' },
+        { key: 'Resultado', value: 'Resultado claro y próximo paso en vez de leads olvidados' }
+      ],
+      booked: [
+        { key: 'Resultado', value: 'Reunión, propuesta, cliente, perdido u otro resultado definido' },
+        { key: 'Traspaso', value: 'Contexto disponible antes de la siguiente acción humana' },
+        { key: 'Medición', value: 'Seguimiento de tareas completadas y resultados comerciales' }
+      ]
+    };
+    return byStage[stage.id] || stage.specItems;
+  };
 
   const selectedStage = STAGES.find(s => s.id === selectedStageId) || STAGES[2];
   const selectedIndex = STAGES.findIndex(s => s.id === selectedStageId);
@@ -131,14 +227,14 @@ export const TheSystemSection: React.FC = () => {
         <div className="mb-20 lg:mb-28 flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div>
             <span className="font-mono-code text-xs uppercase tracking-[0.24em] text-[#0A3F4D] font-semibold block mb-4">
-              THE SYSTEM
+              {tr('EL SISTEMA', 'THE SYSTEM')}
             </span>
             <h2 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-[-0.03em] text-[#0A0A0A] leading-tight">
-              One system. Every opportunity.
+              {tr('Un sistema. Cada oportunidad.', 'One system. Every opportunity.')}
             </h2>
           </div>
           <p className="text-lg md:text-xl text-[#777777] max-w-md font-normal leading-relaxed">
-            G-KAIS connects the fragmented parts of your commercial process into one intelligent workflow.
+            {tr('G-KAIS conecta las partes fragmentadas de tu proceso comercial en un solo flujo inteligente.', 'G-KAIS connects the fragmented parts of your commercial process into one intelligent workflow.')}
           </p>
         </div>
 
@@ -149,13 +245,13 @@ export const TheSystemSection: React.FC = () => {
             <div className="flex items-center space-x-3">
               <span className="w-2 h-2 rounded-full bg-[#0A3F4D]" />
               <span className="text-[#0A0A0A] font-bold tracking-wider">
-                COMMERCIAL WORKFLOW GRAPH
+                {tr('MAPA DEL FLUJO COMERCIAL', 'COMMERCIAL WORKFLOW GRAPH')}
               </span>
               <span className="text-[#0A0A0A]/30 hidden sm:inline">|</span>
-              <span className="hidden sm:inline">8 STAGE EXAMPLE WORKFLOW</span>
+              <span className="hidden sm:inline">{tr('FLUJO DE EJEMPLO DE 8 ETAPAS', '8 STAGE EXAMPLE WORKFLOW')}</span>
             </div>
             <div className="text-[11px] text-[#0A3F4D] font-medium">
-              ACTIVE STAGE: {selectedStage.num} // {selectedStage.label}
+              {tr('ETAPA ACTIVA', 'ACTIVE STAGE')}: {selectedStage.num} // {stageLabel(selectedStage)}
             </div>
           </div>
 
@@ -163,7 +259,7 @@ export const TheSystemSection: React.FC = () => {
             {/* Left / Center: Interactive 8-Stage Sequential Flow */}
             <div className="lg:col-span-7 flex flex-col">
               <div className="text-[11px] font-mono-code tracking-widest text-[#777777] uppercase mb-4">
-                Click any stage to inspect logic & connections
+                {tr('Haz clic en cualquier etapa para revisar la lógica y conexiones', 'Click any stage to inspect logic & connections')}
               </div>
 
               <div className="flex flex-col space-y-2">
@@ -193,12 +289,12 @@ export const TheSystemSection: React.FC = () => {
 
                           <div>
                             <h4 className="font-extrabold tracking-tight text-base sm:text-lg">
-                              {stage.label}
+                              {stageLabel(stage)}
                             </h4>
                             <p className={`text-xs mt-0.5 ${
                               isSelected ? 'text-[#F7F7F5]/80' : 'text-[#777777]'
                             }`}>
-                              {stage.technicalSub}
+                              {stageTechnicalSub(stage)}
                             </p>
                           </div>
                         </div>
@@ -242,36 +338,36 @@ export const TheSystemSection: React.FC = () => {
                 {/* Active Indicator Top */}
                 <div className="flex items-center justify-between pb-4 mb-6 border-b border-[#0A0A0A]/10">
                   <span className="font-mono-code text-[11px] uppercase tracking-widest text-[#0A3F4D] font-bold">
-                    STAGE // {selectedStage.num}
+                    {tr('ETAPA', 'STAGE')} // {selectedStage.num}
                   </span>
                   <span className="font-mono-code text-[10px] text-[#777777] uppercase">
-                    TYPE: {selectedStage.type}
+                    {tr('TIPO', 'TYPE')}: {selectedStage.type}
                   </span>
                 </div>
 
                 {/* Stage Title */}
                 <h3 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#0A0A0A] mb-3">
-                  {selectedStage.label}
+                  {stageLabel(selectedStage)}
                 </h3>
 
                 <p className="font-mono-code text-xs text-[#0A3F4D] font-semibold tracking-wider uppercase mb-6">
-                  {selectedStage.technicalSub}
+                  {stageTechnicalSub(selectedStage)}
                 </p>
 
                 {/* High-Level Editorial Explanation */}
                 <div className="p-4 bg-white border border-[#0A0A0A]/10 mb-8">
                   <p className="text-base sm:text-lg font-medium tracking-tight text-[#0A0A0A] leading-snug">
-                    "{selectedStage.explanation}"
+                    "{stageExplanation(selectedStage)}"
                   </p>
                 </div>
 
                 {/* Operational Telemetry Specifications */}
                 <div>
                   <span className="font-mono-code text-[10px] uppercase tracking-wider text-[#777777] block mb-3">
-                    STAGE SPECIFICATIONS
+                    {tr('ESPECIFICACIONES DE LA ETAPA', 'STAGE SPECIFICATIONS')}
                   </span>
                   <div className="space-y-3 font-mono-code text-xs">
-                    {selectedStage.specItems.map((item, i) => (
+                    {translatedSpecs(selectedStage).map((item, i) => (
                       <div key={i} className="flex items-center justify-between pb-2 border-b border-[#0A0A0A]/5">
                         <span className="text-[#777777]">{item.key}</span>
                         <span className="text-[#0A0A0A] font-medium text-right">{item.value}</span>
@@ -283,17 +379,17 @@ export const TheSystemSection: React.FC = () => {
                 {/* Flow Sequence Breadcrumbs */}
                 <div className="mt-8 pt-6 border-t border-[#0A0A0A]/10">
                   <span className="font-mono-code text-[10px] text-[#777777] uppercase block mb-2">
-                    SEQUENTIAL CONTEXT
+                    {tr('CONTEXTO SECUENCIAL', 'SEQUENTIAL CONTEXT')}
                   </span>
                   <div className="flex items-center justify-between text-xs font-mono-code">
                     <span className="text-[#777777]">
-                      {selectedIndex > 0 ? `← ${STAGES[selectedIndex - 1].label}` : 'START'}
+                      {selectedIndex > 0 ? `← ${stageLabel(STAGES[selectedIndex - 1])}` : tr('INICIO', 'START')}
                     </span>
                     <span className="text-[#0A3F4D] font-bold">
-                      [{selectedStage.label}]
+                      [{stageLabel(selectedStage)}]
                     </span>
                     <span className="text-[#777777]">
-                      {selectedIndex < STAGES.length - 1 ? `${STAGES[selectedIndex + 1].label} →` : 'COMPLETE'}
+                      {selectedIndex < STAGES.length - 1 ? `${stageLabel(STAGES[selectedIndex + 1])} →` : tr('COMPLETO', 'COMPLETE')}
                     </span>
                   </div>
                 </div>

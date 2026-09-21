@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLanguage } from '../../i18n/LanguageContext';
 import { Search, X } from 'lucide-react';
 
 interface LeadFlowFiltersProps {
@@ -18,6 +19,8 @@ export const LeadFlowFilters: React.FC<LeadFlowFiltersProps> = ({
   onSearchChange,
   onClearSearch
 }) => {
+  const { language } = useLanguage();
+  const tr = (es: string, en: string) => (language === 'es' ? es : en);
   return (
     <div className="p-4 sm:p-6 border-b border-[#E5E5E5] bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       {/* Quick Filters Editorial Tabs */}
@@ -26,7 +29,15 @@ export const LeadFlowFilters: React.FC<LeadFlowFiltersProps> = ({
           const isActive = activeFilter === filterName;
           return (
             <button
-              key={filterName}
+              key={language === 'es'
+                ? filterName === 'ALL' ? 'TODOS'
+                  : filterName === 'HIGH' ? 'ALTA'
+                  : filterName === 'FOLLOW-UP' ? 'SEGUIMIENTO'
+                  : filterName === 'BOOKED' ? 'AGENDADOS'
+                  : filterName === 'RECOVERED' ? 'RECUPERADOS'
+                  : filterName === 'NEW' ? 'NUEVOS'
+                  : filterName
+                : filterName}
               type="button"
               role="tab"
               aria-selected={isActive}
@@ -51,16 +62,16 @@ export const LeadFlowFilters: React.FC<LeadFlowFiltersProps> = ({
           type="text"
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="Search leads, channels, status..."
+          placeholder={tr('Buscar leads, canales, estado...', 'Search leads, channels, status...')}
           id="leadflow-search-input"
-          aria-label="Search leads"
+          aria-label={tr('Buscar leads', 'Search leads')}
           className="w-full pl-10 pr-8 py-2 bg-white border border-[#E5E5E5] text-[#0A0A0A] placeholder-[#6B6B6B] text-xs font-mono-code focus:outline-none focus:border-[#0A0A0A] focus:ring-1 focus:ring-[#0A0A0A] transition-colors"
         />
         {searchQuery && (
           <button
             type="button"
             onClick={onClearSearch}
-            aria-label="Clear search query"
+            aria-label={tr('Limpiar búsqueda', 'Clear search query')}
             className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#6B6B6B] hover:text-[#0A0A0A] p-0.5"
           >
             <X className="w-3.5 h-3.5" />

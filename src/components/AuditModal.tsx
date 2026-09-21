@@ -3,6 +3,7 @@ import { X, ArrowRight, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react'
 import { submitAuditRequest } from '../services/audit';
 import { useModalAccessibility } from '../utils/useModal';
 import { ContactChannel } from '../types/audit';
+import { useLanguage } from '../i18n/LanguageContext';
 
 interface AuditModalProps {
   isOpen: boolean;
@@ -19,6 +20,20 @@ const CONTACT_CHANNELS: ContactChannel[] = [
 ];
 
 export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose }) => {
+  const { language } = useLanguage();
+  const tr = (es: string, en: string) => (language === 'es' ? es : en);
+  const channelLabel = (channel: ContactChannel) => {
+    if (language === 'en') return channel;
+    const labels: Record<ContactChannel, string> = {
+      WhatsApp: 'WhatsApp',
+      Website: 'Sitio web',
+      Email: 'Email',
+      Instagram: 'Instagram',
+      Phone: 'Teléfono',
+      'Multiple channels': 'Múltiples canales'
+    };
+    return labels[channel];
+  };
   const modalRef = useRef<HTMLDivElement | null>(null);
   const renderedAtRef = useRef<number>(Date.now());
   const [honeypot, setHoneypot] = useState('');
@@ -53,10 +68,10 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose }) => {
       if (result.success && result.submissionId) {
         setSubmissionId(result.submissionId);
       } else {
-        throw new Error(result.error || 'Failed to submit audit request.');
+        throw new Error(result.error || tr('No se pudo enviar la solicitud de auditoría.', 'Failed to submit audit request.'));
       }
     } catch (err: any) {
-      setErrorMessage(err.message || 'Something went wrong. Please try again.');
+      setErrorMessage(err.message || tr('Algo salió mal. Inténtalo nuevamente.', 'Something went wrong. Please try again.'));
     } finally {
       setIsLoading(false);
     }
@@ -94,7 +109,7 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose }) => {
         <button
           onClick={onClose}
           className="absolute top-6 right-6 p-2 text-[#777777] hover:text-[#0A0A0A] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A3F4D]"
-          aria-label="Close modal"
+          aria-label={tr('Cerrar ventana', 'Close modal')}
           id="close-audit-modal-btn"
         >
           <X className="w-5 h-5" />
@@ -109,21 +124,21 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose }) => {
               </div>
               <div>
                 <span className="font-mono-code text-[11px] uppercase tracking-wider text-[#0A3F4D] font-semibold">
-                  AUDIT REQUEST REGISTERED
+                  {tr('SOLICITUD DE AUDITORÍA REGISTRADA', 'AUDIT REQUEST REGISTERED')}
                 </span>
                 <h3 className="text-2xl font-extrabold tracking-tight text-[#0A0A0A]">
-                  Thank you, {formData.name}
+                  {tr('Gracias', 'Thank you')}, {formData.name}
                 </h3>
               </div>
             </div>
 
             <div className="p-4 bg-white border border-[#0A0A0A]/15 space-y-2 text-xs font-mono-code">
               <div className="flex justify-between">
-                <span className="text-[#777777]">SUBMISSION ID:</span>
+                <span className="text-[#777777]">{tr('ID DE ENVÍO:', 'SUBMISSION ID:')}</span>
                 <span className="font-bold text-[#0A0A0A]">{submissionId}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-[#777777]">COMPANY:</span>
+                <span className="text-[#777777]">{tr('EMPRESA:', 'COMPANY:')}</span>
                 <span className="font-semibold text-[#0A0A0A]">{formData.company}</span>
               </div>
               <div className="flex justify-between">
@@ -131,27 +146,27 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose }) => {
                 <span className="font-semibold text-[#0A0A0A]">{formData.email}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-[#777777]">PRIMARY INBOUND CHANNEL:</span>
-                <span className="font-semibold text-[#0A0A0A]">{formData.contactChannel}</span>
+                <span className="text-[#777777]">{tr('CANAL PRINCIPAL:', 'PRIMARY INBOUND CHANNEL:')}</span>
+                <span className="font-semibold text-[#0A0A0A]">{channelLabel(formData.contactChannel)}</span>
               </div>
             </div>
 
             <div className="border-t border-[#0A0A0A]/10 pt-4">
               <h4 className="font-mono-code text-xs uppercase tracking-wider text-[#0A0A0A] font-bold mb-3">
-                WHAT HAPPENS NEXT:
+                {tr('QUÉ SUCEDE AHORA:', 'WHAT HAPPENS NEXT:')}
               </h4>
               <ul className="space-y-2 text-sm text-[#777777]">
                 <li className="flex items-start">
                   <span className="font-mono-code text-xs text-[#0A3F4D] mr-2 font-bold">1.</span>
-                  G-KAIS reviews your current lead flow and follows up with next steps.
+                  {tr('G-KAIS revisa tu flujo actual de leads y continúa con los próximos pasos.', 'G-KAIS reviews your current lead flow and follows up with next steps.')}
                 </li>
                 <li className="flex items-start">
                   <span className="font-mono-code text-xs text-[#0A3F4D] mr-2 font-bold">2.</span>
-                  We identify where prospects currently stall in your process.
+                  {tr('Identificamos dónde se están deteniendo actualmente tus prospectos.', 'We identify where prospects currently stall in your process.')}
                 </li>
                 <li className="flex items-start">
                   <span className="font-mono-code text-xs text-[#0A3F4D] mr-2 font-bold">3.</span>
-                  You receive a concise opportunity report and recommended system architecture.
+                  {tr('Recibes un informe conciso de oportunidades y una arquitectura de sistema recomendada.', 'You receive a concise opportunity report and recommended system architecture.')}
                 </li>
               </ul>
             </div>
@@ -162,14 +177,14 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose }) => {
                 onClick={handleReset}
                 className="text-xs font-mono-code text-[#777777] underline hover:text-[#0A0A0A]"
               >
-                Submit another request
+                {tr('Enviar otra solicitud', 'Submit another request')}
               </button>
               <button
                 type="button"
                 onClick={onClose}
                 className="px-6 py-2.5 bg-[#0A0A0A] text-[#F7F7F5] text-xs font-semibold uppercase tracking-wider hover:bg-[#0A3F4D] transition-colors"
               >
-                Close
+                {tr('Cerrar', 'Close')}
               </button>
             </div>
           </div>
@@ -178,17 +193,17 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose }) => {
           <div>
             <div className="mb-6 pr-8">
               <span className="font-mono-code text-[11px] uppercase tracking-[0.24em] text-[#0A3F4D] font-semibold block mb-2">
-                COMMERCIAL SYSTEMS AUDIT
+                {tr('AUDITORÍA DE SISTEMAS COMERCIALES', 'COMMERCIAL SYSTEMS AUDIT')}
               </span>
               <h3 id="audit-modal-title" className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#0A0A0A]">
-                Request Free AI Business Audit
+                {tr('Solicita una auditoría gratuita de tu negocio', 'Request Free AI Business Audit')}
               </h3>
               <p className="text-sm text-[#777777] mt-2 leading-relaxed">
-                Find where your business is losing commercial opportunities. We'll examine your lead flow and propose a concrete automated system.
+                {tr('Encuentra dónde tu negocio está perdiendo oportunidades comerciales. Revisaremos tu flujo de leads y propondremos un sistema automatizado concreto.', "Find where your business is losing commercial opportunities. We'll examine your lead flow and propose a concrete automated system.")}
               </p>
             </div>
 
-            {/* WHAT YOU RECEIVE Section */}
+            {/* {tr('QUÉ RECIBES', 'WHAT YOU RECEIVE')} Section */}
             <div className="mb-6 p-4 sm:p-5 bg-white border border-[#0A0A0A]/15 text-left">
               <span className="font-mono-code text-[11px] uppercase tracking-wider text-[#0A3F4D] font-bold block mb-3">
                 WHAT YOU RECEIVE
@@ -196,19 +211,19 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose }) => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                 <div className="flex items-start space-x-2.5">
                   <span className="font-mono-code text-[11px] text-[#0A3F4D] font-bold shrink-0">01</span>
-                  <span className="text-[#0A0A0A] font-medium">Current workflow review</span>
+                  <span className="text-[#0A0A0A] font-medium">{tr('Revisión del flujo actual', 'Current workflow review')}</span>
                 </div>
                 <div className="flex items-start space-x-2.5">
                   <span className="font-mono-code text-[11px] text-[#0A3F4D] font-bold shrink-0">02</span>
-                  <span className="text-[#0A0A0A] font-medium">Three potential opportunity leaks</span>
+                  <span className="text-[#0A0A0A] font-medium">{tr('Tres posibles fugas de oportunidades', 'Three potential opportunity leaks')}</span>
                 </div>
                 <div className="flex items-start space-x-2.5">
                   <span className="font-mono-code text-[11px] text-[#0A3F4D] font-bold shrink-0">03</span>
-                  <span className="text-[#0A0A0A] font-medium">Automation opportunities</span>
+                  <span className="text-[#0A0A0A] font-medium">{tr('Oportunidades de automatización', 'Automation opportunities')}</span>
                 </div>
                 <div className="flex items-start space-x-2.5">
                   <span className="font-mono-code text-[11px] text-[#0A3F4D] font-bold shrink-0">04</span>
-                  <span className="text-[#0A0A0A] font-medium">Recommended first system</span>
+                  <span className="text-[#0A0A0A] font-medium">{tr('Primer sistema recomendado', 'Recommended first system')}</span>
                 </div>
               </div>
             </div>
@@ -235,7 +250,7 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose }) => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-mono-code uppercase text-[#777777] mb-1.5">
-                    Name *
+                    {tr('Nombre *', 'Name *')}
                   </label>
                   <input
                     type="text"
@@ -249,7 +264,7 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose }) => {
 
                 <div>
                   <label className="block text-xs font-mono-code uppercase text-[#777777] mb-1.5">
-                    Company *
+                    {tr('Empresa *', 'Company *')}
                   </label>
                   <input
                     type="text"
@@ -265,7 +280,7 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose }) => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-mono-code uppercase text-[#777777] mb-1.5">
-                    Work Email *
+                    {tr('Email de trabajo *', 'Work Email *')}
                   </label>
                   <input
                     type="email"
@@ -279,7 +294,7 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose }) => {
 
                 <div>
                   <label className="block text-xs font-mono-code uppercase text-[#777777] mb-1.5">
-                    Website
+                    {tr('Sitio web', 'Website')}
                   </label>
                   <input
                     type="text"
@@ -294,7 +309,7 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose }) => {
               {/* How do customers usually contact you? */}
               <div>
                 <label className="block text-xs font-mono-code uppercase text-[#777777] mb-1.5">
-                  How do customers usually contact you? *
+                  {tr('¿Cómo suelen contactarte tus clientes? *', 'How do customers usually contact you? *')}
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {CONTACT_CHANNELS.map((channel) => {
@@ -310,7 +325,7 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose }) => {
                             : 'border-[#0A0A0A]/15 bg-white text-[#0A0A0A] hover:border-[#0A0A0A]/40'
                         }`}
                       >
-                        {channel}
+                        {channelLabel(channel)}
                       </button>
                     );
                   })}
@@ -320,7 +335,7 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose }) => {
               {/* What happens after someone contacts? */}
               <div>
                 <label className="block text-xs font-mono-code uppercase text-[#777777] mb-1.5">
-                  What happens after someone makes an inquiry? <span className="text-[#777777]/70 lowercase">(optional)</span>
+                  {tr('¿Qué sucede después de que alguien hace una consulta?', 'What happens after someone makes an inquiry?')} <span className="text-[#777777]/70 lowercase">{tr('(opcional)', '(optional)')}</span>
                 </label>
                 <textarea
                   rows={2}
@@ -341,17 +356,17 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose }) => {
                   {isLoading ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      <span>Submitting Request...</span>
+                      <span>{tr('Enviando solicitud...', 'Submitting Request...')}</span>
                     </>
                   ) : (
                     <>
-                      <span>REQUEST FREE AUDIT</span>
+                      <span>{tr('SOLICITAR AUDITORÍA GRATIS', 'REQUEST FREE AUDIT')}</span>
                       <ArrowRight className="w-4 h-4 ml-2 transition-transform group-hover:translate-x-1" />
                     </>
                   )}
                 </button>
                 <p className="font-mono-code text-[10px] text-[#777777] text-center mt-2.5">
-                  Your information is handled confidentially. No spam. No obligation.
+                  {tr('Tu información se maneja de forma confidencial. Sin spam. Sin obligación.', 'Your information is handled confidentially. No spam. No obligation.')}
                 </p>
               </div>
             </form>

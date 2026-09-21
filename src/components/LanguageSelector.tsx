@@ -14,7 +14,7 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
   const { language, setLanguage } = useLanguage();
 
   const base =
-    'inline-flex items-center border text-[10px] font-mono-code uppercase tracking-wider';
+    'inline-flex items-center border rounded-xl overflow-hidden text-[10px] font-mono-code uppercase tracking-wider';
   const surface = inverted
     ? 'border-white/20 bg-black text-white'
     : 'border-[#D8D8D8] bg-white text-[#0A0A0A]';

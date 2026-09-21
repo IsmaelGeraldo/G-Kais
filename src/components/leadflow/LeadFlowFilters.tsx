@@ -65,7 +65,7 @@ export const LeadFlowFilters: React.FC<LeadFlowFiltersProps> = ({
           placeholder={tr('Buscar leads, canales, estado...', 'Search leads, channels, status...')}
           id="leadflow-search-input"
           aria-label={tr('Buscar leads', 'Search leads')}
-          className="w-full pl-10 pr-8 py-2 bg-white border border-[#E5E5E5] text-[#0A0A0A] placeholder-[#6B6B6B] text-xs font-mono-code focus:outline-none focus:border-[#0A0A0A] focus:ring-1 focus:ring-[#0A0A0A] transition-colors"
+          className="w-full pl-10 pr-8 py-2 bg-white border border-[#E5E5E5] rounded-xl rounded-full text-[#0A0A0A] placeholder-[#6B6B6B] text-xs font-mono-code focus:outline-none focus:border-[#0A0A0A] focus:ring-1 focus:ring-[#0A0A0A] transition-colors"
         />
         {searchQuery && (
           <button

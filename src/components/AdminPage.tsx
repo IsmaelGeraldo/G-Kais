@@ -1133,6 +1133,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
   const openLeadFullRecord = (lead: AdminLead) => {
     setSelectedId(lead.id);
     setDraft(makeDraft(lead));
+    setSaveMessage(null);
     setLeadDetailOpen(true);
   };
 

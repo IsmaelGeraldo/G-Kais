@@ -20,6 +20,7 @@ import {
   RefreshCw,
   Save,
   ShieldCheck,
+  Target,
   Trash2,
   X
 } from 'lucide-react';
@@ -37,6 +38,12 @@ import {
   updateLeadOperations,
   updateLeadWebsite
 } from '../services/adminLeads';
+import {
+  requestLeadIntelligence
+} from '../services/leadIntelligence';
+import type {
+  LeadIntelligenceBrief
+} from '../services/leadIntelligence';
 import type {
   AdminLead,
   FollowUpBucket,
@@ -695,6 +702,9 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
   const [websiteSaveStatus, setWebsiteSaveStatus] = useState<
     'idle' | 'saving' | 'saved' | 'error'
   >('idle');
+  const [leadBriefs, setLeadBriefs] = useState<Record<string, LeadIntelligenceBrief>>({});
+  const [leadBriefLoadingId, setLeadBriefLoadingId] = useState<string | null>(null);
+  const [leadBriefError, setLeadBriefError] = useState<string | null>(null);
   const [draft, setDraft] = useState<LeadOperationsUpdate>(
     makeDraft(null)
   );
@@ -813,6 +823,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
     setEditingNoteId(null);
     setExpandedNoteId(null);
     setWebsiteSaveStatus('idle');
+    setLeadBriefError(null);
   }, [selectedLead?.id]);
 
   useEffect(() => {
@@ -1204,6 +1215,42 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
     } catch (err: any) {
       setLeadEmailStatus('failed');
       setLeadEmailMessage(err?.message || 'Could not send operational alert email.');
+    }
+  };
+
+  const analyzeSelectedLead = async () => {
+    if (!selectedLead || !user || leadBriefLoadingId) return;
+
+    setLeadBriefLoadingId(selectedLead.id);
+    setLeadBriefError(null);
+
+    try {
+      const leadContext: AdminLead = {
+        ...selectedLead,
+        website: draft.website || selectedLead.website,
+        status: draft.status,
+        assignedTo: draft.assignedTo || undefined,
+        nextAction: draft.nextAction || undefined,
+        followUpAt: draft.followUpAt || undefined,
+        internalNotes: draft.internalNotes || undefined
+      };
+
+      const brief = await requestLeadIntelligence(leadContext, user);
+
+      setLeadBriefs((current) => ({
+        ...current,
+        [selectedLead.id]: brief
+      }));
+    } catch (err: any) {
+      setLeadBriefError(
+        err?.message ||
+          tr(
+            'G-KAIS no pudo analizar este lead.',
+            'G-KAIS could not analyze this lead.'
+          )
+      );
+    } finally {
+      setLeadBriefLoadingId(null);
     }
   };
 
@@ -3455,6 +3502,148 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                           })() : (
                             <p className="text-xs text-[#8A8A8A] mt-1.5">
                               {tr('Sin notas registradas todavía.', 'No notes recorded yet.')}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="mt-3 rounded-2xl border border-[#0A3F4D]/20 bg-[#F4F8F8] p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <Target className="w-3.5 h-3.5 text-[#0A3F4D]" />
+                                <p className="font-mono-code text-[8px] uppercase tracking-wider text-[#0A3F4D] font-bold">
+                                  {tr('G-KAIS AI Brief', 'G-KAIS AI Brief')}
+                                </p>
+                              </div>
+                              <p className="text-[10px] text-[#657477] mt-1">
+                                {tr(
+                                  'Analiza el contexto disponible sin modificar el CRM.',
+                                  'Analyzes available context without changing the CRM.'
+                                )}
+                              </p>
+                            </div>
+                            {leadBriefs[selectedLead.id] && (
+                              <span
+                                className={
+                                  'font-mono-code text-[8px] px-2 py-1 rounded-full border ' +
+                                  (leadBriefs[selectedLead.id].intent === 'HIGH'
+                                    ? 'border-[#0A3F4D]/30 bg-white text-[#0A3F4D]'
+                                    : leadBriefs[selectedLead.id].intent === 'MEDIUM'
+                                    ? 'border-amber-200 bg-amber-50 text-amber-800'
+                                    : 'border-[#D8D8D8] bg-white text-[#777]')
+                                }
+                              >
+                                {tr('Intención', 'Intent')} · {
+                                  leadBriefs[selectedLead.id].intent === 'HIGH'
+                                    ? tr('Alta', 'High')
+                                    : leadBriefs[selectedLead.id].intent === 'MEDIUM'
+                                    ? tr('Media', 'Medium')
+                                    : tr('Baja', 'Low')
+                                }
+                              </span>
+                            )}
+                          </div>
+
+                          {!leadBriefs[selectedLead.id] ? (
+                            <button
+                              type="button"
+                              onClick={analyzeSelectedLead}
+                              disabled={leadBriefLoadingId === selectedLead.id}
+                              className="mt-4 w-full inline-flex items-center justify-center rounded-xl bg-[#0A3F4D] px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-white hover:bg-[#08333E] disabled:opacity-50"
+                            >
+                              {leadBriefLoadingId === selectedLead.id ? (
+                                <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
+                              ) : (
+                                <Target className="w-3.5 h-3.5 mr-2" />
+                              )}
+                              {leadBriefLoadingId === selectedLead.id
+                                ? tr('Analizando…', 'Analyzing…')
+                                : tr('Analizar con G-KAIS', 'Analyze with G-KAIS')}
+                            </button>
+                          ) : (
+                            <div className="mt-4 space-y-3">
+                              <div className="rounded-xl border border-[#D8E3E5] bg-white p-3">
+                                <p className="font-mono-code text-[8px] uppercase tracking-wider text-[#777]">
+                                  {tr('Lectura rápida', 'Quick read')}
+                                </p>
+                                <p className="text-xs leading-relaxed mt-1.5">
+                                  {leadBriefs[selectedLead.id].summary}
+                                </p>
+                              </div>
+
+                              {leadBriefs[selectedLead.id].signals.length > 0 && (
+                                <div>
+                                  <p className="font-mono-code text-[8px] uppercase tracking-wider text-[#777] mb-1.5">
+                                    {tr('Señales detectadas', 'Detected signals')}
+                                  </p>
+                                  <div className="space-y-1">
+                                    {leadBriefs[selectedLead.id].signals.map((signal, index) => (
+                                      <p key={index} className="text-[10px] leading-relaxed">
+                                        + {signal}
+                                      </p>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {leadBriefs[selectedLead.id].risks.length > 0 && (
+                                <div>
+                                  <p className="font-mono-code text-[8px] uppercase tracking-wider text-[#777] mb-1.5">
+                                    {tr('Riesgos o vacíos', 'Risks or gaps')}
+                                  </p>
+                                  <div className="space-y-1">
+                                    {leadBriefs[selectedLead.id].risks.map((risk, index) => (
+                                      <p key={index} className="text-[10px] leading-relaxed text-[#6B6B6B]">
+                                        – {risk}
+                                      </p>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              <div className="rounded-xl border border-[#0A3F4D]/20 bg-white p-3">
+                                <p className="font-mono-code text-[8px] uppercase tracking-wider text-[#0A3F4D]">
+                                  {tr('Próximo paso sugerido', 'Suggested next step')}
+                                </p>
+                                <p className="text-[11px] font-semibold leading-relaxed mt-1.5">
+                                  {leadBriefs[selectedLead.id].recommendedAction}
+                                </p>
+                              </div>
+
+                              {leadBriefs[selectedLead.id].qualificationQuestions.length > 0 && (
+                                <div>
+                                  <p className="font-mono-code text-[8px] uppercase tracking-wider text-[#777] mb-1.5">
+                                    {tr('Qué falta saber', 'What is still unknown')}
+                                  </p>
+                                  <div className="space-y-1">
+                                    {leadBriefs[selectedLead.id].qualificationQuestions.map((question, index) => (
+                                      <p key={index} className="text-[10px] leading-relaxed">
+                                        {index + 1}. {question}
+                                      </p>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              <button
+                                type="button"
+                                onClick={analyzeSelectedLead}
+                                disabled={leadBriefLoadingId === selectedLead.id}
+                                className="w-full inline-flex items-center justify-center rounded-xl border border-[#0A3F4D]/30 bg-white px-3 py-2.5 text-[9px] font-semibold uppercase tracking-wider text-[#0A3F4D] hover:bg-[#F7F7F5] disabled:opacity-50"
+                              >
+                                {leadBriefLoadingId === selectedLead.id ? (
+                                  <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
+                                ) : (
+                                  <RefreshCw className="w-3.5 h-3.5 mr-2" />
+                                )}
+                                {tr('Actualizar análisis', 'Refresh analysis')}
+                              </button>
+                            </div>
+                          )}
+
+                          {leadBriefError && (
+                            <p className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-[10px] leading-relaxed text-red-800">
+                              {leadBriefError}
                             </p>
                           )}
                         </div>

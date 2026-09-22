@@ -242,12 +242,26 @@ async function startServer() {
           `[PUBLIC AUDIT NOTIFY] ${record.id} | webhook=${webhook.status} | adminEmail=${email.status} | leadConfirmation=${confirmation.status}`
         );
 
+        const confirmationErrorText = confirmation.error || '';
+        const confirmationIssue =
+          confirmation.status === 'SKIPPED'
+            ? 'NOT_CONFIGURED'
+            : confirmation.status === 'FAILED' &&
+              /(resend\.(dev|com)|test(ing)? email|own email|verify.*domain|verified domain)/i.test(
+                confirmationErrorText
+              )
+            ? 'TEST_SENDER'
+            : confirmation.status === 'FAILED'
+            ? 'PROVIDER_REJECTED'
+            : undefined;
+
         if (email.status === 'SKIPPED') {
           return res.status(200).json({
             success: true,
             code: 'EMAIL_NOT_CONFIGURED',
             emailStatus: email.status,
             confirmationStatus: confirmation.status,
+            confirmationIssue,
             webhookStatus: webhook.status
           });
         }
@@ -258,6 +272,7 @@ async function startServer() {
             code: 'EMAIL_PROVIDER_ERROR',
             emailStatus: email.status,
             confirmationStatus: confirmation.status,
+            confirmationIssue,
             webhookStatus: webhook.status,
             error: email.error || 'Email provider rejected the audit notification.'
           });
@@ -268,7 +283,7 @@ async function startServer() {
           code: 'EMAIL_SENT',
           emailStatus: email.status,
           confirmationStatus: confirmation.status,
-          confirmationError: confirmation.error,
+          confirmationIssue,
           webhookStatus: webhook.status,
           provider: email.provider,
           messageId: email.messageId

@@ -5,9 +5,6 @@ import {
   CheckCircle2,
   FileText,
   MessageCircle,
-  Pause,
-  Play,
-  RotateCcw,
   Sparkles,
   Target,
   User,
@@ -170,77 +167,71 @@ export const HeroSystemVisual: React.FC = () => {
   const es = language === "es";
   const [scenarioIndex, setScenarioIndex] = useState(0);
   const [step, setStep] = useState(0);
-  const [playing, setPlaying] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
+  const [inView, setInView] = useState(false);
+  const [pageVisible, setPageVisible] = useState(true);
   const root = useRef<HTMLDivElement>(null);
 
   const scenario = scenarios[language][scenarioIndex];
   const flowSteps = steps[language];
+  const autoRunning = inView && pageVisible && !reducedMotion;
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
-    let started = false;
 
-    const sync = () => {
+    const syncMotion = () => {
       setReducedMotion(media.matches);
-      if (media.matches) {
-        setPlaying(false);
-        setStep(4);
-      }
+      if (media.matches) setStep(4);
     };
 
-    sync();
-    media.addEventListener("change", sync);
+    const syncVisibility = () => setPageVisible(!document.hidden);
+
+    syncMotion();
+    syncVisibility();
+    media.addEventListener("change", syncMotion);
+    document.addEventListener("visibilitychange", syncVisibility);
 
     const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && !started) {
-          started = true;
-          if (!media.matches) setPlaying(true);
-        } else if (!entry.isIntersecting && started) {
-          setPlaying(false);
-        }
-      },
-      { threshold: 0.35 }
+      ([entry]) => setInView(entry.isIntersecting),
+      { threshold: 0.28 }
     );
 
     if (root.current) observer.observe(root.current);
 
-    const hide = () => {
-      if (document.hidden) setPlaying(false);
-    };
-    document.addEventListener("visibilitychange", hide);
-
     return () => {
       observer.disconnect();
-      media.removeEventListener("change", sync);
-      document.removeEventListener("visibilitychange", hide);
+      media.removeEventListener("change", syncMotion);
+      document.removeEventListener("visibilitychange", syncVisibility);
     };
   }, []);
 
   useEffect(() => {
-    if (!playing || step >= 4) return;
+    if (reducedMotion) {
+      setStep(4);
+      return;
+    }
 
+    if (!autoRunning) return;
+
+    const delay = step === 4 ? 2100 : 1850;
     const timer = window.setTimeout(() => {
-      setStep((current) => {
-        const next = current + 1;
-        if (next >= 4) setPlaying(false);
-        return next;
-      });
-    }, 1950);
+      if (step === 4) {
+        setScenarioIndex((current) =>
+          (current + 1) % scenarios[language].length
+        );
+        setStep(0);
+        return;
+      }
+
+      setStep((current) => current + 1);
+    }, delay);
 
     return () => window.clearTimeout(timer);
-  }, [playing, step, scenarioIndex]);
+  }, [autoRunning, language, reducedMotion, step]);
 
   const selectScenario = (index: number) => {
     setScenarioIndex(index);
     setStep(reducedMotion ? 4 : 0);
-    setPlaying(!reducedMotion);
-  };
-
-  const replay = () => {
-    setStep(0);
-    setPlaying(true);
   };
 
   const stageLabel = useMemo(
@@ -255,8 +246,8 @@ export const HeroSystemVisual: React.FC = () => {
       className="gk-engine-demo"
       aria-label={
         es
-          ? "Demostración del funcionamiento real del Motor G-KAIS"
-          : "Demonstration of how the G-KAIS engine works"
+          ? "Demostración automática del funcionamiento real del Motor G-KAIS"
+          : "Automatic demonstration of how the G-KAIS engine works"
       }
     >
       <div className="gk-engine-shell">
@@ -271,7 +262,13 @@ export const HeroSystemVisual: React.FC = () => {
 
           <div className="gk-engine-top-status">
             <span className="gk-live-dot" />
-            {es ? "SIMULACIÓN DEL SISTEMA" : "SYSTEM SIMULATION"}
+            {reducedMotion
+              ? es
+                ? "VISTA ESTÁTICA"
+                : "STATIC VIEW"
+              : es
+                ? "AUTO LOOP · EN VIVO"
+                : "AUTO LOOP · LIVE"}
           </div>
         </div>
 
@@ -292,7 +289,7 @@ export const HeroSystemVisual: React.FC = () => {
           className={
             "gk-engine-stage gk-step-" +
             step +
-            (playing ? " is-playing" : "") +
+            (autoRunning ? " is-playing" : "") +
             (step === 4 ? " is-complete" : "")
           }
         >
@@ -341,7 +338,7 @@ export const HeroSystemVisual: React.FC = () => {
             <div
               className={
                 "gk-core-orbit" +
-                (playing ? " is-running" : "") +
+                (autoRunning ? " is-running" : "") +
                 (step >= 1 && step < 4 ? " is-processing" : "") +
                 (step === 4 ? " is-complete" : "")
               }
@@ -463,53 +460,44 @@ export const HeroSystemVisual: React.FC = () => {
           </div>
         </div>
 
-        <div className="gk-engine-progress">
+        <div
+          className="gk-engine-progress"
+          role="list"
+          aria-label={es ? "Progreso de la demostración" : "Demo progress"}
+        >
           {flowSteps.map((label, index) => (
-            <button
-              type="button"
+            <div
               key={label}
+              role="listitem"
               aria-current={step === index ? "step" : undefined}
-              onClick={() => {
-                setStep(index);
-                setPlaying(false);
-              }}
-              className={index <= step ? "is-reached" : ""}
+              className={
+                "gk-engine-progress-item" +
+                (index <= step ? " is-reached" : "")
+              }
             >
               <span>{index < step ? <Check size={11} /> : index + 1}</span>
               {label}
-            </button>
+            </div>
           ))}
         </div>
 
-        <div className="gk-engine-controls">
-          <div>
-            <button
-              type="button"
-              aria-label={
-                playing
-                  ? es
-                    ? "Pausar demostración"
-                    : "Pause demo"
-                  : es
-                    ? "Reproducir demostración"
-                    : "Play demo"
-              }
-              onClick={() => (step === 4 ? replay() : setPlaying(!playing))}
-            >
-              {playing ? <Pause size={14} /> : <Play size={14} />}
-            </button>
-            <button type="button" id="hero-demo-replay" onClick={replay}>
-              <RotateCcw size={13} />
-              {es ? "Repetir" : "Replay"}
-            </button>
-          </div>
-
-          <span>
+        <div className="gk-engine-auto-status" aria-live="polite">
+          <span className="gk-live-dot" />
+          <strong>
             {step === 4
               ? es
                 ? "Oportunidad lista para actuar"
                 : "Opportunity ready for action"
-              : step + 1 + " / 5"}
+              : stageLabel}
+          </strong>
+          <span>
+            {reducedMotion
+              ? es
+                ? "Movimiento reducido"
+                : "Reduced motion"
+              : es
+                ? "Reproducción automática"
+                : "Automatic playback"}
           </span>
         </div>
       </div>

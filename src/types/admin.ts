@@ -72,6 +72,7 @@ export interface AdminLead {
 
 export interface LeadOperationsUpdate {
   status: LeadStatus;
+  website?: string;
   assignedTo?: string;
   nextAction?: string;
   followUpAt?: string;

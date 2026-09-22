@@ -896,11 +896,11 @@
   animation: gk-brief-line 400ms ease 140ms both;
 }
 
-.gk-step-3 .gk-brief-row:nth-of-type(1) {
+.gk-step-3 .gk-brief-row:nth-child(3) {
   animation: gk-brief-line 400ms ease 320ms both;
 }
 
-.gk-step-3 .gk-brief-row:nth-of-type(2) {
+.gk-step-3 .gk-brief-row:nth-child(4) {
   animation: gk-brief-line 400ms ease 500ms both;
 }
 
@@ -1073,6 +1073,53 @@
 @keyframes gk-engine-orbit {
   to {
     transform: rotate(360deg);
+  }
+}
+
+
+@media (min-width: 1101px) and (max-height: 850px) {
+  .gk-hero {
+    padding-top: 32px;
+  }
+
+  .gk-hero-layout {
+    gap: 34px;
+  }
+
+  .gk-eyebrow {
+    margin-bottom: 18px;
+  }
+
+  .gk-hero-description {
+    margin: 18px 0;
+    line-height: 1.55;
+  }
+
+  .gk-hero-note {
+    margin: 10px 0 18px;
+  }
+
+  .gk-engine-stage {
+    min-height: 335px;
+    padding-top: 13px;
+    padding-bottom: 13px;
+  }
+
+  .gk-engine-topbar {
+    min-height: 46px;
+  }
+
+  .gk-engine-progress button {
+    min-height: 31px;
+  }
+
+  .gk-engine-controls {
+    min-height: 36px;
+  }
+
+  .gk-hero-foot {
+    margin-top: 24px;
+    padding: 15px 0;
   }
 }
 

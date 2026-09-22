@@ -227,7 +227,7 @@ export const HeroSystemVisual: React.FC = () => {
         if (next >= 4) setPlaying(false);
         return next;
       });
-    }, 2200);
+    }, 1950);
 
     return () => window.clearTimeout(timer);
   }, [playing, step, scenarioIndex]);
@@ -288,7 +288,14 @@ export const HeroSystemVisual: React.FC = () => {
           ))}
         </div>
 
-        <div className="gk-engine-stage">
+        <div
+          className={
+            "gk-engine-stage gk-step-" +
+            step +
+            (playing ? " is-playing" : "") +
+            (step === 4 ? " is-complete" : "")
+          }
+        >
           <div className="gk-engine-conversation">
             <div className="gk-engine-panel-label">
               <MessageCircle size={13} />
@@ -324,9 +331,19 @@ export const HeroSystemVisual: React.FC = () => {
           </div>
 
           <div className="gk-engine-core">
+            <div className="gk-signal-rail gk-signal-in" aria-hidden="true">
+              <span />
+            </div>
+            <div className="gk-signal-rail gk-signal-out" aria-hidden="true">
+              <span />
+            </div>
+
             <div
               className={
-                "gk-core-orbit" + (playing ? " is-running" : "")
+                "gk-core-orbit" +
+                (playing ? " is-running" : "") +
+                (step >= 1 && step < 4 ? " is-processing" : "") +
+                (step === 4 ? " is-complete" : "")
               }
             >
               <span>G</span>
@@ -432,17 +449,6 @@ export const HeroSystemVisual: React.FC = () => {
             <Target size={12} />
             <span>{es ? "Prioridad" : "Priority"}</span>
             <strong>{scenario.priority}</strong>
-          </div>
-
-          <div
-            className={
-              "gk-floating-card gk-floating-context" +
-              (step >= 1 ? " is-visible" : "")
-            }
-          >
-            <FileText size={12} />
-            <span>{es ? "Contexto" : "Context"}</span>
-            <strong>3/9</strong>
           </div>
 
           <div

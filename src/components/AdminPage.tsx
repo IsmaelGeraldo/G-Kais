@@ -16,9 +16,11 @@ import {
   Loader2,
   LogOut,
   Mail,
+  Pencil,
   RefreshCw,
   Save,
   ShieldCheck,
+  Trash2,
   X
 } from 'lucide-react';
 import { firebaseAuth } from '../lib/firebase';
@@ -27,9 +29,13 @@ import { useLanguage } from '../i18n/LanguageContext';
 import {
   addLeadNote,
   completeLeadAction,
+  deleteLead,
+  deleteLeadNote,
   fetchAdminLeads,
   rescheduleLeadAction,
-  updateLeadOperations
+  updateLeadNote,
+  updateLeadOperations,
+  updateLeadWebsite
 } from '../services/adminLeads';
 import type {
   AdminLead,
@@ -677,6 +683,12 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
   const [noteBody, setNoteBody] = useState('');
   const [savingNote, setSavingNote] = useState(false);
   const [noteMessage, setNoteMessage] = useState<string | null>(null);
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [expandedNoteId, setExpandedNoteId] = useState<string | null>(null);
+  const [deletingLeadId, setDeletingLeadId] = useState<string | null>(null);
+  const [websiteSaveStatus, setWebsiteSaveStatus] = useState<
+    'idle' | 'saving' | 'saved' | 'error'
+  >('idle');
   const [draft, setDraft] = useState<LeadOperationsUpdate>(
     makeDraft(null)
   );
@@ -792,6 +804,9 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
     setNoteTitle('');
     setNoteBody('');
     setNoteMessage(null);
+    setEditingNoteId(null);
+    setExpandedNoteId(null);
+    setWebsiteSaveStatus('idle');
   }, [selectedLead?.id]);
 
   useEffect(() => {
@@ -803,6 +818,48 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
       }
     });
   }, [selectedLead?.id]);
+
+  useEffect(() => {
+    if (!selectedLead || !user) return;
+
+    const nextWebsite = (draft.website || '').trim();
+    const currentWebsite = (selectedLead.website || '').trim();
+
+    if (nextWebsite === currentWebsite) return;
+
+    setWebsiteSaveStatus('saving');
+
+    const timeoutId = window.setTimeout(async () => {
+      try {
+        const website = await updateLeadWebsite(selectedLead, nextWebsite);
+
+        setLeads((current) =>
+          current.map((lead) =>
+            lead.id === selectedLead.id
+              ? {
+                  ...lead,
+                  website,
+                  updatedAt: new Date().toISOString()
+                }
+              : lead
+          )
+        );
+
+        setWebsiteSaveStatus('saved');
+      } catch (err: any) {
+        setWebsiteSaveStatus('error');
+        setError(
+          err?.message ||
+            tr(
+              'No se pudo guardar el sitio web.',
+              'Could not save the website.'
+            )
+        );
+      }
+    }, 700);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [draft.website, selectedLead?.id, selectedLead?.website, user]);
 
   const metrics = useMemo(() => {
     const overdueCount = leads.filter((lead) => getFollowUpBucket(lead) === 'OVERDUE').length;
@@ -1354,6 +1411,30 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
     );
   };
 
+  const startEditingLeadNote = (noteId: string) => {
+    if (!selectedLead) return;
+    const note = (selectedLead.leadNotes || []).find((item) => item.id === noteId);
+    if (!note) return;
+
+    setEditingNoteId(note.id);
+    setExpandedNoteId(note.id);
+    setNoteTitle(note.title);
+    setNoteBody(note.body);
+    setNoteMessage(
+      tr(
+        'Editando nota. Guarda los cambios o cancela para volver a una nota nueva.',
+        'Editing note. Save changes or cancel to create a new note.'
+      )
+    );
+  };
+
+  const cancelEditingLeadNote = () => {
+    setEditingNoteId(null);
+    setNoteTitle('');
+    setNoteBody('');
+    setNoteMessage(null);
+  };
+
   const handleAddLeadNote = async () => {
     if (!selectedLead || !user || savingNote) return;
 
@@ -1375,10 +1456,94 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
     setNoteMessage(null);
 
     try {
-      const note = await addLeadNote(
+      if (editingNoteId) {
+        const result = await updateLeadNote(
+          selectedLead,
+          editingNoteId,
+          title,
+          body,
+          user.displayName || user.email || 'Admin'
+        );
+
+        setLeads((current) =>
+          current.map((lead) =>
+            lead.id === selectedLead.id
+              ? {
+                  ...lead,
+                  leadNotes: result.notes,
+                  activityLog: [...(lead.activityLog || []), result.activity].slice(-20),
+                  updatedAt: new Date().toISOString()
+                }
+              : lead
+          )
+        );
+
+        setExpandedNoteId(editingNoteId);
+        setEditingNoteId(null);
+        setNoteTitle('');
+        setNoteBody('');
+        setNoteMessage(
+          tr('Nota actualizada y registrada en el historial.', 'Note updated and logged in history.')
+        );
+      } else {
+        const note = await addLeadNote(
+          selectedLead,
+          title,
+          body,
+          user.displayName || user.email || 'Admin'
+        );
+
+        setLeads((current) =>
+          current.map((lead) =>
+            lead.id === selectedLead.id
+              ? {
+                  ...lead,
+                  leadNotes: [...(lead.leadNotes || []), note].slice(-50),
+                  updatedAt: new Date().toISOString()
+                }
+              : lead
+          )
+        );
+
+        setExpandedNoteId(note.id);
+        setNoteTitle('');
+        setNoteBody('');
+        setNoteMessage(
+          tr('Nota agregada al historial.', 'Note added to history.')
+        );
+      }
+    } catch (err: any) {
+      const message =
+        err?.message ||
+        tr('No se pudo guardar la nota.', 'Could not save the note.');
+      setNoteMessage(message);
+      setError(message);
+    } finally {
+      setSavingNote(false);
+    }
+  };
+
+  const handleDeleteLeadNote = async (noteId: string) => {
+    if (!selectedLead || !user || savingNote) return;
+
+    const note = (selectedLead.leadNotes || []).find((item) => item.id === noteId);
+    if (!note) return;
+
+    const confirmed = window.confirm(
+      tr(
+        `¿Eliminar la nota "${note.title}"? La eliminación quedará registrada en el historial.`,
+        `Delete note "${note.title}"? The deletion will remain recorded in history.`
+      )
+    );
+    if (!confirmed) return;
+
+    setSavingNote(true);
+    setError(null);
+
+    try {
+      const result = await deleteLeadNote(
         selectedLead,
-        title,
-        body,
+        noteId,
         user.displayName || user.email || 'Admin'
       );
 
@@ -1387,24 +1552,66 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
           lead.id === selectedLead.id
             ? {
                 ...lead,
-                leadNotes: [...(lead.leadNotes || []), note].slice(-50),
+                leadNotes: result.notes,
+                activityLog: [...(lead.activityLog || []), result.activity].slice(-20),
                 updatedAt: new Date().toISOString()
               }
             : lead
         )
       );
 
-      setNoteTitle('');
-      setNoteBody('');
+      if (editingNoteId === noteId) cancelEditingLeadNote();
+      if (expandedNoteId === noteId) setExpandedNoteId(null);
       setNoteMessage(
-        tr('Nota agregada al historial.', 'Note added to history.')
+        tr('Nota eliminada. La acción quedó en el historial.', 'Note deleted. The action was logged in history.')
       );
     } catch (err: any) {
-      const message = err?.message || tr('No se pudo guardar la nota.', 'Could not save the note.');
+      const message =
+        err?.message ||
+        tr('No se pudo eliminar la nota.', 'Could not delete the note.');
       setNoteMessage(message);
       setError(message);
     } finally {
       setSavingNote(false);
+    }
+  };
+
+  const handleDeleteLead = async (lead: AdminLead) => {
+    if (deletingLeadId) return;
+
+    const confirmed = window.confirm(
+      tr(
+        `¿Eliminar definitivamente a ${lead.name} (${lead.email})? Úsalo solo para duplicados o registros que realmente quieras borrar.`,
+        `Permanently delete ${lead.name} (${lead.email})? Use this only for duplicates or records you truly want to remove.`
+      )
+    );
+    if (!confirmed) return;
+
+    setDeletingLeadId(lead.id);
+    setError(null);
+
+    try {
+      await deleteLead(lead);
+
+      setLeads((current) => {
+        const remaining = current.filter((item) => item.id !== lead.id);
+        if (selectedId === lead.id) {
+          setSelectedId(remaining[0]?.id || null);
+        }
+        return remaining;
+      });
+
+      if (selectedId === lead.id) {
+        setLeadDetailOpen(false);
+        setCrmPanelOpen(false);
+      }
+    } catch (err: any) {
+      setError(
+        err?.message ||
+          tr('No se pudo eliminar el lead.', 'Could not delete the lead.')
+      );
+    } finally {
+      setDeletingLeadId(null);
     }
   };
 

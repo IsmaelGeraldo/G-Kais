@@ -3179,7 +3179,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                           )}
                         </div>
                       </div>
-                    </div>                    </div>
+                    </div>
                   </div>
                 </section>
 

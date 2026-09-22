@@ -14,6 +14,10 @@ import {
   sendOperationalAlertNotification
 } from './src/server/services/email';
 import { verifyAdminBearerToken } from './src/server/auth/adminAuth';
+import {
+  analyzeLeadWithGemini,
+  sanitizeLeadIntelligenceInput
+} from './src/server/services/leadIntelligence';
 
 async function startServer() {
   const app = express();
@@ -381,7 +385,57 @@ async function startServer() {
     }
   );
 
-  // 7. Authenticated admin-only email channel test.
+  // 7. Authenticated admin-only AI lead brief.
+  app.post('/api/admin/ai/lead-brief', async (req: Request, res: Response) => {
+    try {
+      const identity = await verifyAdminBearerToken(req.headers.authorization);
+
+      if (!identity) {
+        return res.status(401).json({
+          success: false,
+          code: 'UNAUTHORIZED',
+          error: 'Authenticated administrator access is required.'
+        });
+      }
+
+      const input = sanitizeLeadIntelligenceInput(req.body);
+
+      if (!input) {
+        return res.status(400).json({
+          success: false,
+          code: 'VALIDATION_ERROR',
+          error: 'Lead context is incomplete or invalid.'
+        });
+      }
+
+      const brief = await analyzeLeadWithGemini(input);
+
+      console.info(
+        `[AI LEAD BRIEF] Admin ${identity.uid} analyzed lead ${input.id}`
+      );
+
+      return res.status(200).json({
+        success: true,
+        code: 'LEAD_BRIEF_READY',
+        brief
+      });
+    } catch (err: any) {
+      console.error('[AI LEAD BRIEF ERROR]', err);
+
+      const missingApiKey =
+        err instanceof Error && err.message === 'GEMINI_API_KEY is not configured.';
+
+      return res.status(missingApiKey ? 503 : 502).json({
+        success: false,
+        code: missingApiKey ? 'AI_NOT_CONFIGURED' : 'AI_PROVIDER_ERROR',
+        error: missingApiKey
+          ? 'G-KAIS AI is not configured in this environment.'
+          : err?.message || 'G-KAIS could not analyze this lead.'
+      });
+    }
+  });
+
+  // 8. Authenticated admin-only email channel test.
   // This does not read or write Firestore and never exposes provider credentials.
   app.post('/api/admin/email/test', async (req: Request, res: Response) => {
     try {

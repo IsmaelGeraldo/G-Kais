@@ -191,7 +191,173 @@ async function startServer() {
     }
   );
 
-  // 5. Authenticated admin-only email channel test.
+  // 5. Notification bridge for browser-persisted public audit submissions.
+  // Public intake writes through the Firebase Web SDK, so this endpoint only
+  // validates the already-created lead payload and dispatches notifications.
+  app.post(
+    '/api/intake/audit-notification',
+    leadSubmissionRateLimiter,
+    antiSpamMiddleware,
+    async (req: Request, res: Response) => {
+      try {
+        const body = req.body && typeof req.body === 'object' ? req.body : {};
+        const id = typeof body.id === 'string' ? body.id.trim() : '';
+        const createdAt = typeof body.createdAt === 'string' ? body.createdAt.trim() : '';
+        const validation = validateAuditPayload(body);
+
+        if (
+          !/^GK-AUD-[A-Z0-9-]+$/.test(id) ||
+          !createdAt ||
+          createdAt.length > 40 ||
+          Number.isNaN(Date.parse(createdAt)) ||
+          !validation.isValid ||
+          !validation.sanitizedData
+        ) {
+          return res.status(400).json({
+            success: false,
+            code: 'VALIDATION_ERROR',
+            error: validation.errors[0] || 'Invalid audit notification payload.'
+          });
+        }
+
+        const record = {
+          id,
+          ...validation.sanitizedData,
+          status: 'PENDING_REVIEW',
+          createdAt,
+          notificationStatus: 'PENDING' as const
+        };
+
+        const [webhook, email] = await Promise.all([
+          notifyNewLead({ type: 'audit', data: record }),
+          sendAuditNotification(record)
+        ]);
+
+        console.info(
+          `[PUBLIC AUDIT NOTIFY] ${record.id} | webhook=${webhook.status} | email=${email.status}`
+        );
+
+        if (email.status === 'SKIPPED') {
+          return res.status(200).json({
+            success: true,
+            code: 'EMAIL_NOT_CONFIGURED',
+            emailStatus: email.status,
+            webhookStatus: webhook.status
+          });
+        }
+
+        if (!email.success || email.status === 'FAILED') {
+          return res.status(502).json({
+            success: false,
+            code: 'EMAIL_PROVIDER_ERROR',
+            emailStatus: email.status,
+            webhookStatus: webhook.status,
+            error: email.error || 'Email provider rejected the audit notification.'
+          });
+        }
+
+        return res.status(200).json({
+          success: true,
+          code: 'EMAIL_SENT',
+          emailStatus: email.status,
+          webhookStatus: webhook.status,
+          provider: email.provider,
+          messageId: email.messageId
+        });
+      } catch (err: any) {
+        console.error('[PUBLIC AUDIT NOTIFICATION ERROR]', err);
+        return res.status(500).json({
+          success: false,
+          code: 'NOTIFICATION_ERROR',
+          error: 'Audit was saved, but its notification could not be dispatched.'
+        });
+      }
+    }
+  );
+
+  // 6. Notification bridge for browser-persisted contact submissions.
+  app.post(
+    '/api/intake/contact-notification',
+    leadSubmissionRateLimiter,
+    antiSpamMiddleware,
+    async (req: Request, res: Response) => {
+      try {
+        const body = req.body && typeof req.body === 'object' ? req.body : {};
+        const id = typeof body.id === 'string' ? body.id.trim() : '';
+        const createdAt = typeof body.createdAt === 'string' ? body.createdAt.trim() : '';
+        const validation = validateContactPayload(body);
+
+        if (
+          !/^GK-CON-[A-Z0-9-]+$/.test(id) ||
+          !createdAt ||
+          createdAt.length > 40 ||
+          Number.isNaN(Date.parse(createdAt)) ||
+          !validation.isValid ||
+          !validation.sanitizedData
+        ) {
+          return res.status(400).json({
+            success: false,
+            code: 'VALIDATION_ERROR',
+            error: validation.errors[0] || 'Invalid contact notification payload.'
+          });
+        }
+
+        const record = {
+          id,
+          ...validation.sanitizedData,
+          status: 'PENDING_REVIEW',
+          createdAt,
+          notificationStatus: 'PENDING' as const
+        };
+
+        const [webhook, email] = await Promise.all([
+          notifyNewLead({ type: 'contact', data: record }),
+          sendContactNotification(record)
+        ]);
+
+        console.info(
+          `[PUBLIC CONTACT NOTIFY] ${record.id} | webhook=${webhook.status} | email=${email.status}`
+        );
+
+        if (email.status === 'SKIPPED') {
+          return res.status(200).json({
+            success: true,
+            code: 'EMAIL_NOT_CONFIGURED',
+            emailStatus: email.status,
+            webhookStatus: webhook.status
+          });
+        }
+
+        if (!email.success || email.status === 'FAILED') {
+          return res.status(502).json({
+            success: false,
+            code: 'EMAIL_PROVIDER_ERROR',
+            emailStatus: email.status,
+            webhookStatus: webhook.status,
+            error: email.error || 'Email provider rejected the contact notification.'
+          });
+        }
+
+        return res.status(200).json({
+          success: true,
+          code: 'EMAIL_SENT',
+          emailStatus: email.status,
+          webhookStatus: webhook.status,
+          provider: email.provider,
+          messageId: email.messageId
+        });
+      } catch (err: any) {
+        console.error('[PUBLIC CONTACT NOTIFICATION ERROR]', err);
+        return res.status(500).json({
+          success: false,
+          code: 'NOTIFICATION_ERROR',
+          error: 'Contact request was saved, but its notification could not be dispatched.'
+        });
+      }
+    }
+  );
+
+  // 7. Authenticated admin-only email channel test.
   // This does not read or write Firestore and never exposes provider credentials.
   app.post('/api/admin/email/test', async (req: Request, res: Response) => {
     try {

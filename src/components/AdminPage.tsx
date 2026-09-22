@@ -10,6 +10,7 @@ import {
   AlertCircle,
   ArrowLeft,
   Bell,
+  BookOpen,
   CheckCircle2,
   ChevronRight,
   ExternalLink,
@@ -38,6 +39,13 @@ import {
   updateLeadOperations,
   updateLeadWebsite
 } from '../services/adminLeads';
+import {
+  EMPTY_BUSINESS_KNOWLEDGE,
+  fetchBusinessKnowledge,
+  hasBusinessKnowledge,
+  saveBusinessKnowledge
+} from '../services/businessKnowledge';
+import type { BusinessKnowledge } from '../services/businessKnowledge';
 import {
   requestLeadIntelligence
 } from '../services/leadIntelligence';
@@ -659,6 +667,16 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [queryText, setQueryText] = useState('');
   const [alertsOpen, setAlertsOpen] = useState(false);
+  const [knowledgeBaseOpen, setKnowledgeBaseOpen] = useState(false);
+  const [businessKnowledge, setBusinessKnowledge] = useState<BusinessKnowledge>({
+    ...EMPTY_BUSINESS_KNOWLEDGE
+  });
+  const [knowledgeDraft, setKnowledgeDraft] = useState<BusinessKnowledge>({
+    ...EMPTY_BUSINESS_KNOWLEDGE
+  });
+  const [knowledgeLoading, setKnowledgeLoading] = useState(false);
+  const [knowledgeSaving, setKnowledgeSaving] = useState(false);
+  const [knowledgeMessage, setKnowledgeMessage] = useState<string | null>(null);
   const [readAlertIds, setReadAlertIds] = useState<string[]>(() => {
     try {
       const raw = window.localStorage.getItem('gkais-admin-read-alerts');
@@ -734,12 +752,36 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
     }
   };
 
+  const loadBusinessKnowledge = async () => {
+    setKnowledgeLoading(true);
+
+    try {
+      const record = await fetchBusinessKnowledge();
+      setBusinessKnowledge(record);
+      setKnowledgeDraft(record);
+    } catch (err: any) {
+      setError(
+        err?.message ||
+          tr(
+            'No se pudo cargar la base de conocimiento.',
+            'Could not load the knowledge base.'
+          )
+      );
+    } finally {
+      setKnowledgeLoading(false);
+    }
+  };
+
+
   useEffect(() => {
     if (user) {
       loadLeads();
+      loadBusinessKnowledge();
     } else {
       setLeads([]);
       setSelectedId(null);
+      setBusinessKnowledge({ ...EMPTY_BUSINESS_KNOWLEDGE });
+      setKnowledgeDraft({ ...EMPTY_BUSINESS_KNOWLEDGE });
     }
   }, [user]);
 
@@ -1110,6 +1152,42 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
     }
   };
 
+  const openKnowledgeBase = () => {
+    setKnowledgeDraft({ ...businessKnowledge });
+    setKnowledgeMessage(null);
+    setKnowledgeBaseOpen(true);
+  };
+
+  const handleSaveBusinessKnowledge = async () => {
+    if (!user || knowledgeSaving) return;
+
+    setKnowledgeSaving(true);
+    setKnowledgeMessage(null);
+
+    try {
+      const saved = await saveBusinessKnowledge(knowledgeDraft);
+      setBusinessKnowledge(saved);
+      setKnowledgeDraft(saved);
+      setKnowledgeMessage(
+        tr(
+          'Base de conocimiento guardada. Los próximos análisis usarán este contexto.',
+          'Knowledge base saved. Future analyses will use this context.'
+        )
+      );
+    } catch (err: any) {
+      const message =
+        err?.message ||
+        tr(
+          'No se pudo guardar la base de conocimiento.',
+          'Could not save the knowledge base.'
+        );
+      setKnowledgeMessage(message);
+      setError(message);
+    } finally {
+      setKnowledgeSaving(false);
+    }
+  };
+
   const sendEmailChannelTest = async () => {
     if (!user) return;
 
@@ -1235,7 +1313,12 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
         internalNotes: draft.internalNotes || undefined
       };
 
-      const brief = await requestLeadIntelligence(leadContext, user, language);
+      const brief = await requestLeadIntelligence(
+        leadContext,
+        user,
+        language,
+        hasBusinessKnowledge(businessKnowledge) ? businessKnowledge : undefined
+      );
 
       setLeadBriefs((current) => ({
         ...current,
@@ -1820,6 +1903,20 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
             <LanguageSelector compact />
             <button
               type="button"
+              onClick={openKnowledgeBase}
+              className="relative inline-flex items-center border border-[#E5E5E5] bg-white rounded-xl px-3 py-2 text-xs hover:bg-[#F7F7F5]"
+            >
+              <BookOpen className="w-3.5 h-3.5 mr-2" />
+              {tr('Knowledge Base', 'Knowledge Base')}
+              {hasBusinessKnowledge(businessKnowledge) && (
+                <span
+                  className="ml-2 w-2 h-2 rounded-full bg-[#0A3F4D]"
+                  title={tr('Contexto IA activo', 'AI context active')}
+                />
+              )}
+            </button>
+            <button
+              type="button"
               onClick={() => setAlertsOpen((current) => !current)}
               className="relative inline-flex items-center border border-[#E5E5E5] bg-white rounded-xl px-3 py-2 text-xs hover:bg-[#F7F7F5]"
               aria-label="Open alerts"
@@ -1855,6 +1952,236 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
           </div>
         </div>
       </header>
+
+      {knowledgeBaseOpen && (
+        <div
+          className="fixed inset-0 z-[80] bg-black/35 backdrop-blur-[2px] p-3 sm:p-6 flex items-center justify-center"
+          onClick={() => {
+            if (!knowledgeSaving) setKnowledgeBaseOpen(false);
+          }}
+        >
+          <section
+            className="w-full max-w-5xl max-h-[94vh] overflow-y-auto rounded-3xl border border-[#D8D8D8] bg-[#F7F7F5] shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-[#E5E5E5] bg-[#F7F7F5]/95 backdrop-blur px-5 sm:px-7 py-5 rounded-t-3xl">
+              <div>
+                <div className="flex items-center gap-2">
+                  <BookOpen className="w-4 h-4 text-[#0A3F4D]" />
+                  <p className="font-mono-code text-[9px] uppercase tracking-[0.2em] text-[#0A3F4D] font-bold">
+                    G-KAIS KNOWLEDGE BASE
+                  </p>
+                </div>
+                <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight mt-1">
+                  {tr('Contexto del negocio', 'Business context')}
+                </h2>
+                <p className="text-xs text-[#6B6B6B] mt-1 max-w-2xl">
+                  {tr(
+                    'Enseña a G-KAIS qué vende el negocio, a quién ayuda y cómo debe calificar una oportunidad. Esta información es interna.',
+                    'Teach G-KAIS what the business sells, who it helps and how an opportunity should be qualified. This information is internal.'
+                  )}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setKnowledgeBaseOpen(false)}
+                disabled={knowledgeSaving}
+                className="p-2 rounded-xl border border-[#D8D8D8] bg-white hover:bg-[#F0F0EE] disabled:opacity-50"
+                aria-label={tr('Cerrar', 'Close')}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 sm:p-7">
+              <div className="mb-5 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="rounded-2xl border border-[#E5E5E5] bg-white p-4">
+                  <p className="font-mono-code text-[8px] uppercase tracking-wider text-[#777]">
+                    {tr('Estado', 'Status')}
+                  </p>
+                  <p className="text-sm font-bold mt-1.5">
+                    {hasBusinessKnowledge(businessKnowledge)
+                      ? tr('Contexto IA activo', 'AI context active')
+                      : tr('Sin configurar', 'Not configured')}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-[#E5E5E5] bg-white p-4">
+                  <p className="font-mono-code text-[8px] uppercase tracking-wider text-[#777]">
+                    {tr('Uso actual', 'Current use')}
+                  </p>
+                  <p className="text-sm font-bold mt-1.5">AI Brief</p>
+                </div>
+                <div className="rounded-2xl border border-[#E5E5E5] bg-white p-4">
+                  <p className="font-mono-code text-[8px] uppercase tracking-wider text-[#777]">
+                    {tr('Próxima etapa', 'Next stage')}
+                  </p>
+                  <p className="text-sm font-bold mt-1.5">
+                    {tr('Conversaciones IA', 'AI conversations')}
+                  </p>
+                </div>
+              </div>
+
+              {knowledgeLoading ? (
+                <div className="py-16 flex items-center justify-center text-sm text-[#777]">
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  {tr('Cargando contexto…', 'Loading context…')}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <label className="lg:col-span-2 block rounded-2xl border border-[#E5E5E5] bg-white p-4">
+                    <span className="font-mono-code text-[9px] uppercase tracking-wider text-[#6B6B6B] block mb-2">
+                      {tr('Nombre del negocio', 'Business name')}
+                    </span>
+                    <input
+                      value={knowledgeDraft.businessName}
+                      onChange={(event) =>
+                        setKnowledgeDraft((current) => ({
+                          ...current,
+                          businessName: event.target.value
+                        }))
+                      }
+                      maxLength={160}
+                      placeholder={tr('Ej.: G-KAIS', 'e.g. G-KAIS')}
+                      className="w-full rounded-xl border border-[#D8D8D8] bg-[#FAFAFA] px-3 py-2.5 text-sm focus:outline-none focus:border-[#0A3F4D]"
+                    />
+                  </label>
+
+                  {[
+                    {
+                      key: 'businessDescription',
+                      labelEs: 'Qué hace el negocio',
+                      labelEn: 'What the business does',
+                      placeholderEs: 'Describe brevemente el problema que resuelve, el resultado que entrega y cómo trabaja.',
+                      placeholderEn: 'Briefly describe the problem it solves, the outcome it delivers and how it works.',
+                      rows: 5,
+                      maxLength: 4000
+                    },
+                    {
+                      key: 'offers',
+                      labelEs: 'Ofertas / servicios',
+                      labelEn: 'Offers / services',
+                      placeholderEs: 'Lista servicios, programas, productos, rangos de precio si aplica y principales resultados.',
+                      placeholderEn: 'List services, programs, products, price ranges if relevant and main outcomes.',
+                      rows: 5,
+                      maxLength: 5000
+                    },
+                    {
+                      key: 'idealCustomer',
+                      labelEs: 'Cliente ideal',
+                      labelEn: 'Ideal customer',
+                      placeholderEs: 'Quién encaja mejor: tipo de empresa/persona, tamaño, situación, necesidades y señales de buen fit.',
+                      placeholderEn: 'Who fits best: company/person type, size, situation, needs and good-fit signals.',
+                      rows: 5,
+                      maxLength: 4000
+                    },
+                    {
+                      key: 'qualificationCriteria',
+                      labelEs: 'Criterios de calificación',
+                      labelEn: 'Qualification criteria',
+                      placeholderEs: 'Qué necesita saber el equipo para considerar una oportunidad calificada: presupuesto, urgencia, autoridad, necesidad, ubicación, etc.',
+                      placeholderEn: 'What the team needs to know to consider an opportunity qualified: budget, urgency, authority, need, location, etc.',
+                      rows: 5,
+                      maxLength: 4000
+                    },
+                    {
+                      key: 'faqObjections',
+                      labelEs: 'FAQ y objeciones',
+                      labelEn: 'FAQ & objections',
+                      placeholderEs: 'Preguntas frecuentes, objeciones típicas y la información correcta para responderlas.',
+                      placeholderEn: 'Common questions, typical objections and the correct information to answer them.',
+                      rows: 5,
+                      maxLength: 5000
+                    },
+                    {
+                      key: 'policies',
+                      labelEs: 'Políticas y límites',
+                      labelEn: 'Policies & boundaries',
+                      placeholderEs: 'Condiciones, garantías, horarios, restricciones, promesas que no deben hacerse y reglas importantes.',
+                      placeholderEn: 'Terms, guarantees, hours, restrictions, promises that must not be made and important rules.',
+                      rows: 5,
+                      maxLength: 4000
+                    },
+                    {
+                      key: 'tone',
+                      labelEs: 'Tono de comunicación',
+                      labelEn: 'Communication tone',
+                      placeholderEs: 'Ej.: profesional, directo, cercano, sin tecnicismos, nunca agresivo en ventas.',
+                      placeholderEn: 'e.g. professional, direct, warm, low-jargon, never aggressive in sales.',
+                      rows: 4,
+                      maxLength: 2000
+                    }
+                  ].map((field) => (
+                    <label
+                      key={field.key}
+                      className={
+                        'block rounded-2xl border border-[#E5E5E5] bg-white p-4 ' +
+                        (field.key === 'tone' ? 'lg:col-span-2' : '')
+                      }
+                    >
+                      <span className="font-mono-code text-[9px] uppercase tracking-wider text-[#6B6B6B] block mb-2">
+                        {tr(field.labelEs, field.labelEn)}
+                      </span>
+                      <textarea
+                        value={knowledgeDraft[field.key as keyof BusinessKnowledge] as string}
+                        onChange={(event) =>
+                          setKnowledgeDraft((current) => ({
+                            ...current,
+                            [field.key]: event.target.value
+                          }))
+                        }
+                        rows={field.rows}
+                        maxLength={field.maxLength}
+                        placeholder={tr(field.placeholderEs, field.placeholderEn)}
+                        className="w-full rounded-xl border border-[#D8D8D8] bg-[#FAFAFA] px-3 py-3 text-sm leading-relaxed resize-y focus:outline-none focus:border-[#0A3F4D]"
+                      />
+                    </label>
+                  ))}
+                </div>
+              )}
+
+              {knowledgeMessage && (
+                <div
+                  className={
+                    'mt-4 rounded-xl border px-4 py-3 text-xs ' +
+                    (knowledgeMessage.toLowerCase().includes('no se pudo') ||
+                    knowledgeMessage.toLowerCase().includes('could not')
+                      ? 'border-red-200 bg-red-50 text-red-800'
+                      : 'border-[#0A3F4D]/20 bg-[#F4F8F8] text-[#0A3F4D]')
+                  }
+                >
+                  {knowledgeMessage}
+                </div>
+              )}
+
+              <div className="mt-5 flex flex-col sm:flex-row justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setKnowledgeBaseOpen(false)}
+                  disabled={knowledgeSaving}
+                  className="rounded-xl border border-[#D8D8D8] bg-white px-5 py-3 text-xs font-semibold uppercase tracking-wider hover:bg-[#F0F0EE] disabled:opacity-50"
+                >
+                  {tr('Cerrar', 'Close')}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveBusinessKnowledge}
+                  disabled={knowledgeSaving || knowledgeLoading}
+                  className="inline-flex items-center justify-center rounded-xl bg-[#0A3F4D] px-5 py-3 text-xs font-semibold uppercase tracking-wider text-white hover:bg-[#08333E] disabled:opacity-50"
+                >
+                  {knowledgeSaving ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4 mr-2" />
+                  )}
+                  {knowledgeSaving
+                    ? tr('Guardando…', 'Saving…')
+                    : tr('Guardar Knowledge Base', 'Save Knowledge Base')}
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
 
       {alertsOpen && (
         <div className="fixed inset-0 z-50 bg-black/20 flex justify-end" onClick={() => setAlertsOpen(false)}>
@@ -3517,8 +3844,12 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                               </div>
                               <p className="text-[10px] text-[#657477] mt-1">
                                 {tr(
-                                  'Analiza el contexto disponible sin modificar el CRM.',
-                                  'Analyzes available context without changing the CRM.'
+                                  hasBusinessKnowledge(businessKnowledge)
+                                    ? 'Analiza el lead usando también la Knowledge Base del negocio.'
+                                    : 'Analiza el contexto disponible sin modificar el CRM.',
+                                  hasBusinessKnowledge(businessKnowledge)
+                                    ? 'Analyzes the lead using the business Knowledge Base too.'
+                                    : 'Analyzes available context without changing the CRM.'
                                 )}
                               </p>
                             </div>

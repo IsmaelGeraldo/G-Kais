@@ -1,4 +1,4 @@
-export type AdminLeadSource = 'AUDIT' | 'CONTACT';
+export type AdminLeadSource = 'AUDIT' | 'CONTACT' | 'IMPORT';
 
 export type LeadStatus =
   | 'PENDING_REVIEW'
@@ -61,6 +61,7 @@ export interface AdminLead {
   name: string;
   company?: string;
   email: string;
+  phone?: string;
   contactChannel?: string;
   website?: string;
   businessType?: string;

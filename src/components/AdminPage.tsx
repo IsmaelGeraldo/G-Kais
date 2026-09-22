@@ -686,6 +686,12 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [expandedNoteId, setExpandedNoteId] = useState<string | null>(null);
   const [deletingLeadId, setDeletingLeadId] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<
+    | { kind: 'lead'; leadId: string; label: string }
+    | { kind: 'note'; leadId: string; noteId: string; label: string }
+    | null
+  >(null);
+  const [deleteDialogError, setDeleteDialogError] = useState<string | null>(null);
   const [websiteSaveStatus, setWebsiteSaveStatus] = useState<
     'idle' | 'saving' | 'saved' | 'error'
   >('idle');
@@ -1523,93 +1529,114 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
     }
   };
 
-  const handleDeleteLeadNote = async (noteId: string) => {
-    if (!selectedLead || !user || savingNote) return;
+  const handleDeleteLeadNote = (noteId: string) => {
+    if (!selectedLead || savingNote) return;
 
     const note = (selectedLead.leadNotes || []).find((item) => item.id === noteId);
     if (!note) return;
 
-    const confirmed = window.confirm(
-      tr(
-        `¿Eliminar la nota "${note.title}"? La eliminación quedará registrada en el historial.`,
-        `Delete note "${note.title}"? The deletion will remain recorded in history.`
-      )
-    );
-    if (!confirmed) return;
-
-    setSavingNote(true);
-    setError(null);
-
-    try {
-      const result = await deleteLeadNote(
-        selectedLead,
-        noteId,
-        user.displayName || user.email || 'Admin'
-      );
-
-      setLeads((current) =>
-        current.map((lead) =>
-          lead.id === selectedLead.id
-            ? {
-                ...lead,
-                leadNotes: result.notes,
-                activityLog: [...(lead.activityLog || []), result.activity].slice(-20),
-                updatedAt: new Date().toISOString()
-              }
-            : lead
-        )
-      );
-
-      if (editingNoteId === noteId) cancelEditingLeadNote();
-      if (expandedNoteId === noteId) setExpandedNoteId(null);
-      setNoteMessage(
-        tr('Nota eliminada. La acción quedó en el historial.', 'Note deleted. The action was logged in history.')
-      );
-    } catch (err: any) {
-      const message =
-        err?.message ||
-        tr('No se pudo eliminar la nota.', 'Could not delete the note.');
-      setNoteMessage(message);
-      setError(message);
-    } finally {
-      setSavingNote(false);
-    }
+    setDeleteDialogError(null);
+    setPendingDelete({
+      kind: 'note',
+      leadId: selectedLead.id,
+      noteId,
+      label: note.title
+    });
   };
 
-  const handleDeleteLead = async (lead: AdminLead) => {
+  const handleDeleteLead = (lead: AdminLead) => {
     if (deletingLeadId) return;
 
-    const confirmed = window.confirm(
-      tr(
-        `¿Eliminar definitivamente a ${lead.name} (${lead.email})? Úsalo solo para duplicados o registros que realmente quieras borrar.`,
-        `Permanently delete ${lead.name} (${lead.email})? Use this only for duplicates or records you truly want to remove.`
-      )
-    );
-    if (!confirmed) return;
+    setDeleteDialogError(null);
+    setPendingDelete({
+      kind: 'lead',
+      leadId: lead.id,
+      label: `${lead.name} · ${lead.email}`
+    });
+  };
 
-    setDeletingLeadId(lead.id);
-    setError(null);
+  const confirmPendingDelete = async () => {
+    if (!pendingDelete || !user) return;
+
+    const targetLead = leads.find((lead) => lead.id === pendingDelete.leadId);
+    if (!targetLead) {
+      setPendingDelete(null);
+      return;
+    }
+
+    setDeleteDialogError(null);
+
+    if (pendingDelete.kind === 'note') {
+      setSavingNote(true);
+
+      try {
+        const result = await deleteLeadNote(
+          targetLead,
+          pendingDelete.noteId,
+          user.displayName || user.email || 'Admin'
+        );
+
+        setLeads((current) =>
+          current.map((lead) =>
+            lead.id === targetLead.id
+              ? {
+                  ...lead,
+                  leadNotes: result.notes,
+                  activityLog: [...(lead.activityLog || []), result.activity].slice(-20),
+                  updatedAt: new Date().toISOString()
+                }
+              : lead
+          )
+        );
+
+        if (editingNoteId === pendingDelete.noteId) cancelEditingLeadNote();
+        if (expandedNoteId === pendingDelete.noteId) setExpandedNoteId(null);
+
+        setNoteMessage(
+          tr(
+            'Nota eliminada. La acción quedó en el historial.',
+            'Note deleted. The action was logged in history.'
+          )
+        );
+        setPendingDelete(null);
+      } catch (err: any) {
+        const message =
+          err?.message ||
+          tr('No se pudo eliminar la nota.', 'Could not delete the note.');
+        setDeleteDialogError(message);
+        setError(message);
+      } finally {
+        setSavingNote(false);
+      }
+
+      return;
+    }
+
+    setDeletingLeadId(targetLead.id);
 
     try {
-      await deleteLead(lead);
+      await deleteLead(targetLead);
 
       setLeads((current) => {
-        const remaining = current.filter((item) => item.id !== lead.id);
-        if (selectedId === lead.id) {
+        const remaining = current.filter((item) => item.id !== targetLead.id);
+        if (selectedId === targetLead.id) {
           setSelectedId(remaining[0]?.id || null);
         }
         return remaining;
       });
 
-      if (selectedId === lead.id) {
+      if (selectedId === targetLead.id) {
         setLeadDetailOpen(false);
         setCrmPanelOpen(false);
       }
+
+      setPendingDelete(null);
     } catch (err: any) {
-      setError(
+      const message =
         err?.message ||
-          tr('No se pudo eliminar el lead.', 'Could not delete the lead.')
-      );
+        tr('No se pudo eliminar el lead.', 'Could not delete the lead.');
+      setDeleteDialogError(message);
+      setError(message);
     } finally {
       setDeletingLeadId(null);
     }
@@ -3683,6 +3710,97 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                     );
                   })()}
                 </section>
+              </div>
+            </section>
+          </div>
+        )}
+
+        {pendingDelete && (
+          <div
+            className="fixed inset-0 z-[95] bg-black/45 backdrop-blur-[2px] p-4 flex items-center justify-center"
+            onClick={() => {
+              if (!savingNote && !deletingLeadId) {
+                setPendingDelete(null);
+                setDeleteDialogError(null);
+              }
+            }}
+          >
+            <section
+              className="w-full max-w-md rounded-3xl border border-[#D8D8D8] bg-white p-6 shadow-2xl"
+              onClick={(event) => event.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="delete-confirm-title"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="font-mono-code text-[9px] uppercase tracking-[0.18em] text-red-700 font-bold">
+                    {tr('Confirmar eliminación', 'Confirm deletion')}
+                  </p>
+                  <h3 id="delete-confirm-title" className="text-xl font-extrabold tracking-tight mt-1">
+                    {pendingDelete.kind === 'lead'
+                      ? tr('Eliminar lead', 'Delete lead')
+                      : tr('Eliminar nota', 'Delete note')}
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPendingDelete(null);
+                    setDeleteDialogError(null);
+                  }}
+                  disabled={savingNote || Boolean(deletingLeadId)}
+                  className="p-2 rounded-xl border border-[#E5E5E5] hover:bg-[#F7F7F5] disabled:opacity-40"
+                  aria-label={tr('Cancelar', 'Cancel')}
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="mt-5 rounded-2xl border border-red-100 bg-red-50 p-4">
+                <p className="text-sm font-semibold break-words">{pendingDelete.label}</p>
+                <p className="text-xs text-red-800/80 mt-2 leading-relaxed">
+                  {pendingDelete.kind === 'lead'
+                    ? tr(
+                        'Esta acción elimina definitivamente el registro. Úsala para duplicados o leads que realmente quieras borrar.',
+                        'This permanently deletes the record. Use it for duplicates or leads you truly want to remove.'
+                      )
+                    : tr(
+                        'La nota desaparecerá de la bitácora, pero la eliminación quedará registrada en el historial.',
+                        'The note will disappear from the timeline, but the deletion will remain recorded in activity history.'
+                      )}
+                </p>
+              </div>
+
+              {deleteDialogError && (
+                <div className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-800">
+                  {deleteDialogError}
+                </div>
+              )}
+
+              <div className="mt-5 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPendingDelete(null);
+                    setDeleteDialogError(null);
+                  }}
+                  disabled={savingNote || Boolean(deletingLeadId)}
+                  className="flex-1 rounded-xl border border-[#D8D8D8] bg-white px-4 py-3 text-xs font-semibold uppercase tracking-wider hover:bg-[#F7F7F5] disabled:opacity-40"
+                >
+                  {tr('Cancelar', 'Cancel')}
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmPendingDelete}
+                  disabled={savingNote || Boolean(deletingLeadId)}
+                  className="flex-1 inline-flex items-center justify-center rounded-xl bg-red-700 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-white hover:bg-red-800 disabled:opacity-40"
+                >
+                  {(savingNote || Boolean(deletingLeadId)) && (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  )}
+                  {tr('Sí, eliminar', 'Yes, delete')}
+                </button>
               </div>
             </section>
           </div>

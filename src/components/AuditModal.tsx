@@ -48,6 +48,12 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose }) => {
 
   const [isLoading, setIsLoading] = useState(false);
   const [submissionId, setSubmissionId] = useState<string | null>(null);
+  const [confirmationStatus, setConfirmationStatus] = useState<
+    'SENT' | 'SKIPPED' | 'FAILED' | 'UNKNOWN'
+  >('UNKNOWN');
+  const [confirmationIssue, setConfirmationIssue] = useState<
+    'TEST_SENDER' | 'PROVIDER_REJECTED' | 'NOT_CONFIGURED' | 'NETWORK_ERROR' | undefined
+  >(undefined);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useModalAccessibility({ isOpen, onClose, containerRef: modalRef });
@@ -66,6 +72,8 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose }) => {
         _hp_website_title: honeypot
       });
       if (result.success && result.submissionId) {
+        setConfirmationStatus(result.confirmationStatus || 'UNKNOWN');
+        setConfirmationIssue(result.confirmationIssue);
         setSubmissionId(result.submissionId);
       } else {
         throw new Error(result.error || tr('No se pudo enviar la solicitud de auditoría.', 'Failed to submit audit request.'));
@@ -79,6 +87,8 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose }) => {
 
   const handleReset = () => {
     setSubmissionId(null);
+    setConfirmationStatus('UNKNOWN');
+    setConfirmationIssue(undefined);
     setErrorMessage(null);
     renderedAtRef.current = Date.now();
     setHoneypot('');
@@ -149,6 +159,41 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose }) => {
                 <span className="text-[#777777]">{tr('CANAL PRINCIPAL:', 'PRIMARY INBOUND CHANNEL:')}</span>
                 <span className="font-semibold text-[#0A0A0A]">{channelLabel(formData.contactChannel)}</span>
               </div>
+            </div>
+
+            <div
+              className={
+                'rounded-2xl border p-4 text-xs leading-relaxed ' +
+                (confirmationStatus === 'SENT'
+                  ? 'border-[#0A3F4D]/20 bg-[#F4F8F8] text-[#0A3F4D]'
+                  : 'border-amber-200 bg-amber-50 text-amber-900')
+              }
+            >
+              <p className="font-mono-code text-[9px] uppercase tracking-wider font-bold">
+                {tr('Confirmación por email', 'Email confirmation')}
+              </p>
+              {confirmationStatus === 'SENT' ? (
+                <p className="mt-1.5">
+                  {tr(
+                    `Enviamos un comprobante a ${formData.email}. Revisa también spam o promociones si no aparece en unos minutos.`,
+                    `We sent a receipt to ${formData.email}. Check spam or promotions too if it does not appear shortly.`
+                  )}
+                </p>
+              ) : confirmationIssue === 'TEST_SENDER' ? (
+                <p className="mt-1.5">
+                  {tr(
+                    'Tu solicitud quedó registrada, pero el sistema de correo está en modo de prueba y no pudo enviar la confirmación a esta dirección.',
+                    'Your request was recorded, but the email system is in test mode and could not send the confirmation to this address.'
+                  )}
+                </p>
+              ) : (
+                <p className="mt-1.5">
+                  {tr(
+                    'Tu solicitud quedó registrada correctamente, aunque el comprobante automático por email no pudo enviarse.',
+                    'Your request was recorded successfully, although the automatic email receipt could not be sent.'
+                  )}
+                </p>
+              )}
             </div>
 
             <div className="border-t border-[#0A0A0A]/10 pt-4">

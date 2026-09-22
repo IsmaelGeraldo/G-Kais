@@ -1,5 +1,12 @@
 import React, { useRef } from 'react';
-import { X, ArrowRight, Activity, Shield, Layers } from 'lucide-react';
+import {
+  ArrowRight,
+  FileText,
+  ListChecks,
+  Sparkles,
+  Target,
+  X
+} from 'lucide-react';
 import { useModalAccessibility } from '../utils/useModal';
 import { useLanguage } from '../i18n/LanguageContext';
 
@@ -9,121 +16,136 @@ interface LeadFlowModalProps {
   onOpenAudit: () => void;
 }
 
-export const LeadFlowModal: React.FC<LeadFlowModalProps> = ({ isOpen, onClose, onOpenAudit }) => {
+export const LeadFlowModal: React.FC<LeadFlowModalProps> = ({
+  isOpen,
+  onClose,
+  onOpenAudit
+}) => {
   const { language } = useLanguage();
-  const tr = (es: string, en: string) => (language === 'es' ? es : en);
+  const es = language === 'es';
   const modalRef = useRef<HTMLDivElement | null>(null);
+
   useModalAccessibility({ isOpen, onClose, containerRef: modalRef });
 
   if (!isOpen) return null;
 
+  const blocks = [
+    {
+      icon: FileText,
+      title: es ? '1. Contexto estructurado' : '1. Structured context',
+      body: es
+        ? 'La ficha del lead reúne información del negocio, problema, solución actual, objetivo, notas e historial. La calificación progresiva muestra qué sabemos y qué falta descubrir.'
+        : 'The lead record brings together business information, problem, current solution, goal, notes and history. Progressive qualification shows what is known and what is still missing.'
+    },
+    {
+      icon: Target,
+      title: es ? '2. Prioridad y decisión' : '2. Priority and decision',
+      body: es
+        ? 'Priority Work identifica oportunidades que requieren atención. AI Brief usa el contexto disponible y la Knowledge Base para apoyar la decisión comercial sin modificar el CRM automáticamente.'
+        : 'Priority Work identifies opportunities that need attention. AI Brief uses available context and the Knowledge Base to support commercial decisions without automatically changing the CRM.'
+    },
+    {
+      icon: ListChecks,
+      title: es ? '3. Ejecución y seguimiento' : '3. Execution and follow-up',
+      body: es
+        ? 'Responsable, próxima acción, seguimiento, Task Engine y actividad histórica mantienen visible qué debe ocurrir después y qué resultado tuvo cada acción.'
+        : 'Owner, next action, follow-up, Task Engine and activity history keep visible what should happen next and what result each action produced.'
+    },
+    {
+      icon: Sparkles,
+      title: es ? '4. IA con contexto del negocio' : '4. AI with business context',
+      body: es
+        ? 'La Knowledge Base entrega contexto sobre oferta, cliente ideal, criterios de calificación, objeciones y políticas para que el análisis sea más específico y consistente.'
+        : 'The Knowledge Base provides context about offers, ideal customers, qualification criteria, objections and policies so analysis can be more specific and consistent.'
+    }
+  ];
+
   return (
-    <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto bg-black/60 backdrop-blur-sm"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
       aria-labelledby="leadflow-modal-title"
     >
-      <div 
+      <div
         ref={modalRef}
-        className="relative w-full max-w-3xl bg-[#F7F7F5] border border-[#0A0A0A] p-6 sm:p-10 shadow-2xl rounded-3xl my-8 text-left max-h-[90vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
+        className="relative w-full max-w-3xl bg-[#F7F7F5] border border-[#D8D8D8] p-6 sm:p-9 shadow-2xl rounded-3xl my-8 text-left max-h-[90vh] overflow-y-auto"
+        onClick={(event) => event.stopPropagation()}
       >
         <button
           onClick={onClose}
-          className="absolute top-6 right-6 p-2 text-[#777777] hover:text-[#0A0A0A] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A3F4D]"
-          aria-label={tr('Cerrar ventana', 'Close modal')}
-          id="close-leadflow-modal-btn"
+          className="absolute top-5 right-5 p-2 text-[#777] hover:text-[#0A0A0A]"
+          aria-label={es ? 'Cerrar ventana' : 'Close modal'}
         >
           <X className="w-5 h-5" />
         </button>
 
-        <div className="mb-8 pr-8">
-          <span className="font-mono-code text-[11px] uppercase tracking-[0.24em] text-[#0A3F4D] font-semibold block mb-2">
-            {tr('ESPECIFICACIÓN DEL SISTEMA', 'SYSTEM SPECIFICATION')}
+        <div className="mb-7 pr-8">
+          <span className="font-mono-code text-[10px] uppercase tracking-[0.22em] text-[#0A3F4D] font-semibold block mb-2">
+            {es ? 'ARQUITECTURA ACTUAL' : 'CURRENT ARCHITECTURE'}
           </span>
-          <h3 id="leadflow-modal-title" className="text-3xl sm:text-4xl font-extrabold tracking-tight text-[#0A0A0A]">
-            {tr('Arquitectura LeadFlow', 'LeadFlow Architecture')}
+          <h3
+            id="leadflow-modal-title"
+            className="text-3xl sm:text-4xl font-extrabold tracking-tight"
+          >
+            LeadFlow
           </h3>
-          <p className="text-base text-[#777777] mt-2 leading-relaxed">
-            {tr('El sistema de recuperación de leads que reduce pérdidas de oportunidades entre el primer contacto y la conversación agendada.', 'The lead recovery system that eliminates opportunity leakage between first customer touch and booked conversation.')}
+          <p className="text-sm sm:text-base text-[#707570] mt-2 leading-relaxed">
+            {es
+              ? 'La capa operativa donde G-KAIS convierte contexto y análisis en prioridades y próximas acciones.'
+              : 'The operating layer where G-KAIS turns context and analysis into priorities and next actions.'}
           </p>
         </div>
 
-        <div className="space-y-6">
-          <div className="border border-[#0A0A0A]/15 bg-white p-5">
-            <h4 className="font-mono-code text-xs uppercase tracking-wider text-[#0A0A0A] font-bold mb-2 flex items-center">
-              <Layers className="w-4 h-4 mr-2 text-[#0A3F4D]" />
-              {tr('1. Captura omnicanal', '1. Omnichannel Ingestion Pipeline')}
-            </h4>
-            <p className="text-sm text-[#777777] leading-relaxed">
-              {tr('Se conecta a formularios web, correo, WhatsApp Business y webhooks. Registra las consultas para que ninguna solicitud entrante quede fuera del sistema.', 'Connects directly to your website forms, direct email inboxes, WhatsApp Business channels, and incoming webhooks. Ingests inquiries with continuous redundancy so no incoming customer request goes unregistered.')}
-            </p>
-          </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {blocks.map((block) => {
+            const Icon = block.icon;
+            return (
+              <div
+                key={block.title}
+                className="rounded-2xl border border-[#E3E5E2] bg-white p-5"
+              >
+                <Icon className="w-4 h-4 text-[#0A3F4D]" />
+                <h4 className="text-sm font-extrabold tracking-tight mt-4">
+                  {block.title}
+                </h4>
+                <p className="text-xs leading-relaxed text-[#666] mt-2">
+                  {block.body}
+                </p>
+              </div>
+            );
+          })}
+        </div>
 
-          <div className="border border-[#0A0A0A]/15 bg-white p-5">
-            <h4 className="font-mono-code text-xs uppercase tracking-wider text-[#0A0A0A] font-bold mb-2 flex items-center">
-              <Activity className="w-4 h-4 mr-2 text-[#0A3F4D]" />
-              {tr('2. Evaluación de intención y prioridad comercial', '2. Intent & Commercial Priority Evaluation')}
-            </h4>
-            <p className="text-sm text-[#777777] leading-relaxed">
-              {tr('La IA ayuda a comprender qué quiere el cliente y qué tan listo está para avanzar. Las consultas se priorizan según criterios del negocio y se enrutan al siguiente paso adecuado.', 'AI understands what the customer wants and how ready they are to act. Inquiries are scored against your business criteria and routed into clear tracks: immediate executive alert, direct quote preparation, or polite qualification follow-up.')}
-            </p>
-          </div>
-
-          <div className="border border-[#0A0A0A]/15 bg-white p-5">
-            <h4 className="font-mono-code text-xs uppercase tracking-wider text-[#0A0A0A] font-bold mb-2 flex items-center">
-              <Shield className="w-4 h-4 mr-2 text-[#0A3F4D]" />
-              {tr('3. Respuestas fundamentadas y seguimiento automático', '3. Grounded Responses & Automatic Follow-Up Cadence')}
-            </h4>
-            <p className="text-sm text-[#777777] leading-relaxed">
-              {tr('Entrega respuestas basadas en información aprobada por tu empresa. Si un prospecto deja de responder, el sistema mantiene seguimientos para que la oportunidad no se pierda.', 'Delivers answers grounded in your company documentation and pricing bounds. If a prospect goes silent, the system executes polite follow-up touches over days and weeks to keep opportunities moving forward without burning rep time.')}
-            </p>
-          </div>
-
-          {/* Key System Attributes Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center pt-2">
-            <div className="p-3 bg-white border border-[#0A0A0A]/10 rounded-xl">
-              <span className="font-mono-code text-[10px] text-[#777777] block">Ingestion Latency</span>
-              <span className="font-mono-code text-sm font-bold text-[#0A0A0A]">Real-Time</span>
-            </div>
-            <div className="p-3 bg-white border border-[#0A0A0A]/10 rounded-xl">
-              <span className="font-mono-code text-[10px] text-[#777777] block">Pipeline Recovery</span>
-              <span className="font-mono-code text-xs font-bold text-[#0A3F4D]">Illustrative Recovery KPI</span>
-            </div>
-            <div className="p-3 bg-white border border-[#0A0A0A]/10 rounded-xl">
-              <span className="font-mono-code text-[10px] text-[#777777] block">Data Privacy</span>
-              <span className="font-mono-code text-sm font-bold text-[#0A0A0A]">Encrypted</span>
-            </div>
-            <div className="p-3 bg-white border border-[#0A0A0A]/10 rounded-xl">
-              <span className="font-mono-code text-[10px] text-[#777777] block">Compatibility</span>
-              <span className="font-mono-code text-sm font-bold text-[#0A0A0A]">Universal API</span>
-            </div>
-          </div>
-          <p className="font-mono-code text-[9px] text-[#777777] text-right">
-            *Illustrative target metric based on automated follow-up simulations.
+        <div className="mt-5 rounded-2xl border border-[#0A3F4D]/20 bg-[#F4F8F8] p-4">
+          <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#0A3F4D] font-bold">
+            {es ? 'ESTADO ACTUAL' : 'CURRENT STATE'}
+          </p>
+          <p className="text-xs leading-relaxed text-[#566461] mt-2">
+            {es
+              ? 'La demostración refleja funciones ya presentes en G-KAIS. Integraciones de canales como WhatsApp o Instagram se habilitan por separado cuando estén configuradas y activas.'
+              : 'The demo reflects capabilities already present in G-KAIS. Channel integrations such as WhatsApp or Instagram are enabled separately when configured and active.'}
           </p>
         </div>
 
-        <div className="mt-8 pt-6 border-t border-[#0A0A0A]/10 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="mt-7 pt-5 border-t border-[#E5E5E5] flex flex-col sm:flex-row items-center justify-between gap-3">
           <button
             onClick={() => {
               onClose();
               onOpenAudit();
             }}
-            id="modal-request-audit-leadflow-btn"
-            className="w-full sm:w-auto inline-flex items-center justify-center px-6 py-3 bg-[#0A0A0A] text-[#F7F7F5] font-semibold text-xs tracking-wider uppercase hover:bg-[#0A3F4D] transition-all"
+            className="w-full sm:w-auto inline-flex items-center justify-center rounded-xl px-5 py-3 bg-[#0A0A0A] text-white font-semibold text-xs tracking-wider uppercase hover:bg-[#0A3F4D]"
           >
-            <span>{tr('Solicitar auditoría para LeadFlow', 'Request System Audit for LeadFlow')}</span>
+            {es ? 'Evaluar mi negocio' : 'Assess my business'}
             <ArrowRight className="w-3.5 h-3.5 ml-2" />
           </button>
 
           <button
             onClick={onClose}
-            className="text-xs font-mono-code text-[#777777] hover:text-[#0A0A0A] uppercase"
+            className="text-xs font-mono-code text-[#777] hover:text-[#0A0A0A] uppercase"
           >
-            {tr('Cerrar resumen', 'Close Overview')}
+            {es ? 'Cerrar resumen' : 'Close overview'}
           </button>
         </div>
       </div>

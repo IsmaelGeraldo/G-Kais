@@ -1,5 +1,6 @@
 import type { User } from 'firebase/auth';
 import type { AdminLead } from '../types/admin';
+import type { BusinessKnowledge } from './businessKnowledge';
 
 export type LeadIntent = 'HIGH' | 'MEDIUM' | 'LOW';
 
@@ -15,7 +16,8 @@ export interface LeadIntelligenceBrief {
 export async function requestLeadIntelligence(
   lead: AdminLead,
   user: User,
-  language: 'es' | 'en'
+  language: 'es' | 'en',
+  businessKnowledge?: BusinessKnowledge
 ): Promise<LeadIntelligenceBrief> {
   const idToken = await user.getIdToken(true);
 
@@ -27,6 +29,18 @@ export async function requestLeadIntelligence(
     },
     body: JSON.stringify({
       language,
+      businessKnowledge: businessKnowledge
+        ? {
+            businessName: businessKnowledge.businessName,
+            businessDescription: businessKnowledge.businessDescription,
+            offers: businessKnowledge.offers,
+            idealCustomer: businessKnowledge.idealCustomer,
+            qualificationCriteria: businessKnowledge.qualificationCriteria,
+            faqObjections: businessKnowledge.faqObjections,
+            policies: businessKnowledge.policies,
+            tone: businessKnowledge.tone
+          }
+        : undefined,
       id: lead.id,
       name: lead.name,
       company: lead.company || '',

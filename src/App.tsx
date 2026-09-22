@@ -14,6 +14,7 @@ import { HumanControlSection } from './components/HumanControlSection.tsx';
 import { ProductsSection } from './components/ProductsSection.tsx';
 import { ExistingToolsSection } from './components/ExistingToolsSection.tsx';
 import { ProcessSection } from './components/ProcessSection.tsx';
+import { PilotSection } from './components/PilotSection.tsx';
 import { AuditCtaSection } from './components/AuditCtaSection.tsx';
 import { Footer } from './components/Footer.tsx';
 import { AuditModal } from './components/AuditModal.tsx';
@@ -85,7 +86,10 @@ function PublicApp({ onOpenAdmin }: { onOpenAdmin: () => void }) {
         {/* 10. Process ("From opportunity to operating system.") */}
         <ProcessSection />
 
-        {/* 11. Free Audit CTA & Form Section */}
+        {/* 11. Pilot with real opportunities */}
+        <PilotSection onOpenAudit={handleOpenAudit} />
+
+        {/* 12. Free Audit CTA & Form Section */}
         <AuditCtaSection onOpenAudit={handleOpenAudit} />
       </main>
 

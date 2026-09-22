@@ -65,8 +65,8 @@ export const Hero: React.FC<HeroProps> = ({ onOpenAudit }) => {
           </div>
           <p className="gk-hero-note">
             {es
-              ? "Auditoría gratuita · Implementación según tu negocio"
-              : "Free audit · Implementation tailored to your business"}
+              ? "Auditoría gratuita · Piloto con leads reales · Implementación según tu negocio"
+              : "Free audit · Pilot with real leads · Implementation tailored to your business"}
           </p>
           <div className="gk-channel-line">
             <Instagram size={16} aria-hidden="true" />

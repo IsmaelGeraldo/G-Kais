@@ -203,7 +203,7 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose }) => {
               <ul className="space-y-2 text-sm text-[#777777]">
                 <li className="flex items-start">
                   <span className="font-mono-code text-xs text-[#0A3F4D] mr-2 font-bold">1.</span>
-                  {tr('G-KAIS revisa tu flujo actual de leads y continúa con los próximos pasos.', 'G-KAIS reviews your current lead flow and follows up with next steps.')}
+                  {tr('G-KAIS revisa tu flujo actual de leads y determina si un piloto con casos reales puede ser un buen siguiente paso.', 'G-KAIS reviews your current lead flow and determines whether a pilot with real cases is a useful next step.')}
                 </li>
                 <li className="flex items-start">
                   <span className="font-mono-code text-xs text-[#0A3F4D] mr-2 font-bold">2.</span>
@@ -211,7 +211,7 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose }) => {
                 </li>
                 <li className="flex items-start">
                   <span className="font-mono-code text-xs text-[#0A3F4D] mr-2 font-bold">3.</span>
-                  {tr('Recibes un informe conciso de oportunidades y una arquitectura de sistema recomendada.', 'You receive a concise opportunity report and recommended system architecture.')}
+                  {tr('Recibes una recomendación concreta y, si hay encaje, podemos probar G-KAIS con una muestra de tus leads actuales.', 'You receive a concrete recommendation and, if there is a fit, we can test G-KAIS using a sample of your current leads.')}
                 </li>
               </ul>
             </div>
@@ -244,7 +244,7 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose }) => {
                 {tr('Solicita una auditoría gratuita de tu negocio', 'Request Free AI Business Audit')}
               </h3>
               <p className="text-sm text-[#777777] mt-2 leading-relaxed">
-                {tr('Encuentra dónde tu negocio está perdiendo oportunidades comerciales. Revisaremos tu flujo de leads y propondremos un sistema automatizado concreto.', "Find where your business is losing commercial opportunities. We'll examine your lead flow and propose a concrete automated system.")}
+                {tr('Encuentra dónde tu negocio está perdiendo oportunidades comerciales. Revisaremos tu flujo y definiremos qué conviene implementar o probar primero.', "Find where your business is losing commercial opportunities. We'll review your flow and define what is worth implementing or testing first.")}
               </p>
             </div>
 
@@ -268,7 +268,7 @@ export const AuditModal: React.FC<AuditModalProps> = ({ isOpen, onClose }) => {
                 </div>
                 <div className="flex items-start space-x-2.5">
                   <span className="font-mono-code text-[11px] text-[#0A3F4D] font-bold shrink-0">04</span>
-                  <span className="text-[#0A0A0A] font-medium">{tr('Primer sistema recomendado', 'Recommended first system')}</span>
+                  <span className="text-[#0A0A0A] font-medium">{tr('Siguiente paso: sistema o piloto', 'Next step: system or pilot')}</span>
                 </div>
               </div>
             </div>

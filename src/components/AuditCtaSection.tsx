@@ -96,11 +96,11 @@ export const AuditCtaSection: React.FC<AuditCtaSectionProps> = () => {
             </span>
 
             <h2 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-[-0.03em] leading-[1.08] text-white mb-8">
-              {tr('Encuentra 3 oportunidades de automatización en tu negocio.', 'Find 3 automation opportunities in your business.')}
+              {tr('Encuentra dónde se están perdiendo oportunidades y qué conviene probar primero.', 'Find where opportunities are being lost and what is worth testing first.')}
             </h2>
 
             <p className="text-lg sm:text-xl text-white/70 leading-relaxed font-normal mb-10 max-w-xl">
-              {tr('Revisaremos tu proceso comercial para detectar dónde la IA y la automatización pueden reducir fricción, recuperar oportunidades y mejorar la ejecución.', "We'll review your current commercial process and identify where AI and automation can remove friction, recover opportunities, and keep execution reliable.")}
+              {tr('Revisaremos tu proceso comercial para detectar fugas, definir el primer sistema útil y evaluar si tiene sentido probar G-KAIS con una muestra de tus leads actuales.', "We'll review your commercial process to identify leaks, define the first useful system and assess whether it makes sense to test G-KAIS with a sample of your current leads.")}
             </p>
 
             {/* WHAT YOU RECEIVE section */}
@@ -123,7 +123,7 @@ export const AuditCtaSection: React.FC<AuditCtaSectionProps> = () => {
                 </li>
                 <li className="flex items-start">
                   <span className="w-1.5 h-1.5 rounded-full bg-white mt-1.5 mr-3 shrink-0" />
-                  <span>{tr('4. Arquitectura recomendada para el primer sistema', '4. Recommended first system architecture')}</span>
+                  <span>{tr('4. Recomendación de siguiente paso: implementación o piloto con leads reales', '4. Recommended next step: implementation or pilot with real leads')}</span>
                 </li>
               </ul>
             </div>
@@ -159,7 +159,7 @@ export const AuditCtaSection: React.FC<AuditCtaSectionProps> = () => {
                     SUBMISSION ID: <span className="text-white font-bold">{submissionId}</span>
                   </p>
                   <p className="text-sm text-white/70 leading-relaxed max-w-sm mx-auto mb-8">
-                    {tr('G-KAIS revisa tu flujo actual de leads y continúa con los próximos pasos.', 'G-KAIS reviews your current lead flow and follows up with next steps.')}
+                    {tr('G-KAIS revisa tu flujo actual y, si existe buen encaje, definimos un piloto controlado con una muestra de tus leads.', 'G-KAIS reviews your current flow and, if there is a good fit, we define a controlled pilot using a sample of your leads.')}
                   </p>
                   <button
                     type="button"

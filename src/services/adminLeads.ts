@@ -240,10 +240,9 @@ export async function fetchAdminLeads(): Promise<AdminLead[]> {
   // records use Firestore Timestamp while current browser submissions use ISO
   // strings, so server-side orderBy(createdAt) would sort by Firestore type
   // before chronology.
-  const [auditSnapshot, contactSnapshot, importSnapshot] = await Promise.all([
+  const [auditSnapshot, contactSnapshot] = await Promise.all([
     getDocs(collection(firestoreDb, 'audit_submissions')),
-    getDocs(collection(firestoreDb, 'contact_submissions')),
-    getDocs(collection(firestoreDb, 'lead_imports'))
+    getDocs(collection(firestoreDb, 'contact_submissions'))
   ]);
 
   const audits = auditSnapshot.docs.map((document) =>
@@ -254,9 +253,18 @@ export async function fetchAdminLeads(): Promise<AdminLead[]> {
     normalizeContact(document.data(), document.id)
   );
 
-  const imports = importSnapshot.docs.map((document) =>
-    normalizeImport(document.data(), document.id)
-  );
+  let imports: AdminLead[] = [];
+  try {
+    const importSnapshot = await getDocs(collection(firestoreDb, 'lead_imports'));
+    imports = importSnapshot.docs.map((document) =>
+      normalizeImport(document.data(), document.id)
+    );
+  } catch (error) {
+    // Keep the existing CRM operational while the new lead_imports rules are
+    // being deployed. Import writes will still surface their own permission
+    // error until the admin publishes the updated Firestore rules.
+    console.warn('[LEAD IMPORT] Imported leads unavailable:', error);
+  }
 
   return [...audits, ...contacts, ...imports].sort((a, b) => {
     const aTime = Date.parse(a.createdAt) || 0;

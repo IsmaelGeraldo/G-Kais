@@ -239,7 +239,7 @@ const TASK_OUTCOME_OPTIONS: {
   {
     value: 'SALE_CLOSED',
     label: 'Sale closed',
-    description: 'Move the lead to Client and close the current task.'
+    description: 'Move the lead to Client and start onboarding as the next action.'
   },
   {
     value: 'NOT_INTERESTED',
@@ -325,8 +325,8 @@ function taskOutcomeDescription(value: TaskOutcome, language: 'es' | 'en'): stri
       en: 'Move to Follow-up and create a follow-up task for 48 hours from now.'
     },
     SALE_CLOSED: {
-      es: 'Mueve el lead a Cliente y cierra la tarea actual.',
-      en: 'Move the lead to Client and close the current task.'
+      es: 'Mueve el lead a Cliente e inicia automáticamente el onboarding como próxima acción.',
+      en: 'Move the lead to Client and automatically start onboarding as the next action.'
     },
     NOT_INTERESTED: {
       es: 'Mueve el lead a Perdido y cierra la tarea actual.',
@@ -334,6 +334,33 @@ function taskOutcomeDescription(value: TaskOutcome, language: 'es' | 'en'): stri
     }
   };
   return descriptions[value][language];
+}
+
+type ClientJourneyStage = 'ONBOARDING' | 'ACTIVE' | 'RENEWAL' | 'ATTENTION';
+
+function getClientJourneyStage(lead: AdminLead): ClientJourneyStage | null {
+  if (lead.status !== 'CLIENT') return null;
+
+  const bucket = getFollowUpBucket(lead);
+  if (bucket === 'OVERDUE' || !lead.nextAction) return 'ATTENTION';
+  if (lead.nextAction === 'Send onboarding') return 'ONBOARDING';
+  if (lead.nextAction === 'Renewal follow-up') return 'RENEWAL';
+  if (lead.nextAction === 'Client check-in' || lead.nextAction === 'Follow up') {
+    return 'ACTIVE';
+  }
+
+  return 'ACTIVE';
+}
+
+function clientJourneyLabel(stage: ClientJourneyStage, language: 'es' | 'en'): string {
+  const labels: Record<ClientJourneyStage, { es: string; en: string }> = {
+    ONBOARDING: { es: 'Onboarding', en: 'Onboarding' },
+    ACTIVE: { es: 'Cliente activo', en: 'Active client' },
+    RENEWAL: { es: 'Renovación', en: 'Renewal' },
+    ATTENTION: { es: 'Requiere atención', en: 'Needs attention' }
+  };
+
+  return labels[stage][language];
 }
 
 type WorkPriority = {
@@ -1377,6 +1404,12 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
     } finally {
       setSavingNote(false);
     }
+  };
+
+  const prepareClientJourney = (playbookId: string) => {
+    applyQuickPlaybook(playbookId);
+    setLeadDetailOpen(false);
+    setCrmPanelOpen(true);
   };
 
   const handleSave = async () => {
@@ -2780,6 +2813,130 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                     <p className="text-sm leading-relaxed">
                       {selectedLead.inquiryNotes || selectedLead.message || tr('Sin contexto adicional.', 'No additional context.')}
                     </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-[#E5E5E5] bg-white p-5">
+                    <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+                      <div>
+                        <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#0A3F4D] font-bold">
+                          {tr('Customer Journey', 'Customer Journey')}
+                        </p>
+                        <p className="text-[10px] text-[#777] mt-1">
+                          {selectedLead.status === 'CLIENT'
+                            ? tr(
+                                'La venta no termina el recorrido. Define qué debe ocurrir después con este cliente.',
+                                'The sale does not end the journey. Define what should happen next for this client.'
+                              )
+                            : tr(
+                                'Se activa cuando la oportunidad se convierte en cliente.',
+                                'Activates when the opportunity becomes a client.'
+                              )}
+                        </p>
+                      </div>
+
+                      {selectedLead.status === 'CLIENT' && getClientJourneyStage(selectedLead) && (
+                        <span
+                          className={`font-mono-code text-[8px] px-2.5 py-1 rounded-full border ${
+                            getClientJourneyStage(selectedLead) === 'ATTENTION'
+                              ? 'border-red-200 bg-red-50 text-red-700'
+                              : 'border-[#0A3F4D]/25 bg-[#F4F8F8] text-[#0A3F4D]'
+                          }`}
+                        >
+                          {clientJourneyLabel(getClientJourneyStage(selectedLead)!, language)}
+                        </span>
+                      )}
+                    </div>
+
+                    {selectedLead.status === 'CLIENT' ? (
+                      <>
+                        <div className="grid grid-cols-3 gap-2 mb-4">
+                          {[
+                            ['ONBOARDING', tr('Onboarding', 'Onboarding')],
+                            ['ACTIVE', tr('Activo', 'Active')],
+                            ['RENEWAL', tr('Renovación', 'Renewal')]
+                          ].map(([stage, label]) => {
+                            const current = getClientJourneyStage(selectedLead);
+                            const active =
+                              current === stage ||
+                              (current === 'ATTENTION' &&
+                                ((stage === 'ONBOARDING' && selectedLead.nextAction === 'Send onboarding') ||
+                                  (stage === 'RENEWAL' && selectedLead.nextAction === 'Renewal follow-up') ||
+                                  stage === 'ACTIVE'));
+
+                            return (
+                              <div
+                                key={stage}
+                                className={`rounded-xl border px-3 py-3 text-center ${
+                                  active
+                                    ? 'border-[#0A3F4D] bg-[#F4F8F8] text-[#0A3F4D]'
+                                    : 'border-[#E5E5E5] bg-[#FAFAFA] text-[#8A8A8A]'
+                                }`}
+                              >
+                                <p className="font-mono-code text-[8px] uppercase tracking-wider">
+                                  {label}
+                                </p>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        <div className="rounded-xl border border-[#E5E5E5] bg-[#FAFAFA] p-3.5">
+                          <div className="flex justify-between gap-4 text-[11px]">
+                            <span className="text-[#777]">{tr('Próxima acción', 'Next action')}</span>
+                            <strong className="text-right">
+                              {selectedLead.nextAction
+                                ? nextActionLabel(selectedLead.nextAction, language)
+                                : tr('Sin próxima acción', 'No next action')}
+                            </strong>
+                          </div>
+                          <div className="flex justify-between gap-4 text-[11px] mt-2">
+                            <span className="text-[#777]">{tr('Seguimiento', 'Follow-up')}</span>
+                            <strong className="text-right">
+                              {selectedLead.followUpAt
+                                ? formatDate(selectedLead.followUpAt)
+                                : tr('Sin programar', 'Unscheduled')}
+                            </strong>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3">
+                          <button
+                            type="button"
+                            onClick={() => prepareClientJourney('expert-client-onboarding')}
+                            className="rounded-xl border border-[#D8D8D8] bg-white px-3 py-2.5 text-[9px] font-semibold uppercase tracking-wider hover:bg-[#F7F7F5]"
+                          >
+                            {tr('Onboarding', 'Onboarding')}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => prepareClientJourney('expert-client-checkin')}
+                            className="rounded-xl border border-[#D8D8D8] bg-white px-3 py-2.5 text-[9px] font-semibold uppercase tracking-wider hover:bg-[#F7F7F5]"
+                          >
+                            {tr('Seguimiento', 'Check-in')}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => prepareClientJourney('expert-renewal')}
+                            className="rounded-xl border border-[#D8D8D8] bg-white px-3 py-2.5 text-[9px] font-semibold uppercase tracking-wider hover:bg-[#F7F7F5]"
+                          >
+                            {tr('Renovación', 'Renewal')}
+                          </button>
+                        </div>
+                        <p className="text-[9px] text-[#8A8A8A] mt-2">
+                          {tr(
+                            'Elige una etapa para preparar la próxima acción; podrás revisarla antes de guardar en CRM.',
+                            'Choose a stage to prepare the next action; you can review it before saving in CRM.'
+                          )}
+                        </p>
+                      </>
+                    ) : (
+                      <div className="rounded-xl border border-dashed border-[#D8D8D8] bg-[#FAFAFA] p-4 text-xs text-[#777]">
+                        {tr(
+                          'Cuando registres una Venta cerrada, G-KAIS moverá la oportunidad a Cliente e iniciará Onboarding automáticamente.',
+                          'When you record a Sale closed, G-KAIS will move the opportunity to Client and automatically start Onboarding.'
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   <div className="rounded-2xl border border-[#E5E5E5] bg-white p-5">

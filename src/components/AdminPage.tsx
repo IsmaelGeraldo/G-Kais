@@ -576,6 +576,89 @@ function makeDraft(lead: AdminLead | null): LeadOperationsUpdate {
   };
 }
 
+type QualificationFieldKey =
+  | 'businessType'
+  | 'primaryService'
+  | 'digitalPresence'
+  | 'acquisitionChannel'
+  | 'leadVolume'
+  | 'currentCrm'
+  | 'primaryProblem'
+  | 'currentSolution'
+  | 'businessGoal';
+
+const LEAD_QUALIFICATION_FIELDS: Array<{
+  key: QualificationFieldKey;
+  labelEs: string;
+  labelEn: string;
+  questionEs: string;
+  questionEn: string;
+}> = [
+  {
+    key: 'businessType',
+    labelEs: 'Tipo de negocio',
+    labelEn: 'Business type',
+    questionEs: '¿Qué tipo de negocio tienen y cómo generan ingresos principalmente?',
+    questionEn: 'What type of business do you run and how do you mainly generate revenue?'
+  },
+  {
+    key: 'primaryService',
+    labelEs: 'Servicio principal',
+    labelEn: 'Primary service',
+    questionEs: '¿Cuál es el servicio u oferta que más les interesa vender o potenciar?',
+    questionEn: 'Which service or offer are you most interested in selling or growing?'
+  },
+  {
+    key: 'digitalPresence',
+    labelEs: 'Presencia digital',
+    labelEn: 'Digital presence',
+    questionEs: '¿Hoy tienen página web o trabajan principalmente por redes sociales y WhatsApp?',
+    questionEn: 'Do you currently have a website, or do you operate mainly through social media and WhatsApp?'
+  },
+  {
+    key: 'acquisitionChannel',
+    labelEs: 'Canal de captación',
+    labelEn: 'Acquisition channel',
+    questionEs: '¿De dónde llegan hoy la mayoría de sus consultas o leads?',
+    questionEn: 'Where do most of your inquiries or leads come from today?'
+  },
+  {
+    key: 'leadVolume',
+    labelEs: 'Volumen de leads',
+    labelEn: 'Lead volume',
+    questionEs: 'Aproximadamente, ¿cuántas consultas o leads reciben por semana o por mes?',
+    questionEn: 'Approximately how many inquiries or leads do you receive per week or month?'
+  },
+  {
+    key: 'currentCrm',
+    labelEs: 'CRM / sistema actual',
+    labelEn: 'Current CRM / system',
+    questionEs: '¿Dónde registran y organizan hoy los leads: CRM, Excel, WhatsApp u otro sistema?',
+    questionEn: 'Where do you currently record and organize leads: CRM, Excel, WhatsApp or another system?'
+  },
+  {
+    key: 'primaryProblem',
+    labelEs: 'Problema principal',
+    labelEn: 'Primary problem',
+    questionEs: '¿Cuál es hoy el principal problema en su proceso comercial o de seguimiento?',
+    questionEn: 'What is the main problem in your sales or follow-up process today?'
+  },
+  {
+    key: 'currentSolution',
+    labelEs: 'Solución actual',
+    labelEn: 'Current solution',
+    questionEs: '¿Qué están haciendo actualmente para intentar resolver ese problema?',
+    questionEn: 'What are you currently doing to try to solve that problem?'
+  },
+  {
+    key: 'businessGoal',
+    labelEs: 'Objetivo',
+    labelEn: 'Goal',
+    questionEs: 'Si pudiéramos mejorar una sola cosa en este proceso, ¿qué resultado les gustaría conseguir?',
+    questionEn: 'If we could improve one thing in this process, what result would you most like to achieve?'
+  }
+];
+
 type AdminAlert = {
   id: string;
   leadId: string;
@@ -871,6 +954,16 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
     leads.find((lead) => lead.id === selectedId) ||
     filteredLeads[0] ||
     null;
+
+  const qualificationKnownFields = LEAD_QUALIFICATION_FIELDS.filter(
+    ({ key }) => Boolean(String(draft[key] || '').trim())
+  );
+  const qualificationMissingFields = LEAD_QUALIFICATION_FIELDS.filter(
+    ({ key }) => !String(draft[key] || '').trim()
+  );
+  const qualificationPercent = Math.round(
+    (qualificationKnownFields.length / LEAD_QUALIFICATION_FIELDS.length) * 100
+  );
 
   useEffect(() => {
     setDraft(makeDraft(selectedLead));
@@ -3558,6 +3651,103 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                     <span className="font-mono-code text-[8px] rounded-full border border-[#0A3F4D]/20 bg-[#F4F8F8] px-2.5 py-1 text-[#0A3F4D]">
                       {tr('Contexto para AI Brief', 'AI Brief context')}
                     </span>
+                  </div>
+
+                  <div className="mb-5 rounded-2xl border border-[#D8E3E5] bg-[#F4F8F8] p-4 sm:p-5">
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                      <div>
+                        <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#0A3F4D] font-bold">
+                          {tr('Calificación progresiva', 'Progressive qualification')}
+                        </p>
+                        <p className="text-xs text-[#657477] mt-1">
+                          {tr(
+                            'G-KAIS te muestra qué contexto ya conocemos y qué conviene descubrir durante la conversación.',
+                            'G-KAIS shows what context is already known and what is useful to discover during the conversation.'
+                          )}
+                        </p>
+                      </div>
+
+                      <div className="text-right">
+                        <p className="text-lg font-extrabold tracking-tight text-[#0A3F4D]">
+                          {qualificationKnownFields.length}/{LEAD_QUALIFICATION_FIELDS.length}
+                        </p>
+                        <p className="font-mono-code text-[8px] uppercase tracking-wider text-[#657477]">
+                          {tr('Contexto conocido', 'Known context')}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-white border border-[#D8E3E5]">
+                      <div
+                        className="h-full rounded-full bg-[#0A3F4D] transition-[width] duration-300"
+                        style={{ width: `${qualificationPercent}%` }}
+                      />
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-1 lg:grid-cols-12 gap-4">
+                      <div className="lg:col-span-5">
+                        <p className="font-mono-code text-[8px] uppercase tracking-wider text-[#777] mb-2">
+                          {tr('Ya conocemos', 'Already known')}
+                        </p>
+                        {qualificationKnownFields.length > 0 ? (
+                          <div className="flex flex-wrap gap-2">
+                            {qualificationKnownFields.map((field) => (
+                              <span
+                                key={field.key}
+                                className="rounded-full border border-[#0A3F4D]/20 bg-white px-2.5 py-1 text-[10px] font-semibold text-[#0A3F4D]"
+                              >
+                                {language === 'es' ? field.labelEs : field.labelEn}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-[#777]">
+                            {tr(
+                              'Todavía no hay contexto estructurado suficiente.',
+                              'There is not enough structured context yet.'
+                            )}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="lg:col-span-7">
+                        <p className="font-mono-code text-[8px] uppercase tracking-wider text-[#777] mb-2">
+                          {tr('Qué conviene descubrir ahora', 'What to discover next')}
+                        </p>
+                        {qualificationMissingFields.length > 0 ? (
+                          <div className="space-y-2">
+                            {qualificationMissingFields.slice(0, 3).map((field, index) => (
+                              <div
+                                key={field.key}
+                                className="rounded-xl border border-[#E5E5E5] bg-white px-3 py-2.5"
+                              >
+                                <p className="text-[10px] font-semibold text-[#0A3F4D]">
+                                  {index + 1}. {language === 'es' ? field.labelEs : field.labelEn}
+                                </p>
+                                <p className="text-xs leading-relaxed text-[#5F5F5F] mt-1">
+                                  “{language === 'es' ? field.questionEs : field.questionEn}”
+                                </p>
+                              </div>
+                            ))}
+                            {qualificationMissingFields.length > 3 && (
+                              <p className="text-[10px] text-[#777]">
+                                + {qualificationMissingFields.length - 3}{' '}
+                                {tr('datos adicionales por completar.', 'additional fields still to complete.')}
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="rounded-xl border border-[#0A3F4D]/20 bg-white px-3 py-3">
+                            <p className="text-xs font-semibold text-[#0A3F4D]">
+                              {tr(
+                                'Perfil base completo. Usa el AI Brief para profundizar en objeciones, urgencia y decisión.',
+                                'Base profile complete. Use AI Brief to go deeper into objections, urgency and decision-making.'
+                              )}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

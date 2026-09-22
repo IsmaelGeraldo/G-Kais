@@ -148,6 +148,7 @@ function normalizeContact(data: any, documentId: string): AdminLead {
     source: 'CONTACT',
     name: String(data.name || 'Unknown'),
     email: String(data.email || ''),
+    website: data.website ? String(data.website) : undefined,
     message: data.message ? String(data.message) : undefined,
     status: normalizeStatus(data.status),
     notificationStatus: String(data.notificationStatus || 'PENDING'),

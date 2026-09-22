@@ -139,6 +139,7 @@ function normalizeAudit(data: any, documentId: string): AdminLead {
     name: String(data.name || 'Unknown'),
     company: data.company ? String(data.company) : undefined,
     email: String(data.email || ''),
+    phone: optionalString(data.phone),
     contactChannel: data.contactChannel ? String(data.contactChannel) : undefined,
     website: data.website ? String(data.website) : undefined,
     businessType: optionalString(data.businessType),
@@ -170,6 +171,7 @@ function normalizeContact(data: any, documentId: string): AdminLead {
     source: 'CONTACT',
     name: String(data.name || 'Unknown'),
     email: String(data.email || ''),
+    phone: optionalString(data.phone),
     website: data.website ? String(data.website) : undefined,
     businessType: optionalString(data.businessType),
     primaryService: optionalString(data.primaryService),
@@ -194,6 +196,45 @@ function normalizeContact(data: any, documentId: string): AdminLead {
   };
 }
 
+function normalizeImport(data: any, documentId: string): AdminLead {
+  return {
+    id: String(data.id || documentId),
+    source: 'IMPORT',
+    name: String(data.name || 'Unknown'),
+    company: optionalString(data.company),
+    email: String(data.email || ''),
+    phone: optionalString(data.phone),
+    contactChannel: optionalString(data.contactChannel),
+    website: optionalString(data.website),
+    businessType: optionalString(data.businessType),
+    primaryService: optionalString(data.primaryService),
+    digitalPresence: optionalString(data.digitalPresence),
+    acquisitionChannel: optionalString(data.acquisitionChannel),
+    leadVolume: optionalString(data.leadVolume),
+    currentCrm: optionalString(data.currentCrm),
+    primaryProblem: optionalString(data.primaryProblem),
+    currentSolution: optionalString(data.currentSolution),
+    businessGoal: optionalString(data.businessGoal),
+    inquiryNotes: optionalString(data.inquiryNotes),
+    status: normalizeStatus(data.status),
+    notificationStatus: String(data.notificationStatus || 'IMPORTED'),
+    createdAt: normalizeCreatedAt(data.createdAt),
+    updatedAt: normalizeCreatedAt(data.updatedAt),
+    assignedTo: optionalString(data.assignedTo),
+    nextAction: optionalString(data.nextAction),
+    followUpAt: normalizeCreatedAt(data.followUpAt) || undefined,
+    internalNotes: optionalString(data.internalNotes),
+    leadNotes: normalizeLeadNotes(data.leadNotes),
+    activityLog: normalizeActivityLog(data.activityLog)
+  };
+}
+
+function leadCollectionName(lead: AdminLead): string {
+  if (lead.source === 'AUDIT') return 'audit_submissions';
+  if (lead.source === 'CONTACT') return 'contact_submissions';
+  return 'lead_imports';
+}
+
 export async function fetchAdminLeads(): Promise<AdminLead[]> {
   // Fetch each intake collection and sort after normalizing dates. Historical
   // records use Firestore Timestamp while current browser submissions use ISO
@@ -212,7 +253,20 @@ export async function fetchAdminLeads(): Promise<AdminLead[]> {
     normalizeContact(document.data(), document.id)
   );
 
-  return [...audits, ...contacts].sort((a, b) => {
+  let imports: AdminLead[] = [];
+  try {
+    const importSnapshot = await getDocs(collection(firestoreDb, 'lead_imports'));
+    imports = importSnapshot.docs.map((document) =>
+      normalizeImport(document.data(), document.id)
+    );
+  } catch (error) {
+    // Keep the existing CRM operational while the new lead_imports rules are
+    // being deployed. Import writes will still surface their own permission
+    // error until the admin publishes the updated Firestore rules.
+    console.warn('[LEAD IMPORT] Imported leads unavailable:', error);
+  }
+
+  return [...audits, ...contacts, ...imports].sort((a, b) => {
     const aTime = Date.parse(a.createdAt) || 0;
     const bTime = Date.parse(b.createdAt) || 0;
     return bTime - aTime;
@@ -251,8 +305,7 @@ export async function updateLeadWebsite(
     throw new Error('Website cannot exceed 250 characters.');
   }
 
-  const collectionName =
-    lead.source === 'AUDIT' ? 'audit_submissions' : 'contact_submissions';
+  const collectionName = leadCollectionName(lead);
 
   await updateDoc(doc(firestoreDb, collectionName, lead.id), {
     ...operationalDefaults(lead),
@@ -297,8 +350,7 @@ export async function updateLeadNote(
   };
 
   const activityLog = [...(lead.activityLog || []), activity].slice(-20);
-  const collectionName =
-    lead.source === 'AUDIT' ? 'audit_submissions' : 'contact_submissions';
+  const collectionName = leadCollectionName(lead);
 
   await updateDoc(doc(firestoreDb, collectionName, lead.id), {
     ...operationalDefaults(lead),
@@ -331,8 +383,7 @@ export async function deleteLeadNote(
   };
 
   const activityLog = [...(lead.activityLog || []), activity].slice(-20);
-  const collectionName =
-    lead.source === 'AUDIT' ? 'audit_submissions' : 'contact_submissions';
+  const collectionName = leadCollectionName(lead);
 
   await updateDoc(doc(firestoreDb, collectionName, lead.id), {
     ...operationalDefaults(lead),
@@ -345,8 +396,7 @@ export async function deleteLeadNote(
 }
 
 export async function deleteLead(lead: AdminLead): Promise<void> {
-  const collectionName =
-    lead.source === 'AUDIT' ? 'audit_submissions' : 'contact_submissions';
+  const collectionName = leadCollectionName(lead);
 
   await deleteDoc(doc(firestoreDb, collectionName, lead.id));
 }
@@ -377,8 +427,7 @@ export async function addLeadNote(
     createdAt: new Date().toISOString()
   };
 
-  const collectionName =
-    lead.source === 'AUDIT' ? 'audit_submissions' : 'contact_submissions';
+  const collectionName = leadCollectionName(lead);
 
   await updateDoc(doc(firestoreDb, collectionName, lead.id), {
     status: lead.status,
@@ -457,8 +506,7 @@ export async function updateLeadOperations(
     throw new Error('Follow-up date is invalid.');
   }
 
-  const collectionName =
-    lead.source === 'AUDIT' ? 'audit_submissions' : 'contact_submissions';
+  const collectionName = leadCollectionName(lead);
 
   const activity: LeadActivity = {
     at: new Date().toISOString(),
@@ -560,8 +608,7 @@ export async function completeLeadAction(
   actorLabel: string,
   outcome: TaskOutcome
 ): Promise<LeadActionCompletion> {
-  const collectionName =
-    lead.source === 'AUDIT' ? 'audit_submissions' : 'contact_submissions';
+  const collectionName = leadCollectionName(lead);
 
   const completedLabel = (lead.nextAction?.trim() || 'Scheduled follow-up').slice(0, 220);
   const playbook = outcomePlaybook(lead, outcome);
@@ -601,8 +648,7 @@ export async function rescheduleLeadAction(
   actorLabel: string,
   hoursFromNow: number
 ): Promise<LeadActionCompletion> {
-  const collectionName =
-    lead.source === 'AUDIT' ? 'audit_submissions' : 'contact_submissions';
+  const collectionName = leadCollectionName(lead);
 
   const nextAction = lead.nextAction?.trim() || 'Follow up';
   const followUpAt = addHours(hoursFromNow);

@@ -48,6 +48,7 @@ export async function requestLeadIntelligence(
       name: lead.name,
       company: lead.company || '',
       email: lead.email || '',
+      phone: lead.phone || '',
       website: lead.website || '',
       businessType: lead.businessType || '',
       primaryService: lead.primaryService || '',

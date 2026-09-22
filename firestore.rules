@@ -51,6 +51,55 @@ service cloud.firestore {
         data.createdAt is string && data.createdAt.size() <= 40;
     }
 
+    function validImportedLead(data, leadId) {
+      return data.keys().hasAll([
+          'id', 'name', 'email', 'phone', 'status', 'createdAt',
+          'updatedAt', 'notificationStatus', 'assignedTo', 'nextAction',
+          'followUpAt', 'internalNotes', 'leadNotes', 'activityLog',
+          'importedBy', 'importBatchId'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'name', 'company', 'email', 'phone', 'website', 'contactChannel',
+          'businessType', 'primaryService', 'digitalPresence', 'acquisitionChannel',
+          'leadVolume', 'currentCrm', 'primaryProblem', 'currentSolution',
+          'businessGoal', 'inquiryNotes', 'status', 'createdAt', 'updatedAt',
+          'notificationStatus', 'assignedTo', 'nextAction', 'followUpAt',
+          'internalNotes', 'leadNotes', 'activityLog', 'importedBy', 'importBatchId'
+        ]) &&
+        data.id is string &&
+        data.id == leadId &&
+        data.id.matches('^GK-IMP-[A-Z0-9-]+') &&
+        data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+        data.email is string && data.email.size() <= 254 &&
+        data.phone is string && data.phone.size() <= 40 &&
+        (data.email.size() > 0 || data.phone.size() > 0) &&
+        (!('company' in data) || (data.company is string && data.company.size() <= 150)) &&
+        (!('website' in data) || (data.website is string && data.website.size() <= 250)) &&
+        (!('contactChannel' in data) || (data.contactChannel is string && data.contactChannel.size() <= 80)) &&
+        (!('businessType' in data) || (data.businessType is string && data.businessType.size() <= 160)) &&
+        (!('primaryService' in data) || (data.primaryService is string && data.primaryService.size() <= 300)) &&
+        (!('digitalPresence' in data) || (data.digitalPresence is string && data.digitalPresence.size() <= 500)) &&
+        (!('acquisitionChannel' in data) || (data.acquisitionChannel is string && data.acquisitionChannel.size() <= 300)) &&
+        (!('leadVolume' in data) || (data.leadVolume is string && data.leadVolume.size() <= 160)) &&
+        (!('currentCrm' in data) || (data.currentCrm is string && data.currentCrm.size() <= 200)) &&
+        (!('primaryProblem' in data) || (data.primaryProblem is string && data.primaryProblem.size() <= 1200)) &&
+        (!('currentSolution' in data) || (data.currentSolution is string && data.currentSolution.size() <= 1200)) &&
+        (!('businessGoal' in data) || (data.businessGoal is string && data.businessGoal.size() <= 1200)) &&
+        (!('inquiryNotes' in data) || (data.inquiryNotes is string && data.inquiryNotes.size() <= 2000)) &&
+        data.status == 'NEW' &&
+        data.notificationStatus == 'IMPORTED' &&
+        data.createdAt is string && data.createdAt.size() <= 40 &&
+        data.updatedAt is string && data.updatedAt.size() <= 40 &&
+        data.assignedTo is string && data.assignedTo.size() <= 100 &&
+        data.nextAction is string && data.nextAction.size() <= 240 &&
+        data.followUpAt is string && data.followUpAt.size() <= 40 &&
+        data.internalNotes is string && data.internalNotes.size() <= 3000 &&
+        data.leadNotes is list && data.leadNotes.size() <= 50 &&
+        data.activityLog is list && data.activityLog.size() <= 20 &&
+        data.importedBy is string && data.importedBy.size() <= 120 &&
+        data.importBatchId is string && data.importBatchId.size() <= 80;
+    }
+
     function validOperationalUpdate() {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'status', 'website', 'businessType', 'primaryService', 'digitalPresence',

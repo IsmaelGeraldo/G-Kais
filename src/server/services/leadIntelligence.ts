@@ -20,6 +20,7 @@ export interface LeadIntelligenceInput {
   name: string;
   company?: string;
   email?: string;
+  phone?: string;
   website?: string;
   businessType?: string;
   primaryService?: string;
@@ -142,6 +143,7 @@ export function sanitizeLeadIntelligenceInput(
     name,
     ...(cleanText(data.company, 180) ? { company: cleanText(data.company, 180) } : {}),
     ...(cleanText(data.email, 320) ? { email: cleanText(data.email, 320) } : {}),
+    ...(cleanText(data.phone, 60) ? { phone: cleanText(data.phone, 60) } : {}),
     ...(cleanText(data.website, 300) ? { website: cleanText(data.website, 300) } : {}),
     ...(cleanText(data.businessType, 160)
       ? { businessType: cleanText(data.businessType, 160) }

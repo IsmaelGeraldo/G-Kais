@@ -1,5 +1,5 @@
 import React from "react";
-import { ArrowRight, Play, MessageCircle, Instagram } from "lucide-react";
+import { ArrowRight, Play, Sparkles, Target } from "lucide-react";
 import { HeroSystemVisual } from "./HeroSystemVisual";
 import { useLanguage } from "../i18n/LanguageContext";
 import "./hero-conversations.css";
@@ -30,18 +30,18 @@ export const Hero: React.FC<HeroProps> = ({ onOpenAudit }) => {
           <p className="gk-eyebrow">
             <span /> G-KAIS /{" "}
             {es
-              ? "CONVERSACIONES QUE AVANZAN"
-              : "CONVERSATIONS THAT MOVE FORWARD"}
+              ? "OPORTUNIDADES QUE SABEN QUÉ PASA DESPUÉS"
+              : "OPPORTUNITIES THAT KNOW WHAT HAPPENS NEXT"}
           </p>
           <h1 id="gk-hero-title">
-            {es ? "Cada conversación," : "Every conversation,"}
+            {es ? "Cada oportunidad," : "Every opportunity,"}
             <br />
-            <span>{es ? "una oportunidad." : "an opportunity."}</span>
+            <span>{es ? "un siguiente paso." : "a clear next step."}</span>
           </h1>
           <p className="gk-hero-description">
             {es
-              ? "Convierte el interés de Instagram y WhatsApp en el siguiente paso: una respuesta, una reserva o una venta. Diseñamos el sistema y tu equipo mantiene el control."
-              : "Turn interest on Instagram and WhatsApp into the next step: a reply, a booking or a sale. We design the system. Your team stays in control."}
+              ? "G-KAIS convierte conversaciones y leads en contexto, prioridad y próximas acciones. Tu equipo entiende qué está pasando, qué falta saber y qué debería ocurrir después."
+              : "G-KAIS turns conversations and leads into context, priority and next actions. Your team understands what is happening, what is still unknown and what should happen next."}
           </p>
           <div className="gk-hero-actions">
             <button
@@ -60,7 +60,7 @@ export const Hero: React.FC<HeroProps> = ({ onOpenAudit }) => {
               className="gk-secondary"
             >
               <Play size={15} aria-hidden="true" />
-              {es ? "Ver en 10 segundos" : "See it in 10 seconds"}
+              {es ? "Ver cómo funciona" : "See how it works"}
             </button>
           </div>
           <p className="gk-hero-note">
@@ -69,13 +69,13 @@ export const Hero: React.FC<HeroProps> = ({ onOpenAudit }) => {
               : "Free audit · Pilot with real leads · Implementation tailored to your business"}
           </p>
           <div className="gk-channel-line">
-            <Instagram size={16} aria-hidden="true" />
-            <span>Instagram</span>
+            <Target size={15} aria-hidden="true" />
+            <span>{es ? "Prioridad" : "Priority"}</span>
             <span className="gk-channel-divider" />
-            <MessageCircle size={16} aria-hidden="true" />
-            <span>WhatsApp</span>
+            <Sparkles size={15} aria-hidden="true" />
+            <span>AI Brief</span>
             <span className="gk-channel-divider" />
-            <span>{es ? "Tu equipo" : "Your team"}</span>
+            <span>{es ? "Próxima acción clara" : "Clear next action"}</span>
           </div>
         </div>
         <HeroSystemVisual />
@@ -83,12 +83,12 @@ export const Hero: React.FC<HeroProps> = ({ onOpenAudit }) => {
       <div className="gk-hero-foot">
         <span>
           01 /{" "}
-          {es ? "DEL MENSAJE AL SIGUIENTE PASO" : "FROM MESSAGE TO NEXT STEP"}
+          {es ? "DE LA SEÑAL A LA DECISIÓN" : "FROM SIGNAL TO DECISION"}
         </span>
         <p>
           {es
-            ? "Responde. Organiza. Da seguimiento."
-            : "Respond. Organize. Follow up."}
+            ? "Entiende. Prioriza. Actúa."
+            : "Understand. Prioritize. Act."}
         </p>
         <span>{es ? "IA + CONTROL HUMANO" : "AI + HUMAN CONTROL"}</span>
       </div>

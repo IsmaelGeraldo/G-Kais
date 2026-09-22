@@ -796,6 +796,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
   const [focusMode, setFocusMode] = useState(false);
   const [crmPanelOpen, setCrmPanelOpen] = useState(false);
   const [leadDetailOpen, setLeadDetailOpen] = useState(false);
+  const [qualificationOpen, setQualificationOpen] = useState(false);
   const [noteTitle, setNoteTitle] = useState('');
   const [noteBody, setNoteBody] = useState('');
   const [savingNote, setSavingNote] = useState(false);
@@ -977,6 +978,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
     setExpandedNoteId(null);
     setWebsiteSaveStatus('idle');
     setLeadBriefError(null);
+    setQualificationOpen(false);
   }, [selectedLead?.id]);
 
   useEffect(() => {
@@ -3653,101 +3655,121 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                     </span>
                   </div>
 
-                  <div className="mb-5 rounded-2xl border border-[#D8E3E5] bg-[#F4F8F8] p-4 sm:p-5">
-                    <div className="flex flex-wrap items-start justify-between gap-4">
-                      <div>
-                        <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#0A3F4D] font-bold">
-                          {tr('Calificación progresiva', 'Progressive qualification')}
-                        </p>
-                        <p className="text-xs text-[#657477] mt-1">
+                  <div className="mb-5 overflow-hidden rounded-2xl border border-[#D8E3E5] bg-[#F4F8F8]">
+                    <button
+                      type="button"
+                      onClick={() => setQualificationOpen((current) => !current)}
+                      className="w-full px-4 sm:px-5 py-3.5 flex items-center gap-4 text-left hover:bg-white/40 transition-colors"
+                      aria-expanded={qualificationOpen}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                          <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#0A3F4D] font-bold">
+                            {tr('Calificación', 'Qualification')} {qualificationKnownFields.length}/{LEAD_QUALIFICATION_FIELDS.length}
+                          </p>
+                          <span className="text-[10px] text-[#657477]">
+                            {qualificationPercent}% · {tr('contexto conocido', 'known context')}
+                          </span>
+                        </div>
+
+                        <div className="mt-2 h-1.5 w-full max-w-sm overflow-hidden rounded-full bg-white border border-[#D8E3E5]">
+                          <div
+                            className="h-full rounded-full bg-[#0A3F4D] transition-[width] duration-300"
+                            style={{ width: `${qualificationPercent}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex shrink-0 items-center gap-2 text-[#0A3F4D]">
+                        <span className="hidden sm:inline text-[10px] font-semibold">
+                          {qualificationOpen
+                            ? tr('Ocultar', 'Hide')
+                            : tr('Ver detalle', 'View details')}
+                        </span>
+                        <ChevronRight
+                          className={
+                            'w-4 h-4 transition-transform ' +
+                            (qualificationOpen ? 'rotate-90' : '')
+                          }
+                        />
+                      </div>
+                    </button>
+
+                    {qualificationOpen && (
+                      <div className="border-t border-[#D8E3E5] px-4 sm:px-5 py-4">
+                        <p className="text-xs text-[#657477] mb-4">
                           {tr(
                             'G-KAIS te muestra qué contexto ya conocemos y qué conviene descubrir durante la conversación.',
                             'G-KAIS shows what context is already known and what is useful to discover during the conversation.'
                           )}
                         </p>
-                      </div>
 
-                      <div className="text-right">
-                        <p className="text-lg font-extrabold tracking-tight text-[#0A3F4D]">
-                          {qualificationKnownFields.length}/{LEAD_QUALIFICATION_FIELDS.length}
-                        </p>
-                        <p className="font-mono-code text-[8px] uppercase tracking-wider text-[#657477]">
-                          {tr('Contexto conocido', 'Known context')}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-white border border-[#D8E3E5]">
-                      <div
-                        className="h-full rounded-full bg-[#0A3F4D] transition-[width] duration-300"
-                        style={{ width: `${qualificationPercent}%` }}
-                      />
-                    </div>
-
-                    <div className="mt-4 grid grid-cols-1 lg:grid-cols-12 gap-4">
-                      <div className="lg:col-span-5">
-                        <p className="font-mono-code text-[8px] uppercase tracking-wider text-[#777] mb-2">
-                          {tr('Ya conocemos', 'Already known')}
-                        </p>
-                        {qualificationKnownFields.length > 0 ? (
-                          <div className="flex flex-wrap gap-2">
-                            {qualificationKnownFields.map((field) => (
-                              <span
-                                key={field.key}
-                                className="rounded-full border border-[#0A3F4D]/20 bg-white px-2.5 py-1 text-[10px] font-semibold text-[#0A3F4D]"
-                              >
-                                {language === 'es' ? field.labelEs : field.labelEn}
-                              </span>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-xs text-[#777]">
-                            {tr(
-                              'Todavía no hay contexto estructurado suficiente.',
-                              'There is not enough structured context yet.'
-                            )}
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="lg:col-span-7">
-                        <p className="font-mono-code text-[8px] uppercase tracking-wider text-[#777] mb-2">
-                          {tr('Qué conviene descubrir ahora', 'What to discover next')}
-                        </p>
-                        {qualificationMissingFields.length > 0 ? (
-                          <div className="space-y-2">
-                            {qualificationMissingFields.slice(0, 3).map((field, index) => (
-                              <div
-                                key={field.key}
-                                className="rounded-xl border border-[#E5E5E5] bg-white px-3 py-2.5"
-                              >
-                                <p className="text-[10px] font-semibold text-[#0A3F4D]">
-                                  {index + 1}. {language === 'es' ? field.labelEs : field.labelEn}
-                                </p>
-                                <p className="text-xs leading-relaxed text-[#5F5F5F] mt-1">
-                                  “{language === 'es' ? field.questionEs : field.questionEn}”
-                                </p>
+                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                          <div className="lg:col-span-5">
+                            <p className="font-mono-code text-[8px] uppercase tracking-wider text-[#777] mb-2">
+                              {tr('Ya conocemos', 'Already known')}
+                            </p>
+                            {qualificationKnownFields.length > 0 ? (
+                              <div className="flex flex-wrap gap-2">
+                                {qualificationKnownFields.map((field) => (
+                                  <span
+                                    key={field.key}
+                                    className="rounded-full border border-[#0A3F4D]/20 bg-white px-2.5 py-1 text-[10px] font-semibold text-[#0A3F4D]"
+                                  >
+                                    {language === 'es' ? field.labelEs : field.labelEn}
+                                  </span>
+                                ))}
                               </div>
-                            ))}
-                            {qualificationMissingFields.length > 3 && (
-                              <p className="text-[10px] text-[#777]">
-                                + {qualificationMissingFields.length - 3}{' '}
-                                {tr('datos adicionales por completar.', 'additional fields still to complete.')}
+                            ) : (
+                              <p className="text-xs text-[#777]">
+                                {tr(
+                                  'Todavía no hay contexto estructurado suficiente.',
+                                  'There is not enough structured context yet.'
+                                )}
                               </p>
                             )}
                           </div>
-                        ) : (
-                          <div className="rounded-xl border border-[#0A3F4D]/20 bg-white px-3 py-3">
-                            <p className="text-xs font-semibold text-[#0A3F4D]">
-                              {tr(
-                                'Perfil base completo. Usa el AI Brief para profundizar en objeciones, urgencia y decisión.',
-                                'Base profile complete. Use AI Brief to go deeper into objections, urgency and decision-making.'
-                              )}
+
+                          <div className="lg:col-span-7">
+                            <p className="font-mono-code text-[8px] uppercase tracking-wider text-[#777] mb-2">
+                              {tr('Qué conviene descubrir ahora', 'What to discover next')}
                             </p>
+                            {qualificationMissingFields.length > 0 ? (
+                              <div className="space-y-2">
+                                {qualificationMissingFields.slice(0, 3).map((field, index) => (
+                                  <div
+                                    key={field.key}
+                                    className="rounded-xl border border-[#E5E5E5] bg-white px-3 py-2.5"
+                                  >
+                                    <p className="text-[10px] font-semibold text-[#0A3F4D]">
+                                      {index + 1}. {language === 'es' ? field.labelEs : field.labelEn}
+                                    </p>
+                                    <p className="text-xs leading-relaxed text-[#5F5F5F] mt-1">
+                                      “{language === 'es' ? field.questionEs : field.questionEn}”
+                                    </p>
+                                  </div>
+                                ))}
+                                {qualificationMissingFields.length > 3 && (
+                                  <p className="text-[10px] text-[#777]">
+                                    + {qualificationMissingFields.length - 3}{' '}
+                                    {tr('datos adicionales por completar.', 'additional fields still to complete.')}
+                                  </p>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="rounded-xl border border-[#0A3F4D]/20 bg-white px-3 py-3">
+                                <p className="text-xs font-semibold text-[#0A3F4D]">
+                                  {tr(
+                                    'Perfil base completo. Usa el AI Brief para profundizar en objeciones, urgencia y decisión.',
+                                    'Base profile complete. Use AI Brief to go deeper into objections, urgency and decision-making.'
+                                  )}
+                                </p>
+                              </div>
+                            )}
                           </div>
-                        )}
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

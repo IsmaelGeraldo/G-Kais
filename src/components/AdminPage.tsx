@@ -2598,6 +2598,22 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                               >
                                 {tr('Ficha completa', 'Full record')}
                               </button>
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  handleDeleteLead(lead);
+                                }}
+                                disabled={deletingLeadId === lead.id}
+                                className="inline-flex items-center justify-center rounded-lg border border-red-200 bg-white px-2.5 py-2 text-[9px] font-semibold uppercase tracking-wider text-red-700 hover:bg-red-50 disabled:opacity-50"
+                                title={tr('Eliminar lead duplicado', 'Delete duplicate lead')}
+                              >
+                                {deletingLeadId === lead.id ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                )}
+                              </button>
                             </div>
                           ) : (
                             <span className="block text-right text-[#B0B0B0]">—</span>
@@ -3056,8 +3072,23 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                         className="w-full rounded-xl border border-[#D8D8D8] bg-white px-3 py-2.5 text-xs focus:outline-none focus:border-[#0A3F4D]"
                       />
                       <div className="mt-2 flex items-center justify-between gap-3">
-                        <p className="text-[9px] text-[#8A8A8A]">
-                          {tr('Se guarda junto con los cambios CRM.', 'Saved with the CRM changes.')}
+                        <p
+                          className={
+                            'text-[9px] ' +
+                            (websiteSaveStatus === 'error'
+                              ? 'text-red-700'
+                              : websiteSaveStatus === 'saved'
+                              ? 'text-[#0A3F4D]'
+                              : 'text-[#8A8A8A]')
+                          }
+                        >
+                          {websiteSaveStatus === 'saving'
+                            ? tr('Guardando…', 'Saving…')
+                            : websiteSaveStatus === 'saved'
+                            ? tr('Guardado automáticamente', 'Saved automatically')
+                            : websiteSaveStatus === 'error'
+                            ? tr('No se pudo guardar', 'Could not save')
+                            : tr('Se guarda automáticamente al escribir.', 'Saves automatically as you type.')}
                         </p>
                         {draft.website?.trim() && (
                           <a
@@ -3370,16 +3401,31 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                           <p className="font-mono-code text-[8px] uppercase tracking-wider text-[#777]">
                             {tr('Última nota', 'Latest note')}
                           </p>
-                          {selectedLead.leadNotes && selectedLead.leadNotes.length > 0 ? (
-                            <>
-                              <p className="text-xs font-semibold mt-1.5">
-                                {selectedLead.leadNotes[selectedLead.leadNotes.length - 1].title}
-                              </p>
-                              <p className="text-[10px] text-[#777] mt-1">
-                                {formatDate(selectedLead.leadNotes[selectedLead.leadNotes.length - 1].createdAt)}
-                              </p>
-                            </>
-                          ) : (
+                          {selectedLead.leadNotes && selectedLead.leadNotes.length > 0 ? (() => {
+                            const latestNote = selectedLead.leadNotes[selectedLead.leadNotes.length - 1];
+                            const isOpen = expandedNoteId === latestNote.id;
+
+                            return (
+                              <button
+                                type="button"
+                                onClick={() => setExpandedNoteId(isOpen ? null : latestNote.id)}
+                                className="w-full text-left mt-1.5 rounded-lg hover:bg-[#FAFAFA] transition-colors"
+                              >
+                                <div className="flex items-start justify-between gap-3">
+                                  <div>
+                                    <p className="text-xs font-semibold">{latestNote.title}</p>
+                                    <p className="text-[10px] text-[#777] mt-1">{formatDate(latestNote.createdAt)}</p>
+                                  </div>
+                                  <ChevronRight className={'w-3.5 h-3.5 text-[#0A3F4D] transition-transform ' + (isOpen ? 'rotate-90' : '')} />
+                                </div>
+                                {isOpen && (
+                                  <p className="text-[11px] leading-relaxed text-[#5F5F5F] mt-3 whitespace-pre-wrap">
+                                    {latestNote.body}
+                                  </p>
+                                )}
+                              </button>
+                            );
+                          })() : (
                             <p className="text-xs text-[#8A8A8A] mt-1.5">
                               {tr('Sin notas registradas todavía.', 'No notes recorded yet.')}
                             </p>
@@ -3390,16 +3436,16 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                   </div>
                 </section>
 
-                <section className="rounded-2xl border border-[#E5E5E5] bg-white p-5 sm:p-6">
-                  <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
+                <section className="rounded-2xl border border-[#E5E5E5] bg-white p-4 sm:p-5">
+                  <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
                     <div>
                       <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#0A3F4D] font-bold">
                         {tr('Bitácora del lead', 'Lead notes timeline')}
                       </p>
-                      <p className="text-xs text-[#777] mt-1">
+                      <p className="text-[10px] text-[#777] mt-1">
                         {tr(
-                          'Registra lo hablado y deja instrucciones para el siguiente responsable.',
-                          'Record what was discussed and leave instructions for the next owner.'
+                          'Notas compactas, editables y con historial. Abre una para leerla completa.',
+                          'Compact editable notes with history. Open one to read it in full.'
                         )}
                       </p>
                     </div>
@@ -3408,8 +3454,23 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-                    <div className="lg:col-span-5">
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:h-[360px]">
+                    <div className="lg:col-span-5 flex flex-col">
+                      {editingNoteId && (
+                        <div className="mb-2 flex items-center justify-between gap-3 rounded-xl border border-[#0A3F4D]/20 bg-[#F4F8F8] px-3 py-2">
+                          <p className="text-[10px] font-semibold text-[#0A3F4D]">
+                            {tr('Editando nota', 'Editing note')}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={cancelEditingLeadNote}
+                            className="text-[9px] font-mono-code uppercase text-[#0A3F4D] underline"
+                          >
+                            {tr('Cancelar', 'Cancel')}
+                          </button>
+                        </div>
+                      )}
+
                       <input
                         value={noteTitle}
                         onChange={(event) => setNoteTitle(event.target.value)}
@@ -3424,49 +3485,86 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                         value={noteBody}
                         onChange={(event) => setNoteBody(event.target.value)}
                         maxLength={3000}
-                        rows={6}
+                        rows={4}
                         placeholder={tr(
-                          'Último acuerdo, objeciones, necesidades, instrucciones para el siguiente responsable...',
-                          'Latest agreement, objections, needs, instructions for the next owner...'
+                          'Último acuerdo, objeciones, necesidades o instrucciones...',
+                          'Latest agreement, objections, needs or instructions...'
                         )}
-                        className="mt-3 w-full rounded-xl border border-[#D8D8D8] bg-[#FAFAFA] px-3 py-3 text-sm leading-relaxed resize-y focus:outline-none focus:border-[#0A3F4D]"
+                        className="mt-2.5 w-full rounded-xl border border-[#D8D8D8] bg-[#FAFAFA] px-3 py-3 text-sm leading-relaxed resize-none focus:outline-none focus:border-[#0A3F4D]"
                       />
                       <button
                         type="button"
                         onClick={handleAddLeadNote}
                         disabled={savingNote || !noteTitle.trim() || !noteBody.trim()}
-                        className="mt-3 w-full inline-flex items-center justify-center rounded-xl bg-[#0A3F4D] text-white px-4 py-3 text-xs font-semibold uppercase tracking-wider hover:bg-[#08333E] disabled:opacity-40"
+                        className="mt-2.5 w-full inline-flex items-center justify-center rounded-xl bg-[#0A3F4D] text-white px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider hover:bg-[#08333E] disabled:opacity-40"
                       >
                         {savingNote ? (
                           <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                         ) : (
                           <Save className="w-4 h-4 mr-2" />
                         )}
-                        {tr('Agregar nota', 'Add note')}
+                        {editingNoteId
+                          ? tr('Guardar edición', 'Save edit')
+                          : tr('Agregar nota', 'Add note')}
                       </button>
                       {noteMessage && (
-                        <p className="mt-2 text-[10px] font-mono-code text-[#0A3F4D]">{noteMessage}</p>
+                        <p className="mt-2 text-[9px] leading-relaxed font-mono-code text-[#0A3F4D]">{noteMessage}</p>
                       )}
                     </div>
 
-                    <div className="lg:col-span-7">
+                    <div className="lg:col-span-7 min-h-0">
                       {selectedLead.leadNotes && selectedLead.leadNotes.length > 0 ? (
-                        <div className="space-y-3 max-h-[430px] overflow-y-auto pr-1">
-                          {[...selectedLead.leadNotes].reverse().map((note) => (
-                            <article key={note.id} className="rounded-xl border border-[#E5E5E5] bg-[#FAFAFA] p-3.5">
-                              <div className="flex flex-wrap items-start justify-between gap-2">
-                                <div>
-                                  <h4 className="text-sm font-bold">{note.title}</h4>
-                                  <p className="font-mono-code text-[9px] text-[#777] mt-1">{note.author}</p>
+                        <div className="h-[280px] lg:h-full overflow-y-auto pr-1 space-y-2">
+                          {[...selectedLead.leadNotes].reverse().map((note) => {
+                            const isOpen = expandedNoteId === note.id;
+
+                            return (
+                              <article key={note.id} className="rounded-xl border border-[#E5E5E5] bg-[#FAFAFA] p-3">
+                                <div className="flex items-start justify-between gap-3">
+                                  <button
+                                    type="button"
+                                    onClick={() => setExpandedNoteId(isOpen ? null : note.id)}
+                                    className="min-w-0 flex-1 text-left"
+                                  >
+                                    <div className="flex items-start justify-between gap-2">
+                                      <div className="min-w-0">
+                                        <h4 className="text-xs font-bold truncate">{note.title}</h4>
+                                        <p className="font-mono-code text-[8px] text-[#777] mt-1">
+                                          {note.author} · {formatDate(note.createdAt)}
+                                        </p>
+                                      </div>
+                                      <ChevronRight className={'w-3.5 h-3.5 shrink-0 text-[#0A3F4D] transition-transform ' + (isOpen ? 'rotate-90' : '')} />
+                                    </div>
+                                    <p className={'text-[11px] leading-relaxed text-[#5F5F5F] mt-2 whitespace-pre-wrap ' + (isOpen ? '' : 'line-clamp-2')}>
+                                      {note.body}
+                                    </p>
+                                  </button>
+
+                                  <div className="flex shrink-0 items-center gap-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => startEditingLeadNote(note.id)}
+                                      className="p-1.5 rounded-lg border border-[#D8D8D8] bg-white hover:bg-[#F0F0EE]"
+                                      aria-label={tr('Editar nota', 'Edit note')}
+                                    >
+                                      <Pencil className="w-3 h-3" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteLeadNote(note.id)}
+                                      className="p-1.5 rounded-lg border border-red-200 bg-white text-red-700 hover:bg-red-50"
+                                      aria-label={tr('Eliminar nota', 'Delete note')}
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
+                                  </div>
                                 </div>
-                                <time className="font-mono-code text-[9px] text-[#777]">{formatDate(note.createdAt)}</time>
-                              </div>
-                              <p className="text-sm leading-relaxed whitespace-pre-wrap mt-3">{note.body}</p>
-                            </article>
-                          ))}
+                              </article>
+                            );
+                          })}
                         </div>
                       ) : (
-                        <div className="h-full min-h-[160px] rounded-xl border border-dashed border-[#D8D8D8] bg-[#FAFAFA] flex items-center justify-center p-5 text-xs text-[#777]">
+                        <div className="h-[180px] lg:h-full rounded-xl border border-dashed border-[#D8D8D8] bg-[#FAFAFA] flex items-center justify-center p-5 text-xs text-[#777]">
                           {tr('Aún no hay notas registradas para este lead.', 'No notes have been recorded for this lead yet.')}
                         </div>
                       )}
@@ -3543,6 +3641,24 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                                   </p>
                                   <p className="text-[11px] leading-relaxed text-[#6B6B6B] mt-1.5 whitespace-pre-wrap">
                                     {entry.note.body}
+                                  </p>
+                                </>
+                              ) : entry.activity.actionType === 'NOTE_EDITED' ? (
+                                <>
+                                  <p className="text-xs font-semibold mt-2">
+                                    {tr('Nota editada', 'Note edited')} · {entry.activity.noteTitle || tr('Sin título', 'Untitled')}
+                                  </p>
+                                  <p className="text-[10px] text-[#777] mt-1.5">
+                                    {tr('La nota fue modificada y guardada nuevamente.', 'The note was modified and saved again.')}
+                                  </p>
+                                </>
+                              ) : entry.activity.actionType === 'NOTE_DELETED' ? (
+                                <>
+                                  <p className="text-xs font-semibold mt-2 text-red-700">
+                                    {tr('Nota eliminada', 'Note deleted')} · {entry.activity.noteTitle || tr('Sin título', 'Untitled')}
+                                  </p>
+                                  <p className="text-[10px] text-[#777] mt-1.5">
+                                    {tr('El contenido fue eliminado de la bitácora.', 'The content was removed from the notes timeline.')}
                                   </p>
                                 </>
                               ) : (

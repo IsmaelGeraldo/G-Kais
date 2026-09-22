@@ -650,10 +650,6 @@
   top: 92px;
 }
 
-.gk-floating-context {
-  left: 19%;
-  top: 25px;
-}
 
 .gk-floating-owner {
   right: 4px;
@@ -1137,6 +1133,16 @@
   }
 }
 
+@media (min-width: 1400px) and (max-height: 850px) {
+  .gk-engine-stage {
+    min-height: 335px;
+  }
+
+  .gk-engine-message {
+    font-size: 10px;
+  }
+}
+
 @media (max-width: 1100px) {
   .gk-hero-layout {
     grid-template-columns: 1fr;
@@ -1239,7 +1245,8 @@
     grid-template-columns: 1fr;
   }
 
-  .gk-floating-card {
+  .gk-floating-card,
+  .gk-signal-rail {
     display: none;
   }
 

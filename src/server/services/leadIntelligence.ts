@@ -3,6 +3,7 @@ import { GoogleGenAI, Type } from '@google/genai';
 export type LeadIntent = 'HIGH' | 'MEDIUM' | 'LOW';
 
 export interface LeadIntelligenceInput {
+  language: 'es' | 'en';
   id: string;
   name: string;
   company?: string;
@@ -76,6 +77,7 @@ export function sanitizeLeadIntelligenceInput(
     : [];
 
   return {
+    language: data.language === 'en' ? 'en' : 'es',
     id,
     name,
     ...(cleanText(data.company, 180) ? { company: cleanText(data.company, 180) } : {}),
@@ -105,7 +107,10 @@ export function sanitizeLeadIntelligenceInput(
   };
 }
 
-function normalizeBrief(value: unknown): LeadIntelligenceBrief {
+function normalizeBrief(
+  value: unknown,
+  language: 'es' | 'en'
+): LeadIntelligenceBrief {
   const data =
     value && typeof value === 'object'
       ? (value as Record<string, unknown>)
@@ -130,6 +135,8 @@ function normalizeBrief(value: unknown): LeadIntelligenceBrief {
     summary:
       typeof data.summary === 'string' && data.summary.trim()
         ? data.summary.trim().slice(0, 900)
+        : language === 'es'
+        ? 'Aún no hay suficiente contexto verificado para resumir este lead.'
         : 'Not enough verified context to summarize this lead yet.',
     signals: list('signals', 5),
     risks: list('risks', 4),
@@ -137,6 +144,8 @@ function normalizeBrief(value: unknown): LeadIntelligenceBrief {
       typeof data.recommendedAction === 'string' &&
       data.recommendedAction.trim()
         ? data.recommendedAction.trim().slice(0, 500)
+        : language === 'es'
+        ? 'Recopila más contexto antes de definir la siguiente acción comercial.'
         : 'Collect more context before deciding the next commercial action.',
     qualificationQuestions: list('qualificationQuestions', 5)
   };
@@ -218,6 +227,9 @@ async function generateStructuredBrief(
         'MEDIUM means there is some relevant engagement but important qualification information is missing.',
         'LOW means the available evidence shows weak intent, poor fit, explicit disinterest, or very limited context.',
         'Use concise operational language. Focus on what a human operator should know before the next contact.',
+        input.language === 'es'
+          ? 'Write every human-readable field in Spanish. Keep only fixed enum values such as HIGH, MEDIUM and LOW in English.'
+          : 'Write every human-readable field in English.',
         'If context is missing, state the gap as a qualification question instead of guessing.',
         'Return only the requested JSON structure.'
       ].join('\n'),
@@ -308,7 +320,7 @@ export async function analyzeLeadWithGemini(
           );
         }
 
-        return normalizeBrief(parsed);
+        return normalizeBrief(parsed, input.language);
       } catch (error) {
         lastError = error;
 

@@ -26,6 +26,53 @@ function assertHumanSubmission(payload: AuditRequestPayload): void {
   }
 }
 
+async function dispatchAuditNotification(
+  record: {
+    id: string;
+    name: string;
+    company: string;
+    website?: string;
+    email: string;
+    contactChannel: string;
+    inquiryNotes?: string;
+    status: string;
+    createdAt: string;
+    notificationStatus: string;
+  },
+  payload: AuditRequestPayload
+): Promise<void> {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), 9000);
+
+  try {
+    const response = await fetch('/api/intake/audit-notification', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...record,
+        _formRenderedAt: payload._formRenderedAt,
+        _hp_website_title: payload._hp_website_title || ''
+      }),
+      signal: controller.signal
+    });
+
+    if (!response.ok) {
+      const body = await response.json().catch(() => null);
+      console.warn(
+        '[AUDIT NOTIFICATION] Lead saved but notification failed:',
+        body?.error || `HTTP ${response.status}`
+      );
+    }
+  } catch (error: any) {
+    console.warn(
+      '[AUDIT NOTIFICATION] Lead saved but notification request failed:',
+      error?.name === 'AbortError' ? 'Request timed out.' : error?.message || error
+    );
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+}
+
 /**
  * Submits a Free AI Business Systems Audit directly through the Firebase Web SDK.
  * This is the supported Firestore access path for Google AI Studio Starter Tier,
@@ -77,6 +124,7 @@ export async function submitAuditRequest(payload: AuditRequestPayload): Promise<
   };
 
   await setDoc(doc(firestoreDb, 'audit_submissions', submissionId), record);
+  await dispatchAuditNotification(record, payload);
 
   return {
     success: true,

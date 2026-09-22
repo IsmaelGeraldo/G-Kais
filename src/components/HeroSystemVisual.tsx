@@ -465,32 +465,57 @@ export const HeroSystemVisual: React.FC = () => {
           role="list"
           aria-label={es ? "Progreso de la demostración" : "Demo progress"}
         >
-          {flowSteps.map((label, index) => (
-            <div
-              key={label}
-              role="listitem"
-              aria-current={step === index ? "step" : undefined}
-              className={
-                "gk-engine-progress-item" +
-                (index <= step ? " is-reached" : "")
-              }
-            >
-              <span>{index < step ? <Check size={11} /> : index + 1}</span>
-              {label}
-            </div>
-          ))}
+          {flowSteps.map((label, index) => {
+            const reached = index <= step;
+            const current = index === step;
+
+            return (
+              <div
+                key={label}
+                role="listitem"
+                aria-current={current ? "step" : undefined}
+                className={
+                  "min-w-0 min-h-[34px] px-1 flex items-center justify-center gap-1.5 rounded-[10px] text-[8px] leading-tight transition-colors " +
+                  (current
+                    ? "bg-[#F4F7F5] text-[#27302B] font-bold"
+                    : reached
+                      ? "text-[#27302B] font-bold"
+                      : "text-[#8A8F8B]")
+                }
+              >
+                <span
+                  className={
+                    "w-[19px] h-[19px] rounded-full shrink-0 grid place-items-center text-[7px] " +
+                    (current
+                      ? "bg-[#0A3F4D] text-white"
+                      : reached
+                        ? "bg-[#DFEAE5] text-[#0A3F4D]"
+                        : "bg-[#EFF1EF] text-[#757A76]")
+                  }
+                >
+                  {index < step ? <Check size={11} /> : index + 1}
+                </span>
+                {label}
+              </div>
+            );
+          })}
         </div>
 
-        <div className="gk-engine-auto-status" aria-live="polite">
-          <span className="gk-live-dot" />
-          <strong>
-            {step === 4
-              ? es
-                ? "Oportunidad lista para actuar"
-                : "Opportunity ready for action"
-              : stageLabel}
-          </strong>
-          <span>
+        <div
+          className="min-h-10 px-3 flex items-center justify-between gap-3 bg-white border border-[#E7E8E5] border-t-0 rounded-b-[17px] text-[8px] text-[#69706A]"
+          aria-live="polite"
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="gk-live-dot shrink-0" />
+            <strong className="text-[#27302B] truncate">
+              {step === 4
+                ? es
+                  ? "Oportunidad lista para actuar"
+                  : "Opportunity ready for action"
+                : stageLabel}
+            </strong>
+          </div>
+          <span className="shrink-0">
             {reducedMotion
               ? es
                 ? "Movimiento reducido"

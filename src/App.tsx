@@ -10,7 +10,6 @@ import { ProblemSection } from './components/ProblemSection.tsx';
 import { OpportunityRecoverySection } from './components/OpportunityRecoverySection.tsx';
 import { TheSystemSection } from './components/TheSystemSection.tsx';
 import { LeadFlowSection } from './components/LeadFlowSection.tsx';
-import { HumanControlSection } from './components/HumanControlSection.tsx';
 import { ProductsSection } from './components/ProductsSection.tsx';
 import { ExistingToolsSection } from './components/ExistingToolsSection.tsx';
 import { ProcessSection } from './components/ProcessSection.tsx';
@@ -74,22 +73,19 @@ function PublicApp({ onOpenAdmin }: { onOpenAdmin: () => void }) {
         {/* 6. LeadFlow Section (SaaS Clean Dark Interface) */}
         <LeadFlowSection onExplore={handleOpenLeadFlow} onOpenAudit={handleOpenAudit} />
 
-        {/* 7. Human + AI ("AI handles the process. Humans keep control.") */}
-        <HumanControlSection />
-
-        {/* 8. Works with your existing tools */}
+        {/* 7. Works with your existing tools */}
         <ExistingToolsSection />
 
-        {/* 9. Product Ecosystem ("One architecture. Multiple systems.") */}
+        {/* 8. Product Ecosystem ("One architecture. Multiple systems.") */}
         <ProductsSection />
 
-        {/* 10. Process ("From opportunity to operating system.") */}
+        {/* 9. Process ("From opportunity to operating system.") */}
         <ProcessSection />
 
-        {/* 11. Pilot with real opportunities */}
+        {/* 10. Pilot with real opportunities */}
         <PilotSection onOpenAudit={handleOpenAudit} />
 
-        {/* 12. Free Audit CTA & Form Section */}
+        {/* 11. Free Audit CTA & Form Section */}
         <AuditCtaSection onOpenAudit={handleOpenAudit} />
       </main>
 

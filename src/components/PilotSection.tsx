@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRight, Database, Target, WandSparkles } from 'lucide-react';
+import { ArrowRight, Database, Sparkles, Target } from 'lucide-react';
 import { useLanguage } from '../i18n/LanguageContext';
 
 interface PilotSectionProps {
@@ -30,7 +30,7 @@ export const PilotSection: React.FC<PilotSectionProps> = ({ onOpenAudit }) => {
       )
     },
     {
-      icon: WandSparkles,
+      icon: Sparkles,
       number: '03',
       title: tr('Analizamos casos reales', 'Analyze real cases'),
       description: tr(

@@ -1,6 +1,7 @@
 import {
   arrayUnion,
   collection,
+  deleteDoc,
   doc,
   getDocs,
   serverTimestamp,
@@ -102,6 +103,16 @@ function normalizeActivityLog(value: unknown): LeadActivity[] {
       result:
         typeof entry.result === 'string'
           ? (entry.result as TaskOutcome)
+          : undefined,
+      actionType:
+        entry.actionType === 'CRM_UPDATE' ||
+        entry.actionType === 'NOTE_EDITED' ||
+        entry.actionType === 'NOTE_DELETED'
+          ? entry.actionType
+          : undefined,
+      noteTitle:
+        typeof entry.noteTitle === 'string' && entry.noteTitle.trim()
+          ? entry.noteTitle
           : undefined
     }))
     .filter((entry) => entry.at)
@@ -115,7 +126,9 @@ function serializeActivityLog(entries: LeadActivity[]): Record<string, unknown>[
     fromStatus: entry.fromStatus,
     toStatus: entry.toStatus,
     nextAction: entry.nextAction,
-    ...(entry.result ? { result: entry.result } : {})
+    ...(entry.result ? { result: entry.result } : {}),
+    ...(entry.actionType ? { actionType: entry.actionType } : {}),
+    ...(entry.noteTitle ? { noteTitle: entry.noteTitle } : {})
   }));
 }
 
@@ -188,6 +201,137 @@ export async function fetchAdminLeads(): Promise<AdminLead[]> {
   });
 }
 
+
+function serializeLeadNotes(notes: LeadNote[]): Record<string, string>[] {
+  return notes.slice(-50).map((note) => ({
+    id: note.id,
+    title: note.title,
+    body: note.body,
+    author: note.author,
+    createdAt: note.createdAt
+  }));
+}
+
+function operationalDefaults(lead: AdminLead) {
+  return {
+    status: lead.status,
+    assignedTo: lead.assignedTo?.trim() || '',
+    nextAction: lead.nextAction?.trim() || '',
+    followUpAt: lead.followUpAt?.trim() || '',
+    internalNotes: lead.internalNotes?.trim() || '',
+    activityLog: serializeActivityLog(lead.activityLog || [])
+  };
+}
+
+export async function updateLeadWebsite(
+  lead: AdminLead,
+  websiteInput: string
+): Promise<string> {
+  const website = websiteInput.trim();
+
+  if (website.length > 250) {
+    throw new Error('Website cannot exceed 250 characters.');
+  }
+
+  const collectionName =
+    lead.source === 'AUDIT' ? 'audit_submissions' : 'contact_submissions';
+
+  await updateDoc(doc(firestoreDb, collectionName, lead.id), {
+    ...operationalDefaults(lead),
+    website,
+    updatedAt: serverTimestamp()
+  });
+
+  return website;
+}
+
+export async function updateLeadNote(
+  lead: AdminLead,
+  noteId: string,
+  titleInput: string,
+  bodyInput: string,
+  actorLabel: string
+): Promise<{ notes: LeadNote[]; activity: LeadActivity }> {
+  const title = titleInput.trim();
+  const body = bodyInput.trim();
+  const actor = actorLabel.trim().slice(0, 120) || 'Admin';
+
+  if (!title) throw new Error('Note title is required.');
+  if (!body) throw new Error('Note content is required.');
+  if (title.length > 120) throw new Error('Note title cannot exceed 120 characters.');
+  if (body.length > 3000) throw new Error('Note content cannot exceed 3,000 characters.');
+
+  const existing = (lead.leadNotes || []).find((note) => note.id === noteId);
+  if (!existing) throw new Error('Note not found.');
+
+  const notes = (lead.leadNotes || []).map((note) =>
+    note.id === noteId ? { ...note, title, body } : note
+  );
+
+  const activity: LeadActivity = {
+    at: new Date().toISOString(),
+    actor,
+    fromStatus: lead.status,
+    toStatus: lead.status,
+    nextAction: lead.nextAction || '',
+    actionType: 'NOTE_EDITED',
+    noteTitle: title
+  };
+
+  const activityLog = [...(lead.activityLog || []), activity].slice(-20);
+  const collectionName =
+    lead.source === 'AUDIT' ? 'audit_submissions' : 'contact_submissions';
+
+  await updateDoc(doc(firestoreDb, collectionName, lead.id), {
+    ...operationalDefaults(lead),
+    leadNotes: serializeLeadNotes(notes),
+    activityLog: serializeActivityLog(activityLog),
+    updatedAt: serverTimestamp()
+  });
+
+  return { notes, activity };
+}
+
+export async function deleteLeadNote(
+  lead: AdminLead,
+  noteId: string,
+  actorLabel: string
+): Promise<{ notes: LeadNote[]; activity: LeadActivity }> {
+  const actor = actorLabel.trim().slice(0, 120) || 'Admin';
+  const existing = (lead.leadNotes || []).find((note) => note.id === noteId);
+  if (!existing) throw new Error('Note not found.');
+
+  const notes = (lead.leadNotes || []).filter((note) => note.id !== noteId);
+  const activity: LeadActivity = {
+    at: new Date().toISOString(),
+    actor,
+    fromStatus: lead.status,
+    toStatus: lead.status,
+    nextAction: lead.nextAction || '',
+    actionType: 'NOTE_DELETED',
+    noteTitle: existing.title
+  };
+
+  const activityLog = [...(lead.activityLog || []), activity].slice(-20);
+  const collectionName =
+    lead.source === 'AUDIT' ? 'audit_submissions' : 'contact_submissions';
+
+  await updateDoc(doc(firestoreDb, collectionName, lead.id), {
+    ...operationalDefaults(lead),
+    leadNotes: serializeLeadNotes(notes),
+    activityLog: serializeActivityLog(activityLog),
+    updatedAt: serverTimestamp()
+  });
+
+  return { notes, activity };
+}
+
+export async function deleteLead(lead: AdminLead): Promise<void> {
+  const collectionName =
+    lead.source === 'AUDIT' ? 'audit_submissions' : 'contact_submissions';
+
+  await deleteDoc(doc(firestoreDb, collectionName, lead.id));
+}
 
 export async function addLeadNote(
   lead: AdminLead,
@@ -267,7 +411,8 @@ export async function updateLeadOperations(
     actor: actorLabel.trim().slice(0, 120) || 'Admin',
     fromStatus: lead.status,
     toStatus: update.status,
-    nextAction
+    nextAction,
+    actionType: 'CRM_UPDATE'
   };
 
   const activityLog = [...(lead.activityLog || []), activity].slice(-20);

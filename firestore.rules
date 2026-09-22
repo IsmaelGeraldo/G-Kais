@@ -83,14 +83,14 @@ service cloud.firestore {
       allow create: if validAudit(request.resource.data, auditId);
       allow read: if isAdmin();
       allow update: if isAdmin() && validOperationalUpdate();
-      allow delete: if false;
+      allow delete: if isAdmin();
     }
 
     match /contact_submissions/{contactId} {
       allow create: if validContact(request.resource.data, contactId);
       allow read: if isAdmin();
       allow update: if isAdmin() && validOperationalUpdate();
-      allow delete: if false;
+      allow delete: if isAdmin();
     }
 
     match /admins/{adminId} {

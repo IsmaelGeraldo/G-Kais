@@ -32,6 +32,11 @@ export interface LeadNote {
   createdAt: string;
 }
 
+export type LeadActivityAction =
+  | 'CRM_UPDATE'
+  | 'NOTE_EDITED'
+  | 'NOTE_DELETED';
+
 export interface LeadActivity {
   at: string;
   actor: string;
@@ -39,6 +44,8 @@ export interface LeadActivity {
   toStatus: LeadStatus;
   nextAction: string;
   result?: TaskOutcome;
+  actionType?: LeadActivityAction;
+  noteTitle?: string;
 }
 
 export interface LeadActionCompletion {

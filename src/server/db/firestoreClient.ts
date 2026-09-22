@@ -1,4 +1,4 @@
-import { initializeApp as initAdminApp, getApps as getAdminApps, cert, App as AdminApp } from 'firebase-admin/app';
+import { initializeApp as initAdminApp, getApps as getAdminApps, App as AdminApp } from 'firebase-admin/app';
 import { getFirestore as getAdminFirestore, Firestore as AdminFirestore } from 'firebase-admin/firestore';
 
 export interface AuditSubmissionDoc {
@@ -49,24 +49,17 @@ class FirestoreClient {
 
     const projectId = process.env.FIREBASE_PROJECT_ID;
 
-    // 1. Initialize Firebase Admin SDK once without duplication
+    // 1. Initialize Firebase Admin once using the runtime's Application
+    // Default Credentials. Google-hosted environments provide these natively,
+    // so no service-account JSON secret is required in AI Studio.
     const existingApps = getAdminApps();
     if (existingApps.length > 0) {
       this.adminApp = existingApps[0];
     } else {
       try {
-        if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-          const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-          this.adminApp = initAdminApp({
-            credential: cert(serviceAccount),
-            ...(projectId ? { projectId } : {})
-          });
-        } else {
-          // Initialize with Application Default Credentials
-          this.adminApp = initAdminApp({
-            ...(projectId ? { projectId } : {})
-          });
-        }
+        this.adminApp = initAdminApp({
+          ...(projectId ? { projectId } : {})
+        });
       } catch (e) {
         console.warn('[Firestore] Firebase Admin initialization warning:', e instanceof Error ? e.message : String(e));
       }

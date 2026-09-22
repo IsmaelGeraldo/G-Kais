@@ -93,6 +93,38 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    match /business_knowledge/{knowledgeId} {
+      allow read: if isAdmin();
+      allow create, update: if isAdmin() &&
+        knowledgeId == 'default' &&
+        request.resource.data.keys().hasAll([
+          'businessName', 'businessDescription', 'offers', 'idealCustomer',
+          'qualificationCriteria', 'faqObjections', 'policies', 'tone', 'updatedAt'
+        ]) &&
+        request.resource.data.keys().hasOnly([
+          'businessName', 'businessDescription', 'offers', 'idealCustomer',
+          'qualificationCriteria', 'faqObjections', 'policies', 'tone', 'updatedAt'
+        ]) &&
+        request.resource.data.businessName is string &&
+        request.resource.data.businessName.size() <= 160 &&
+        request.resource.data.businessDescription is string &&
+        request.resource.data.businessDescription.size() <= 4000 &&
+        request.resource.data.offers is string &&
+        request.resource.data.offers.size() <= 5000 &&
+        request.resource.data.idealCustomer is string &&
+        request.resource.data.idealCustomer.size() <= 4000 &&
+        request.resource.data.qualificationCriteria is string &&
+        request.resource.data.qualificationCriteria.size() <= 4000 &&
+        request.resource.data.faqObjections is string &&
+        request.resource.data.faqObjections.size() <= 5000 &&
+        request.resource.data.policies is string &&
+        request.resource.data.policies.size() <= 4000 &&
+        request.resource.data.tone is string &&
+        request.resource.data.tone.size() <= 2000 &&
+        request.resource.data.updatedAt is timestamp;
+      allow delete: if false;
+    }
+
     match /admins/{adminId} {
       // Admin membership is provisioned manually in Firestore. Clients cannot
       // list, read, create, update or delete administrator records.

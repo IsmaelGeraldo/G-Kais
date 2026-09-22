@@ -191,8 +191,8 @@ export async function analyzeLeadWithGemini(
           },
           recommendedAction: { type: Type.STRING },
           qualificationQuestions: {
-            type: 'array',
-            items: { type: 'string' },
+            type: Type.ARRAY,
+            items: { type: Type.STRING },
             maxItems: 5
           }
         },

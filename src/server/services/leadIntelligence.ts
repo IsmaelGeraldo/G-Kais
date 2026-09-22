@@ -142,7 +142,10 @@ function normalizeBrief(value: unknown): LeadIntelligenceBrief {
   };
 }
 
-function isTransientGeminiError(error: unknown): boolean {
+function getGeminiErrorDetails(error: unknown): {
+  status?: number;
+  message: string;
+} {
   const value = error as {
     status?: number;
     code?: number;
@@ -161,17 +164,35 @@ function isTransientGeminiError(error: unknown): boolean {
     value?.error?.status
   ]
     .filter(Boolean)
-    .join(' ')
-    .toUpperCase();
+    .join(' ');
+
+  return { status, message };
+}
+
+function isUnavailableModelError(error: unknown): boolean {
+  const { status, message } = getGeminiErrorDetails(error);
+  const normalized = message.toUpperCase();
+
+  return (
+    status === 404 ||
+    normalized.includes('NOT_FOUND') ||
+    normalized.includes('NO LONGER AVAILABLE') ||
+    normalized.includes('UPDATE YOUR CODE TO USE')
+  );
+}
+
+function isTransientGeminiError(error: unknown): boolean {
+  const { status, message } = getGeminiErrorDetails(error);
+  const normalized = message.toUpperCase();
 
   return (
     status === 408 ||
     status === 429 ||
     (typeof status === 'number' && status >= 500) ||
-    message.includes('UNAVAILABLE') ||
-    message.includes('RESOURCE_EXHAUSTED') ||
-    message.includes('HIGH DEMAND') ||
-    message.includes('SERVICE UNAVAILABLE')
+    normalized.includes('UNAVAILABLE') ||
+    normalized.includes('RESOURCE_EXHAUSTED') ||
+    normalized.includes('HIGH DEMAND') ||
+    normalized.includes('SERVICE UNAVAILABLE')
   );
 }
 
@@ -254,13 +275,12 @@ export async function analyzeLeadWithGemini(
 
   const ai = new GoogleGenAI({ apiKey });
   const preferredModel =
-    process.env.GEMINI_MODEL?.trim() || 'gemini-2.5-flash-lite';
+    process.env.GEMINI_MODEL?.trim() || 'gemini-3.5-flash-lite';
 
   const modelSequence = Array.from(
     new Set([
       preferredModel,
-      'gemini-2.5-flash',
-      'gemini-3.5-flash-lite',
+      'gemini-3.1-flash-lite',
       'gemini-3.5-flash'
     ])
   );
@@ -291,6 +311,13 @@ export async function analyzeLeadWithGemini(
         return normalizeBrief(parsed);
       } catch (error) {
         lastError = error;
+
+        if (isUnavailableModelError(error)) {
+          console.warn(
+            `[AI LEAD BRIEF] Model ${model} unavailable for this account; trying next fallback.`
+          );
+          break;
+        }
 
         if (!isTransientGeminiError(error)) {
           throw error;

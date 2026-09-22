@@ -89,6 +89,38 @@ export function buildAuditNotificationEmail(record: AuditRecord): EmailMessage {
   };
 }
 
+export function buildAuditConfirmationEmail(record: AuditRecord): EmailMessage {
+  const subject = 'Recibimos tu solicitud de auditoría · G-KAIS';
+  const text = [
+    `Hola ${record.name},`,
+    '',
+    'Recibimos correctamente tu solicitud de auditoría gratuita de G-KAIS.',
+    `ID de solicitud: ${record.id}`,
+    `Empresa: ${record.company}`,
+    '',
+    'Nuestro equipo revisará tu flujo comercial para identificar posibles fugas de oportunidades, puntos de seguimiento y automatizaciones útiles.',
+    'Te contactaremos con los próximos pasos.',
+    '',
+    'Gracias por confiar en G-KAIS.'
+  ].join('\n');
+
+  return {
+    subject,
+    text,
+    html: layout(
+      'Recibimos tu solicitud',
+      'G-KAIS · Auditoría de sistemas comerciales',
+      [
+        ['Nombre', record.name],
+        ['Empresa', record.company],
+        ['ID de solicitud', record.id],
+        ['Canal principal', record.contactChannel]
+      ],
+      'Tu solicitud quedó registrada correctamente. Revisaremos tu flujo comercial y te contactaremos con los próximos pasos.'
+    )
+  };
+}
+
 export function buildContactNotificationEmail(record: ContactRecord): EmailMessage {
   const subject = `New G-KAIS contact inquiry · ${record.name}`;
   const text = [

@@ -53,6 +53,9 @@ export interface LeadIntelligenceBrief {
   risks: string[];
   recommendedAction: string;
   qualificationQuestions: string[];
+  howGkaisCanHelp: string[];
+  solutionPlan: string[];
+  callPositioning: string;
 }
 
 function cleanText(value: unknown, max: number): string | undefined {
@@ -231,7 +234,15 @@ function normalizeBrief(
         : language === 'es'
         ? 'Recopila más contexto antes de definir la siguiente acción comercial.'
         : 'Collect more context before deciding the next commercial action.',
-    qualificationQuestions: list('qualificationQuestions', 5)
+    qualificationQuestions: list('qualificationQuestions', 5),
+    howGkaisCanHelp: list('howGkaisCanHelp', 5),
+    solutionPlan: list('solutionPlan', 5),
+    callPositioning:
+      typeof data.callPositioning === 'string' && data.callPositioning.trim()
+        ? data.callPositioning.trim().slice(0, 900)
+        : language === 'es'
+        ? 'Explica primero el problema actual del lead y conecta únicamente las capacidades verificadas de G-KAIS que puedan resolverlo.'
+        : 'Start with the lead\'s current problem and connect only verified G-KAIS capabilities that can address it.'
   };
 }
 
@@ -312,6 +323,10 @@ async function generateStructuredBrief(
         'Use the structured lead business profile to understand business type, service, digital presence, acquisition channel, lead volume, current CRM, problem, current solution and business goal.',
         'When primaryProblem and currentSolution are both present, explicitly reason about the gap between the problem and what the lead is currently doing to solve it. Do not assume the current solution or competitor is bad; identify only evidence-supported limitations or missing capabilities.',
         'Use offers, faqObjections and policies to make the recommendedAction more specific when relevant.',
+        'For howGkaisCanHelp and solutionPlan, act as a consultative solution architect: connect the lead\'s documented problems to specific G-KAIS capabilities supported by businessKnowledge.',
+        'Do not claim a G-KAIS feature, integration, automation, channel, guarantee or implementation status unless it is supported by businessKnowledge or the supplied system context.',
+        'If a useful capability is not clearly available yet, frame it as something to evaluate or a later implementation phase, and state the dependency instead of presenting it as active.',
+        'howGkaisCanHelp should explain concrete problem-to-capability matches. solutionPlan should propose a practical phased approach for this specific lead. callPositioning should give the operator a concise way to explain the solution in a call without sounding scripted or making guarantees.',
         'Do not invent business facts, budget, authority, urgency, needs or intent that are not supported by the input.',
         'The intent label is a qualitative signal, not a probability and not a replacement for human judgment.',
         'HIGH means the available evidence shows strong commercial intent or a clear near-term buying/meeting signal.',
@@ -348,7 +363,18 @@ async function generateStructuredBrief(
             type: Type.ARRAY,
             items: { type: Type.STRING },
             maxItems: 5
-          }
+          },
+          howGkaisCanHelp: {
+            type: Type.ARRAY,
+            items: { type: Type.STRING },
+            maxItems: 5
+          },
+          solutionPlan: {
+            type: Type.ARRAY,
+            items: { type: Type.STRING },
+            maxItems: 5
+          },
+          callPositioning: { type: Type.STRING }
         },
         required: [
           'intent',
@@ -356,11 +382,14 @@ async function generateStructuredBrief(
           'signals',
           'risks',
           'recommendedAction',
-          'qualificationQuestions'
+          'qualificationQuestions',
+          'howGkaisCanHelp',
+          'solutionPlan',
+          'callPositioning'
         ]
       },
       temperature: 0.2,
-      maxOutputTokens: 1200
+      maxOutputTokens: 1800
     }
   });
 }

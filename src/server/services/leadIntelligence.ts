@@ -208,11 +208,11 @@ function normalizeBrief(
       ? data.intent
       : 'MEDIUM';
 
-  const list = (key: string, maxItems: number) =>
+  const list = (key: string, maxItems: number, maxChars = 500) =>
     Array.isArray(data[key])
       ? (data[key] as unknown[])
           .filter((entry): entry is string => typeof entry === 'string')
-          .map((entry) => entry.trim())
+          .map((entry) => entry.trim().slice(0, maxChars))
           .filter(Boolean)
           .slice(0, maxItems)
       : [];
@@ -235,11 +235,11 @@ function normalizeBrief(
         ? 'Recopila más contexto antes de definir la siguiente acción comercial.'
         : 'Collect more context before deciding the next commercial action.',
     qualificationQuestions: list('qualificationQuestions', 5),
-    howGkaisCanHelp: list('howGkaisCanHelp', 5),
-    solutionPlan: list('solutionPlan', 5),
+    howGkaisCanHelp: list('howGkaisCanHelp', 3, 220),
+    solutionPlan: list('solutionPlan', 3, 220),
     callPositioning:
       typeof data.callPositioning === 'string' && data.callPositioning.trim()
-        ? data.callPositioning.trim().slice(0, 900)
+        ? data.callPositioning.trim().slice(0, 420)
         : language === 'es'
         ? 'Explica primero el problema actual del lead y conecta únicamente las capacidades verificadas de G-KAIS que puedan resolverlo.'
         : 'Start with the lead\'s current problem and connect only verified G-KAIS capabilities that can address it.'
@@ -326,7 +326,9 @@ async function generateStructuredBrief(
         'For howGkaisCanHelp and solutionPlan, act as a consultative solution architect: connect the lead\'s documented problems to specific G-KAIS capabilities supported by businessKnowledge.',
         'Do not claim a G-KAIS feature, integration, automation, channel, guarantee or implementation status unless it is supported by businessKnowledge or the supplied system context.',
         'If a useful capability is not clearly available yet, frame it as something to evaluate or a later implementation phase, and state the dependency instead of presenting it as active.',
-        'howGkaisCanHelp should explain concrete problem-to-capability matches. solutionPlan should propose a practical phased approach for this specific lead. callPositioning should give the operator a concise way to explain the solution in a call without sounding scripted or making guarantees.',
+        'Keep howGkaisCanHelp to the 3 most important problem-to-capability matches. Each item should be short, concrete and ideally one sentence.',
+        'Keep solutionPlan to no more than 3 practical steps for this specific lead. Avoid repeating information already stated elsewhere.',
+        'callPositioning must sound like the operator is speaking naturally to the lead in first person. Write 2 to 4 short conversational sentences, not a script, not bullet points, and avoid jargon. Briefly summarize the problem, how G-KAIS can help, and the practical approach without repeating the full analysis or making guarantees.',
         'Do not invent business facts, budget, authority, urgency, needs or intent that are not supported by the input.',
         'The intent label is a qualitative signal, not a probability and not a replacement for human judgment.',
         'HIGH means the available evidence shows strong commercial intent or a clear near-term buying/meeting signal.',
@@ -367,12 +369,12 @@ async function generateStructuredBrief(
           howGkaisCanHelp: {
             type: Type.ARRAY,
             items: { type: Type.STRING },
-            maxItems: 5
+            maxItems: 3
           },
           solutionPlan: {
             type: Type.ARRAY,
             items: { type: Type.STRING },
-            maxItems: 5
+            maxItems: 3
           },
           callPositioning: { type: Type.STRING }
         },
@@ -389,7 +391,7 @@ async function generateStructuredBrief(
         ]
       },
       temperature: 0.2,
-      maxOutputTokens: 1800
+      maxOutputTokens: 1500
     }
   });
 }

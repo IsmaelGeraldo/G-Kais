@@ -538,6 +538,7 @@ function fromDatetimeLocal(value: string): string {
 function makeDraft(lead: AdminLead | null): LeadOperationsUpdate {
   return {
     status: lead?.status || 'PENDING_REVIEW',
+    website: lead?.website || '',
     assignedTo: lead?.assignedTo || '',
     nextAction: lead?.nextAction || '',
     followUpAt: lead?.followUpAt || '',
@@ -730,6 +731,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
           lead.name,
           lead.company,
           lead.email,
+          lead.website,
           lead.contactChannel,
           lead.inquiryNotes,
           lead.message,
@@ -1406,10 +1408,6 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
     }
   };
 
-  const prepareClientJourney = (playbookId: string) => {
-    applyQuickPlaybook(playbookId);
-  };
-
   const handleSave = async () => {
     if (!selectedLead || !user) return;
 
@@ -1420,6 +1418,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
     try {
       const normalizedUpdate: LeadOperationsUpdate = {
         status: draft.status,
+        website: draft.website || '',
         assignedTo: draft.assignedTo || '',
         nextAction: draft.nextAction || '',
         followUpAt: draft.followUpAt || '',
@@ -2835,20 +2834,35 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                     </div>
                     <div className="lg:col-span-4 rounded-xl border border-[#EFEFEF] bg-[#FAFAFA] p-4">
                       <p className="font-mono-code text-[8px] uppercase tracking-wider text-[#777] mb-2">
-                        {tr('Accesos', 'Links')}
+                        {tr('Sitio web', 'Website')}
                       </p>
-                      {selectedLead.website ? (
-                        <a
-                          href={selectedLead.website.startsWith('http') ? selectedLead.website : 'https://' + selectedLead.website}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center text-xs font-semibold text-[#0A3F4D] underline"
-                        >
-                          {tr('Abrir sitio web', 'Open website')} <ExternalLink className="w-3 h-3 ml-1" />
-                        </a>
-                      ) : (
-                        <p className="text-xs text-[#8A8A8A]">{tr('Sin sitio web registrado.', 'No website recorded.')}</p>
-                      )}
+                      <input
+                        value={draft.website || ''}
+                        onChange={(event) =>
+                          setDraft((current) => ({
+                            ...current,
+                            website: event.target.value
+                          }))
+                        }
+                        maxLength={250}
+                        placeholder="https://empresa.com"
+                        className="w-full rounded-xl border border-[#D8D8D8] bg-white px-3 py-2.5 text-xs focus:outline-none focus:border-[#0A3F4D]"
+                      />
+                      <div className="mt-2 flex items-center justify-between gap-3">
+                        <p className="text-[9px] text-[#8A8A8A]">
+                          {tr('Se guarda junto con los cambios CRM.', 'Saved with the CRM changes.')}
+                        </p>
+                        {draft.website?.trim() && (
+                          <a
+                            href={draft.website.startsWith('http') ? draft.website : 'https://' + draft.website}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex shrink-0 items-center text-[10px] font-semibold text-[#0A3F4D] underline"
+                          >
+                            {tr('Abrir', 'Open')} <ExternalLink className="w-3 h-3 ml-1" />
+                          </a>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </section>
@@ -3074,111 +3088,96 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
 
                     <div className="lg:col-span-5">
                       <div className="rounded-2xl border border-[#D8D8D8] bg-[#FAFAFA] p-4 sm:p-5 sticky top-24">
-                        <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
                           <div>
                             <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#0A3F4D] font-bold">
-                              Customer Journey
+                              {tr('Qué toca hacer ahora', 'What needs to happen now')}
                             </p>
                             <p className="text-[10px] text-[#777] mt-1">
-                              {selectedLead.status === 'CLIENT'
-                                ? tr(
-                                    'Define el siguiente paso del cliente sin salir de esta ficha.',
-                                    'Define the client next step without leaving this record.'
-                                  )
-                                : tr(
-                                    'Se activa cuando la oportunidad se convierte en cliente.',
-                                    'Activates when the opportunity becomes a client.'
-                                  )}
+                              {tr(
+                                'Resumen operativo para trabajar este lead sin repetir los campos del CRM.',
+                                'Operational summary for working this lead without repeating the CRM fields.'
+                              )}
                             </p>
                           </div>
-                          {selectedLead.status === 'CLIENT' && getClientJourneyStage(selectedLead) && (
-                            <span
-                              className={'font-mono-code text-[8px] px-2.5 py-1 rounded-full border ' + (
-                                getClientJourneyStage(selectedLead) === 'ATTENTION'
-                                  ? 'border-red-200 bg-red-50 text-red-700'
-                                  : 'border-[#0A3F4D]/25 bg-white text-[#0A3F4D]'
-                              )}
-                            >
-                              {clientJourneyLabel(getClientJourneyStage(selectedLead)!, language)}
-                            </span>
-                          )}
+                          <span
+                            className={'font-mono-code text-[8px] px-2.5 py-1 rounded-full border ' + (
+                              getWorkPriority(selectedLead).label === 'HIGH'
+                                ? 'border-red-200 bg-red-50 text-red-700'
+                                : getWorkPriority(selectedLead).label === 'MEDIUM'
+                                ? 'border-amber-200 bg-amber-50 text-amber-800'
+                                : 'border-[#D8D8D8] bg-white text-[#777]'
+                            )}
+                          >
+                            {priorityLabel(getWorkPriority(selectedLead).label, language)}
+                          </span>
                         </div>
 
-                        {selectedLead.status === 'CLIENT' ? (
-                          <>
-                            <div className="grid grid-cols-3 gap-2">
-                              {[
-                                ['ONBOARDING', tr('Onboarding', 'Onboarding')],
-                                ['ACTIVE', tr('Activo', 'Active')],
-                                ['RENEWAL', tr('Renovación', 'Renewal')]
-                              ].map(([stage, label]) => {
-                                const current = getClientJourneyStage(selectedLead);
-                                const active =
-                                  current === stage ||
-                                  (current === 'ATTENTION' &&
-                                    ((stage === 'ONBOARDING' && selectedLead.nextAction === 'Send onboarding') ||
-                                      (stage === 'RENEWAL' && selectedLead.nextAction === 'Renewal follow-up') ||
-                                      stage === 'ACTIVE'));
+                        <div className="mt-4 rounded-2xl border border-[#E5E5E5] bg-white p-4">
+                          <p className="font-mono-code text-[8px] uppercase tracking-wider text-[#777]">
+                            {tr('Tarea pendiente', 'Pending task')}
+                          </p>
+                          <p className="mt-2 text-lg font-extrabold tracking-tight">
+                            {draft.nextAction
+                              ? nextActionLabel(draft.nextAction, language)
+                              : tr('Definir próxima acción', 'Define next action')}
+                          </p>
+                          <p className="text-[10px] text-[#777] mt-2">
+                            {draft.followUpAt
+                              ? tr('Programada para', 'Scheduled for') + ': ' + formatDate(draft.followUpAt)
+                              : tr('Sin fecha de seguimiento programada.', 'No follow-up date scheduled.')}
+                          </p>
+                        </div>
 
-                                return (
-                                  <div
-                                    key={stage}
-                                    className={'rounded-xl border px-2 py-3 text-center ' + (
-                                      active
-                                        ? 'border-[#0A3F4D] bg-white text-[#0A3F4D]'
-                                        : 'border-[#E5E5E5] bg-[#F7F7F5] text-[#8A8A8A]'
-                                    )}
-                                  >
-                                    <p className="font-mono-code text-[8px] uppercase tracking-wider">{label}</p>
-                                  </div>
-                                );
-                              })}
-                            </div>
+                        <div className="mt-3 grid grid-cols-2 gap-2">
+                          <div className="rounded-xl border border-[#E5E5E5] bg-white p-3">
+                            <p className="font-mono-code text-[8px] uppercase tracking-wider text-[#777]">
+                              {tr('Responsable', 'Owner')}
+                            </p>
+                            <p className="text-xs font-semibold mt-1.5">
+                              {draft.assignedTo || tr('Sin asignar', 'Unassigned')}
+                            </p>
+                          </div>
+                          <div className="rounded-xl border border-[#E5E5E5] bg-white p-3">
+                            <p className="font-mono-code text-[8px] uppercase tracking-wider text-[#777]">
+                              {tr('Estado', 'Status')}
+                            </p>
+                            <p className="text-xs font-semibold mt-1.5">
+                              {statusLabel(draft.status, language)}
+                            </p>
+                          </div>
+                        </div>
 
-                            <div className="mt-4 space-y-2">
-                              <button
-                                type="button"
-                                onClick={() => prepareClientJourney('expert-client-onboarding')}
-                                className="w-full rounded-xl border border-[#D8D8D8] bg-white px-3 py-2.5 text-[9px] font-semibold uppercase tracking-wider hover:bg-[#F0F0EE]"
-                              >
-                                {tr('Preparar onboarding', 'Prepare onboarding')}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => prepareClientJourney('expert-client-checkin')}
-                                className="w-full rounded-xl border border-[#D8D8D8] bg-white px-3 py-2.5 text-[9px] font-semibold uppercase tracking-wider hover:bg-[#F0F0EE]"
-                              >
-                                {tr('Preparar seguimiento', 'Prepare check-in')}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => prepareClientJourney('expert-renewal')}
-                                className="w-full rounded-xl border border-[#D8D8D8] bg-white px-3 py-2.5 text-[9px] font-semibold uppercase tracking-wider hover:bg-[#F0F0EE]"
-                              >
-                                {tr('Preparar renovación', 'Prepare renewal')}
-                              </button>
-                            </div>
-
-                            <div className="mt-4 rounded-xl border border-[#E5E5E5] bg-white p-3">
-                              <p className="text-[10px] text-[#777]">
-                                {tr('Borrador actual', 'Current draft')}
-                              </p>
-                              <p className="text-xs font-semibold mt-1">
-                                {draft.nextAction ? nextActionLabel(draft.nextAction, language) : tr('Sin próxima acción', 'No next action')}
-                              </p>
-                              <p className="text-[10px] text-[#777] mt-1">
-                                {draft.followUpAt ? formatDate(draft.followUpAt) : tr('Sin seguimiento programado', 'No follow-up scheduled')}
-                              </p>
-                            </div>
-                          </>
-                        ) : (
-                          <div className="rounded-xl border border-dashed border-[#D8D8D8] bg-white p-4 text-xs text-[#777]">
-                            {tr(
-                              'Al registrar Venta cerrada, G-KAIS moverá el lead a Cliente y preparará automáticamente el onboarding.',
-                              'When Sale closed is recorded, G-KAIS moves the lead to Client and prepares onboarding automatically.'
-                            )}
+                        {selectedLead.status === 'CLIENT' && getClientJourneyStage(selectedLead) && (
+                          <div className="mt-3 rounded-xl border border-[#0A3F4D]/20 bg-[#F4F8F8] p-3">
+                            <p className="font-mono-code text-[8px] uppercase tracking-wider text-[#0A3F4D]">
+                              {tr('Etapa postventa', 'Post-sale stage')}
+                            </p>
+                            <p className="text-xs font-semibold text-[#0A3F4D] mt-1.5">
+                              {clientJourneyLabel(getClientJourneyStage(selectedLead)!, language)}
+                            </p>
                           </div>
                         )}
+
+                        <div className="mt-3 rounded-xl border border-[#E5E5E5] bg-white p-3">
+                          <p className="font-mono-code text-[8px] uppercase tracking-wider text-[#777]">
+                            {tr('Última nota', 'Latest note')}
+                          </p>
+                          {selectedLead.leadNotes && selectedLead.leadNotes.length > 0 ? (
+                            <>
+                              <p className="text-xs font-semibold mt-1.5">
+                                {selectedLead.leadNotes[selectedLead.leadNotes.length - 1].title}
+                              </p>
+                              <p className="text-[10px] text-[#777] mt-1">
+                                {formatDate(selectedLead.leadNotes[selectedLead.leadNotes.length - 1].createdAt)}
+                              </p>
+                            </>
+                          ) : (
+                            <p className="text-xs text-[#8A8A8A] mt-1.5">
+                              {tr('Sin notas registradas todavía.', 'No notes recorded yet.')}
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -3276,49 +3275,90 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                       </p>
                       <p className="text-xs text-[#777] mt-1">
                         {tr(
-                          'Registro cronológico de cambios, resultados y próximas acciones.',
-                          'Chronological record of changes, outcomes and next actions.'
+                          'Cambios CRM, resultados de tareas y notas del lead en una sola línea de tiempo.',
+                          'CRM changes, task outcomes and lead notes in one timeline.'
                         )}
                       </p>
                     </div>
                     <span className="font-mono-code text-[9px] text-[#6B6B6B]">
-                      {(selectedLead.activityLog || []).length} {tr('eventos', 'events')}
+                      {(selectedLead.activityLog || []).length + (selectedLead.leadNotes || []).length} {tr('eventos', 'events')}
                     </span>
                   </div>
 
-                  {selectedLead.activityLog && selectedLead.activityLog.length > 0 ? (
-                    <div className="space-y-4">
-                      {[...selectedLead.activityLog].reverse().map((entry, index) => (
-                        <div key={entry.at + '-' + index} className="relative pl-5">
-                          <span className="absolute left-0 top-1.5 w-2.5 h-2.5 rounded-full bg-[#0A3F4D]" />
-                          {index < selectedLead.activityLog!.length - 1 && (
-                            <span className="absolute left-[4px] top-4 bottom-[-18px] w-px bg-[#D8D8D8]" />
-                          )}
-                          <div className="rounded-xl border border-[#E5E5E5] bg-[#FAFAFA] p-3.5">
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <span className="font-mono-code text-[9px] text-[#6B6B6B]">{formatDate(entry.at)}</span>
-                              <span className="font-mono-code text-[9px] text-[#6B6B6B]">{entry.actor}</span>
-                            </div>
-                            <p className="text-xs font-semibold mt-2">
-                              {statusLabel(entry.fromStatus, language)} → {statusLabel(entry.toStatus, language)}
-                            </p>
-                            {entry.result && (
-                              <p className="text-[10px] font-mono-code uppercase tracking-wider text-[#0A3F4D] mt-1.5">
-                                {tr('Resultado', 'Result')}: {taskOutcomeLabel(entry.result, language)}
-                              </p>
-                            )}
-                            {entry.nextAction && (
-                              <p className="text-[11px] text-[#6B6B6B] mt-1.5">{entry.nextAction}</p>
-                            )}
-                          </div>
+                  {(() => {
+                    const timeline = [
+                      ...(selectedLead.activityLog || []).map((activity) => ({
+                        kind: 'activity' as const,
+                        at: activity.at,
+                        actor: activity.actor,
+                        activity
+                      })),
+                      ...(selectedLead.leadNotes || []).map((note) => ({
+                        kind: 'note' as const,
+                        at: note.createdAt,
+                        actor: note.author,
+                        note
+                      }))
+                    ].sort(
+                      (a, b) => (Date.parse(b.at) || 0) - (Date.parse(a.at) || 0)
+                    );
+
+                    if (timeline.length === 0) {
+                      return (
+                        <div className="py-12 text-center text-xs text-[#777]">
+                          {tr('Aún no hay actividad registrada para este lead.', 'No activity has been recorded for this lead yet.')}
                         </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="py-12 text-center text-xs text-[#777]">
-                      {tr('Aún no hay actividad registrada para este lead.', 'No activity has been recorded for this lead yet.')}
-                    </div>
-                  )}
+                      );
+                    }
+
+                    return (
+                      <div className="space-y-4">
+                        {timeline.map((entry, index) => (
+                          <div key={entry.kind + '-' + entry.at + '-' + index} className="relative pl-5">
+                            <span
+                              className={'absolute left-0 top-1.5 w-2.5 h-2.5 rounded-full ' + (
+                                entry.kind === 'note' ? 'bg-[#0A0A0A]' : 'bg-[#0A3F4D]'
+                              )}
+                            />
+                            {index < timeline.length - 1 && (
+                              <span className="absolute left-[4px] top-4 bottom-[-18px] w-px bg-[#D8D8D8]" />
+                            )}
+                            <div className="rounded-xl border border-[#E5E5E5] bg-[#FAFAFA] p-3.5">
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <span className="font-mono-code text-[9px] text-[#6B6B6B]">{formatDate(entry.at)}</span>
+                                <span className="font-mono-code text-[9px] text-[#6B6B6B]">{entry.actor}</span>
+                              </div>
+
+                              {entry.kind === 'note' ? (
+                                <>
+                                  <p className="text-xs font-semibold mt-2">
+                                    {tr('Nota registrada', 'Note added')} · {entry.note.title}
+                                  </p>
+                                  <p className="text-[11px] leading-relaxed text-[#6B6B6B] mt-1.5 whitespace-pre-wrap">
+                                    {entry.note.body}
+                                  </p>
+                                </>
+                              ) : (
+                                <>
+                                  <p className="text-xs font-semibold mt-2">
+                                    {statusLabel(entry.activity.fromStatus, language)} → {statusLabel(entry.activity.toStatus, language)}
+                                  </p>
+                                  {entry.activity.result && (
+                                    <p className="text-[10px] font-mono-code uppercase tracking-wider text-[#0A3F4D] mt-1.5">
+                                      {tr('Resultado', 'Result')}: {taskOutcomeLabel(entry.activity.result, language)}
+                                    </p>
+                                  )}
+                                  {entry.activity.nextAction && (
+                                    <p className="text-[11px] text-[#6B6B6B] mt-1.5">{entry.activity.nextAction}</p>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </section>
               </div>
             </section>

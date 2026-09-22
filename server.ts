@@ -8,6 +8,7 @@ import { leadSubmissionRateLimiter } from './src/server/middleware/rateLimiter';
 import { antiSpamMiddleware } from './src/server/middleware/antiSpam';
 import { notifyNewLead } from './src/server/services/notification';
 import {
+  sendAuditConfirmationEmail,
   sendAuditNotification,
   sendContactNotification,
   sendOperationalAlertNotification
@@ -100,8 +101,11 @@ async function startServer() {
         stage = 'notification_status';
         await auditRepository.updateNotificationStatus(record, notification.status);
 
-        // Email architecture dispatch (non-blocking)
-        sendAuditNotification(record).catch((emailErr) => {
+        // Email architecture dispatch (non-blocking): internal alert + lead receipt.
+        Promise.all([
+          sendAuditNotification(record),
+          sendAuditConfirmationEmail(record)
+        ]).catch((emailErr) => {
           console.error(`[EMAIL BACKGROUND ERROR] Audit ${record.id}:`, emailErr);
         });
 
@@ -228,13 +232,14 @@ async function startServer() {
           notificationStatus: 'PENDING' as const
         };
 
-        const [webhook, email] = await Promise.all([
+        const [webhook, email, confirmation] = await Promise.all([
           notifyNewLead({ type: 'audit', data: record }),
-          sendAuditNotification(record)
+          sendAuditNotification(record),
+          sendAuditConfirmationEmail(record)
         ]);
 
         console.info(
-          `[PUBLIC AUDIT NOTIFY] ${record.id} | webhook=${webhook.status} | email=${email.status}`
+          `[PUBLIC AUDIT NOTIFY] ${record.id} | webhook=${webhook.status} | adminEmail=${email.status} | leadConfirmation=${confirmation.status}`
         );
 
         if (email.status === 'SKIPPED') {
@@ -242,6 +247,7 @@ async function startServer() {
             success: true,
             code: 'EMAIL_NOT_CONFIGURED',
             emailStatus: email.status,
+            confirmationStatus: confirmation.status,
             webhookStatus: webhook.status
           });
         }
@@ -251,6 +257,7 @@ async function startServer() {
             success: false,
             code: 'EMAIL_PROVIDER_ERROR',
             emailStatus: email.status,
+            confirmationStatus: confirmation.status,
             webhookStatus: webhook.status,
             error: email.error || 'Email provider rejected the audit notification.'
           });
@@ -260,6 +267,8 @@ async function startServer() {
           success: true,
           code: 'EMAIL_SENT',
           emailStatus: email.status,
+          confirmationStatus: confirmation.status,
+          confirmationError: confirmation.error,
           webhookStatus: webhook.status,
           provider: email.provider,
           messageId: email.messageId

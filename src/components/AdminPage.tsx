@@ -4186,6 +4186,53 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                                 </div>
                               )}
 
+                              {leadBriefs[selectedLead.id].howGkaisCanHelp.length > 0 && (
+                                <div className="rounded-2xl border border-[#0A3F4D]/25 bg-white p-3.5">
+                                  <p className="font-mono-code text-[8px] uppercase tracking-wider text-[#0A3F4D] mb-2">
+                                    {tr('Cómo G-KAIS puede ayudar', 'How G-KAIS can help')}
+                                  </p>
+                                  <div className="space-y-2">
+                                    {leadBriefs[selectedLead.id].howGkaisCanHelp.map((item, index) => (
+                                      <div key={index} className="flex items-start gap-2">
+                                        <span className="mt-[2px] inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#0A3F4D] text-[8px] font-bold text-white">
+                                          {index + 1}
+                                        </span>
+                                        <p className="text-[10px] leading-relaxed">{item}</p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {leadBriefs[selectedLead.id].solutionPlan.length > 0 && (
+                                <div className="rounded-2xl border border-[#D8D8D8] bg-[#FAFAFA] p-3.5">
+                                  <p className="font-mono-code text-[8px] uppercase tracking-wider text-[#777] mb-2">
+                                    {tr('Solución sugerida para este caso', 'Suggested solution for this case')}
+                                  </p>
+                                  <div className="space-y-2">
+                                    {leadBriefs[selectedLead.id].solutionPlan.map((step, index) => (
+                                      <div key={index} className="flex items-start gap-2">
+                                        <span className="font-mono-code text-[8px] text-[#0A3F4D] mt-[2px]">
+                                          {String(index + 1).padStart(2, '0')}
+                                        </span>
+                                        <p className="text-[10px] leading-relaxed text-[#4F4F4F]">{step}</p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {leadBriefs[selectedLead.id].callPositioning && (
+                                <div className="rounded-2xl border border-[#0A0A0A]/10 bg-[#0A0A0A] p-3.5 text-white">
+                                  <p className="font-mono-code text-[8px] uppercase tracking-wider text-white/60">
+                                    {tr('Cómo plantearlo en la llamada', 'How to position it on the call')}
+                                  </p>
+                                  <p className="text-[11px] leading-relaxed mt-2">
+                                    {leadBriefs[selectedLead.id].callPositioning}
+                                  </p>
+                                </div>
+                              )}
+
                               <button
                                 type="button"
                                 onClick={analyzeSelectedLead}

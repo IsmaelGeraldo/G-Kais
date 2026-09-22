@@ -423,13 +423,13 @@ async function startServer() {
       console.error('[AI LEAD BRIEF ERROR]', err);
 
       const missingApiKey =
-        err instanceof Error && err.message === 'GEMINI_API_KEY is not configured.';
+        err instanceof Error && err.message === 'Gemini API key is not configured.';
 
       return res.status(missingApiKey ? 503 : 502).json({
         success: false,
         code: missingApiKey ? 'AI_NOT_CONFIGURED' : 'AI_PROVIDER_ERROR',
         error: missingApiKey
-          ? 'G-KAIS AI is not configured in this environment.'
+          ? 'G-KAIS AI is not configured in this environment. Add GEMINI_API_KEY in AI Studio Settings > Secrets.'
           : err?.message || 'G-KAIS could not analyze this lead.'
       });
     }

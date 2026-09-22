@@ -63,6 +63,15 @@ export interface AdminLead {
   email: string;
   contactChannel?: string;
   website?: string;
+  businessType?: string;
+  primaryService?: string;
+  digitalPresence?: string;
+  acquisitionChannel?: string;
+  leadVolume?: string;
+  currentCrm?: string;
+  primaryProblem?: string;
+  currentSolution?: string;
+  businessGoal?: string;
   message?: string;
   inquiryNotes?: string;
   status: LeadStatus;
@@ -80,6 +89,15 @@ export interface AdminLead {
 export interface LeadOperationsUpdate {
   status: LeadStatus;
   website?: string;
+  businessType?: string;
+  primaryService?: string;
+  digitalPresence?: string;
+  acquisitionChannel?: string;
+  leadVolume?: string;
+  currentCrm?: string;
+  primaryProblem?: string;
+  currentSolution?: string;
+  businessGoal?: string;
   assignedTo?: string;
   nextAction?: string;
   followUpAt?: string;

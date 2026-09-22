@@ -322,8 +322,8 @@ function outcomePlaybook(
     case 'SALE_CLOSED':
       return {
         status: 'CLIENT',
-        nextAction: '',
-        followUpAt: ''
+        nextAction: 'Send onboarding',
+        followUpAt: addHours(24)
       };
     case 'NOT_INTERESTED':
       return {

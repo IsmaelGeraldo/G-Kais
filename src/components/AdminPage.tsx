@@ -4093,7 +4093,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                         {leadBriefs[selectedLead.id] && (
                           <span
                             className={
-                              'font-mono-code text-[8px] px-2.5 py-1.5 rounded-full border ' +
+                              'font-mono-code text-[9px] px-2.5 py-1.5 rounded-full border ' +
                               (leadBriefs[selectedLead.id].intent === 'HIGH'
                                 ? 'border-[#0A3F4D]/30 bg-white text-[#0A3F4D]'
                                 : leadBriefs[selectedLead.id].intent === 'MEDIUM'
@@ -4116,7 +4116,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                             type="button"
                             onClick={analyzeSelectedLead}
                             disabled={leadBriefLoadingId === selectedLead.id}
-                            className="inline-flex items-center justify-center rounded-xl border border-[#0A3F4D]/30 bg-white px-3 py-2 text-[9px] font-semibold uppercase tracking-wider text-[#0A3F4D] hover:bg-[#F7F7F5] disabled:opacity-50"
+                            className="inline-flex items-center justify-center rounded-xl border border-[#0A3F4D]/30 bg-white px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-[#0A3F4D] hover:bg-[#F7F7F5] disabled:opacity-50"
                           >
                             {leadBriefLoadingId === selectedLead.id ? (
                               <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
@@ -4149,7 +4149,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                       <div className="mt-5 grid grid-cols-1 xl:grid-cols-12 gap-4">
                         <div className="xl:col-span-7 space-y-4">
                           <div className="rounded-2xl border border-[#D8E3E5] bg-white p-4">
-                            <p className="font-mono-code text-[8px] uppercase tracking-wider text-[#777]">
+                            <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#777]">
                               {tr('Lectura rápida', 'Quick read')}
                             </p>
                             <p className="text-sm leading-relaxed mt-2">
@@ -4160,12 +4160,12 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {leadBriefs[selectedLead.id].signals.length > 0 && (
                               <div className="rounded-2xl border border-[#E5E5E5] bg-white p-4">
-                                <p className="font-mono-code text-[8px] uppercase tracking-wider text-[#777] mb-2">
+                                <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#777] mb-2">
                                   {tr('Señales detectadas', 'Detected signals')}
                                 </p>
                                 <div className="space-y-1.5">
                                   {leadBriefs[selectedLead.id].signals.map((signal, index) => (
-                                    <p key={index} className="text-[11px] leading-relaxed">
+                                    <p key={index} className="text-xs leading-relaxed">
                                       + {signal}
                                     </p>
                                   ))}
@@ -4175,12 +4175,12 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
 
                             {leadBriefs[selectedLead.id].risks.length > 0 && (
                               <div className="rounded-2xl border border-[#E5E5E5] bg-white p-4">
-                                <p className="font-mono-code text-[8px] uppercase tracking-wider text-[#777] mb-2">
+                                <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#777] mb-2">
                                   {tr('Riesgos o vacíos', 'Risks or gaps')}
                                 </p>
                                 <div className="space-y-1.5">
                                   {leadBriefs[selectedLead.id].risks.map((risk, index) => (
-                                    <p key={index} className="text-[11px] leading-relaxed text-[#6B6B6B]">
+                                    <p key={index} className="text-xs leading-relaxed text-[#6B6B6B]">
                                       – {risk}
                                     </p>
                                   ))}
@@ -4191,22 +4191,22 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
 
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="rounded-2xl border border-[#0A3F4D]/20 bg-white p-4">
-                              <p className="font-mono-code text-[8px] uppercase tracking-wider text-[#0A3F4D]">
+                              <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#0A3F4D]">
                                 {tr('Próximo paso sugerido', 'Suggested next step')}
                               </p>
-                              <p className="text-[11px] font-semibold leading-relaxed mt-2">
+                              <p className="text-xs font-semibold leading-relaxed mt-2">
                                 {leadBriefs[selectedLead.id].recommendedAction}
                               </p>
                             </div>
 
                             {leadBriefs[selectedLead.id].qualificationQuestions.length > 0 && (
                               <div className="rounded-2xl border border-[#E5E5E5] bg-white p-4">
-                                <p className="font-mono-code text-[8px] uppercase tracking-wider text-[#777] mb-2">
+                                <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#777] mb-2">
                                   {tr('Qué falta saber', 'What is still unknown')}
                                 </p>
                                 <div className="space-y-1.5">
                                   {leadBriefs[selectedLead.id].qualificationQuestions.map((question, index) => (
-                                    <p key={index} className="text-[10px] leading-relaxed">
+                                    <p key={index} className="text-xs leading-relaxed">
                                       {index + 1}. {question}
                                     </p>
                                   ))}
@@ -4219,7 +4219,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                         <div className="xl:col-span-5 space-y-4">
                           {leadBriefs[selectedLead.id].howGkaisCanHelp.length > 0 && (
                             <div className="rounded-2xl border border-[#0A3F4D]/25 bg-white p-4">
-                              <p className="font-mono-code text-[8px] uppercase tracking-wider text-[#0A3F4D] mb-2">
+                              <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#0A3F4D] mb-2">
                                 {tr('Cómo G-KAIS puede ayudar', 'How G-KAIS can help')}
                               </p>
                               <div className="space-y-2">
@@ -4228,7 +4228,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                                     <span className="mt-[2px] inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#0A3F4D] text-[8px] font-bold text-white">
                                       {index + 1}
                                     </span>
-                                    <p className="text-[10px] leading-relaxed">{item}</p>
+                                    <p className="text-xs leading-relaxed">{item}</p>
                                   </div>
                                 ))}
                               </div>
@@ -4237,7 +4237,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
 
                           {leadBriefs[selectedLead.id].solutionPlan.length > 0 && (
                             <div className="rounded-2xl border border-[#D8D8D8] bg-white p-4">
-                              <p className="font-mono-code text-[8px] uppercase tracking-wider text-[#777] mb-2">
+                              <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#777] mb-2">
                                 {tr('Solución sugerida', 'Suggested solution')}
                               </p>
                               <div className="space-y-2">
@@ -4246,7 +4246,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                                     <span className="font-mono-code text-[8px] text-[#0A3F4D] mt-[2px]">
                                       {String(index + 1).padStart(2, '0')}
                                     </span>
-                                    <p className="text-[10px] leading-relaxed text-[#4F4F4F]">{step}</p>
+                                    <p className="text-xs leading-relaxed text-[#4F4F4F]">{step}</p>
                                   </div>
                                 ))}
                               </div>
@@ -4255,7 +4255,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
 
                           {leadBriefs[selectedLead.id].callPositioning && (
                             <div className="rounded-2xl border border-[#0A0A0A]/10 bg-[#0A0A0A] p-4 text-white">
-                              <p className="font-mono-code text-[8px] uppercase tracking-wider text-white/60">
+                              <p className="font-mono-code text-[9px] uppercase tracking-wider text-white/60">
                                 {tr('Cómo lo diría en la llamada', 'How I would say it on the call')}
                               </p>
                               <p className="text-sm leading-relaxed mt-2">
@@ -4268,7 +4268,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                     )}
 
                     {leadBriefError && (
-                      <p className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-[10px] leading-relaxed text-red-800">
+                      <p className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs leading-relaxed text-red-800">
                         {leadBriefError}
                       </p>
                     )}

@@ -239,7 +239,7 @@ function normalizeBrief(
     solutionPlan: list('solutionPlan', 3, 220),
     callPositioning:
       typeof data.callPositioning === 'string' && data.callPositioning.trim()
-        ? data.callPositioning.trim().slice(0, 420)
+        ? data.callPositioning.trim().slice(0, 320)
         : language === 'es'
         ? 'Explica primero el problema actual del lead y conecta únicamente las capacidades verificadas de G-KAIS que puedan resolverlo.'
         : 'Start with the lead\'s current problem and connect only verified G-KAIS capabilities that can address it.'
@@ -328,7 +328,10 @@ async function generateStructuredBrief(
         'If a useful capability is not clearly available yet, frame it as something to evaluate or a later implementation phase, and state the dependency instead of presenting it as active.',
         'Keep howGkaisCanHelp to the 3 most important problem-to-capability matches. Each item should be short, concrete and ideally one sentence.',
         'Keep solutionPlan to no more than 3 practical steps for this specific lead. Avoid repeating information already stated elsewhere.',
-        'callPositioning must sound like the operator is speaking naturally to the lead in first person. Write 2 to 4 short conversational sentences, not a script, not bullet points, and avoid jargon. Briefly summarize the problem, how G-KAIS can help, and the practical approach without repeating the full analysis or making guarantees.',
+        'callPositioning is for a LIVE voice or video call that is already happening with the lead. Write exactly as the operator could say it out loud in that moment.',
+        'Use 2 to 3 short conversational sentences in first person. Speak directly to the client using natural spoken language.',
+        'Do not write like an email, WhatsApp message, follow-up or future outreach. Avoid phrases such as "te escribo", "te envío", "podemos agendar", "cuando hablemos", "en una próxima llamada" or anything that implies the conversation is not already happening.',
+        'Briefly acknowledge the client situation, explain in simple terms how G-KAIS could help, and close with the practical approach or next thing to explore during the same conversation. Do not repeat the full analysis or make guarantees.',
         'Do not invent business facts, budget, authority, urgency, needs or intent that are not supported by the input.',
         'The intent label is a qualitative signal, not a probability and not a replacement for human judgment.',
         'HIGH means the available evidence shows strong commercial intent or a clear near-term buying/meeting signal.',

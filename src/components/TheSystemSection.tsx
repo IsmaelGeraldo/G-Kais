@@ -1,398 +1,422 @@
 import React, { useState } from 'react';
-import { ArrowRight, ArrowDown, CheckCircle2, ChevronRight } from 'lucide-react';
+import {
+  ArrowRight,
+  CheckCircle2,
+  FileText,
+  Inbox,
+  ListChecks,
+  Sparkles,
+  Target,
+  User
+} from 'lucide-react';
 import { useLanguage } from '../i18n/LanguageContext';
 
-interface StageItem {
-  id: string;
+type StageId = 'signal' | 'context' | 'decision' | 'execution' | 'learning';
+
+interface Stage {
+  id: StageId;
   num: string;
-  label: string;
-  type: 'inbound' | 'engine' | 'sync' | 'outcome';
-  explanation: string;
-  technicalSub: string;
-  specItems: { key: string; value: string }[];
+  labelEs: string;
+  labelEn: string;
+  titleEs: string;
+  titleEn: string;
+  descriptionEs: string;
+  descriptionEn: string;
 }
 
-const STAGES: StageItem[] = [
+const STAGES: Stage[] = [
   {
-    id: 'lead',
+    id: 'signal',
     num: '01',
-    label: 'LEAD',
-    type: 'inbound',
-    explanation: 'Inbound demand initiates across webforms, direct email, WhatsApp, and partner channels.',
-    technicalSub: 'Omnichannel Ingestion',
-    specItems: [
-      { key: 'Channels', value: 'Configured per business and integration' },
-      { key: 'Input', value: 'Forms, messages and structured lead data' },
-      { key: 'Control', value: 'Validation, routing and human oversight' }
-    ]
+    labelEs: 'SEÑAL',
+    labelEn: 'SIGNAL',
+    titleEs: 'Una oportunidad entra al sistema.',
+    titleEn: 'An opportunity enters the system.',
+    descriptionEs:
+      'Puede venir de un formulario, una importación o un canal conectado. La señal se convierte en un registro que G-KAIS puede gestionar.',
+    descriptionEn:
+      'It can come from a form, an import or a connected channel. The signal becomes a record G-KAIS can manage.'
   },
   {
-    id: 'capture',
+    id: 'context',
     num: '02',
-    label: 'CAPTURE',
-    type: 'engine',
-    explanation: 'Collect opportunities from the channels your business already uses.',
-    technicalSub: 'Real-Time Ingestion Pipeline',
-    specItems: [
-      { key: 'Capture', value: 'Immediate intake when a connected source sends data' },
-      { key: 'Protection', value: 'Validation and anti-abuse controls by channel' },
-      { key: 'Data handling', value: 'Protected access and controlled permissions' }
-    ]
+    labelEs: 'CONTEXTO',
+    labelEn: 'CONTEXT',
+    titleEs: 'G-KAIS organiza lo que sabemos.',
+    titleEn: 'G-KAIS organizes what is known.',
+    descriptionEs:
+      'Tipo de negocio, problema, solución actual, objetivo, volumen, canal y notas quedan reunidos en una ficha operativa.',
+    descriptionEn:
+      'Business type, problem, current solution, goal, volume, channel and notes are gathered into one operational record.'
   },
   {
-    id: 'ai-analysis',
+    id: 'decision',
     num: '03',
-    label: 'AI ANALYSIS',
-    type: 'engine',
-    explanation: 'Understand intent, urgency and context before deciding what happens next.',
-    technicalSub: 'Intent & Qualification Parsing',
-    specItems: [
-      { key: 'Analysis', value: 'Intent, urgency and commercial context' },
-      { key: 'Context', value: 'Needs, timing and relevant lead details' },
-      { key: 'Decision support', value: 'AI-assisted signals with human review where needed' }
-    ]
+    labelEs: 'DECISIÓN',
+    labelEn: 'DECISION',
+    titleEs: 'Prioriza y ayuda a decidir qué hacer.',
+    titleEn: 'Prioritize and decide what should happen.',
+    descriptionEs:
+      'Priority Work, calificación progresiva y AI Brief ayudan a identificar urgencia, vacíos y la mejor próxima acción.',
+    descriptionEn:
+      'Priority Work, progressive qualification and AI Brief help identify urgency, gaps and the best next action.'
   },
   {
-    id: 'priority',
+    id: 'execution',
     num: '04',
-    label: 'PRIORITY',
-    type: 'engine',
-    explanation: 'Identify which opportunities require immediate attention.',
-    technicalSub: 'Algorithmic Escalation',
-    specItems: [
-      { key: 'Routing', value: 'Priority rules based on business criteria' },
-      { key: 'Timing', value: 'Due today, overdue and upcoming follow-up logic' },
-      { key: 'Alerts', value: 'Operational alerts and configured notification channels' }
-    ]
+    labelEs: 'EJECUCIÓN',
+    labelEn: 'EXECUTION',
+    titleEs: 'Cada oportunidad recibe un siguiente paso.',
+    titleEn: 'Every opportunity gets a next step.',
+    descriptionEs:
+      'Responsable, próxima acción, fecha de seguimiento y Task Engine mantienen el trabajo comercial en movimiento.',
+    descriptionEn:
+      'Owner, next action, follow-up date and Task Engine keep commercial work moving.'
   },
   {
-    id: 'crm',
+    id: 'learning',
     num: '05',
-    label: 'CRM',
-    type: 'sync',
-    explanation: 'Keep lead context, ownership, next actions and commercial status in one operational record.',
-    technicalSub: 'Bidirectional Data Sync',
-    specItems: [
-      { key: 'CRM', value: 'G-KAIS workspace or external integration by project' },
-      { key: 'Operations', value: 'Status, owner, next action and follow-up tracking' },
-      { key: 'History', value: 'Activity timeline for operational changes and task results' }
-    ]
-  },
-  {
-    id: 'response',
-    num: '06',
-    label: 'RESPONSE',
-    type: 'engine',
-    explanation: 'Support fast, consistent responses using approved templates or AI assistance when configured.',
-    technicalSub: 'Brand-Governed Autonomous Dispatch',
-    specItems: [
-      { key: 'Response', value: 'Templates or AI-assisted responses when configured' },
-      { key: 'Knowledge', value: 'Business-approved information and operating rules' },
-      { key: 'Control', value: 'Human approval can remain in the loop' }
-    ]
-  },
-  {
-    id: 'follow-up',
-    num: '07',
-    label: 'FOLLOW-UP',
-    type: 'engine',
-    explanation: 'Keep conversations moving when prospects are not ready to book.',
-    technicalSub: 'Autonomous Multi-Touch Cadence',
-    specItems: [
-      { key: 'Cadence', value: 'Task engine, reminders and configurable intervals' },
-      { key: 'Next action', value: 'Call, WhatsApp, email, proposal, meeting or follow-up' },
-      { key: 'Outcome', value: 'Clear result and next step instead of forgotten leads' }
-    ]
-  },
-  {
-    id: 'booked',
-    num: '08',
-    label: 'BOOKED',
-    type: 'outcome',
-    explanation: 'Turn managed opportunities into measurable outcomes.',
-    technicalSub: 'Meeting & Revenue Confirmation',
-    specItems: [
-      { key: 'Outcome', value: 'Meeting, proposal, client, lost or another defined result' },
-      { key: 'Handoff', value: 'Context available before the next human action' },
-      { key: 'Measurement', value: 'Track task completion and commercial outcomes' }
-    ]
+    labelEs: 'APRENDIZAJE',
+    labelEn: 'LEARNING',
+    titleEs: 'El contexto se conserva y mejora.',
+    titleEn: 'Context is retained and improved.',
+    descriptionEs:
+      'Bitácora, historial y resultados dejan trazabilidad para entender qué ocurrió y qué debería pasar después.',
+    descriptionEn:
+      'Notes, activity history and outcomes preserve traceability so the team knows what happened and what should happen next.'
   }
 ];
 
 export const TheSystemSection: React.FC = () => {
   const { language } = useLanguage();
-  const tr = (es: string, en: string) => (language === 'es' ? es : en);
-  const [selectedStageId, setSelectedStageId] = useState<string>('ai-analysis');
+  const es = language === 'es';
+  const [selectedStageId, setSelectedStageId] = useState<StageId>('decision');
 
+  const selectedStage =
+    STAGES.find((stage) => stage.id === selectedStageId) || STAGES[2];
+  const selectedIndex = STAGES.findIndex((stage) => stage.id === selectedStageId);
 
-  const stageLabel = (stage: StageItem): string => {
-    if (language === 'en') return stage.label;
-    const labels: Record<string, string> = {
-      lead: 'LEAD',
-      capture: 'CAPTURA',
-      'ai-analysis': 'ANÁLISIS IA',
-      priority: 'PRIORIDAD',
-      crm: 'CRM',
-      response: 'RESPUESTA',
-      'follow-up': 'SEGUIMIENTO',
-      booked: 'RESULTADO'
-    };
-    return labels[stage.id] || stage.label;
-  };
+  const stageLabel = (stage: Stage) =>
+    es ? stage.labelEs : stage.labelEn;
 
-  const stageExplanation = (stage: StageItem): string => {
-    if (language === 'en') return stage.explanation;
-    const values: Record<string, string> = {
-      lead: 'La demanda entra desde formularios web, correo, WhatsApp y otros canales conectados.',
-      capture: 'Recolecta oportunidades desde los canales que tu negocio ya utiliza.',
-      'ai-analysis': 'Comprende intención, urgencia y contexto antes de decidir qué debe ocurrir después.',
-      priority: 'Identifica qué oportunidades requieren atención inmediata.',
-      crm: 'Mantiene contexto, responsable, próxima acción y estado comercial en un solo registro operativo.',
-      response: 'Ayuda a responder rápido y de forma consistente usando plantillas aprobadas o asistencia de IA.',
-      'follow-up': 'Mantiene las conversaciones avanzando cuando el prospecto todavía no está listo.',
-      booked: 'Convierte oportunidades gestionadas en resultados medibles.'
-    };
-    return values[stage.id] || stage.explanation;
-  };
+  const stageTitle = (stage: Stage) =>
+    es ? stage.titleEs : stage.titleEn;
 
-  const stageTechnicalSub = (stage: StageItem): string => {
-    if (language === 'en') return stage.technicalSub;
-    const values: Record<string, string> = {
-      lead: 'Ingreso omnicanal',
-      capture: 'Pipeline de captura en tiempo real',
-      'ai-analysis': 'Interpretación de intención y calificación',
-      priority: 'Priorización algorítmica',
-      crm: 'Sincronización de datos',
-      response: 'Respuesta gobernada por marca',
-      'follow-up': 'Cadencia automática de seguimiento',
-      booked: 'Confirmación de resultado comercial'
-    };
-    return values[stage.id] || stage.technicalSub;
-  };
-
-  const translatedSpecs = (stage: StageItem): { key: string; value: string }[] => {
-    if (language === 'en') return stage.specItems;
-    const byStage: Record<string, { key: string; value: string }[]> = {
-      lead: [
-        { key: 'Canales', value: 'Configurados según cada negocio e integración' },
-        { key: 'Entrada', value: 'Formularios, mensajes y datos estructurados' },
-        { key: 'Control', value: 'Validación, enrutamiento y supervisión humana' }
-      ],
-      capture: [
-        { key: 'Captura', value: 'Ingreso inmediato desde una fuente conectada' },
-        { key: 'Protección', value: 'Validación y controles anti-abuso por canal' },
-        { key: 'Datos', value: 'Acceso protegido y permisos controlados' }
-      ],
-      'ai-analysis': [
-        { key: 'Análisis', value: 'Intención, urgencia y contexto comercial' },
-        { key: 'Contexto', value: 'Necesidades, tiempos y datos relevantes del lead' },
-        { key: 'Apoyo', value: 'Señales asistidas por IA con revisión humana cuando corresponde' }
-      ],
-      priority: [
-        { key: 'Enrutamiento', value: 'Reglas de prioridad según criterios del negocio' },
-        { key: 'Tiempo', value: 'Lógica de vencidos, hoy y próximos seguimientos' },
-        { key: 'Alertas', value: 'Alertas operativas y canales configurados' }
-      ],
-      crm: [
-        { key: 'CRM', value: 'Espacio G-KAIS o integración externa por proyecto' },
-        { key: 'Operación', value: 'Estado, responsable, próxima acción y seguimiento' },
-        { key: 'Historial', value: 'Línea de tiempo de cambios y resultados de tareas' }
-      ],
-      response: [
-        { key: 'Respuesta', value: 'Plantillas o respuestas asistidas por IA según configuración' },
-        { key: 'Conocimiento', value: 'Información y reglas aprobadas por el negocio' },
-        { key: 'Control', value: 'La aprobación humana puede mantenerse en el flujo' }
-      ],
-      'follow-up': [
-        { key: 'Cadencia', value: 'Motor de tareas, recordatorios e intervalos configurables' },
-        { key: 'Próxima acción', value: 'Llamada, WhatsApp, email, propuesta, reunión o seguimiento' },
-        { key: 'Resultado', value: 'Resultado claro y próximo paso en vez de leads olvidados' }
-      ],
-      booked: [
-        { key: 'Resultado', value: 'Reunión, propuesta, cliente, perdido u otro resultado definido' },
-        { key: 'Traspaso', value: 'Contexto disponible antes de la siguiente acción humana' },
-        { key: 'Medición', value: 'Seguimiento de tareas completadas y resultados comerciales' }
-      ]
-    };
-    return byStage[stage.id] || stage.specItems;
-  };
-
-  const selectedStage = STAGES.find(s => s.id === selectedStageId) || STAGES[2];
-  const selectedIndex = STAGES.findIndex(s => s.id === selectedStageId);
+  const stageDescription = (stage: Stage) =>
+    es ? stage.descriptionEs : stage.descriptionEn;
 
   return (
-    <section id="the-system" className="py-24 md:py-36 lg:py-48 border-b border-[#0A0A0A]/10 bg-[#F7F7F5]">
+    <section
+      id="the-system"
+      className="py-24 md:py-32 lg:py-40 border-b border-[#0A0A0A]/10 bg-[#F7F7F5]"
+    >
       <div className="max-w-6xl mx-auto px-5 sm:px-6 lg:px-8">
-        {/* Section Header */}
-        <div className="mb-20 lg:mb-28 flex flex-col md:flex-row md:items-end justify-between gap-6">
-          <div>
+        <div className="mb-14 lg:mb-20 grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-12 items-end">
+          <div className="lg:col-span-7">
             <span className="font-mono-code text-xs uppercase tracking-[0.24em] text-[#0A3F4D] font-semibold block mb-4">
-              {tr('EL SISTEMA', 'THE SYSTEM')}
+              {es ? 'EL SISTEMA' : 'THE SYSTEM'}
             </span>
-            <h2 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-[-0.03em] text-[#0A0A0A] leading-tight">
-              {tr('Un sistema. Cada oportunidad.', 'One system. Every opportunity.')}
+            <h2 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-[-0.04em] text-[#0A0A0A] leading-[1.02]">
+              {es
+                ? 'De una señal a una próxima acción clara.'
+                : 'From a signal to a clear next action.'}
             </h2>
           </div>
-          <p className="text-lg md:text-xl text-[#777777] max-w-md font-normal leading-relaxed">
-            {tr('G-KAIS conecta las partes fragmentadas de tu proceso comercial en un solo flujo inteligente.', 'G-KAIS connects the fragmented parts of your commercial process into one intelligent workflow.')}
+
+          <p className="lg:col-span-5 text-lg text-[#707570] leading-relaxed max-w-xl">
+            {es
+              ? 'G-KAIS no es solo una bandeja de entrada ni un CRM. Es la capa que organiza contexto, prioridad y ejecución para que cada oportunidad sepa qué pasa después.'
+              : 'G-KAIS is not just an inbox or a CRM. It is the layer that organizes context, priority and execution so every opportunity knows what happens next.'}
           </p>
         </div>
 
-        {/* The Master Interactive Diagram Container */}
-        <div className="border border-[#0A0A0A]/15 bg-white p-6 sm:p-8 lg:p-12 shadow-sm rounded-3xl">
-          {/* Top Stage Tracker Bar */}
-          <div className="flex flex-wrap items-center justify-between pb-6 mb-8 border-b border-[#0A0A0A]/10 text-xs font-mono-code text-[#777777]">
-            <div className="flex items-center space-x-3">
-              <span className="w-2 h-2 rounded-full bg-[#0A3F4D]" />
-              <span className="text-[#0A0A0A] font-bold tracking-wider">
-                {tr('MAPA DEL FLUJO COMERCIAL', 'COMMERCIAL WORKFLOW GRAPH')}
-              </span>
-              <span className="text-[#0A0A0A]/30 hidden sm:inline">|</span>
-              <span className="hidden sm:inline">{tr('FLUJO DE EJEMPLO DE 8 ETAPAS', '8 STAGE EXAMPLE WORKFLOW')}</span>
-            </div>
-            <div className="text-[11px] text-[#0A3F4D] font-medium">
-              {tr('ETAPA ACTIVA', 'ACTIVE STAGE')}: {selectedStage.num} // {stageLabel(selectedStage)}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-start">
-            {/* Left / Center: Interactive 8-Stage Sequential Flow */}
-            <div className="lg:col-span-7 flex flex-col">
-              <div className="text-[11px] font-mono-code tracking-widest text-[#777777] uppercase mb-4">
-                {tr('Haz clic en cualquier etapa para revisar la lógica y conexiones', 'Click any stage to inspect logic & connections')}
+        <div className="rounded-[30px] border border-[#D9DCDA] bg-[#DEDFDD] p-3 sm:p-4 shadow-[0_24px_70px_-50px_rgba(0,0,0,0.55)]">
+          <div className="rounded-[24px] border border-[#E5E7E4] bg-white overflow-hidden">
+            <div className="px-5 sm:px-7 py-4 border-b border-[#ECEDEB] flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <span className="w-2 h-2 rounded-full bg-[#0A3F4D]" />
+                <span className="font-mono-code text-[10px] uppercase tracking-[0.16em] font-bold">
+                  {es ? 'MAPA DEL FLUJO COMERCIAL' : 'COMMERCIAL WORKFLOW MAP'}
+                </span>
               </div>
+              <span className="font-mono-code text-[9px] uppercase tracking-wider text-[#777]">
+                {es ? 'DEL INGRESO A LA EJECUCIÓN' : 'FROM INTAKE TO EXECUTION'}
+              </span>
+            </div>
 
-              <div className="flex flex-col space-y-2">
-                {STAGES.map((stage, idx) => {
-                  const isSelected = stage.id === selectedStageId;
-                  const isPreceding = idx < selectedIndex;
+            <div className="grid grid-cols-1 lg:grid-cols-12">
+              <div className="lg:col-span-5 border-b lg:border-b-0 lg:border-r border-[#ECEDEB] p-4 sm:p-6">
+                <div className="space-y-2">
+                  {STAGES.map((stage, index) => {
+                    const isSelected = stage.id === selectedStageId;
+                    const isReached = index <= selectedIndex;
 
-                  return (
-                    <React.Fragment key={stage.id}>
+                    return (
                       <button
+                        type="button"
+                        key={stage.id}
                         onClick={() => setSelectedStageId(stage.id)}
-                        id={`system-stage-btn-${stage.id}`}
-                        className={`text-left p-4 sm:p-5 border transition-all duration-200 cursor-pointer flex items-center justify-between group ${
-                          isSelected
-                            ? 'border-[#0A0A0A] bg-[#0A0A0A] text-[#F7F7F5] shadow-sm'
-                            : isPreceding
-                            ? 'border-[#0A0A0A]/20 bg-[#F7F7F5]/50 text-[#0A0A0A] hover:border-[#0A0A0A]/40'
-                            : 'border-[#0A0A0A]/10 bg-white text-[#0A0A0A] hover:border-[#0A0A0A]/30'
-                        }`}
+                        className={
+                          'w-full rounded-2xl border p-4 text-left transition-all ' +
+                          (isSelected
+                            ? 'border-[#0A3F4D]/30 bg-[#F4F8F8] shadow-sm'
+                            : 'border-transparent bg-transparent hover:border-[#E3E5E2] hover:bg-[#FAFAF9]')
+                        }
                       >
-                        <div className="flex items-baseline space-x-4 sm:space-x-6">
-                          <span className={`font-mono-code text-xs font-semibold ${
-                            isSelected ? 'text-[#F7F7F5]/60' : 'text-[#777777]'
-                          }`}>
+                        <div className="flex items-center gap-4">
+                          <span
+                            className={
+                              'w-9 h-9 shrink-0 rounded-xl flex items-center justify-center font-mono-code text-[10px] font-bold ' +
+                              (isReached
+                                ? 'bg-[#0A3F4D] text-white'
+                                : 'bg-[#F0F1EF] text-[#777]')
+                            }
+                          >
                             {stage.num}
                           </span>
 
-                          <div>
-                            <h4 className="font-extrabold tracking-tight text-base sm:text-lg">
-                              {stageLabel(stage)}
-                            </h4>
-                            <p className={`text-xs mt-0.5 ${
-                              isSelected ? 'text-[#F7F7F5]/80' : 'text-[#777777]'
-                            }`}>
-                              {stageTechnicalSub(stage)}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="font-mono-code text-[9px] uppercase tracking-[0.14em] text-[#0A3F4D] font-bold">
+                                {stageLabel(stage)}
+                              </span>
+                              {isSelected && (
+                                <ArrowRight className="w-4 h-4 text-[#0A3F4D]" />
+                              )}
+                            </div>
+                            <p className="text-sm sm:text-base font-bold tracking-tight mt-1">
+                              {stageTitle(stage)}
                             </p>
                           </div>
                         </div>
-
-                        <div className="flex items-center space-x-3">
-                          <span className={`font-mono-code text-[10px] uppercase tracking-wider px-2 py-0.5 border ${
-                            isSelected
-                              ? 'border-white/20 text-white/90'
-                              : 'border-[#0A0A0A]/10 text-[#0A3F4D]'
-                          }`}>
-                            {stage.type}
-                          </span>
-
-                          <div className={`w-2 h-2 rounded-full transition-colors ${
-                            isSelected ? 'bg-[#F7F7F5]' : 'bg-[#0A0A0A]/15 group-hover:bg-[#0A3F4D]'
-                          }`} />
-                        </div>
                       </button>
+                    );
+                  })}
+                </div>
 
-                      {idx < STAGES.length - 1 && (
-                        <div className="flex items-center justify-center py-0.5">
-                          <div className="flex flex-col items-center">
-                            <div className={`h-2.5 w-[1px] ${
-                              idx < selectedIndex ? 'bg-[#0A3F4D]' : 'bg-[#0A0A0A]/15'
-                            }`} />
-                            <ArrowDown className={`w-3 h-3 ${
-                              idx < selectedIndex ? 'text-[#0A3F4D]' : 'text-[#0A0A0A]/30'
-                            }`} />
+                <p className="mt-5 px-1 text-xs leading-relaxed text-[#777]">
+                  {es
+                    ? 'Haz clic en cada etapa. La vista de la derecha muestra qué parte de G-KAIS participa en ese momento.'
+                    : 'Click each stage. The view on the right shows which part of G-KAIS is involved at that moment.'}
+                </p>
+              </div>
+
+              <div className="lg:col-span-7 p-4 sm:p-6 lg:p-7 bg-[#FAFAF9]">
+                <div className="rounded-3xl border border-[#E1E3E0] bg-white overflow-hidden shadow-[0_18px_45px_-38px_rgba(0,0,0,0.55)]">
+                  <div className="px-5 py-4 border-b border-[#ECEDEB] flex items-center justify-between gap-3">
+                    <div>
+                      <p className="font-mono-code text-[9px] uppercase tracking-[0.16em] text-[#0A3F4D] font-bold">
+                        {stageLabel(selectedStage)}
+                      </p>
+                      <h3 className="text-xl sm:text-2xl font-extrabold tracking-tight mt-1">
+                        {stageTitle(selectedStage)}
+                      </h3>
+                    </div>
+                    <span className="font-mono-code text-[9px] text-[#777]">
+                      {selectedStage.num}/05
+                    </span>
+                  </div>
+
+                  <div className="p-5 sm:p-6">
+                    <p className="text-sm sm:text-base leading-relaxed text-[#666]">
+                      {stageDescription(selectedStage)}
+                    </p>
+
+                    <div className="mt-6">
+                      {selectedStage.id === 'signal' && (
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          {[
+                            [es ? 'Formulario' : 'Form', 'Lead nuevo'],
+                            [es ? 'Importación CSV' : 'CSV import', 'Base existente'],
+                            [es ? 'Canal conectado' : 'Connected channel', 'Señal entrante']
+                          ].map(([label, value]) => (
+                            <div
+                              key={label}
+                              className="rounded-2xl border border-[#E5E5E5] bg-[#F7F7F5] p-4"
+                            >
+                              <Inbox className="w-4 h-4 text-[#0A3F4D]" />
+                              <p className="font-mono-code text-[8px] uppercase tracking-wider text-[#777] mt-3">
+                                {label}
+                              </p>
+                              <p className="text-xs font-bold mt-1">{value}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {selectedStage.id === 'context' && (
+                        <div className="rounded-2xl border border-[#E5E5E5] bg-[#F7F7F5] p-4 sm:p-5">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2">
+                              <FileText className="w-4 h-4 text-[#0A3F4D]" />
+                              <span className="font-mono-code text-[9px] uppercase tracking-wider font-bold">
+                                {es ? 'Ficha del lead' : 'Lead record'}
+                              </span>
+                            </div>
+                            <span className="rounded-full border border-[#0A3F4D]/20 bg-white px-2.5 py-1 text-[9px] font-bold text-[#0A3F4D]">
+                              {es ? 'Contexto 6/9' : 'Context 6/9'}
+                            </span>
+                          </div>
+
+                          <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            {[
+                              es ? 'Tipo de negocio' : 'Business type',
+                              es ? 'Servicio' : 'Service',
+                              es ? 'Canal' : 'Channel',
+                              es ? 'Problema' : 'Problem',
+                              es ? 'Solución actual' : 'Current solution',
+                              es ? 'Objetivo' : 'Goal'
+                            ].map((item) => (
+                              <div
+                                key={item}
+                                className="rounded-xl border border-[#E6E7E5] bg-white px-3 py-2.5"
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5 text-[#0A3F4D]" />
+                                <p className="text-[10px] font-semibold mt-1.5">{item}</p>
+                              </div>
+                            ))}
                           </div>
                         </div>
                       )}
-                    </React.Fragment>
-                  );
-                })}
-              </div>
-            </div>
 
-            {/* Right: Explanations & Technical Architecture Panel */}
-            <div className="lg:col-span-5 lg:sticky lg:top-32">
-              <div className="border border-[#0A0A0A]/15 bg-[#F7F7F5] p-6 sm:p-8 rounded-2xl">
-                {/* Active Indicator Top */}
-                <div className="flex items-center justify-between pb-4 mb-6 border-b border-[#0A0A0A]/10">
-                  <span className="font-mono-code text-[11px] uppercase tracking-widest text-[#0A3F4D] font-bold">
-                    {tr('ETAPA', 'STAGE')} // {selectedStage.num}
-                  </span>
-                  <span className="font-mono-code text-[10px] text-[#777777] uppercase">
-                    {tr('TIPO', 'TYPE')}: {selectedStage.type}
-                  </span>
+                      {selectedStage.id === 'decision' && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div className="rounded-2xl border border-[#0A3F4D]/20 bg-[#F4F8F8] p-4">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <Target className="w-4 h-4 text-[#0A3F4D]" />
+                                <span className="font-mono-code text-[9px] uppercase tracking-wider font-bold">
+                                  Priority Work
+                                </span>
+                              </div>
+                              <span className="rounded-full bg-[#0A3F4D] text-white px-2 py-1 text-[8px] font-bold">
+                                {es ? 'ALTA' : 'HIGH'}
+                              </span>
+                            </div>
+                            <p className="text-xs font-bold leading-relaxed mt-4">
+                              {es
+                                ? '120 consultas/día + seguimiento manual + demoras.'
+                                : '120 inquiries/day + manual follow-up + delays.'}
+                            </p>
+                          </div>
+
+                          <div className="rounded-2xl border border-[#E5E5E5] bg-white p-4">
+                            <div className="flex items-center gap-2">
+                              <Sparkles className="w-4 h-4 text-[#0A3F4D]" />
+                              <span className="font-mono-code text-[9px] uppercase tracking-wider font-bold">
+                                AI Brief
+                              </span>
+                            </div>
+                            <p className="text-xs leading-relaxed mt-4 text-[#555]">
+                              {es
+                                ? 'El problema principal está en la capacidad de respuesta y continuidad del seguimiento.'
+                                : 'The main issue is response capacity and follow-up continuity.'}
+                            </p>
+                            <div className="mt-3 pt-3 border-t border-[#EFEFEF]">
+                              <span className="font-mono-code text-[8px] uppercase tracking-wider text-[#777]">
+                                {es ? 'FALTA SABER' : 'STILL UNKNOWN'}
+                              </span>
+                              <p className="text-[10px] mt-1">
+                                {es
+                                  ? 'Tiempo promedio de respuesta'
+                                  : 'Average response time'}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {selectedStage.id === 'execution' && (
+                        <div className="rounded-2xl border border-[#E5E5E5] bg-[#F7F7F5] p-4 sm:p-5">
+                          <div className="flex items-center gap-2">
+                            <ListChecks className="w-4 h-4 text-[#0A3F4D]" />
+                            <span className="font-mono-code text-[9px] uppercase tracking-wider font-bold">
+                              {es ? 'QUÉ TOCA HACER AHORA' : 'WHAT HAPPENS NEXT'}
+                            </span>
+                          </div>
+
+                          <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div className="rounded-xl bg-white border border-[#E5E5E5] p-3">
+                              <span className="text-[8px] uppercase tracking-wider text-[#777]">
+                                {es ? 'Responsable' : 'Owner'}
+                              </span>
+                              <div className="flex items-center gap-2 mt-2">
+                                <User className="w-3.5 h-3.5 text-[#0A3F4D]" />
+                                <strong className="text-xs">
+                                  {es ? 'Equipo comercial' : 'Sales team'}
+                                </strong>
+                              </div>
+                            </div>
+                            <div className="rounded-xl bg-white border border-[#E5E5E5] p-3 sm:col-span-2">
+                              <span className="text-[8px] uppercase tracking-wider text-[#777]">
+                                {es ? 'Próxima acción' : 'Next action'}
+                              </span>
+                              <p className="text-xs font-bold mt-2">
+                                {es
+                                  ? 'Revisar flujo actual y confirmar reunión'
+                                  : 'Review current flow and confirm meeting'}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {selectedStage.id === 'learning' && (
+                        <div className="rounded-2xl border border-[#E5E5E5] bg-[#F7F7F5] p-4 sm:p-5">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle2 className="w-4 h-4 text-[#0A3F4D]" />
+                            <span className="font-mono-code text-[9px] uppercase tracking-wider font-bold">
+                              {es ? 'HISTORIAL DE ACTIVIDAD' : 'ACTIVITY HISTORY'}
+                            </span>
+                          </div>
+
+                          <div className="mt-4 space-y-3">
+                            {[
+                              es ? 'Lead revisado y perfil actualizado' : 'Lead reviewed and profile updated',
+                              es ? 'AI Brief generado con contexto del negocio' : 'AI Brief generated with business context',
+                              es ? 'Próxima acción definida para el equipo' : 'Next action defined for the team'
+                            ].map((item, index) => (
+                              <div key={item} className="flex items-start gap-3">
+                                <span className="mt-1.5 w-2 h-2 rounded-full bg-[#0A3F4D]" />
+                                <div>
+                                  <p className="text-xs font-semibold">{item}</p>
+                                  <p className="text-[9px] text-[#777] mt-1">
+                                    {es ? 'Contexto preservado' : 'Context preserved'} · 0{index + 1}
+                                  </p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="mt-6 pt-5 border-t border-[#ECEDEB] flex flex-wrap items-center justify-between gap-3">
+                      <span className="text-[10px] text-[#777]">
+                        {es
+                          ? 'La IA apoya la decisión. El equipo mantiene el control.'
+                          : 'AI supports the decision. The team stays in control.'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const nextIndex = (selectedIndex + 1) % STAGES.length;
+                          setSelectedStageId(STAGES[nextIndex].id);
+                        }}
+                        className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-[#0A3F4D]"
+                      >
+                        {es ? 'Siguiente etapa' : 'Next stage'}
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
-                {/* Stage Title */}
-                <h3 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#0A0A0A] mb-3">
-                  {stageLabel(selectedStage)}
-                </h3>
-
-                <p className="font-mono-code text-xs text-[#0A3F4D] font-semibold tracking-wider uppercase mb-6">
-                  {stageTechnicalSub(selectedStage)}
+                <p className="mt-4 text-[10px] leading-relaxed text-[#777]">
+                  {es
+                    ? 'Ejemplo ilustrativo. Las fuentes y automatizaciones disponibles dependen de la configuración e integraciones activas de cada implementación.'
+                    : 'Illustrative example. Available sources and automations depend on the configuration and active integrations of each implementation.'}
                 </p>
-
-                {/* High-Level Editorial Explanation */}
-                <div className="p-4 bg-white border border-[#0A0A0A]/10 mb-8 rounded-2xl">
-                  <p className="text-base sm:text-lg font-medium tracking-tight text-[#0A0A0A] leading-snug">
-                    "{stageExplanation(selectedStage)}"
-                  </p>
-                </div>
-
-                {/* Operational Telemetry Specifications */}
-                <div>
-                  <span className="font-mono-code text-[10px] uppercase tracking-wider text-[#777777] block mb-3">
-                    {tr('ESPECIFICACIONES DE LA ETAPA', 'STAGE SPECIFICATIONS')}
-                  </span>
-                  <div className="space-y-3 font-mono-code text-xs">
-                    {translatedSpecs(selectedStage).map((item, i) => (
-                      <div key={i} className="flex items-center justify-between pb-2 border-b border-[#0A0A0A]/5">
-                        <span className="text-[#777777]">{item.key}</span>
-                        <span className="text-[#0A0A0A] font-medium text-right">{item.value}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Flow Sequence Breadcrumbs */}
-                <div className="mt-8 pt-6 border-t border-[#0A0A0A]/10">
-                  <span className="font-mono-code text-[10px] text-[#777777] uppercase block mb-2">
-                    {tr('CONTEXTO SECUENCIAL', 'SEQUENTIAL CONTEXT')}
-                  </span>
-                  <div className="flex items-center justify-between text-xs font-mono-code">
-                    <span className="text-[#777777]">
-                      {selectedIndex > 0 ? `← ${stageLabel(STAGES[selectedIndex - 1])}` : tr('INICIO', 'START')}
-                    </span>
-                    <span className="text-[#0A3F4D] font-bold">
-                      [{stageLabel(selectedStage)}]
-                    </span>
-                    <span className="text-[#777777]">
-                      {selectedIndex < STAGES.length - 1 ? `${stageLabel(STAGES[selectedIndex + 1])} →` : tr('COMPLETO', 'COMPLETE')}
-                    </span>
-                  </div>
-                </div>
               </div>
             </div>
           </div>

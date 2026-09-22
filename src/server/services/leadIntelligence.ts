@@ -21,6 +21,15 @@ export interface LeadIntelligenceInput {
   company?: string;
   email?: string;
   website?: string;
+  businessType?: string;
+  primaryService?: string;
+  digitalPresence?: string;
+  acquisitionChannel?: string;
+  leadVolume?: string;
+  currentCrm?: string;
+  primaryProblem?: string;
+  currentSolution?: string;
+  businessGoal?: string;
   source?: string;
   contactChannel?: string;
   status?: string;
@@ -131,6 +140,33 @@ export function sanitizeLeadIntelligenceInput(
     ...(cleanText(data.company, 180) ? { company: cleanText(data.company, 180) } : {}),
     ...(cleanText(data.email, 320) ? { email: cleanText(data.email, 320) } : {}),
     ...(cleanText(data.website, 300) ? { website: cleanText(data.website, 300) } : {}),
+    ...(cleanText(data.businessType, 160)
+      ? { businessType: cleanText(data.businessType, 160) }
+      : {}),
+    ...(cleanText(data.primaryService, 300)
+      ? { primaryService: cleanText(data.primaryService, 300) }
+      : {}),
+    ...(cleanText(data.digitalPresence, 500)
+      ? { digitalPresence: cleanText(data.digitalPresence, 500) }
+      : {}),
+    ...(cleanText(data.acquisitionChannel, 300)
+      ? { acquisitionChannel: cleanText(data.acquisitionChannel, 300) }
+      : {}),
+    ...(cleanText(data.leadVolume, 160)
+      ? { leadVolume: cleanText(data.leadVolume, 160) }
+      : {}),
+    ...(cleanText(data.currentCrm, 200)
+      ? { currentCrm: cleanText(data.currentCrm, 200) }
+      : {}),
+    ...(cleanText(data.primaryProblem, 1200)
+      ? { primaryProblem: cleanText(data.primaryProblem, 1200) }
+      : {}),
+    ...(cleanText(data.currentSolution, 1200)
+      ? { currentSolution: cleanText(data.currentSolution, 1200) }
+      : {}),
+    ...(cleanText(data.businessGoal, 1200)
+      ? { businessGoal: cleanText(data.businessGoal, 1200) }
+      : {}),
     ...(cleanText(data.source, 80) ? { source: cleanText(data.source, 80) } : {}),
     ...(cleanText(data.contactChannel, 80)
       ? { contactChannel: cleanText(data.contactChannel, 80) }
@@ -273,6 +309,8 @@ async function generateStructuredBrief(
         'If businessKnowledge is present, treat it as authoritative context about the business, its offer, customer fit, qualification rules, objections, policies and tone.',
         'Never treat businessKnowledge as evidence that the lead personally said, needs or agreed to something. Lead-specific conclusions must come from the lead fields and notes.',
         'Use qualificationCriteria and idealCustomer to identify fit or missing qualification information, but do not invent fit when evidence is absent.',
+        'Use the structured lead business profile to understand business type, service, digital presence, acquisition channel, lead volume, current CRM, problem, current solution and business goal.',
+        'When primaryProblem and currentSolution are both present, explicitly reason about the gap between the problem and what the lead is currently doing to solve it. Do not assume the current solution or competitor is bad; identify only evidence-supported limitations or missing capabilities.',
         'Use offers, faqObjections and policies to make the recommendedAction more specific when relevant.',
         'Do not invent business facts, budget, authority, urgency, needs or intent that are not supported by the input.',
         'The intent label is a qualitative signal, not a probability and not a replacement for human judgment.',

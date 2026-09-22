@@ -560,6 +560,15 @@ function makeDraft(lead: AdminLead | null): LeadOperationsUpdate {
   return {
     status: lead?.status || 'PENDING_REVIEW',
     website: lead?.website || '',
+    businessType: lead?.businessType || '',
+    primaryService: lead?.primaryService || '',
+    digitalPresence: lead?.digitalPresence || '',
+    acquisitionChannel: lead?.acquisitionChannel || '',
+    leadVolume: lead?.leadVolume || '',
+    currentCrm: lead?.currentCrm || '',
+    primaryProblem: lead?.primaryProblem || '',
+    currentSolution: lead?.currentSolution || '',
+    businessGoal: lead?.businessGoal || '',
     assignedTo: lead?.assignedTo || '',
     nextAction: lead?.nextAction || '',
     followUpAt: lead?.followUpAt || '',
@@ -802,6 +811,15 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
           lead.company,
           lead.email,
           lead.website,
+          lead.businessType,
+          lead.primaryService,
+          lead.digitalPresence,
+          lead.acquisitionChannel,
+          lead.leadVolume,
+          lead.currentCrm,
+          lead.primaryProblem,
+          lead.currentSolution,
+          lead.businessGoal,
           lead.contactChannel,
           lead.inquiryNotes,
           lead.message,
@@ -1306,6 +1324,15 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
       const leadContext: AdminLead = {
         ...selectedLead,
         website: draft.website || selectedLead.website,
+        businessType: draft.businessType || selectedLead.businessType,
+        primaryService: draft.primaryService || selectedLead.primaryService,
+        digitalPresence: draft.digitalPresence || selectedLead.digitalPresence,
+        acquisitionChannel: draft.acquisitionChannel || selectedLead.acquisitionChannel,
+        leadVolume: draft.leadVolume || selectedLead.leadVolume,
+        currentCrm: draft.currentCrm || selectedLead.currentCrm,
+        primaryProblem: draft.primaryProblem || selectedLead.primaryProblem,
+        currentSolution: draft.currentSolution || selectedLead.currentSolution,
+        businessGoal: draft.businessGoal || selectedLead.businessGoal,
         status: draft.status,
         assignedTo: draft.assignedTo || undefined,
         nextAction: draft.nextAction || undefined,
@@ -1783,6 +1810,15 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
       const normalizedUpdate: LeadOperationsUpdate = {
         status: draft.status,
         website: draft.website || '',
+        businessType: draft.businessType || '',
+        primaryService: draft.primaryService || '',
+        digitalPresence: draft.digitalPresence || '',
+        acquisitionChannel: draft.acquisitionChannel || '',
+        leadVolume: draft.leadVolume || '',
+        currentCrm: draft.currentCrm || '',
+        primaryProblem: draft.primaryProblem || '',
+        currentSolution: draft.currentSolution || '',
+        businessGoal: draft.businessGoal || '',
         assignedTo: draft.assignedTo || '',
         nextAction: draft.nextAction || '',
         followUpAt: draft.followUpAt || '',
@@ -3503,6 +3539,200 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                         )}
                       </div>
                     </div>
+                  </div>
+                </section>
+
+                <section className="rounded-2xl border border-[#E5E5E5] bg-white p-5 sm:p-6">
+                  <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
+                    <div>
+                      <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#0A3F4D] font-bold">
+                        {tr('Perfil del negocio y calificación', 'Business profile & qualification')}
+                      </p>
+                      <p className="text-xs text-[#777] mt-1 max-w-3xl">
+                        {tr(
+                          'Contexto estructurado para entender cómo opera el lead, qué problema intenta resolver y qué información debería considerar G-KAIS.',
+                          'Structured context to understand how the lead operates, what problem it is trying to solve and what G-KAIS should consider.'
+                        )}
+                      </p>
+                    </div>
+                    <span className="font-mono-code text-[8px] rounded-full border border-[#0A3F4D]/20 bg-[#F4F8F8] px-2.5 py-1 text-[#0A3F4D]">
+                      {tr('Contexto para AI Brief', 'AI Brief context')}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {[
+                      {
+                        key: 'businessType',
+                        es: 'Tipo de negocio',
+                        en: 'Business type',
+                        placeholderEs: 'Ej.: clínica dental, agencia, inmobiliaria, consultor…',
+                        placeholderEn: 'e.g. dental clinic, agency, real estate, consultant…',
+                        maxLength: 160
+                      },
+                      {
+                        key: 'primaryService',
+                        es: 'Servicio / oferta principal',
+                        en: 'Primary service / offer',
+                        placeholderEs: 'Ej.: implantes dentales, mentoría, captación de clientes…',
+                        placeholderEn: 'e.g. dental implants, mentoring, client acquisition…',
+                        maxLength: 300
+                      },
+                      {
+                        key: 'digitalPresence',
+                        es: 'Presencia digital',
+                        en: 'Digital presence',
+                        placeholderEs: 'Ej.: web + Instagram + WhatsApp / solo redes sociales',
+                        placeholderEn: 'e.g. website + Instagram + WhatsApp / social only',
+                        maxLength: 500
+                      },
+                      {
+                        key: 'acquisitionChannel',
+                        es: 'Canal principal de captación',
+                        en: 'Main acquisition channel',
+                        placeholderEs: 'Ej.: Meta Ads, Instagram, Google, referidos…',
+                        placeholderEn: 'e.g. Meta Ads, Instagram, Google, referrals…',
+                        maxLength: 300
+                      },
+                      {
+                        key: 'leadVolume',
+                        es: 'Volumen aproximado de leads',
+                        en: 'Approx. lead volume',
+                        placeholderEs: 'Ej.: 80–120 consultas al mes',
+                        placeholderEn: 'e.g. 80–120 inquiries per month',
+                        maxLength: 160
+                      },
+                      {
+                        key: 'currentCrm',
+                        es: 'CRM / sistema actual',
+                        en: 'Current CRM / system',
+                        placeholderEs: 'Ej.: ninguno, Excel, HighLevel, HubSpot…',
+                        placeholderEn: 'e.g. none, Excel, HighLevel, HubSpot…',
+                        maxLength: 200
+                      }
+                    ].map((field) => (
+                      <label key={field.key} className="block">
+                        <span className="font-mono-code text-[8px] uppercase tracking-wider text-[#6B6B6B] block mb-1.5">
+                          {tr(field.es, field.en)}
+                        </span>
+                        <input
+                          value={(draft[field.key as keyof LeadOperationsUpdate] as string) || ''}
+                          onChange={(event) =>
+                            setDraft((current) => ({
+                              ...current,
+                              [field.key]: event.target.value
+                            }))
+                          }
+                          maxLength={field.maxLength}
+                          placeholder={tr(field.placeholderEs, field.placeholderEn)}
+                          className="w-full rounded-xl border border-[#D8D8D8] bg-[#FAFAFA] px-3 py-2.5 text-sm focus:outline-none focus:border-[#0A3F4D]"
+                        />
+                      </label>
+                    ))}
+                  </div>
+
+                  <div className="mt-5 rounded-2xl border border-[#D8E3E5] bg-[#F4F8F8] p-4 sm:p-5">
+                    <div className="mb-4">
+                      <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#0A3F4D] font-bold">
+                        {tr('Situación actual', 'Current situation')}
+                      </p>
+                      <p className="text-[10px] text-[#657477] mt-1">
+                        {tr(
+                          'Registra el problema y cómo lo están intentando resolver hoy. Esto ayuda a detectar la brecha real sin asumir que la solución actual es mala.',
+                          'Record the problem and how they are trying to solve it today. This helps identify the real gap without assuming the current solution is bad.'
+                        )}
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      <label className="block">
+                        <span className="font-mono-code text-[8px] uppercase tracking-wider text-[#6B6B6B] block mb-1.5">
+                          {tr('Problema principal', 'Primary problem')}
+                        </span>
+                        <textarea
+                          value={draft.primaryProblem || ''}
+                          onChange={(event) =>
+                            setDraft((current) => ({
+                              ...current,
+                              primaryProblem: event.target.value
+                            }))
+                          }
+                          maxLength={1200}
+                          rows={4}
+                          placeholder={tr(
+                            'Ej.: reciben muchas consultas, pero una parte importante queda sin seguimiento después de pedir precio.',
+                            'e.g. they receive many inquiries, but many are not followed up after asking for price.'
+                          )}
+                          className="w-full rounded-xl border border-[#D8D8D8] bg-white px-3 py-3 text-sm leading-relaxed resize-y focus:outline-none focus:border-[#0A3F4D]"
+                        />
+                      </label>
+
+                      <label className="block">
+                        <span className="font-mono-code text-[8px] uppercase tracking-wider text-[#6B6B6B] block mb-1.5">
+                          {tr('Solución / competidor actual', 'Current solution / competitor')}
+                        </span>
+                        <textarea
+                          value={draft.currentSolution || ''}
+                          onChange={(event) =>
+                            setDraft((current) => ({
+                              ...current,
+                              currentSolution: event.target.value
+                            }))
+                          }
+                          maxLength={1200}
+                          rows={4}
+                          placeholder={tr(
+                            'Ej.: recepción hace seguimiento manual por WhatsApp + Excel; evaluaron HighLevel pero no lo implementaron completamente.',
+                            'e.g. reception follows up manually via WhatsApp + Excel; they evaluated HighLevel but did not fully implement it.'
+                          )}
+                          className="w-full rounded-xl border border-[#D8D8D8] bg-white px-3 py-3 text-sm leading-relaxed resize-y focus:outline-none focus:border-[#0A3F4D]"
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  <label className="block mt-4">
+                    <span className="font-mono-code text-[8px] uppercase tracking-wider text-[#6B6B6B] block mb-1.5">
+                      {tr('Objetivo del lead / negocio', 'Lead / business goal')}
+                    </span>
+                    <textarea
+                      value={draft.businessGoal || ''}
+                      onChange={(event) =>
+                        setDraft((current) => ({
+                          ...current,
+                          businessGoal: event.target.value
+                        }))
+                      }
+                      maxLength={1200}
+                      rows={3}
+                      placeholder={tr(
+                        'Ej.: aumentar evaluaciones agendadas, reducir leads perdidos y ordenar el seguimiento del equipo.',
+                        'e.g. increase booked consultations, reduce lost leads and organize team follow-up.'
+                      )}
+                      className="w-full rounded-xl border border-[#D8D8D8] bg-[#FAFAFA] px-3 py-3 text-sm leading-relaxed resize-y focus:outline-none focus:border-[#0A3F4D]"
+                    />
+                  </label>
+
+                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-[10px] text-[#777]">
+                      {tr(
+                        'No es necesario completar todo de una vez. La ficha puede enriquecerse progresivamente durante llamadas y seguimientos.',
+                        'You do not need to complete everything at once. The record can be enriched progressively during calls and follow-ups.'
+                      )}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleSave}
+                      disabled={saving}
+                      className="inline-flex items-center justify-center rounded-xl bg-[#0A3F4D] px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-white hover:bg-[#08333E] disabled:opacity-50"
+                    >
+                      {saving ? (
+                        <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
+                      ) : (
+                        <Save className="w-3.5 h-3.5 mr-2" />
+                      )}
+                      {tr('Guardar perfil', 'Save profile')}
+                    </button>
                   </div>
                 </section>
 

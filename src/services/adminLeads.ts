@@ -141,6 +141,15 @@ function normalizeAudit(data: any, documentId: string): AdminLead {
     email: String(data.email || ''),
     contactChannel: data.contactChannel ? String(data.contactChannel) : undefined,
     website: data.website ? String(data.website) : undefined,
+    businessType: optionalString(data.businessType),
+    primaryService: optionalString(data.primaryService),
+    digitalPresence: optionalString(data.digitalPresence),
+    acquisitionChannel: optionalString(data.acquisitionChannel),
+    leadVolume: optionalString(data.leadVolume),
+    currentCrm: optionalString(data.currentCrm),
+    primaryProblem: optionalString(data.primaryProblem),
+    currentSolution: optionalString(data.currentSolution),
+    businessGoal: optionalString(data.businessGoal),
     inquiryNotes: data.inquiryNotes ? String(data.inquiryNotes) : undefined,
     status: normalizeStatus(data.status),
     notificationStatus: String(data.notificationStatus || 'PENDING'),
@@ -162,6 +171,15 @@ function normalizeContact(data: any, documentId: string): AdminLead {
     name: String(data.name || 'Unknown'),
     email: String(data.email || ''),
     website: data.website ? String(data.website) : undefined,
+    businessType: optionalString(data.businessType),
+    primaryService: optionalString(data.primaryService),
+    digitalPresence: optionalString(data.digitalPresence),
+    acquisitionChannel: optionalString(data.acquisitionChannel),
+    leadVolume: optionalString(data.leadVolume),
+    currentCrm: optionalString(data.currentCrm),
+    primaryProblem: optionalString(data.primaryProblem),
+    currentSolution: optionalString(data.currentSolution),
+    businessGoal: optionalString(data.businessGoal),
     message: data.message ? String(data.message) : undefined,
     status: normalizeStatus(data.status),
     notificationStatus: String(data.notificationStatus || 'PENDING'),
@@ -382,6 +400,15 @@ export async function updateLeadOperations(
   actorLabel: string
 ): Promise<LeadActivity> {
   const website = update.website?.trim() || '';
+  const businessType = update.businessType?.trim() || '';
+  const primaryService = update.primaryService?.trim() || '';
+  const digitalPresence = update.digitalPresence?.trim() || '';
+  const acquisitionChannel = update.acquisitionChannel?.trim() || '';
+  const leadVolume = update.leadVolume?.trim() || '';
+  const currentCrm = update.currentCrm?.trim() || '';
+  const primaryProblem = update.primaryProblem?.trim() || '';
+  const currentSolution = update.currentSolution?.trim() || '';
+  const businessGoal = update.businessGoal?.trim() || '';
   const assignedTo = update.assignedTo?.trim() || '';
   const nextAction = update.nextAction?.trim() || '';
   const followUpAt = update.followUpAt?.trim() || '';
@@ -389,6 +416,33 @@ export async function updateLeadOperations(
 
   if (website.length > 250) {
     throw new Error('Website cannot exceed 250 characters.');
+  }
+  if (businessType.length > 160) {
+    throw new Error('Business type cannot exceed 160 characters.');
+  }
+  if (primaryService.length > 300) {
+    throw new Error('Primary service cannot exceed 300 characters.');
+  }
+  if (digitalPresence.length > 500) {
+    throw new Error('Digital presence cannot exceed 500 characters.');
+  }
+  if (acquisitionChannel.length > 300) {
+    throw new Error('Acquisition channel cannot exceed 300 characters.');
+  }
+  if (leadVolume.length > 160) {
+    throw new Error('Lead volume cannot exceed 160 characters.');
+  }
+  if (currentCrm.length > 200) {
+    throw new Error('Current CRM cannot exceed 200 characters.');
+  }
+  if (primaryProblem.length > 1200) {
+    throw new Error('Primary problem cannot exceed 1,200 characters.');
+  }
+  if (currentSolution.length > 1200) {
+    throw new Error('Current solution cannot exceed 1,200 characters.');
+  }
+  if (businessGoal.length > 1200) {
+    throw new Error('Business goal cannot exceed 1,200 characters.');
   }
   if (assignedTo.length > 100) {
     throw new Error('Responsible person cannot exceed 100 characters.');
@@ -420,6 +474,15 @@ export async function updateLeadOperations(
   await updateDoc(doc(firestoreDb, collectionName, lead.id), {
     status: update.status,
     website,
+    businessType,
+    primaryService,
+    digitalPresence,
+    acquisitionChannel,
+    leadVolume,
+    currentCrm,
+    primaryProblem,
+    currentSolution,
+    businessGoal,
     assignedTo,
     nextAction,
     followUpAt,

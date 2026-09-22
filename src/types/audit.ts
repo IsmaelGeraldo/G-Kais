@@ -23,6 +23,8 @@ export interface AuditResponse {
   submissionId?: string;
   message?: string;
   timestamp?: string;
+  confirmationStatus?: 'SENT' | 'SKIPPED' | 'FAILED' | 'UNKNOWN';
+  confirmationIssue?: 'TEST_SENDER' | 'PROVIDER_REJECTED' | 'NOT_CONFIGURED' | 'NETWORK_ERROR';
   error?: string;
   errors?: string[];
 }

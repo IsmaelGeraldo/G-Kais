@@ -68,7 +68,7 @@ service cloud.firestore {
         ]) &&
         data.id is string &&
         data.id == leadId &&
-        data.id.matches('^GK-IMP-[A-Z0-9-]+\\$') &&
+        data.id.matches('^GK-IMP-[A-Z0-9-]+') &&
         data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
         data.email is string && data.email.size() <= 254 &&
         data.phone is string && data.phone.size() <= 40 &&

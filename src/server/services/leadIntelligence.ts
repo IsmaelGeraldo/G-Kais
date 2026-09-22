@@ -142,21 +142,49 @@ function normalizeBrief(value: unknown): LeadIntelligenceBrief {
   };
 }
 
-export async function analyzeLeadWithGemini(
+function isTransientGeminiError(error: unknown): boolean {
+  const value = error as {
+    status?: number;
+    code?: number;
+    message?: string;
+    error?: { code?: number; status?: string; message?: string };
+  };
+
+  const status =
+    value?.status ||
+    value?.code ||
+    value?.error?.code;
+
+  const message = [
+    value?.message,
+    value?.error?.message,
+    value?.error?.status
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toUpperCase();
+
+  return (
+    status === 408 ||
+    status === 429 ||
+    (typeof status === 'number' && status >= 500) ||
+    message.includes('UNAVAILABLE') ||
+    message.includes('RESOURCE_EXHAUSTED') ||
+    message.includes('HIGH DEMAND') ||
+    message.includes('SERVICE UNAVAILABLE')
+  );
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function generateStructuredBrief(
+  ai: GoogleGenAI,
+  model: string,
   input: LeadIntelligenceInput
-): Promise<LeadIntelligenceBrief> {
-  const apiKey =
-    process.env.GOOGLE_API_KEY?.trim() ||
-    process.env.GEMINI_API_KEY?.trim();
-
-  if (!apiKey) {
-    throw new Error('Gemini API key is not configured.');
-  }
-
-  const ai = new GoogleGenAI({ apiKey });
-  const model = process.env.GEMINI_MODEL?.trim() || 'gemini-3.8-flash';
-
-  const response = await ai.models.generateContent({
+) {
+  return ai.models.generateContent({
     model,
     contents: JSON.stringify(input),
     config: {
@@ -211,14 +239,79 @@ export async function analyzeLeadWithGemini(
       maxOutputTokens: 1200
     }
   });
+}
 
-  let parsed: unknown = {};
+export async function analyzeLeadWithGemini(
+  input: LeadIntelligenceInput
+): Promise<LeadIntelligenceBrief> {
+  const apiKey =
+    process.env.GOOGLE_API_KEY?.trim() ||
+    process.env.GEMINI_API_KEY?.trim();
 
-  try {
-    parsed = JSON.parse(response.text || '{}');
-  } catch {
-    throw new Error('Gemini returned an invalid structured response.');
+  if (!apiKey) {
+    throw new Error('Gemini API key is not configured.');
   }
 
-  return normalizeBrief(parsed);
+  const ai = new GoogleGenAI({ apiKey });
+  const preferredModel =
+    process.env.GEMINI_MODEL?.trim() || 'gemini-3.8-flash';
+
+  const modelSequence = Array.from(
+    new Set([
+      preferredModel,
+      'gemini-3.7-flash',
+      'gemini-3.5-flash'
+    ])
+  );
+
+  let lastError: unknown = null;
+
+  for (let modelIndex = 0; modelIndex < modelSequence.length; modelIndex += 1) {
+    const model = modelSequence[modelIndex];
+    const attempts = modelIndex === 0 ? 2 : 1;
+
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+      try {
+        const response = await generateStructuredBrief(ai, model, input);
+        let parsed: unknown = {};
+
+        try {
+          parsed = JSON.parse(response.text || '{}');
+        } catch {
+          throw new Error('Gemini returned an invalid structured response.');
+        }
+
+        if (model !== preferredModel) {
+          console.warn(
+            `[AI LEAD BRIEF] Preferred model ${preferredModel} unavailable; used fallback ${model}.`
+          );
+        }
+
+        return normalizeBrief(parsed);
+      } catch (error) {
+        lastError = error;
+
+        if (!isTransientGeminiError(error)) {
+          throw error;
+        }
+
+        const hasAnotherAttempt =
+          attempt + 1 < attempts ||
+          modelIndex + 1 < modelSequence.length;
+
+        if (!hasAnotherAttempt) break;
+
+        if (attempt + 1 < attempts) {
+          const delayMs = 900 * Math.pow(2, attempt);
+          await sleep(delayMs);
+        }
+      }
+    }
+  }
+
+  console.error('[AI LEAD BRIEF] All Gemini model attempts failed.', lastError);
+  throw new Error(
+    'G-KAIS AI is temporarily saturated. Please try the analysis again shortly.'
+  );
 }
+

@@ -53,7 +53,9 @@ service cloud.firestore {
 
     function validOperationalUpdate() {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'status', 'website', 'assignedTo', 'nextAction', 'followUpAt',
+          'status', 'website', 'businessType', 'primaryService', 'digitalPresence',
+          'acquisitionChannel', 'leadVolume', 'currentCrm', 'primaryProblem',
+          'currentSolution', 'businessGoal', 'assignedTo', 'nextAction', 'followUpAt',
           'internalNotes', 'leadNotes', 'activityLog', 'updatedAt'
         ]) &&
         request.resource.data.status in [
@@ -63,6 +65,33 @@ service cloud.firestore {
         (!('website' in request.resource.data) ||
           (request.resource.data.website is string &&
            request.resource.data.website.size() <= 250)) &&
+        (!('businessType' in request.resource.data) ||
+          (request.resource.data.businessType is string &&
+           request.resource.data.businessType.size() <= 160)) &&
+        (!('primaryService' in request.resource.data) ||
+          (request.resource.data.primaryService is string &&
+           request.resource.data.primaryService.size() <= 300)) &&
+        (!('digitalPresence' in request.resource.data) ||
+          (request.resource.data.digitalPresence is string &&
+           request.resource.data.digitalPresence.size() <= 500)) &&
+        (!('acquisitionChannel' in request.resource.data) ||
+          (request.resource.data.acquisitionChannel is string &&
+           request.resource.data.acquisitionChannel.size() <= 300)) &&
+        (!('leadVolume' in request.resource.data) ||
+          (request.resource.data.leadVolume is string &&
+           request.resource.data.leadVolume.size() <= 160)) &&
+        (!('currentCrm' in request.resource.data) ||
+          (request.resource.data.currentCrm is string &&
+           request.resource.data.currentCrm.size() <= 200)) &&
+        (!('primaryProblem' in request.resource.data) ||
+          (request.resource.data.primaryProblem is string &&
+           request.resource.data.primaryProblem.size() <= 1200)) &&
+        (!('currentSolution' in request.resource.data) ||
+          (request.resource.data.currentSolution is string &&
+           request.resource.data.currentSolution.size() <= 1200)) &&
+        (!('businessGoal' in request.resource.data) ||
+          (request.resource.data.businessGoal is string &&
+           request.resource.data.businessGoal.size() <= 1200)) &&
         request.resource.data.assignedTo is string &&
         request.resource.data.assignedTo.size() <= 100 &&
         request.resource.data.nextAction is string &&

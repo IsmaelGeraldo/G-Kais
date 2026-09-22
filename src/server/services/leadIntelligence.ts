@@ -254,12 +254,13 @@ export async function analyzeLeadWithGemini(
 
   const ai = new GoogleGenAI({ apiKey });
   const preferredModel =
-    process.env.GEMINI_MODEL?.trim() || 'gemini-3.8-flash';
+    process.env.GEMINI_MODEL?.trim() || 'gemini-2.5-flash-lite';
 
   const modelSequence = Array.from(
     new Set([
       preferredModel,
-      'gemini-3.7-flash',
+      'gemini-2.5-flash',
+      'gemini-3.5-flash-lite',
       'gemini-3.5-flash'
     ])
   );

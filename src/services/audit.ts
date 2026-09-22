@@ -26,6 +26,9 @@ function assertHumanSubmission(payload: AuditRequestPayload): void {
   }
 }
 
+type AuditConfirmationStatus = NonNullable<AuditResponse['confirmationStatus']>;
+type AuditConfirmationIssue = AuditResponse['confirmationIssue'];
+
 async function dispatchAuditNotification(
   record: {
     id: string;
@@ -40,7 +43,10 @@ async function dispatchAuditNotification(
     notificationStatus: string;
   },
   payload: AuditRequestPayload
-): Promise<void> {
+): Promise<{
+  confirmationStatus: AuditConfirmationStatus;
+  confirmationIssue?: AuditConfirmationIssue;
+}> {
   const controller = new AbortController();
   const timeoutId = window.setTimeout(() => controller.abort(), 9000);
 
@@ -56,18 +62,42 @@ async function dispatchAuditNotification(
       signal: controller.signal
     });
 
+    const body = await response.json().catch(() => null);
+    const confirmationStatus: AuditConfirmationStatus =
+      body?.confirmationStatus === 'SENT' ||
+      body?.confirmationStatus === 'SKIPPED' ||
+      body?.confirmationStatus === 'FAILED'
+        ? body.confirmationStatus
+        : 'UNKNOWN';
+
+    const confirmationIssue: AuditConfirmationIssue =
+      body?.confirmationIssue === 'TEST_SENDER' ||
+      body?.confirmationIssue === 'PROVIDER_REJECTED' ||
+      body?.confirmationIssue === 'NOT_CONFIGURED'
+        ? body.confirmationIssue
+        : undefined;
+
     if (!response.ok) {
-      const body = await response.json().catch(() => null);
       console.warn(
         '[AUDIT NOTIFICATION] Lead saved but notification failed:',
         body?.error || `HTTP ${response.status}`
       );
     }
+
+    return {
+      confirmationStatus,
+      ...(confirmationIssue ? { confirmationIssue } : {})
+    };
   } catch (error: any) {
     console.warn(
       '[AUDIT NOTIFICATION] Lead saved but notification request failed:',
       error?.name === 'AbortError' ? 'Request timed out.' : error?.message || error
     );
+
+    return {
+      confirmationStatus: 'UNKNOWN',
+      confirmationIssue: 'NETWORK_ERROR'
+    };
   } finally {
     window.clearTimeout(timeoutId);
   }
@@ -124,13 +154,17 @@ export async function submitAuditRequest(payload: AuditRequestPayload): Promise<
   };
 
   await setDoc(doc(firestoreDb, 'audit_submissions', submissionId), record);
-  await dispatchAuditNotification(record, payload);
+  const confirmation = await dispatchAuditNotification(record, payload);
 
   return {
     success: true,
     code: 'SUCCESS',
     submissionId,
     message: 'G-KAIS reviews your current lead flow and follows up with next steps.',
-    timestamp: createdAt
+    timestamp: createdAt,
+    confirmationStatus: confirmation.confirmationStatus,
+    ...(confirmation.confirmationIssue
+      ? { confirmationIssue: confirmation.confirmationIssue }
+      : {})
   };
 }

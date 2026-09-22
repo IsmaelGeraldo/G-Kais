@@ -1,174 +1,186 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ArrowUpRight,
-  CalendarCheck,
+  ArrowRight,
   Check,
-  CheckCheck,
-  Instagram,
+  CheckCircle2,
+  FileText,
   MessageCircle,
   Pause,
   Play,
   RotateCcw,
   Sparkles,
+  Target,
+  User,
 } from "lucide-react";
 import { useLanguage } from "../i18n/LanguageContext";
 import "./hero-conversations.css";
 
-const stories = {
+const scenarios = {
   es: [
     {
-      label: "Nueva consulta",
-      business: "Estudio Norte",
-      channel: "Instagram",
-      source: "Anuncio en Instagram",
-      ad: "Un espacio para ti.",
-      offer: "Conoce nuestras clases. Encuentra tu horario.",
-      incoming: "¡Hola! Vi el anuncio. ¿Tienen una clase de prueba?",
-      reply: "¡Sí! Puedes venir el jueves a las 18:00. ¿Te reservo un lugar?",
-      answer: "¡Perfecto, a las 18:00!",
-      result: "Reserva confirmada",
-      detail: "Jueves · 18:00 · Clase de prueba",
-      next: "Recordatorio antes de la clase",
-      intent: "Quiere probar una clase",
-      steps: [
-        "Ve el anuncio",
-        "Pregunta por Instagram",
-        "G-Kais responde",
-        "Elige un horario",
-        "Reserva confirmada",
+      label: "Nuevo lead",
+      business: "Iberia Logistics",
+      person: "David Alarcón",
+      channel: "WhatsApp",
+      message:
+        "Tenemos cerca de 120 consultas al día y se nos están quedando leads sin responder.",
+      context: [
+        ["Negocio", "Logística"],
+        ["Volumen", "120 consultas/día"],
+        ["Sistema actual", "Excel + seguimiento manual"],
       ],
+      priority: "ALTA",
+      reason: "Demoras + volumen operativo + pérdida de oportunidades",
+      brief:
+        "El problema principal no es generar más consultas, sino responder y dar seguimiento con consistencia.",
+      missing: "Tiempo promedio de respuesta y tamaño del equipo comercial",
+      help:
+        "Centralizar contexto, priorizar qué necesita atención y mantener una próxima acción clara.",
+      next: "Revisar flujo actual y validar dónde se pierden los leads",
     },
     {
-      label: "Cotización pendiente",
+      label: "Cotización",
       business: "Casa Atelier",
-      channel: "WhatsApp",
-      source: "Consulta por WhatsApp",
-      ad: "Tu próximo espacio.",
-      offer: "Una propuesta a medida, con atención cercana.",
-      incoming: "Hola, me interesa la cotización que me enviaron.",
-      reply:
-        "¡Hola! ¿Quieres revisar algún detalle? Puedo coordinar una llamada con tu asesora.",
-      answer: "Sí, mañana por la tarde.",
-      result: "Conversación retomada",
-      detail: "El cliente solicita hablar con su asesora",
-      next: "Coordinar llamada · Equipo comercial",
-      intent: "Interés en la propuesta",
-      steps: [
-        "Recibe la propuesta",
-        "Retoma la conversación",
-        "G-Kais da seguimiento",
-        "Pide hablar con alguien",
-        "Tu equipo continúa",
+      person: "Laura Méndez",
+      channel: "Formulario web",
+      message:
+        "Enviamos cotizaciones, pero después el seguimiento depende de cada asesor y muchas se enfrían.",
+      context: [
+        ["Negocio", "Diseño interior"],
+        ["Canal", "Web + email"],
+        ["Problema", "Seguimiento irregular"],
       ],
+      priority: "ALTA",
+      reason: "Propuestas enviadas sin próxima acción definida",
+      brief:
+        "Existe interés comercial, pero el proceso posterior a la cotización no está estandarizado.",
+      missing: "Cuántas cotizaciones quedan sin seguimiento cada semana",
+      help:
+        "Definir responsable, fecha de seguimiento y próxima acción para cada oportunidad.",
+      next: "Medir cotizaciones abiertas y construir una cadencia de seguimiento",
     },
     {
-      label: "Recuperar una reserva",
-      business: "Estudio Norte",
-      channel: "WhatsApp",
-      source: "Seguimiento por WhatsApp",
-      ad: "Siempre puedes volver.",
-      offer: "Una nueva oportunidad para encontrar tu momento.",
-      incoming: "Hola, al final no pude asistir a la clase.",
-      reply: "Podemos buscar otro horario. ¿Te acomoda el sábado a las 10:00?",
-      answer: "Sí, ese horario me sirve.",
-      result: "Reserva reprogramada",
-      detail: "Sábado · 10:00 · Clase de prueba",
-      next: "Recordatorio actualizado",
-      intent: "Necesita otro horario",
-      steps: [
-        "Reserva sin asistir",
-        "El cliente escribe",
-        "G-Kais propone opciones",
-        "Confirma otro horario",
-        "Reserva recuperada",
+      label: "Lead dormido",
+      business: "Clínica Nova",
+      person: "Camila Rojas",
+      channel: "Instagram",
+      message:
+        "Nos escriben por tratamientos, preguntan precios y después muchas conversaciones quedan ahí.",
+      context: [
+        ["Negocio", "Clínica estética"],
+        ["Canal", "Instagram"],
+        ["Problema", "Conversaciones sin continuidad"],
       ],
+      priority: "MEDIA",
+      reason: "Interés detectado sin seguimiento posterior",
+      brief:
+        "Hay demanda, pero falta convertir las conversaciones en oportunidades con contexto y seguimiento.",
+      missing: "Qué tratamientos consultan y cuándo se considera un lead calificado",
+      help:
+        "Convertir cada consulta en una oportunidad con contexto, prioridad y siguiente paso.",
+      next: "Definir criterios de calificación y seguimiento por tipo de consulta",
     },
   ],
   en: [
     {
-      label: "New inquiry",
-      business: "Estudio Norte",
-      channel: "Instagram",
-      source: "Instagram ad",
-      ad: "A space for you.",
-      offer: "Discover our classes. Find your time.",
-      incoming: "Hi! I saw your ad. Do you offer a trial class?",
-      reply: "Yes! You can join us Thursday at 6 pm. Shall I save you a spot?",
-      answer: "Perfect, 6 pm works!",
-      result: "Booking confirmed",
-      detail: "Thursday · 6 pm · Trial class",
-      next: "Reminder before the class",
-      intent: "Interested in a trial class",
-      steps: [
-        "Sees the ad",
-        "Asks on Instagram",
-        "G-Kais responds",
-        "Chooses a time",
-        "Booking confirmed",
+      label: "New lead",
+      business: "Iberia Logistics",
+      person: "David Alarcón",
+      channel: "WhatsApp",
+      message:
+        "We handle around 120 inquiries a day and some leads are being left unanswered.",
+      context: [
+        ["Business", "Logistics"],
+        ["Volume", "120 inquiries/day"],
+        ["Current system", "Excel + manual follow-up"],
       ],
+      priority: "HIGH",
+      reason: "Delays + operating volume + lost opportunities",
+      brief:
+        "The main problem is not generating more inquiries, but responding and following up consistently.",
+      missing: "Average response time and sales team size",
+      help:
+        "Centralize context, prioritize what needs attention and keep a clear next action.",
+      next: "Review the current workflow and validate where leads are being lost",
     },
     {
-      label: "Pending quote",
+      label: "Quote",
       business: "Casa Atelier",
-      channel: "WhatsApp",
-      source: "WhatsApp inquiry",
-      ad: "Your next space.",
-      offer: "A tailored proposal, with personal attention.",
-      incoming: "Hi, I’m interested in the quote you sent me.",
-      reply:
-        "Hi! Would you like to review any details? I can arrange a call with your advisor.",
-      answer: "Yes, tomorrow afternoon.",
-      result: "Conversation reopened",
-      detail: "The customer wants to speak with their advisor",
-      next: "Arrange a call · Sales team",
-      intent: "Interested in the proposal",
-      steps: [
-        "Receives the quote",
-        "Reopens the conversation",
-        "G-Kais follows up",
-        "Asks to speak to someone",
-        "Your team takes over",
+      person: "Laura Méndez",
+      channel: "Web form",
+      message:
+        "We send quotes, but follow-up depends on each advisor and many opportunities go cold.",
+      context: [
+        ["Business", "Interior design"],
+        ["Channel", "Web + email"],
+        ["Problem", "Inconsistent follow-up"],
       ],
+      priority: "HIGH",
+      reason: "Sent proposals with no defined next action",
+      brief:
+        "There is commercial interest, but the process after sending a quote is not standardized.",
+      missing: "How many quotes go without follow-up every week",
+      help:
+        "Define owner, follow-up date and next action for every opportunity.",
+      next: "Measure open quotes and build a follow-up cadence",
     },
     {
-      label: "Recover a booking",
-      business: "Estudio Norte",
-      channel: "WhatsApp",
-      source: "WhatsApp follow-up",
-      ad: "There’s another chance.",
-      offer: "A new opportunity to find your moment.",
-      incoming: "Hi, I couldn’t make it to the class after all.",
-      reply: "Let’s find another time. Would Saturday at 10 am work for you?",
-      answer: "Yes, that works for me.",
-      result: "Booking rescheduled",
-      detail: "Saturday · 10 am · Trial class",
-      next: "Reminder updated",
-      intent: "Needs a different time",
-      steps: [
-        "Misses the booking",
-        "Customer writes",
-        "G-Kais offers options",
-        "Confirms another time",
-        "Booking recovered",
+      label: "Dormant lead",
+      business: "Nova Clinic",
+      person: "Camila Rojas",
+      channel: "Instagram",
+      message:
+        "People ask us about treatments and pricing, then many conversations simply stop.",
+      context: [
+        ["Business", "Aesthetic clinic"],
+        ["Channel", "Instagram"],
+        ["Problem", "No conversation continuity"],
       ],
+      priority: "MEDIUM",
+      reason: "Interest detected without follow-up",
+      brief:
+        "There is demand, but conversations are not consistently turned into managed opportunities.",
+      missing: "Which treatments they ask about and what qualifies a lead",
+      help:
+        "Turn each inquiry into an opportunity with context, priority and a next step.",
+      next: "Define qualification and follow-up criteria by inquiry type",
     },
   ],
 };
 
-/** Self-contained illustrative demo. Never reads leads or sends messages. */
+const steps = {
+  es: [
+    "Conversación",
+    "Captura contexto",
+    "Prioriza",
+    "AI Brief",
+    "Próxima acción",
+  ],
+  en: [
+    "Conversation",
+    "Capture context",
+    "Prioritize",
+    "AI Brief",
+    "Next action",
+  ],
+};
+
 export const HeroSystemVisual: React.FC = () => {
   const { language } = useLanguage();
   const es = language === "es";
-  const [scenario, setScenario] = useState(0);
+  const [scenarioIndex, setScenarioIndex] = useState(0);
   const [step, setStep] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
   const root = useRef<HTMLDivElement>(null);
-  const story = stories[language][scenario];
+
+  const scenario = scenarios[language][scenarioIndex];
+  const flowSteps = steps[language];
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
     let started = false;
+
     const sync = () => {
       setReducedMotion(media.matches);
       if (media.matches) {
@@ -176,22 +188,29 @@ export const HeroSystemVisual: React.FC = () => {
         setStep(4);
       }
     };
+
     sync();
     media.addEventListener("change", sync);
+
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting && !started) {
           started = true;
           if (!media.matches) setPlaying(true);
-        } else if (!entry.isIntersecting && started) setPlaying(false);
+        } else if (!entry.isIntersecting && started) {
+          setPlaying(false);
+        }
       },
-      { threshold: 0.35 },
+      { threshold: 0.35 }
     );
+
     if (root.current) observer.observe(root.current);
+
     const hide = () => {
       if (document.hidden) setPlaying(false);
     };
     document.addEventListener("visibilitychange", hide);
+
     return () => {
       observer.disconnect();
       media.removeEventListener("change", sync);
@@ -201,197 +220,298 @@ export const HeroSystemVisual: React.FC = () => {
 
   useEffect(() => {
     if (!playing || step >= 4) return;
-    const timer = window.setTimeout(() => {
-      setStep(step + 1);
-      if (step === 3) setPlaying(false);
-    }, 2500);
-    return () => window.clearTimeout(timer);
-  }, [playing, step, scenario]);
 
-  const selectStory = (index: number) => {
-    setScenario(index);
+    const timer = window.setTimeout(() => {
+      setStep((current) => {
+        const next = current + 1;
+        if (next >= 4) setPlaying(false);
+        return next;
+      });
+    }, 2200);
+
+    return () => window.clearTimeout(timer);
+  }, [playing, step, scenarioIndex]);
+
+  const selectScenario = (index: number) => {
+    setScenarioIndex(index);
     setStep(reducedMotion ? 4 : 0);
     setPlaying(!reducedMotion);
   };
+
   const replay = () => {
     setStep(0);
     setPlaying(true);
   };
-  const Channel = story.channel === "Instagram" ? Instagram : MessageCircle;
+
+  const stageLabel = useMemo(
+    () => flowSteps[Math.min(step, 4)],
+    [flowSteps, step]
+  );
 
   return (
     <div
       ref={root}
       id="hero-system-visual"
-      className="gk-demo"
+      className="gk-engine-demo"
       aria-label={
-        es ? "Demostración del Motor G-Kais" : "G-Kais engine demonstration"
+        es
+          ? "Demostración del funcionamiento real del Motor G-KAIS"
+          : "Demonstration of how the G-KAIS engine works"
       }
     >
-      <div className="gk-demo-heading">
-        <span>
-          <Sparkles size={15} aria-hidden="true" /> MOTOR G-KAIS
-        </span>
-        <span className="gk-demo-tag">{es ? "SIMULACIÓN" : "SIMULATION"}</span>
-      </div>
-      <div
-        className="gk-scenarios"
-        aria-label={es ? "Elegir escenario" : "Choose a scenario"}
-      >
-        {stories[language].map((item, index) => (
-          <button
-            type="button"
-            key={index}
-            aria-pressed={scenario === index}
-            onClick={() => selectStory(index)}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
-      <div className="gk-story-stage">
-        <div className="gk-phone">
-          <div className="gk-chat-heading">
-            <div className="gk-avatar">{scenario === 1 ? "ca" : "n."}</div>
+      <div className="gk-engine-shell">
+        <div className="gk-engine-topbar">
+          <div className="gk-engine-brand">
+            <div className="gk-engine-logo">G</div>
             <div>
-              <strong>{story.business}</strong>
-              <span>
-                {story.channel} ·{" "}
-                {es ? "Ejemplo de conversación" : "Example conversation"}
-              </span>
+              <strong>G-KAIS</strong>
+              <span>OPPORTUNITY ENGINE</span>
             </div>
-            <Channel size={19} aria-hidden="true" />
           </div>
-          <div className="gk-chat-content" key={scenario}>
-            <div className="gk-ad">
-              <div className="gk-ad-art">
-                <span>{story.business.toUpperCase()}</span>
-                <strong>{story.ad}</strong>
-                <ArrowUpRight size={26} aria-hidden="true" />
+
+          <div className="gk-engine-top-status">
+            <span className="gk-live-dot" />
+            {es ? "SIMULACIÓN DEL SISTEMA" : "SYSTEM SIMULATION"}
+          </div>
+        </div>
+
+        <div className="gk-engine-scenarios">
+          {scenarios[language].map((item, index) => (
+            <button
+              type="button"
+              key={item.label}
+              aria-pressed={scenarioIndex === index}
+              onClick={() => selectScenario(index)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="gk-engine-stage">
+          <div className="gk-engine-conversation">
+            <div className="gk-engine-panel-label">
+              <MessageCircle size={13} />
+              <span>{es ? "SEÑAL ENTRANTE" : "INCOMING SIGNAL"}</span>
+            </div>
+
+            <div className="gk-engine-contact">
+              <div className="gk-engine-avatar">
+                {scenario.person
+                  .split(" ")
+                  .slice(0, 2)
+                  .map((part) => part[0])
+                  .join("")}
               </div>
-              <div className="gk-ad-caption">
-                <span>{story.source}</span>
-                <p>{story.offer}</p>
+              <div>
+                <strong>{scenario.person}</strong>
+                <span>
+                  {scenario.business} · {scenario.channel}
+                </span>
               </div>
             </div>
-            {step >= 1 && (
-              <div className="gk-bubble gk-incoming">{story.incoming}</div>
-            )}
-            {step >= 2 && (
-              <div className="gk-bubble gk-outgoing">
-                <span className="gk-ai-label">
-                  <Sparkles size={11} aria-hidden="true" /> G-KAIS
-                </span>
-                {story.reply}
-                <CheckCheck size={13} className="gk-read" aria-hidden="true" />
-              </div>
-            )}
-            {step >= 3 && (
-              <div className="gk-bubble gk-incoming">{story.answer}</div>
-            )}
-            {step === 0 && (
-              <p className="gk-chat-wait">
+
+            <div className="gk-engine-message">{scenario.message}</div>
+
+            <div className="gk-engine-conversation-foot">
+              <span>{es ? "No se responde todavía." : "No reply yet."}</span>
+              <strong>
                 {es
-                  ? "Todo comienza con una conversación."
-                  : "It all starts with a conversation."}
-              </p>
-            )}
+                  ? "Primero G-KAIS entiende qué está pasando."
+                  : "G-KAIS first understands what is happening."}
+              </strong>
+            </div>
           </div>
-        </div>
-        <div className="gk-engine-panel">
-          <div
-            className={`gk-engine-mark ${playing ? "is-running" : ""}`}
-            aria-hidden="true"
-          >
-            <span>G</span>
-            <i />
+
+          <div className="gk-engine-core">
+            <div
+              className={
+                "gk-core-orbit" + (playing ? " is-running" : "")
+              }
+            >
+              <span>G</span>
+            </div>
+            <p>{es ? "MOTOR G-KAIS" : "G-KAIS ENGINE"}</p>
+            <strong>{stageLabel}</strong>
+
+            <div className="gk-core-line" aria-hidden="true">
+              <span className={step >= 1 ? "is-active" : ""} />
+              <span className={step >= 2 ? "is-active" : ""} />
+              <span className={step >= 3 ? "is-active" : ""} />
+              <span className={step >= 4 ? "is-active" : ""} />
+            </div>
           </div>
-          <p className="gk-engine-caption">
-            {es ? "DEL INTERÉS A LA ACCIÓN" : "FROM INTEREST TO ACTION"}
-          </p>
-          <ol className="gk-story-steps">
-            {story.steps.map((label, index) => (
-              <li key={index} className={index <= step ? "is-reached" : ""}>
-                <button
-                  type="button"
-                  aria-current={index === step ? "step" : undefined}
-                  onClick={() => {
-                    setStep(index);
-                    setPlaying(false);
-                  }}
-                >
-                  <span className="gk-step-number">
-                    {index < step ? (
-                      <Check size={12} aria-hidden="true" />
-                    ) : (
-                      index + 1
-                    )}
-                  </span>
-                  {label}
-                </button>
-              </li>
-            ))}
-          </ol>
-          <div className="gk-result" aria-live="polite" aria-atomic="true">
-            {step === 4 ? (
-              <>
-                <CalendarCheck size={21} aria-hidden="true" />
-                <strong>{story.result}</strong>
-                <p>{story.detail}</p>
-                <span>{story.next}</span>
-              </>
-            ) : (
-              <>
-                <span className="gk-result-label">
-                  {es ? "SIGUIENTE PASO" : "NEXT STEP"}
+
+          <div className="gk-engine-workspace">
+            <div
+              className={
+                "gk-work-card gk-context-card" +
+                (step >= 1 ? " is-visible" : "")
+              }
+            >
+              <div className="gk-work-card-head">
+                <FileText size={13} />
+                <span>{es ? "CONTEXTO CAPTURADO" : "CAPTURED CONTEXT"}</span>
+                <strong>3/9</strong>
+              </div>
+              <div className="gk-context-grid">
+                {scenario.context.map(([label, value]) => (
+                  <div key={label}>
+                    <span>{label}</span>
+                    <strong>{value}</strong>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div
+              className={
+                "gk-work-card gk-priority-card" +
+                (step >= 2 ? " is-visible" : "")
+              }
+            >
+              <div className="gk-work-card-head">
+                <Target size={13} />
+                <span>{es ? "PRIORIDAD" : "PRIORITY"}</span>
+                <strong className="gk-priority-pill">
+                  {scenario.priority}
+                </strong>
+              </div>
+              <p>{scenario.reason}</p>
+            </div>
+
+            <div
+              className={
+                "gk-work-card gk-brief-card" +
+                (step >= 3 ? " is-visible" : "")
+              }
+            >
+              <div className="gk-work-card-head">
+                <Sparkles size={13} />
+                <span>AI BRIEF</span>
+                <strong>{es ? "LISTO" : "READY"}</strong>
+              </div>
+              <p className="gk-brief-summary">{scenario.brief}</p>
+
+              <div className="gk-brief-row">
+                <span>{es ? "FALTA SABER" : "STILL UNKNOWN"}</span>
+                <p>{scenario.missing}</p>
+              </div>
+
+              <div className="gk-brief-row">
+                <span>
+                  {es ? "CÓMO PUEDE AYUDAR" : "HOW G-KAIS CAN HELP"}
                 </span>
-                <strong>{story.steps[Math.min(step + 1, 4)]}</strong>
-                <p>
-                  {step >= 2
-                    ? story.intent
-                    : es
-                      ? "Cada mensaje mantiene el contexto."
-                      : "Every message keeps the context."}
-                </p>
-              </>
-            )}
+                <p>{scenario.help}</p>
+              </div>
+            </div>
+
+            <div
+              className={
+                "gk-work-card gk-next-card" +
+                (step >= 4 ? " is-visible" : "")
+              }
+            >
+              <div className="gk-next-icon">
+                <CheckCircle2 size={18} />
+              </div>
+              <div>
+                <span>{es ? "PRÓXIMA ACCIÓN" : "NEXT ACTION"}</span>
+                <strong>{scenario.next}</strong>
+              </div>
+              <ArrowRight size={17} />
+            </div>
+          </div>
+
+          <div
+            className={
+              "gk-floating-card gk-floating-priority" +
+              (step >= 2 ? " is-visible" : "")
+            }
+          >
+            <Target size={12} />
+            <span>{es ? "Prioridad" : "Priority"}</span>
+            <strong>{scenario.priority}</strong>
+          </div>
+
+          <div
+            className={
+              "gk-floating-card gk-floating-context" +
+              (step >= 1 ? " is-visible" : "")
+            }
+          >
+            <FileText size={12} />
+            <span>{es ? "Contexto" : "Context"}</span>
+            <strong>3/9</strong>
+          </div>
+
+          <div
+            className={
+              "gk-floating-card gk-floating-owner" +
+              (step >= 4 ? " is-visible" : "")
+            }
+          >
+            <User size={12} />
+            <span>{es ? "Responsable" : "Owner"}</span>
+            <strong>{es ? "Equipo comercial" : "Sales team"}</strong>
           </div>
         </div>
-      </div>
-      <div className="gk-demo-controls">
-        <div>
-          <button
-            type="button"
-            aria-label={
-              playing
-                ? es
-                  ? "Pausar demostración"
-                  : "Pause demo"
-                : es
-                  ? "Reproducir demostración"
-                  : "Play demo"
-            }
-            onClick={() => (step === 4 ? replay() : setPlaying(!playing))}
-          >
-            {playing ? <Pause size={15} /> : <Play size={15} />}
-          </button>
-          <button type="button" id="hero-demo-replay" onClick={replay}>
-            <RotateCcw size={14} aria-hidden="true" />
-            {es ? "Repetir" : "Replay"}
-          </button>
+
+        <div className="gk-engine-progress">
+          {flowSteps.map((label, index) => (
+            <button
+              type="button"
+              key={label}
+              aria-current={step === index ? "step" : undefined}
+              onClick={() => {
+                setStep(index);
+                setPlaying(false);
+              }}
+              className={index <= step ? "is-reached" : ""}
+            >
+              <span>{index < step ? <Check size={11} /> : index + 1}</span>
+              {label}
+            </button>
+          ))}
         </div>
-        <span>
-          {step === 4
-            ? es
-              ? "Tu equipo siempre en control"
-              : "Your team always in control"
-            : `${step + 1} / 5`}
-        </span>
+
+        <div className="gk-engine-controls">
+          <div>
+            <button
+              type="button"
+              aria-label={
+                playing
+                  ? es
+                    ? "Pausar demostración"
+                    : "Pause demo"
+                  : es
+                    ? "Reproducir demostración"
+                    : "Play demo"
+              }
+              onClick={() => (step === 4 ? replay() : setPlaying(!playing))}
+            >
+              {playing ? <Pause size={14} /> : <Play size={14} />}
+            </button>
+            <button type="button" id="hero-demo-replay" onClick={replay}>
+              <RotateCcw size={13} />
+              {es ? "Repetir" : "Replay"}
+            </button>
+          </div>
+
+          <span>
+            {step === 4
+              ? es
+                ? "Oportunidad lista para actuar"
+                : "Opportunity ready for action"
+              : step + 1 + " / 5"}
+          </span>
+        </div>
       </div>
-      <p className="gk-demo-disclaimer">
+
+      <p className="gk-engine-disclaimer">
         {es
-          ? "Ejemplo ilustrativo. Canales y automatizaciones se configuran durante la implementación."
-          : "Illustrative example. Channels and automations are configured during implementation."}
+          ? "Ejemplo ilustrativo del flujo G-KAIS. La conversación es una señal de entrada; la decisión y ejecución dependen del contexto, reglas y configuración del negocio."
+          : "Illustrative G-KAIS workflow. The conversation is an input signal; decisions and execution depend on business context, rules and configuration."}
       </p>
     </div>
   );

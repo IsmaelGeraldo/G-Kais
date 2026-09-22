@@ -3,6 +3,7 @@ import type {
   ContactSubmissionDoc as ContactRecord
 } from '../db/firestoreClient';
 import {
+  buildAuditConfirmationEmail,
   buildAuditNotificationEmail,
   buildContactNotificationEmail,
   buildOperationalAlertEmail
@@ -52,7 +53,8 @@ function getEmailConfig(): EmailConfig | null {
 
 async function sendWithResend(
   config: EmailConfig,
-  message: EmailMessage
+  message: EmailMessage,
+  recipientOverride?: string
 ): Promise<EmailDispatchResult> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 7000);
@@ -66,7 +68,7 @@ async function sendWithResend(
       },
       body: JSON.stringify({
         from: config.from,
-        to: [config.recipient],
+        to: [recipientOverride || config.recipient],
         subject: message.subject,
         text: message.text,
         html: message.html
@@ -124,7 +126,10 @@ async function sendWithResend(
   }
 }
 
-async function dispatchEmail(message: EmailMessage): Promise<EmailDispatchResult> {
+async function dispatchEmail(
+  message: EmailMessage,
+  recipientOverride?: string
+): Promise<EmailDispatchResult> {
   const config = getEmailConfig();
 
   if (!config) {
@@ -137,13 +142,19 @@ async function dispatchEmail(message: EmailMessage): Promise<EmailDispatchResult
     };
   }
 
-  return sendWithResend(config, message);
+  return sendWithResend(config, message, recipientOverride);
 }
 
 export async function sendAuditNotification(
   record: AuditRecord
 ): Promise<EmailDispatchResult> {
   return dispatchEmail(buildAuditNotificationEmail(record));
+}
+
+export async function sendAuditConfirmationEmail(
+  record: AuditRecord
+): Promise<EmailDispatchResult> {
+  return dispatchEmail(buildAuditConfirmationEmail(record), record.email);
 }
 
 export async function sendContactNotification(

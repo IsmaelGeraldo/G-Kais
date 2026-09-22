@@ -11,6 +11,9 @@ export interface LeadIntelligenceBrief {
   risks: string[];
   recommendedAction: string;
   qualificationQuestions: string[];
+  howGkaisCanHelp: string[];
+  solutionPlan: string[];
+  callPositioning: string;
 }
 
 export async function requestLeadIntelligence(

@@ -1,4 +1,4 @@
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, Type } from '@google/genai';
 
 export type LeadIntent = 'HIGH' | 'MEDIUM' | 'LOW';
 
@@ -172,24 +172,24 @@ export async function analyzeLeadWithGemini(
       ].join('\n'),
       responseMimeType: 'application/json',
       responseSchema: {
-        type: 'object',
+        type: Type.OBJECT,
         properties: {
           intent: {
-            type: 'string',
+            type: Type.STRING,
             enum: ['HIGH', 'MEDIUM', 'LOW']
           },
-          summary: { type: 'string' },
+          summary: { type: Type.STRING },
           signals: {
-            type: 'array',
-            items: { type: 'string' },
+            type: Type.ARRAY,
+            items: { type: Type.STRING },
             maxItems: 5
           },
           risks: {
-            type: 'array',
-            items: { type: 'string' },
+            type: Type.ARRAY,
+            items: { type: Type.STRING },
             maxItems: 4
           },
-          recommendedAction: { type: 'string' },
+          recommendedAction: { type: Type.STRING },
           qualificationQuestions: {
             type: 'array',
             items: { type: 'string' },

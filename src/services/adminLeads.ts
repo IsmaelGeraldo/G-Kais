@@ -236,11 +236,15 @@ export async function updateLeadOperations(
   update: LeadOperationsUpdate,
   actorLabel: string
 ): Promise<LeadActivity> {
+  const website = update.website?.trim() || '';
   const assignedTo = update.assignedTo?.trim() || '';
   const nextAction = update.nextAction?.trim() || '';
   const followUpAt = update.followUpAt?.trim() || '';
   const internalNotes = update.internalNotes?.trim() || '';
 
+  if (website.length > 250) {
+    throw new Error('Website cannot exceed 250 characters.');
+  }
   if (assignedTo.length > 100) {
     throw new Error('Responsible person cannot exceed 100 characters.');
   }
@@ -269,6 +273,7 @@ export async function updateLeadOperations(
 
   await updateDoc(doc(firestoreDb, collectionName, lead.id), {
     status: update.status,
+    website,
     assignedTo,
     nextAction,
     followUpAt,

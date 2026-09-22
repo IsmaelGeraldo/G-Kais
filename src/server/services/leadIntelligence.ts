@@ -145,10 +145,12 @@ function normalizeBrief(value: unknown): LeadIntelligenceBrief {
 export async function analyzeLeadWithGemini(
   input: LeadIntelligenceInput
 ): Promise<LeadIntelligenceBrief> {
-  const apiKey = process.env.GEMINI_API_KEY?.trim();
+  const apiKey =
+    process.env.GOOGLE_API_KEY?.trim() ||
+    process.env.GEMINI_API_KEY?.trim();
 
   if (!apiKey) {
-    throw new Error('GEMINI_API_KEY is not configured.');
+    throw new Error('Gemini API key is not configured.');
   }
 
   const ai = new GoogleGenAI({ apiKey });

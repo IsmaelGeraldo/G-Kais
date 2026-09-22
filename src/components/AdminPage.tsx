@@ -23,6 +23,7 @@ import {
   ShieldCheck,
   Target,
   Trash2,
+  Upload,
   X
 } from 'lucide-react';
 import { firebaseAuth } from '../lib/firebase';
@@ -39,6 +40,11 @@ import {
   updateLeadOperations,
   updateLeadWebsite
 } from '../services/adminLeads';
+import {
+  importPreparedLeads,
+  prepareLeadCsvImport
+} from '../services/leadImport';
+import type { LeadImportPreview } from '../services/leadImport';
 import {
   EMPTY_BUSINESS_KNOWLEDGE,
   fetchBusinessKnowledge,
@@ -723,7 +729,7 @@ function buildAdminAlerts(leads: AdminLead[]): AdminAlert[] {
         leadId: lead.id,
         level: 'info',
         title: `New lead · ${lead.name}`,
-        description: lead.company || lead.email,
+        description: lead.company || lead.email || lead.phone || '—',
         createdAt: lead.createdAt
       });
     }
@@ -760,6 +766,11 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
   const [queryText, setQueryText] = useState('');
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [knowledgeBaseOpen, setKnowledgeBaseOpen] = useState(false);
+  const [leadImportOpen, setLeadImportOpen] = useState(false);
+  const [leadImportPreview, setLeadImportPreview] = useState<LeadImportPreview | null>(null);
+  const [leadImportFilename, setLeadImportFilename] = useState('');
+  const [leadImportStatus, setLeadImportStatus] = useState<'idle' | 'importing' | 'success' | 'error'>('idle');
+  const [leadImportMessage, setLeadImportMessage] = useState<string | null>(null);
   const [businessKnowledge, setBusinessKnowledge] = useState<BusinessKnowledge>({
     ...EMPTY_BUSINESS_KNOWLEDGE
   });
@@ -894,6 +905,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
           lead.name,
           lead.company,
           lead.email,
+          lead.phone,
           lead.website,
           lead.businessType,
           lead.primaryService,
@@ -1803,7 +1815,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
     setPendingDelete({
       kind: 'lead',
       leadId: lead.id,
-      label: `${lead.name} · ${lead.email}`
+      label: `${lead.name} · ${lead.email || lead.phone || 'Sin contacto'}`
     });
   };
 
@@ -1891,6 +1903,99 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
       setError(message);
     } finally {
       setDeletingLeadId(null);
+    }
+  };
+
+  const openLeadImport = () => {
+    setLeadImportPreview(null);
+    setLeadImportFilename('');
+    setLeadImportStatus('idle');
+    setLeadImportMessage(null);
+    setLeadImportOpen(true);
+  };
+
+  const handleLeadImportFile = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    setLeadImportStatus('idle');
+    setLeadImportMessage(null);
+
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+      setLeadImportStatus('error');
+      setLeadImportMessage(
+        tr('Selecciona un archivo CSV.', 'Please select a CSV file.')
+      );
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setLeadImportStatus('error');
+      setLeadImportMessage(
+        tr(
+          'El archivo supera el límite de 5 MB para esta importación.',
+          'The file exceeds the 5 MB import limit.'
+        )
+      );
+      return;
+    }
+
+    try {
+      const text = await file.text();
+      const preview = prepareLeadCsvImport(text, leads);
+      setLeadImportFilename(file.name);
+      setLeadImportPreview(preview);
+
+      if (preview.rows.length === 0) {
+        setLeadImportStatus('error');
+        setLeadImportMessage(
+          tr(
+            'No hay leads nuevos válidos para importar.',
+            'There are no valid new leads to import.'
+          )
+        );
+      }
+    } catch (err: any) {
+      setLeadImportPreview(null);
+      setLeadImportStatus('error');
+      setLeadImportMessage(
+        err?.message ||
+          tr('No se pudo leer el CSV.', 'Could not read the CSV.')
+      );
+    }
+  };
+
+  const handleConfirmLeadImport = async () => {
+    if (!user || !leadImportPreview || leadImportPreview.rows.length === 0) return;
+
+    setLeadImportStatus('importing');
+    setLeadImportMessage(null);
+
+    try {
+      const imported = await importPreparedLeads(
+        leadImportPreview.rows,
+        user.displayName || user.email || 'Admin'
+      );
+      await loadLeads();
+      setLeadImportStatus('success');
+      setLeadImportMessage(
+        tr(
+          `${imported} leads importados correctamente y listos para trabajar.`,
+          `${imported} leads imported successfully and ready to work.`
+        )
+      );
+    } catch (err: any) {
+      setLeadImportStatus('error');
+      setLeadImportMessage(
+        err?.message ||
+          tr(
+            'No se pudieron importar los leads.',
+            'The leads could not be imported.'
+          )
+      );
     }
   };
 
@@ -2034,6 +2139,14 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
             <LanguageSelector compact />
             <button
               type="button"
+              onClick={openLeadImport}
+              className="inline-flex items-center border border-[#E5E5E5] bg-white rounded-xl px-3 py-2 text-xs hover:bg-[#F7F7F5]"
+            >
+              <Upload className="w-3.5 h-3.5 mr-2" />
+              {tr('Importar leads', 'Import leads')}
+            </button>
+            <button
+              type="button"
               onClick={openKnowledgeBase}
               className="relative inline-flex items-center border border-[#E5E5E5] bg-white rounded-xl px-3 py-2 text-xs hover:bg-[#F7F7F5]"
             >
@@ -2083,6 +2196,178 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
           </div>
         </div>
       </header>
+
+      {leadImportOpen && (
+        <div
+          className="fixed inset-0 z-[85] bg-black/35 backdrop-blur-[2px] p-3 sm:p-6 flex items-center justify-center"
+          onClick={() => {
+            if (leadImportStatus !== 'importing') setLeadImportOpen(false);
+          }}
+        >
+          <section
+            className="w-full max-w-4xl max-h-[94vh] overflow-y-auto rounded-3xl border border-[#D8D8D8] bg-[#F7F7F5] shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-[#E5E5E5] bg-[#F7F7F5]/95 backdrop-blur px-5 sm:px-7 py-5 rounded-t-3xl">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Upload className="w-4 h-4 text-[#0A3F4D]" />
+                  <p className="font-mono-code text-[9px] uppercase tracking-[0.2em] text-[#0A3F4D] font-bold">
+                    {tr('ONBOARDING DE LEADS', 'LEAD ONBOARDING')}
+                  </p>
+                </div>
+                <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight mt-1">
+                  {tr('Importar base de leads', 'Import lead database')}
+                </h2>
+                <p className="text-xs text-[#6B6B6B] mt-1 max-w-2xl">
+                  {tr(
+                    'Carga un CSV para incorporar oportunidades existentes al Pipeline, Priority Work, Task Engine y AI Brief.',
+                    'Upload a CSV to bring existing opportunities into Pipeline, Priority Work, Task Engine and AI Brief.'
+                  )}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setLeadImportOpen(false)}
+                disabled={leadImportStatus === 'importing'}
+                className="p-2 rounded-xl border border-[#D8D8D8] bg-white hover:bg-[#F0F0EE] disabled:opacity-50"
+                aria-label={tr('Cerrar', 'Close')}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 sm:p-7">
+              <label className="block rounded-2xl border border-dashed border-[#0A3F4D]/35 bg-white p-6 text-center cursor-pointer hover:bg-[#FAFAFA]">
+                <Upload className="w-6 h-6 mx-auto text-[#0A3F4D]" />
+                <p className="text-sm font-bold mt-3">
+                  {leadImportFilename || tr('Seleccionar archivo CSV', 'Select CSV file')}
+                </p>
+                <p className="text-xs text-[#777] mt-1">
+                  {tr(
+                    'Necesita Nombre + Email o Teléfono/WhatsApp. Máximo 1.000 leads por archivo.',
+                    'Requires Name + Email or Phone/WhatsApp. Maximum 1,000 leads per file.'
+                  )}
+                </p>
+                <input
+                  type="file"
+                  accept=".csv,text/csv"
+                  onChange={handleLeadImportFile}
+                  disabled={leadImportStatus === 'importing'}
+                  className="hidden"
+                />
+              </label>
+
+              <div className="mt-4 rounded-2xl border border-[#E5E5E5] bg-white p-4">
+                <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#777]">
+                  {tr('Encabezados reconocidos automáticamente', 'Automatically recognized headers')}
+                </p>
+                <p className="text-xs leading-relaxed text-[#5F5F5F] mt-2">
+                  {tr(
+                    'Nombre, Empresa, Email, Teléfono/WhatsApp, Web, Tipo de negocio, Servicio, Presencia digital, Canal de captación, Volumen de leads, CRM, Problema, Solución actual, Objetivo y Notas.',
+                    'Name, Company, Email, Phone/WhatsApp, Website, Business type, Service, Digital presence, Acquisition channel, Lead volume, CRM, Problem, Current solution, Goal and Notes.'
+                  )}
+                </p>
+              </div>
+
+              {leadImportPreview && (
+                <div className="mt-5">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {[
+                      [tr('Filas CSV', 'CSV rows'), leadImportPreview.totalRows],
+                      [tr('Listos', 'Ready'), leadImportPreview.rows.length],
+                      [tr('Duplicados', 'Duplicates'), leadImportPreview.duplicateRows],
+                      [tr('Omitidos', 'Skipped'), leadImportPreview.skippedRows]
+                    ].map(([label, value]) => (
+                      <div key={String(label)} className="rounded-2xl border border-[#E5E5E5] bg-white p-4">
+                        <p className="font-mono-code text-[8px] uppercase tracking-wider text-[#777]">{label}</p>
+                        <p className="text-xl font-extrabold tracking-tight mt-1">{value}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-4 rounded-2xl border border-[#E5E5E5] bg-white overflow-hidden">
+                    <div className="px-4 py-3 border-b border-[#E5E5E5] flex flex-wrap items-center justify-between gap-2">
+                      <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#0A3F4D] font-bold">
+                        {tr('Vista previa', 'Preview')}
+                      </p>
+                      <p className="text-[10px] text-[#777]">
+                        {leadImportPreview.detectedFields.length} {tr('campos detectados', 'fields detected')}
+                      </p>
+                    </div>
+
+                    <div className="divide-y divide-[#EFEFEF]">
+                      {leadImportPreview.rows.slice(0, 5).map((lead, index) => (
+                        <div key={index} className="px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5">
+                          <div>
+                            <p className="text-sm font-bold">{lead.name}</p>
+                            <p className="text-xs text-[#777]">
+                              {lead.company || lead.businessType || tr('Sin empresa indicada', 'No company provided')}
+                            </p>
+                          </div>
+                          <p className="text-xs font-mono-code text-[#5F5F5F]">
+                            {lead.email || lead.phone}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+
+                    {leadImportPreview.rows.length > 5 && (
+                      <p className="px-4 py-3 text-[10px] text-[#777] border-t border-[#E5E5E5]">
+                        + {leadImportPreview.rows.length - 5} {tr('leads adicionales', 'additional leads')}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {leadImportMessage && (
+                <div
+                  className={
+                    'mt-4 rounded-xl border px-4 py-3 text-xs ' +
+                    (leadImportStatus === 'success'
+                      ? 'border-[#0A3F4D]/20 bg-[#F4F8F8] text-[#0A3F4D]'
+                      : 'border-red-200 bg-red-50 text-red-800')
+                  }
+                >
+                  {leadImportMessage}
+                </div>
+              )}
+
+              <div className="mt-5 flex flex-col sm:flex-row justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setLeadImportOpen(false)}
+                  disabled={leadImportStatus === 'importing'}
+                  className="rounded-xl border border-[#D8D8D8] bg-white px-5 py-3 text-xs font-semibold uppercase tracking-wider hover:bg-[#F0F0EE] disabled:opacity-50"
+                >
+                  {tr('Cerrar', 'Close')}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmLeadImport}
+                  disabled={
+                    !leadImportPreview ||
+                    leadImportPreview.rows.length === 0 ||
+                    leadImportStatus === 'importing' ||
+                    leadImportStatus === 'success'
+                  }
+                  className="inline-flex items-center justify-center rounded-xl bg-[#0A3F4D] px-5 py-3 text-xs font-semibold uppercase tracking-wider text-white hover:bg-[#08333E] disabled:opacity-50"
+                >
+                  {leadImportStatus === 'importing' ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Upload className="w-4 h-4 mr-2" />
+                  )}
+                  {leadImportStatus === 'importing'
+                    ? tr('Importando…', 'Importing…')
+                    : tr('Importar leads', 'Import leads')}
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
 
       {knowledgeBaseOpen && (
         <div
@@ -3058,7 +3343,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                         <td className="px-4 py-4">
                           <p className="font-bold text-sm">{lead.name}</p>
                           <p className="text-[10px] text-[#6B6B6B] mt-1">
-                            {lead.company || lead.email}
+                            {lead.company || lead.email || lead.phone || '—'}
                           </p>
                         </td>
                         <td className="px-3 py-4">
@@ -3201,7 +3486,8 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
 
                   <div className="mt-6 space-y-3 text-xs font-mono-code">
                     {[
-                      ['EMAIL', selectedLead.email],
+                      ['EMAIL', selectedLead.email || '—'],
+                      ['PHONE', selectedLead.phone || '—'],
                       ['CHANNEL', selectedLead.contactChannel || '—'],
                       ['CREATED', formatDate(selectedLead.createdAt)],
                       ['UPDATED', selectedLead.updatedAt ? formatDate(selectedLead.updatedAt) : '—']
@@ -3534,7 +3820,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                       {priorityLabel(getWorkPriority(selectedLead).label, language)}
                     </span>
                   </div>
-                  <p className="text-sm text-[#6B6B6B] mt-1">{selectedLead.company || selectedLead.email}</p>
+                  <p className="text-sm text-[#6B6B6B] mt-1">{selectedLead.company || selectedLead.email || selectedLead.phone || '—'}</p>
                 </div>
                 <button
                   type="button"
@@ -3562,7 +3848,8 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     {[
-                      [tr('Email', 'Email'), selectedLead.email],
+                      [tr('Email', 'Email'), selectedLead.email || '—'],
+                      [tr('Teléfono', 'Phone'), selectedLead.phone || '—'],
                       [tr('Canal', 'Channel'), selectedLead.contactChannel || '—'],
                       [tr('Origen', 'Source'), selectedLead.source],
                       [tr('Estado', 'Status'), statusLabel(selectedLead.status, language)],

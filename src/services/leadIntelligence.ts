@@ -14,7 +14,8 @@ export interface LeadIntelligenceBrief {
 
 export async function requestLeadIntelligence(
   lead: AdminLead,
-  user: User
+  user: User,
+  language: 'es' | 'en'
 ): Promise<LeadIntelligenceBrief> {
   const idToken = await user.getIdToken(true);
 
@@ -25,6 +26,7 @@ export async function requestLeadIntelligence(
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
+      language,
       id: lead.id,
       name: lead.name,
       company: lead.company || '',

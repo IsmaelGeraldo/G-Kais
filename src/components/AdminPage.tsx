@@ -1235,7 +1235,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
         internalNotes: draft.internalNotes || undefined
       };
 
-      const brief = await requestLeadIntelligence(leadContext, user);
+      const brief = await requestLeadIntelligence(leadContext, user, language);
 
       setLeadBriefs((current) => ({
         ...current,

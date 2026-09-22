@@ -1408,8 +1408,6 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
 
   const prepareClientJourney = (playbookId: string) => {
     applyQuickPlaybook(playbookId);
-    setLeadDetailOpen(false);
-    setCrmPanelOpen(true);
   };
 
   const handleSave = async () => {
@@ -2760,15 +2758,28 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
             onClick={() => setLeadDetailOpen(false)}
           >
             <section
-              className="w-full max-w-5xl max-h-[92vh] overflow-y-auto rounded-3xl border border-[#D8D8D8] bg-[#F7F7F5] shadow-2xl"
+              className="w-full max-w-6xl max-h-[94vh] overflow-y-auto rounded-3xl border border-[#D8D8D8] bg-[#F7F7F5] shadow-2xl"
               onClick={(event) => event.stopPropagation()}
             >
-              <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-[#E5E5E5] bg-[#F7F7F5]/95 backdrop-blur px-5 sm:px-7 py-5 rounded-t-3xl">
+              <div className="sticky top-0 z-20 flex items-start justify-between gap-4 border-b border-[#E5E5E5] bg-[#F7F7F5]/95 backdrop-blur px-5 sm:px-7 py-5 rounded-t-3xl">
                 <div>
                   <p className="font-mono-code text-[9px] uppercase tracking-[0.2em] text-[#0A3F4D] font-bold">
                     {tr('Ficha completa del lead', 'Full lead record')}
                   </p>
-                  <h2 className="mt-1 text-2xl sm:text-3xl font-extrabold tracking-tight">{selectedLead.name}</h2>
+                  <div className="flex flex-wrap items-center gap-2 mt-1">
+                    <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">{selectedLead.name}</h2>
+                    <span
+                      className={'font-mono-code text-[8px] px-2.5 py-1 rounded-full border ' + (
+                        getWorkPriority(selectedLead).label === 'HIGH'
+                          ? 'border-red-200 bg-red-50 text-red-700'
+                          : getWorkPriority(selectedLead).label === 'MEDIUM'
+                          ? 'border-amber-200 bg-amber-50 text-amber-800'
+                          : 'border-[#D8D8D8] bg-white text-[#777]'
+                      )}
+                    >
+                      {priorityLabel(getWorkPriority(selectedLead).label, language)}
+                    </span>
+                  </div>
                   <p className="text-sm text-[#6B6B6B] mt-1">{selectedLead.company || selectedLead.email}</p>
                 </div>
                 <button
@@ -2781,343 +2792,539 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                 </button>
               </div>
 
-              <div className="p-5 sm:p-7 grid grid-cols-1 lg:grid-cols-12 gap-6">
-                <div className="lg:col-span-5 space-y-5">
-                  <div className="rounded-2xl border border-[#E5E5E5] bg-white p-5">
-                    <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#6B6B6B] mb-4">
-                      {tr('Información', 'Information')}
-                    </p>
-                    <div className="space-y-3 text-xs">
-                      {[
-                        [tr('Email', 'Email'), selectedLead.email],
-                        [tr('Canal', 'Channel'), selectedLead.contactChannel || '—'],
-                        [tr('Origen', 'Source'), selectedLead.source],
-                        [tr('Estado', 'Status'), statusLabel(selectedLead.status, language)],
-                        [tr('Responsable', 'Owner'), selectedLead.assignedTo || tr('Sin asignar', 'Unassigned')],
-                        [tr('Próxima acción', 'Next action'), selectedLead.nextAction ? nextActionLabel(selectedLead.nextAction, language) : '—'],
-                        [tr('Seguimiento', 'Follow-up'), selectedLead.followUpAt ? formatDate(selectedLead.followUpAt) : '—'],
-                        [tr('Creado', 'Created'), formatDate(selectedLead.createdAt)]
-                      ].map(([label, value]) => (
-                        <div key={String(label)} className="flex justify-between gap-4 border-b border-[#EFEFEF] pb-2 last:border-0 last:pb-0">
-                          <span className="text-[#6B6B6B]">{label}</span>
-                          <span className="text-right font-semibold break-all">{value}</span>
-                        </div>
-                      ))}
+              <div className="p-5 sm:p-7 space-y-6">
+                <section className="rounded-2xl border border-[#E5E5E5] bg-white p-5 sm:p-6">
+                  <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+                    <div>
+                      <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#0A3F4D] font-bold">
+                        {tr('Información principal', 'Lead overview')}
+                      </p>
+                      <p className="text-xs text-[#777] mt-1">
+                        {tr('Contexto esencial antes de trabajar la oportunidad.', 'Essential context before working the opportunity.')}
+                      </p>
+                    </div>
+                    <span className="font-mono-code text-[9px] text-[#777]">{selectedLead.id}</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    {[
+                      [tr('Email', 'Email'), selectedLead.email],
+                      [tr('Canal', 'Channel'), selectedLead.contactChannel || '—'],
+                      [tr('Origen', 'Source'), selectedLead.source],
+                      [tr('Estado', 'Status'), statusLabel(selectedLead.status, language)],
+                      [tr('Responsable', 'Owner'), selectedLead.assignedTo || tr('Sin asignar', 'Unassigned')],
+                      [tr('Próxima acción', 'Next action'), selectedLead.nextAction ? nextActionLabel(selectedLead.nextAction, language) : '—'],
+                      [tr('Seguimiento', 'Follow-up'), selectedLead.followUpAt ? formatDate(selectedLead.followUpAt) : '—'],
+                      [tr('Creado', 'Created'), formatDate(selectedLead.createdAt)]
+                    ].map(([label, value]) => (
+                      <div key={String(label)} className="rounded-xl border border-[#EFEFEF] bg-[#FAFAFA] p-3.5">
+                        <p className="font-mono-code text-[8px] uppercase tracking-wider text-[#777]">{label}</p>
+                        <p className="text-xs font-semibold mt-1.5 break-words">{value}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-1 lg:grid-cols-12 gap-4">
+                    <div className="lg:col-span-8 rounded-xl border border-[#EFEFEF] bg-[#FAFAFA] p-4">
+                      <p className="font-mono-code text-[8px] uppercase tracking-wider text-[#777] mb-2">
+                        {tr('Contexto de ingreso', 'Intake context')}
+                      </p>
+                      <p className="text-sm leading-relaxed">
+                        {selectedLead.inquiryNotes || selectedLead.message || tr('Sin contexto adicional.', 'No additional context.')}
+                      </p>
+                    </div>
+                    <div className="lg:col-span-4 rounded-xl border border-[#EFEFEF] bg-[#FAFAFA] p-4">
+                      <p className="font-mono-code text-[8px] uppercase tracking-wider text-[#777] mb-2">
+                        {tr('Accesos', 'Links')}
+                      </p>
+                      {selectedLead.website ? (
+                        <a
+                          href={selectedLead.website.startsWith('http') ? selectedLead.website : 'https://' + selectedLead.website}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center text-xs font-semibold text-[#0A3F4D] underline"
+                        >
+                          {tr('Abrir sitio web', 'Open website')} <ExternalLink className="w-3 h-3 ml-1" />
+                        </a>
+                      ) : (
+                        <p className="text-xs text-[#8A8A8A]">{tr('Sin sitio web registrado.', 'No website recorded.')}</p>
+                      )}
                     </div>
                   </div>
+                </section>
 
-                  <div className="rounded-2xl border border-[#E5E5E5] bg-white p-5">
-                    <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#6B6B6B] mb-2">
-                      {tr('Contexto de ingreso', 'Intake context')}
+                <section className="rounded-2xl border border-[#E5E5E5] bg-white p-5 sm:p-6">
+                  <div className="mb-5">
+                    <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#0A3F4D] font-bold">
+                      {tr('CRM y operación', 'CRM & operations')}
                     </p>
-                    <p className="text-sm leading-relaxed">
-                      {selectedLead.inquiryNotes || selectedLead.message || tr('Sin contexto adicional.', 'No additional context.')}
+                    <p className="text-xs text-[#777] mt-1">
+                      {tr(
+                        'Edita el lead, prepara el siguiente paso y guarda sin salir de la ficha.',
+                        'Edit the lead, prepare the next step and save without leaving the record.'
+                      )}
                     </p>
                   </div>
 
-                  <div className="rounded-2xl border border-[#E5E5E5] bg-white p-5">
-                    <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
-                      <div>
-                        <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#0A3F4D] font-bold">
-                          {tr('Customer Journey', 'Customer Journey')}
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    <div className="lg:col-span-7 space-y-4">
+                      <div className="rounded-xl border border-[#E5E5E5] bg-[#FAFAFA] p-4">
+                        <p className="font-mono-code text-[8px] uppercase tracking-wider text-[#777] mb-2">
+                          {tr('Playbook rápido', 'Quick playbook')}
                         </p>
-                        <p className="text-[10px] text-[#777] mt-1">
-                          {selectedLead.status === 'CLIENT'
-                            ? tr(
-                                'La venta no termina el recorrido. Define qué debe ocurrir después con este cliente.',
-                                'The sale does not end the journey. Define what should happen next for this client.'
-                              )
-                            : tr(
-                                'Se activa cuando la oportunidad se convierte en cliente.',
-                                'Activates when the opportunity becomes a client.'
-                              )}
-                        </p>
+                        <select
+                          defaultValue=""
+                          onChange={(event) => {
+                            if (event.target.value) {
+                              applyQuickPlaybook(event.target.value);
+                              event.currentTarget.value = '';
+                            }
+                          }}
+                          className="w-full border border-[#D8D8D8] bg-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#0A3F4D]"
+                        >
+                          <option value="">{tr('Elige un playbook…', 'Choose a playbook…')}</option>
+                          <optgroup label={tr('Operación comercial', 'Core sales operations')}>
+                            {QUICK_PLAYBOOKS.filter((playbook) => playbook.category === 'CORE').map((playbook) => (
+                              <option key={playbook.id} value={playbook.id}>
+                                {language === 'es' ? playbook.labelEs : playbook.label}
+                              </option>
+                            ))}
+                          </optgroup>
+                          <optgroup label={tr('Expert Businesses', 'Expert Businesses')}>
+                            {QUICK_PLAYBOOKS.filter((playbook) => playbook.category === 'EXPERT_BUSINESS').map((playbook) => (
+                              <option key={playbook.id} value={playbook.id}>
+                                {language === 'es' ? playbook.labelEs : playbook.label}
+                              </option>
+                            ))}
+                          </optgroup>
+                        </select>
                       </div>
 
-                      {selectedLead.status === 'CLIENT' && getClientJourneyStage(selectedLead) && (
-                        <span
-                          className={`font-mono-code text-[8px] px-2.5 py-1 rounded-full border ${
-                            getClientJourneyStage(selectedLead) === 'ATTENTION'
-                              ? 'border-red-200 bg-red-50 text-red-700'
-                              : 'border-[#0A3F4D]/25 bg-[#F4F8F8] text-[#0A3F4D]'
-                          }`}
-                        >
-                          {clientJourneyLabel(getClientJourneyStage(selectedLead)!, language)}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <label className="block">
+                          <span className="font-mono-code text-[9px] uppercase text-[#6B6B6B] block mb-1.5">
+                            {tr('Estado', 'Status')}
+                          </span>
+                          <select
+                            value={draft.status}
+                            onChange={(event) =>
+                              setDraft((current) => ({
+                                ...current,
+                                status: event.target.value as LeadStatus
+                              }))
+                            }
+                            className="w-full border border-[#D8D8D8] bg-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#0A3F4D]"
+                          >
+                            {STATUS_OPTIONS.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {statusLabel(option.value, language)}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+
+                        <label className="block">
+                          <span className="font-mono-code text-[9px] uppercase text-[#6B6B6B] block mb-1.5">
+                            {tr('Responsable', 'Responsible')}
+                          </span>
+                          <input
+                            value={draft.assignedTo || ''}
+                            onChange={(event) =>
+                              setDraft((current) => ({
+                                ...current,
+                                assignedTo: event.target.value
+                              }))
+                            }
+                            maxLength={100}
+                            placeholder={tr('ej. Ismael', 'e.g. Ismael')}
+                            className="w-full border border-[#D8D8D8] bg-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#0A3F4D]"
+                          />
+                        </label>
+
+                        <label className="block">
+                          <span className="font-mono-code text-[9px] uppercase text-[#6B6B6B] block mb-1.5">
+                            {tr('Próxima acción', 'Next action')}
+                          </span>
+                          <select
+                            value={draft.nextAction || ''}
+                            onChange={(event) =>
+                              setDraft((current) => ({
+                                ...current,
+                                nextAction: event.target.value
+                              }))
+                            }
+                            className="w-full border border-[#D8D8D8] bg-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#0A3F4D]"
+                          >
+                            <option value="">{tr('Selecciona próxima acción', 'Select next action')}</option>
+                            {draft.nextAction &&
+                              !NEXT_ACTION_OPTIONS.includes(
+                                draft.nextAction as (typeof NEXT_ACTION_OPTIONS)[number]
+                              ) && (
+                                <option value={draft.nextAction}>
+                                  {tr('Existente', 'Existing')}: {draft.nextAction}
+                                </option>
+                              )}
+                            {NEXT_ACTION_OPTIONS.map((action) => (
+                              <option key={action} value={action}>
+                                {nextActionLabel(action, language)}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+
+                        <label className="block">
+                          <span className="font-mono-code text-[9px] uppercase text-[#6B6B6B] block mb-1.5">
+                            {tr('Fecha de seguimiento', 'Follow-up date')}
+                          </span>
+                          <input
+                            type="datetime-local"
+                            value={toDatetimeLocal(draft.followUpAt)}
+                            onChange={(event) =>
+                              setDraft((current) => ({
+                                ...current,
+                                followUpAt: fromDatetimeLocal(event.target.value)
+                              }))
+                            }
+                            className="w-full border border-[#D8D8D8] bg-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#0A3F4D]"
+                          />
+                        </label>
+                      </div>
+
+                      {suggestedNextAction(draft.status) &&
+                        draft.nextAction !== suggestedNextAction(draft.status) && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setDraft((current) => ({
+                                ...current,
+                                nextAction: suggestedNextAction(current.status) || current.nextAction
+                              }))
+                            }
+                            className="inline-flex items-center rounded-xl border border-[#0A3F4D]/30 bg-white px-3 py-2 text-[9px] font-mono-code uppercase tracking-wider text-[#0A3F4D] hover:bg-[#F7F7F5]"
+                          >
+                            {tr('Usar sugerencia', 'Use suggestion')} · {nextActionLabel(suggestedNextAction(draft.status), language)}
+                          </button>
+                        )}
+
+                      <label className="block">
+                        <span className="font-mono-code text-[9px] uppercase text-[#6B6B6B] block mb-1.5">
+                          {tr('Notas internas', 'Internal notes')}
                         </span>
+                        <textarea
+                          value={draft.internalNotes || ''}
+                          onChange={(event) =>
+                            setDraft((current) => ({
+                              ...current,
+                              internalNotes: event.target.value
+                            }))
+                          }
+                          maxLength={3000}
+                          rows={4}
+                          placeholder={tr(
+                            'Contexto comercial privado, instrucciones operativas o información permanente...',
+                            'Private commercial context, operating instructions or persistent information...'
+                          )}
+                          className="w-full border border-[#D8D8D8] bg-white rounded-xl px-3 py-3 text-sm leading-relaxed resize-y focus:outline-none focus:border-[#0A3F4D]"
+                        />
+                      </label>
+
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <button
+                          type="button"
+                          onClick={handleSave}
+                          disabled={saving}
+                          className="flex-1 inline-flex items-center justify-center bg-[#0A0A0A] text-white rounded-xl px-4 py-3 text-xs font-semibold uppercase tracking-wider hover:bg-[#0A3F4D] disabled:opacity-50"
+                        >
+                          {saving ? (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          ) : (
+                            <Save className="w-4 h-4 mr-2" />
+                          )}
+                          {tr('Guardar cambios CRM', 'Save CRM changes')}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={sendSelectedLeadEmail}
+                          disabled={leadEmailStatus === 'sending'}
+                          className="flex-1 inline-flex items-center justify-center border border-[#0A3F4D] text-[#0A3F4D] bg-white rounded-xl px-4 py-3 text-xs font-semibold uppercase tracking-wider hover:bg-[#F7F7F5] disabled:opacity-50"
+                        >
+                          {leadEmailStatus === 'sending' ? (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          ) : (
+                            <Mail className="w-4 h-4 mr-2" />
+                          )}
+                          {tr('Enviar alerta por email', 'Send email alert')}
+                        </button>
+                      </div>
+
+                      {saveMessage && (
+                        <p className="text-[10px] font-mono-code text-[#0A3F4D]">{saveMessage}</p>
+                      )}
+                      {leadEmailMessage && (
+                        <p
+                          className={'text-[10px] font-mono-code ' + (
+                            leadEmailStatus === 'sent' ? 'text-[#0A3F4D]' : 'text-red-700'
+                          )}
+                        >
+                          {leadEmailMessage}
+                        </p>
                       )}
                     </div>
 
-                    {selectedLead.status === 'CLIENT' ? (
-                      <>
-                        <div className="grid grid-cols-3 gap-2 mb-4">
-                          {[
-                            ['ONBOARDING', tr('Onboarding', 'Onboarding')],
-                            ['ACTIVE', tr('Activo', 'Active')],
-                            ['RENEWAL', tr('Renovación', 'Renewal')]
-                          ].map(([stage, label]) => {
-                            const current = getClientJourneyStage(selectedLead);
-                            const active =
-                              current === stage ||
-                              (current === 'ATTENTION' &&
-                                ((stage === 'ONBOARDING' && selectedLead.nextAction === 'Send onboarding') ||
-                                  (stage === 'RENEWAL' && selectedLead.nextAction === 'Renewal follow-up') ||
-                                  stage === 'ACTIVE'));
-
-                            return (
-                              <div
-                                key={stage}
-                                className={`rounded-xl border px-3 py-3 text-center ${
-                                  active
-                                    ? 'border-[#0A3F4D] bg-[#F4F8F8] text-[#0A3F4D]'
-                                    : 'border-[#E5E5E5] bg-[#FAFAFA] text-[#8A8A8A]'
-                                }`}
-                              >
-                                <p className="font-mono-code text-[8px] uppercase tracking-wider">
-                                  {label}
-                                </p>
-                              </div>
-                            );
-                          })}
-                        </div>
-
-                        <div className="rounded-xl border border-[#E5E5E5] bg-[#FAFAFA] p-3.5">
-                          <div className="flex justify-between gap-4 text-[11px]">
-                            <span className="text-[#777]">{tr('Próxima acción', 'Next action')}</span>
-                            <strong className="text-right">
-                              {selectedLead.nextAction
-                                ? nextActionLabel(selectedLead.nextAction, language)
-                                : tr('Sin próxima acción', 'No next action')}
-                            </strong>
+                    <div className="lg:col-span-5">
+                      <div className="rounded-2xl border border-[#D8D8D8] bg-[#FAFAFA] p-4 sm:p-5 sticky top-24">
+                        <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+                          <div>
+                            <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#0A3F4D] font-bold">
+                              Customer Journey
+                            </p>
+                            <p className="text-[10px] text-[#777] mt-1">
+                              {selectedLead.status === 'CLIENT'
+                                ? tr(
+                                    'Define el siguiente paso del cliente sin salir de esta ficha.',
+                                    'Define the client next step without leaving this record.'
+                                  )
+                                : tr(
+                                    'Se activa cuando la oportunidad se convierte en cliente.',
+                                    'Activates when the opportunity becomes a client.'
+                                  )}
+                            </p>
                           </div>
-                          <div className="flex justify-between gap-4 text-[11px] mt-2">
-                            <span className="text-[#777]">{tr('Seguimiento', 'Follow-up')}</span>
-                            <strong className="text-right">
-                              {selectedLead.followUpAt
-                                ? formatDate(selectedLead.followUpAt)
-                                : tr('Sin programar', 'Unscheduled')}
-                            </strong>
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3">
-                          <button
-                            type="button"
-                            onClick={() => prepareClientJourney('expert-client-onboarding')}
-                            className="rounded-xl border border-[#D8D8D8] bg-white px-3 py-2.5 text-[9px] font-semibold uppercase tracking-wider hover:bg-[#F7F7F5]"
-                          >
-                            {tr('Onboarding', 'Onboarding')}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => prepareClientJourney('expert-client-checkin')}
-                            className="rounded-xl border border-[#D8D8D8] bg-white px-3 py-2.5 text-[9px] font-semibold uppercase tracking-wider hover:bg-[#F7F7F5]"
-                          >
-                            {tr('Seguimiento', 'Check-in')}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => prepareClientJourney('expert-renewal')}
-                            className="rounded-xl border border-[#D8D8D8] bg-white px-3 py-2.5 text-[9px] font-semibold uppercase tracking-wider hover:bg-[#F7F7F5]"
-                          >
-                            {tr('Renovación', 'Renewal')}
-                          </button>
-                        </div>
-                        <p className="text-[9px] text-[#8A8A8A] mt-2">
-                          {tr(
-                            'Elige una etapa para preparar la próxima acción; podrás revisarla antes de guardar en CRM.',
-                            'Choose a stage to prepare the next action; you can review it before saving in CRM.'
+                          {selectedLead.status === 'CLIENT' && getClientJourneyStage(selectedLead) && (
+                            <span
+                              className={'font-mono-code text-[8px] px-2.5 py-1 rounded-full border ' + (
+                                getClientJourneyStage(selectedLead) === 'ATTENTION'
+                                  ? 'border-red-200 bg-red-50 text-red-700'
+                                  : 'border-[#0A3F4D]/25 bg-white text-[#0A3F4D]'
+                              )}
+                            >
+                              {clientJourneyLabel(getClientJourneyStage(selectedLead)!, language)}
+                            </span>
                           )}
-                        </p>
-                      </>
-                    ) : (
-                      <div className="rounded-xl border border-dashed border-[#D8D8D8] bg-[#FAFAFA] p-4 text-xs text-[#777]">
-                        {tr(
-                          'Cuando registres una Venta cerrada, G-KAIS moverá la oportunidad a Cliente e iniciará Onboarding automáticamente.',
-                          'When you record a Sale closed, G-KAIS will move the opportunity to Client and automatically start Onboarding.'
+                        </div>
+
+                        {selectedLead.status === 'CLIENT' ? (
+                          <>
+                            <div className="grid grid-cols-3 gap-2">
+                              {[
+                                ['ONBOARDING', tr('Onboarding', 'Onboarding')],
+                                ['ACTIVE', tr('Activo', 'Active')],
+                                ['RENEWAL', tr('Renovación', 'Renewal')]
+                              ].map(([stage, label]) => {
+                                const current = getClientJourneyStage(selectedLead);
+                                const active =
+                                  current === stage ||
+                                  (current === 'ATTENTION' &&
+                                    ((stage === 'ONBOARDING' && selectedLead.nextAction === 'Send onboarding') ||
+                                      (stage === 'RENEWAL' && selectedLead.nextAction === 'Renewal follow-up') ||
+                                      stage === 'ACTIVE'));
+
+                                return (
+                                  <div
+                                    key={stage}
+                                    className={'rounded-xl border px-2 py-3 text-center ' + (
+                                      active
+                                        ? 'border-[#0A3F4D] bg-white text-[#0A3F4D]'
+                                        : 'border-[#E5E5E5] bg-[#F7F7F5] text-[#8A8A8A]'
+                                    )}
+                                  >
+                                    <p className="font-mono-code text-[8px] uppercase tracking-wider">{label}</p>
+                                  </div>
+                                );
+                              })}
+                            </div>
+
+                            <div className="mt-4 space-y-2">
+                              <button
+                                type="button"
+                                onClick={() => prepareClientJourney('expert-client-onboarding')}
+                                className="w-full rounded-xl border border-[#D8D8D8] bg-white px-3 py-2.5 text-[9px] font-semibold uppercase tracking-wider hover:bg-[#F0F0EE]"
+                              >
+                                {tr('Preparar onboarding', 'Prepare onboarding')}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => prepareClientJourney('expert-client-checkin')}
+                                className="w-full rounded-xl border border-[#D8D8D8] bg-white px-3 py-2.5 text-[9px] font-semibold uppercase tracking-wider hover:bg-[#F0F0EE]"
+                              >
+                                {tr('Preparar seguimiento', 'Prepare check-in')}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => prepareClientJourney('expert-renewal')}
+                                className="w-full rounded-xl border border-[#D8D8D8] bg-white px-3 py-2.5 text-[9px] font-semibold uppercase tracking-wider hover:bg-[#F0F0EE]"
+                              >
+                                {tr('Preparar renovación', 'Prepare renewal')}
+                              </button>
+                            </div>
+
+                            <div className="mt-4 rounded-xl border border-[#E5E5E5] bg-white p-3">
+                              <p className="text-[10px] text-[#777]">
+                                {tr('Borrador actual', 'Current draft')}
+                              </p>
+                              <p className="text-xs font-semibold mt-1">
+                                {draft.nextAction ? nextActionLabel(draft.nextAction, language) : tr('Sin próxima acción', 'No next action')}
+                              </p>
+                              <p className="text-[10px] text-[#777] mt-1">
+                                {draft.followUpAt ? formatDate(draft.followUpAt) : tr('Sin seguimiento programado', 'No follow-up scheduled')}
+                              </p>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="rounded-xl border border-dashed border-[#D8D8D8] bg-white p-4 text-xs text-[#777]">
+                            {tr(
+                              'Al registrar Venta cerrada, G-KAIS moverá el lead a Cliente y preparará automáticamente el onboarding.',
+                              'When Sale closed is recorded, G-KAIS moves the lead to Client and prepares onboarding automatically.'
+                            )}
+                          </div>
                         )}
                       </div>
-                    )}
+                    </div>
+                  </div>
+                </section>
+
+                <section className="rounded-2xl border border-[#E5E5E5] bg-white p-5 sm:p-6">
+                  <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
+                    <div>
+                      <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#0A3F4D] font-bold">
+                        {tr('Bitácora del lead', 'Lead notes timeline')}
+                      </p>
+                      <p className="text-xs text-[#777] mt-1">
+                        {tr(
+                          'Registra lo hablado y deja instrucciones para el siguiente responsable.',
+                          'Record what was discussed and leave instructions for the next owner.'
+                        )}
+                      </p>
+                    </div>
+                    <span className="font-mono-code text-[9px] text-[#6B6B6B]">
+                      {(selectedLead.leadNotes || []).length}/50
+                    </span>
                   </div>
 
-                  <div className="rounded-2xl border border-[#E5E5E5] bg-white p-5">
-                    <div className="flex items-start justify-between gap-3 mb-4">
-                      <div>
-                        <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#0A3F4D] font-bold">
-                          {tr('Bitácora del lead', 'Lead notes timeline')}
-                        </p>
-                        <p className="text-[10px] text-[#777] mt-1">
-                          {tr(
-                            'Agrega una nota nueva sin sobrescribir lo hablado anteriormente.',
-                            'Add a new note without overwriting previous context.'
-                          )}
-                        </p>
-                      </div>
-                      <span className="font-mono-code text-[9px] text-[#6B6B6B]">
-                        {(selectedLead.leadNotes || []).length}/50
-                      </span>
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                    <div className="lg:col-span-5">
+                      <input
+                        value={noteTitle}
+                        onChange={(event) => setNoteTitle(event.target.value)}
+                        maxLength={120}
+                        placeholder={tr(
+                          'Nombre de la nota · Ej.: Llamada inicial',
+                          'Note title · e.g. Initial call'
+                        )}
+                        className="w-full rounded-xl border border-[#D8D8D8] bg-[#FAFAFA] px-3 py-2.5 text-sm focus:outline-none focus:border-[#0A3F4D]"
+                      />
+                      <textarea
+                        value={noteBody}
+                        onChange={(event) => setNoteBody(event.target.value)}
+                        maxLength={3000}
+                        rows={6}
+                        placeholder={tr(
+                          'Último acuerdo, objeciones, necesidades, instrucciones para el siguiente responsable...',
+                          'Latest agreement, objections, needs, instructions for the next owner...'
+                        )}
+                        className="mt-3 w-full rounded-xl border border-[#D8D8D8] bg-[#FAFAFA] px-3 py-3 text-sm leading-relaxed resize-y focus:outline-none focus:border-[#0A3F4D]"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddLeadNote}
+                        disabled={savingNote || !noteTitle.trim() || !noteBody.trim()}
+                        className="mt-3 w-full inline-flex items-center justify-center rounded-xl bg-[#0A3F4D] text-white px-4 py-3 text-xs font-semibold uppercase tracking-wider hover:bg-[#08333E] disabled:opacity-40"
+                      >
+                        {savingNote ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <Save className="w-4 h-4 mr-2" />
+                        )}
+                        {tr('Agregar nota', 'Add note')}
+                      </button>
+                      {noteMessage && (
+                        <p className="mt-2 text-[10px] font-mono-code text-[#0A3F4D]">{noteMessage}</p>
+                      )}
                     </div>
 
-                    <input
-                      value={noteTitle}
-                      onChange={(event) => setNoteTitle(event.target.value)}
-                      maxLength={120}
-                      placeholder={tr(
-                        'Nombre de la nota · Ej.: Llamada inicial',
-                        'Note title · e.g. Initial call'
-                      )}
-                      className="w-full rounded-xl border border-[#D8D8D8] bg-[#FAFAFA] px-3 py-2.5 text-sm focus:outline-none focus:border-[#0A3F4D]"
-                    />
-
-                    <textarea
-                      value={noteBody}
-                      onChange={(event) => setNoteBody(event.target.value)}
-                      maxLength={3000}
-                      rows={5}
-                      placeholder={tr(
-                        'Último acuerdo, objeciones, necesidades, instrucciones para el siguiente responsable...',
-                        'Latest agreement, objections, needs, instructions for the next owner...'
-                      )}
-                      className="mt-3 w-full rounded-xl border border-[#D8D8D8] bg-[#FAFAFA] px-3 py-3 text-sm leading-relaxed resize-y focus:outline-none focus:border-[#0A3F4D]"
-                    />
-
-                    <button
-                      type="button"
-                      onClick={handleAddLeadNote}
-                      disabled={savingNote || !noteTitle.trim() || !noteBody.trim()}
-                      className="mt-3 w-full inline-flex items-center justify-center rounded-xl bg-[#0A3F4D] text-white px-4 py-3 text-xs font-semibold uppercase tracking-wider hover:bg-[#08333E] disabled:opacity-40"
-                    >
-                      {savingNote ? (
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      ) : (
-                        <Save className="w-4 h-4 mr-2" />
-                      )}
-                      {tr('Agregar nota', 'Add note')}
-                    </button>
-
-                    {noteMessage && (
-                      <p className="mt-2 text-[10px] font-mono-code text-[#0A3F4D]">
-                        {noteMessage}
-                      </p>
-                    )}
-
-                    <div className="mt-5 border-t border-[#E5E5E5] pt-4">
-                      <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#6B6B6B] mb-3">
-                        {tr('Notas registradas', 'Saved notes')}
-                      </p>
-
+                    <div className="lg:col-span-7">
                       {selectedLead.leadNotes && selectedLead.leadNotes.length > 0 ? (
-                        <div className="space-y-3">
+                        <div className="space-y-3 max-h-[430px] overflow-y-auto pr-1">
                           {[...selectedLead.leadNotes].reverse().map((note) => (
-                            <article
-                              key={note.id}
-                              className="rounded-xl border border-[#E5E5E5] bg-[#FAFAFA] p-3.5"
-                            >
+                            <article key={note.id} className="rounded-xl border border-[#E5E5E5] bg-[#FAFAFA] p-3.5">
                               <div className="flex flex-wrap items-start justify-between gap-2">
                                 <div>
                                   <h4 className="text-sm font-bold">{note.title}</h4>
-                                  <p className="font-mono-code text-[9px] text-[#777] mt-1">
-                                    {note.author}
-                                  </p>
+                                  <p className="font-mono-code text-[9px] text-[#777] mt-1">{note.author}</p>
                                 </div>
-                                <time className="font-mono-code text-[9px] text-[#777]">
-                                  {formatDate(note.createdAt)}
-                                </time>
+                                <time className="font-mono-code text-[9px] text-[#777]">{formatDate(note.createdAt)}</time>
                               </div>
-                              <p className="text-sm leading-relaxed whitespace-pre-wrap mt-3">
-                                {note.body}
-                              </p>
+                              <p className="text-sm leading-relaxed whitespace-pre-wrap mt-3">{note.body}</p>
                             </article>
                           ))}
                         </div>
                       ) : (
-                        <p className="text-xs text-[#777]">
-                          {tr(
-                            'Aún no hay notas registradas para este lead.',
-                            'No notes have been recorded for this lead yet.'
-                          )}
-                        </p>
-                      )}
-
-                      {selectedLead.internalNotes && (
-                        <div className="mt-4 rounded-xl border border-dashed border-[#D8D8D8] bg-white p-3">
-                          <p className="font-mono-code text-[8px] uppercase tracking-wider text-[#777]">
-                            {tr('Nota interna anterior', 'Previous internal note')}
-                          </p>
-                          <p className="text-xs leading-relaxed whitespace-pre-wrap mt-2 text-[#5F5F5F]">
-                            {selectedLead.internalNotes}
-                          </p>
+                        <div className="h-full min-h-[160px] rounded-xl border border-dashed border-[#D8D8D8] bg-[#FAFAFA] flex items-center justify-center p-5 text-xs text-[#777]">
+                          {tr('Aún no hay notas registradas para este lead.', 'No notes have been recorded for this lead yet.')}
                         </div>
                       )}
                     </div>
                   </div>
+                </section>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setLeadDetailOpen(false);
-                      setCrmPanelOpen(true);
-                    }}
-                    className="w-full rounded-xl bg-[#0A0A0A] text-white px-4 py-3 text-xs font-semibold uppercase tracking-wider hover:bg-[#0A3F4D]"
-                  >
-                    {tr('Editar registro CRM', 'Edit CRM record')}
-                  </button>
-                </div>
-
-                <div className="lg:col-span-7">
-                  <div className="rounded-2xl border border-[#E5E5E5] bg-white p-5 sm:p-6">
-                    <div className="flex items-center justify-between gap-4 mb-5">
-                      <div>
-                        <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#0A3F4D] font-bold">
-                          {tr('Historial de actividad', 'Activity history')}
-                        </p>
-                        <p className="text-xs text-[#777] mt-1">
-                          {tr('Cambios, resultados y próximas acciones del lead.', 'Lead changes, outcomes and next actions.')}
-                        </p>
-                      </div>
-                      <span className="font-mono-code text-[9px] text-[#6B6B6B]">
-                        {(selectedLead.activityLog || []).length} {tr('eventos', 'events')}
-                      </span>
+                <section className="rounded-2xl border border-[#E5E5E5] bg-white p-5 sm:p-6">
+                  <div className="flex items-center justify-between gap-4 mb-5">
+                    <div>
+                      <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#0A3F4D] font-bold">
+                        {tr('Historial de actividad', 'Activity history')}
+                      </p>
+                      <p className="text-xs text-[#777] mt-1">
+                        {tr(
+                          'Registro cronológico de cambios, resultados y próximas acciones.',
+                          'Chronological record of changes, outcomes and next actions.'
+                        )}
+                      </p>
                     </div>
-
-                    {selectedLead.activityLog && selectedLead.activityLog.length > 0 ? (
-                      <div className="space-y-4">
-                        {[...selectedLead.activityLog].reverse().map((entry, index) => (
-                          <div key={`${entry.at}-${index}`} className="relative pl-5">
-                            <span className="absolute left-0 top-1.5 w-2.5 h-2.5 rounded-full bg-[#0A3F4D]" />
-                            {index < selectedLead.activityLog!.length - 1 && (
-                              <span className="absolute left-[4px] top-4 bottom-[-18px] w-px bg-[#D8D8D8]" />
-                            )}
-                            <div className="rounded-xl border border-[#E5E5E5] bg-[#FAFAFA] p-3.5">
-                              <div className="flex flex-wrap items-center justify-between gap-2">
-                                <span className="font-mono-code text-[9px] text-[#6B6B6B]">{formatDate(entry.at)}</span>
-                                <span className="font-mono-code text-[9px] text-[#6B6B6B]">{entry.actor}</span>
-                              </div>
-                              <p className="text-xs font-semibold mt-2">
-                                {statusLabel(entry.fromStatus, language)} → {statusLabel(entry.toStatus, language)}
-                              </p>
-                              {entry.result && (
-                                <p className="text-[10px] font-mono-code uppercase tracking-wider text-[#0A3F4D] mt-1.5">
-                                  {tr('Resultado', 'Result')}: {taskOutcomeLabel(entry.result, language)}
-                                </p>
-                              )}
-                              {entry.nextAction && (
-                                <p className="text-[11px] text-[#6B6B6B] mt-1.5">{entry.nextAction}</p>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="py-12 text-center text-xs text-[#777]">
-                        {tr('Aún no hay actividad registrada para este lead.', 'No activity has been recorded for this lead yet.')}
-                      </div>
-                    )}
+                    <span className="font-mono-code text-[9px] text-[#6B6B6B]">
+                      {(selectedLead.activityLog || []).length} {tr('eventos', 'events')}
+                    </span>
                   </div>
-                </div>
+
+                  {selectedLead.activityLog && selectedLead.activityLog.length > 0 ? (
+                    <div className="space-y-4">
+                      {[...selectedLead.activityLog].reverse().map((entry, index) => (
+                        <div key={entry.at + '-' + index} className="relative pl-5">
+                          <span className="absolute left-0 top-1.5 w-2.5 h-2.5 rounded-full bg-[#0A3F4D]" />
+                          {index < selectedLead.activityLog!.length - 1 && (
+                            <span className="absolute left-[4px] top-4 bottom-[-18px] w-px bg-[#D8D8D8]" />
+                          )}
+                          <div className="rounded-xl border border-[#E5E5E5] bg-[#FAFAFA] p-3.5">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <span className="font-mono-code text-[9px] text-[#6B6B6B]">{formatDate(entry.at)}</span>
+                              <span className="font-mono-code text-[9px] text-[#6B6B6B]">{entry.actor}</span>
+                            </div>
+                            <p className="text-xs font-semibold mt-2">
+                              {statusLabel(entry.fromStatus, language)} → {statusLabel(entry.toStatus, language)}
+                            </p>
+                            {entry.result && (
+                              <p className="text-[10px] font-mono-code uppercase tracking-wider text-[#0A3F4D] mt-1.5">
+                                {tr('Resultado', 'Result')}: {taskOutcomeLabel(entry.result, language)}
+                              </p>
+                            )}
+                            {entry.nextAction && (
+                              <p className="text-[11px] text-[#6B6B6B] mt-1.5">{entry.nextAction}</p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="py-12 text-center text-xs text-[#777]">
+                      {tr('Aún no hay actividad registrada para este lead.', 'No activity has been recorded for this lead yet.')}
+                    </div>
+                  )}
+                </section>
               </div>
             </section>
           </div>
         )}
+
       </div>
     </main>
   );

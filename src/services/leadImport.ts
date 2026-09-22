@@ -146,10 +146,11 @@ function normalizePhone(value: string): string {
   return digits ? plus + digits : '';
 }
 
-function identityKey(email: string, phone: string): string {
-  if (email) return 'email:' + normalizeEmail(email);
-  if (phone) return 'phone:' + normalizePhone(phone);
-  return '';
+function identityKeys(email: string, phone: string): string[] {
+  return [
+    email ? 'email:' + normalizeEmail(email) : '',
+    phone ? 'phone:' + normalizePhone(phone) : ''
+  ].filter(Boolean);
 }
 
 export function prepareLeadCsvImport(
@@ -179,9 +180,9 @@ export function prepareLeadCsvImport(
   }
 
   const existingKeys = new Set(
-    existingLeads
-      .map((lead) => identityKey(lead.email || '', lead.phone || ''))
-      .filter(Boolean)
+    existingLeads.flatMap((lead) =>
+      identityKeys(lead.email || '', lead.phone || '')
+    )
   );
   const fileKeys = new Set<string>();
   const rows: ImportedLeadDraft[] = [];
@@ -198,12 +199,12 @@ export function prepareLeadCsvImport(
       continue;
     }
 
-    const key = identityKey(email, phone);
-    if (key && (existingKeys.has(key) || fileKeys.has(key))) {
+    const keys = identityKeys(email, phone);
+    if (keys.some((key) => existingKeys.has(key) || fileKeys.has(key))) {
       duplicateRows += 1;
       continue;
     }
-    if (key) fileKeys.add(key);
+    keys.forEach((key) => fileKeys.add(key));
 
     const explicitChannel = valueAt(raw, map.contactChannel, 80);
     const contactChannel =

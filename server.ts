@@ -101,8 +101,11 @@ async function startServer() {
         stage = 'notification_status';
         await auditRepository.updateNotificationStatus(record, notification.status);
 
-        // Email architecture dispatch (non-blocking)
-        sendAuditNotification(record).catch((emailErr) => {
+        // Email architecture dispatch (non-blocking): internal alert + lead receipt.
+        Promise.all([
+          sendAuditNotification(record),
+          sendAuditConfirmationEmail(record)
+        ]).catch((emailErr) => {
           console.error(`[EMAIL BACKGROUND ERROR] Audit ${record.id}:`, emailErr);
         });
 

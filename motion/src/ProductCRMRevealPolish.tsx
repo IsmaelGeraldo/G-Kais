@@ -20,19 +20,19 @@ const MouseCursor: React.FC<{x: number; y: number; opacity: number; clicking: nu
       position: 'absolute',
       left: x,
       top: y,
-      width: 28,
-      height: 34,
+      width: 20,
+      height: 24,
       zIndex: 90,
       opacity,
-      transform: `translate(-2px, -2px) scale(${1 - clicking * 0.08})`,
+      transform: `translate(-1.5px, -1.5px) scale(${1 - clicking * 0.08})`,
       filter: 'drop-shadow(0 3px 5px rgba(0,0,0,0.2))',
       pointerEvents: 'none',
     }}
   >
     <div
       style={{
-        width: 21,
-        height: 28,
+        width: 15,
+        height: 20,
         background: '#111111',
         clipPath: 'polygon(0 0, 0 92%, 29% 69%, 48% 100%, 61% 92%, 42% 63%, 100% 63%)',
         borderRadius: 2,
@@ -41,10 +41,10 @@ const MouseCursor: React.FC<{x: number; y: number; opacity: number; clicking: nu
     <div
       style={{
         position: 'absolute',
-        left: -8,
-        top: -8,
-        width: 34,
-        height: 34,
+        left: -6,
+        top: -6,
+        width: 25,
+        height: 25,
         borderRadius: '50%',
         border: `1.5px solid rgba(10,63,77,${clicking * 0.58})`,
         transform: `scale(${0.7 + clicking * 0.5})`,
@@ -99,7 +99,7 @@ export const ProductCRMRevealPolish: React.FC = () => {
     <div style={{position: 'absolute', inset: 0, zIndex: 40, overflow: 'hidden'}}>
       <style>{`
         .crm-polish-base > div > div:first-child {
-          top: 58px !important;
+          top: 48px !important;
         }
         .crm-polish-base > div > div:last-child {
           opacity: 0 !important;

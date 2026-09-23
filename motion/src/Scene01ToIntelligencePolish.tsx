@@ -60,8 +60,6 @@ const UnifiedSignal: React.FC<{seed: SignalSeed; index: number}> = ({seed, index
 
   const c1x = startX + 220 + index * 16;
   const c1y = Math.max(58, startY - 80 - index * 5);
-  // Approach the top of the motor horizontally so the Bézier tangent
-  // already matches the clockwise orbital direction.
   const c2x = orbitStartX - 180 + index * 8;
   const c2y = orbitStartY;
 
@@ -112,7 +110,7 @@ const UnifiedSignal: React.FC<{seed: SignalSeed; index: number}> = ({seed, index
           width={WORLD_WIDTH}
           height="720"
           viewBox={`0 0 ${WORLD_WIDTH} 720`}
-          style={{position: 'absolute', inset: 0, opacity: pathOpacity, pointerEvents: 'none'}}
+          style={{position: 'absolute', inset: 0, opacity: pathOpacity, pointerEvents: 'none', zIndex: 0}}
         >
           <path
             d={path}
@@ -233,8 +231,6 @@ export const Scene01ToIntelligencePolish: React.FC = () => {
         div[style*="z-index: 26"] { left: ${x1}px !important; }
         div[style*="z-index: 28"] { left: ${x2}px !important; }
 
-        /* Hide the old two-stage signal dots and old incoming paths.
-           The continuity layer below replaces them with one persistent node. */
         div[style*="z-index: 14"][style*="border-radius: 50%"],
         div[style*="z-index: 18"][style*="border-radius: 50%"] {
           opacity: 0 !important;

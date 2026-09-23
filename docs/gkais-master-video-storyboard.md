@@ -15,9 +15,9 @@
 
 The approved story is now:
 
-**Demand / incoming inquiries → notifications transform into signals → signals travel together into the G-KAIS Engine → Engine activates → context / priority / AI Brief / next action → real CRM / lead record → final promise.**
+**Demand / incoming inquiries → existing notifications fade into signals → signals travel together into the G-KAIS Engine from above → clockwise orbit accelerates → Engine activates → context / priority / AI Brief / next action → real CRM / lead record → final promise.**
 
-The previous standalone `INPUT SIGNAL` panel is removed from the approved narrative. Structure is communicated through motion: many incoming notifications become a coordinated signal flow before reaching the Engine.
+The previous standalone `INPUT SIGNAL` panel is removed from the approved narrative. Structure is communicated through motion: the existing incoming notifications themselves become a coordinated signal flow before reaching the Engine.
 
 The film must feel like one continuous living system, not a sequence of slides.
 
@@ -36,8 +36,8 @@ The film must feel like one continuous living system, not a sequence of slides.
 | Scene | Time | Frames @30fps | Function |
 |---|---:|---:|---|
 | 01 Phone + notifications | 0.0–4.2 s | 0–125 | Show attention overload |
-| 02 Notifications → signal flow | 4.2–6.8 s | 126–203 | Convert channel noise into coordinated signals |
-| 03 G-KAIS Engine activation | 6.8–9.6 s | 204–287 | Signals reach, orbit and activate the Engine |
+| 02 Notifications → signal flow | 4.2–6.8 s | 126–203 | Existing notifications fade and become coordinated signals |
+| 03 G-KAIS Engine activation | 6.8–9.6 s | 204–287 | Signals enter from above, orbit clockwise, accelerate and activate Engine |
 | 04 Intelligence windows | 9.6–14.0 s | 288–419 | Context → priority → AI Brief → next action |
 | 05 Product / CRM reveal | 14.0–19.2 s | 420–575 | Show real product interaction |
 | 06 Resolution / end frame | 19.2–22.5 s | 576–674 | Brand promise / close |
@@ -69,31 +69,32 @@ Secondary:
 > Algunas esperan.
 
 ### Exit behavior
-The phone starts moving / blurring left while the notifications remain visually important for a fraction longer. Those notifications become the material used in Scene 02.
+The phone starts moving / blurring left while the existing notifications remain visually important for a fraction longer. Those same notifications become the material used in Scene 02. Do not create a duplicate notification layer during the handoff.
 
 ---
 
-## Scene 02 — Notifications transform into signal flow
+## Scene 02 — Existing notifications transform into signal flow
 
 **Time:** 4.2–6.8 s  
 **Frames:** 126–203
 
 ### Purpose
-Avoid an intermediate UI panel. Show directly that incoming demand is being converted into machine-readable / operational signals.
+Avoid an intermediate UI panel or a second set of notification cards. Show directly that incoming demand is being converted into operational signals.
 
 ### Motion sequence
-1. Existing notification cards detach from the phone composition.
-2. Their text and card surfaces progressively simplify.
-3. Cards shrink into compact signal nodes / pulses.
-4. Individual nodes retain subtle source identity through restrained color accents.
-5. Nodes begin following curved paths toward a shared direction.
-6. Their trajectories synchronize into one coordinated flow aimed at the G-KAIS Engine.
+1. The existing seven notification cards begin to fade in place.
+2. Their text disappears before the card surfaces fully dissolve.
+3. Each fading notification resolves into a compact signal node at the same visual origin.
+4. No new card or label such as “Nueva oportunidad” appears over the originals.
+5. Individual nodes retain subtle source identity through restrained color accents.
+6. Nodes follow curved paths and converge toward the top of the G-KAIS Engine.
+7. Their trajectories synchronize into one coordinated flow.
 
 ### Visual rule
-Do not make the transformation look like magic particles or generic neon energy. It should feel like information becoming structured through motion.
+The transformation must read as the original notifications becoming signals, not as a new UI layer appearing on top. Avoid magic particles or generic neon energy.
 
 ### Continuity
-- Scene 01 is still partially visible when the first signals detach.
+- Scene 01 remains partially visible during the first phase of the fade.
 - No hard wipe.
 - Maintain the same silver / grey environment and lighting.
 - Signal paths should have depth variation and mild parallax.
@@ -109,21 +110,26 @@ Do not make the transformation look like magic particles or generic neon energy.
 Do not explain activation with copy. Motion must communicate it.
 
 ### Motion sequence
-1. The grouped signals reach the Engine from the left.
-2. Several signals begin orbiting rather than disappearing immediately.
-3. Orbital speed increases progressively.
-4. Some signals are absorbed into the core.
-5. The Engine responds with controlled illumination and movement.
-6. Core pulse / heartbeat becomes visible.
-7. Teal becomes more present only during the processing peak.
-8. The system settles into an active state ready to generate outputs.
+1. The grouped signals reach the Engine **from above**.
+2. At the top entry point they bend naturally into orbit.
+3. All visible orbital motion turns **clockwise**.
+4. Orbital speed starts controlled and increases progressively.
+5. The orbit tightens slightly as speed rises.
+6. Some signals are absorbed into the core near the processing peak.
+7. The Engine responds with controlled illumination and faster mechanical movement.
+8. Core pulse / heartbeat becomes visible.
+9. Teal becomes more present only during the processing peak.
+10. The system settles into an active state ready to generate outputs.
 
 ### Engine look
 - Unique G-KAIS system core.
-- Metallic / glass / graphite / silver materials.
-- Layered mechanical / data rings rather than a generic sci-fi orb.
+- More physical body and depth than a flat circular graphic.
+- Layered metallic / glass / graphite / silver materials.
+- Thick outer housing, intermediate mechanical/data rings and a recessed illuminated core.
+- Highlights, internal shadows and contact shadow should make the Engine feel volumetric.
+- All main ring motion should support the clockwise processing direction.
 - Controlled teal energy.
-- Premium and architectural, not cartoonish.
+- Premium and architectural, not cartoonish or generic sci-fi.
 
 ### Transition to intelligence
 Before the Engine fully settles, the first intelligence output may begin materializing on the right. This overlap is important for continuity.
@@ -222,7 +228,7 @@ Premium, quiet, confident. No excessive effects.
 Approved / current direction:
 
 - `Scene01Cinematic` — approved opening scene.
-- `Scene01ToEngineFlow` — current preview block for Scene 01 + notification transformation + initial Engine activation.
+- `Scene01ToEngineFlow` — current preview block for Scene 01 + notification fade / signal transformation + initial Engine activation.
 - Future dedicated components can be extracted once timing is locked:
   - `NotificationSignalFlow`
   - `GKAISEngineActivation`
@@ -289,7 +295,10 @@ Keep editable in code:
 - Never replace the master aesthetic with old V3 / V4 / V5 styling.
 - Never turn the animation into a generic neon AI demo.
 - Avoid explanatory labels when motion can communicate the idea.
-- Notifications must visibly become signals; do not introduce a standalone Input Signal template again unless specifically re-approved.
+- Existing notifications must visibly fade into signals; never add a duplicate notification-card layer during this handoff.
+- Signals must approach the Engine from above and enter a clockwise accelerating orbit unless specifically re-approved otherwise.
+- The Engine should read as a volumetric layered object, not a flat circular graphic.
+- Do not introduce a standalone Input Signal template again unless specifically re-approved.
 - Keep transitions overlapped and continuous.
 - Keep the CRM section grounded in the current product.
 - Preserve editability in Remotion.

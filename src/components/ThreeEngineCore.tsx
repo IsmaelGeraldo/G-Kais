@@ -50,28 +50,138 @@ export const ThreeEngineCore: React.FC<ThreeEngineCoreProps> = ({
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
-    camera.position.set(0, 0, 5.3);
+    camera.position.set(0, 0, 5.25);
 
     const engineGroup = new THREE.Group();
+    engineGroup.rotation.x = -0.08;
     scene.add(engineGroup);
 
-    const coreGeometry = new THREE.IcosahedronGeometry(0.68, 4);
-    const coreMaterial = new THREE.MeshStandardMaterial({
-      color: 0x071214,
-      metalness: 0.82,
-      roughness: 0.24,
-      emissive: new THREE.Color(0x0a3f4d),
-      emissiveIntensity: 0.48,
-    });
-    const core = new THREE.Mesh(coreGeometry, coreMaterial);
-    engineGroup.add(core);
+    const brainGroup = new THREE.Group();
+    engineGroup.add(brainGroup);
 
-    const wireGeometry = new THREE.IcosahedronGeometry(0.79, 2);
+    const lobeGeometry = new THREE.SphereGeometry(0.52, 30, 22);
+    const lobeMaterial = new THREE.MeshStandardMaterial({
+      color: 0x071417,
+      metalness: 0.66,
+      roughness: 0.28,
+      emissive: new THREE.Color(0x0a3f4d),
+      emissiveIntensity: 0.6,
+    });
+
+    const leftLobe = new THREE.Mesh(lobeGeometry, lobeMaterial);
+    leftLobe.position.x = -0.26;
+    leftLobe.scale.set(0.78, 1.08, 0.88);
+    brainGroup.add(leftLobe);
+
+    const rightLobe = new THREE.Mesh(lobeGeometry, lobeMaterial);
+    rightLobe.position.x = 0.26;
+    rightLobe.scale.set(0.78, 1.08, 0.88);
+    brainGroup.add(rightLobe);
+
+    const brainWireMaterial = new THREE.MeshBasicMaterial({
+      color: 0x73c7b8,
+      wireframe: true,
+      transparent: true,
+      opacity: 0.12,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+
+    const leftWire = new THREE.Mesh(lobeGeometry, brainWireMaterial);
+    leftWire.position.copy(leftLobe.position);
+    leftWire.scale.copy(leftLobe.scale).multiplyScalar(1.035);
+    brainGroup.add(leftWire);
+
+    const rightWire = new THREE.Mesh(lobeGeometry, brainWireMaterial);
+    rightWire.position.copy(rightLobe.position);
+    rightWire.scale.copy(rightLobe.scale).multiplyScalar(1.035);
+    brainGroup.add(rightWire);
+
+    const neuralMaterial = new THREE.MeshBasicMaterial({
+      color: 0x92dfd0,
+      transparent: true,
+      opacity: 0.4,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+
+    const neuralCurves = [
+      [
+        [-0.55, 0.16, 0.44],
+        [-0.32, 0.36, 0.58],
+        [-0.08, 0.22, 0.52],
+        [0.05, 0.02, 0.56],
+      ],
+      [
+        [-0.48, -0.18, 0.5],
+        [-0.26, -0.38, 0.58],
+        [-0.03, -0.24, 0.55],
+        [0.08, -0.06, 0.58],
+      ],
+      [
+        [0.55, 0.18, 0.43],
+        [0.31, 0.37, 0.58],
+        [0.1, 0.2, 0.54],
+        [-0.02, 0.02, 0.57],
+      ],
+      [
+        [0.49, -0.2, 0.48],
+        [0.3, -0.39, 0.58],
+        [0.08, -0.25, 0.55],
+        [-0.02, -0.05, 0.58],
+      ],
+      [
+        [-0.42, 0.46, 0.25],
+        [-0.22, 0.56, 0.42],
+        [-0.05, 0.42, 0.5],
+      ],
+      [
+        [0.42, 0.46, 0.25],
+        [0.22, 0.56, 0.42],
+        [0.05, 0.42, 0.5],
+      ],
+    ];
+
+    const neuralTubes = neuralCurves.map((curvePoints) => {
+      const curve = new THREE.CatmullRomCurve3(
+        curvePoints.map(([x, y, z]) => new THREE.Vector3(x, y, z))
+      );
+      const geometry = new THREE.TubeGeometry(curve, 24, 0.011, 5, false);
+      const mesh = new THREE.Mesh(geometry, neuralMaterial);
+      brainGroup.add(mesh);
+      return { geometry, mesh };
+    });
+
+    const seamGeometry = new THREE.CapsuleGeometry(0.018, 0.88, 4, 10);
+    const seamMaterial = new THREE.MeshBasicMaterial({
+      color: 0xb8f3e9,
+      transparent: true,
+      opacity: 0.34,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    const seam = new THREE.Mesh(seamGeometry, seamMaterial);
+    seam.position.set(0, 0, 0.58);
+    brainGroup.add(seam);
+
+    const nodeGeometry = new THREE.SphereGeometry(0.13, 24, 16);
+    const nodeMaterial = new THREE.MeshStandardMaterial({
+      color: 0xb6f0e6,
+      emissive: new THREE.Color(0x60c1b0),
+      emissiveIntensity: 1.55,
+      metalness: 0.18,
+      roughness: 0.18,
+    });
+    const centralNode = new THREE.Mesh(nodeGeometry, nodeMaterial);
+    centralNode.position.set(0, 0, 0.7);
+    brainGroup.add(centralNode);
+
+    const wireGeometry = new THREE.IcosahedronGeometry(0.9, 2);
     const wireMaterial = new THREE.MeshBasicMaterial({
       color: 0x79c8ba,
       wireframe: true,
       transparent: true,
-      opacity: 0.13,
+      opacity: 0.09,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
     });
@@ -79,15 +189,15 @@ export const ThreeEngineCore: React.FC<ThreeEngineCoreProps> = ({
     engineGroup.add(wireShell);
 
     const ringConfigs = [
-      { radius: 0.96, tube: 0.012, opacity: 0.42, tiltX: 0.9, tiltY: 0.2 },
-      { radius: 1.18, tube: 0.009, opacity: 0.23, tiltX: 1.15, tiltY: -0.52 },
-      { radius: 1.39, tube: 0.007, opacity: 0.14, tiltX: 0.42, tiltY: 0.74 },
+      { radius: 1.02, tube: 0.013, opacity: 0.44, tiltX: 0.9, tiltY: 0.2 },
+      { radius: 1.23, tube: 0.009, opacity: 0.24, tiltX: 1.15, tiltY: -0.52 },
+      { radius: 1.43, tube: 0.007, opacity: 0.15, tiltX: 0.42, tiltY: 0.74 },
     ];
 
     const rings = ringConfigs.map((config, index) => {
       const geometry = new THREE.TorusGeometry(config.radius, config.tube, 8, 96);
       const material = new THREE.MeshBasicMaterial({
-        color: index === 0 ? 0x5fb3a4 : 0x0a3f4d,
+        color: index === 0 ? 0x71c7b8 : 0x0a3f4d,
         transparent: true,
         opacity: config.opacity,
         blending: THREE.AdditiveBlending,
@@ -100,10 +210,10 @@ export const ThreeEngineCore: React.FC<ThreeEngineCoreProps> = ({
       return { ring, geometry, material };
     });
 
-    const particleCount = 110;
+    const particleCount = 125;
     const particlePositions = new Float32Array(particleCount * 3);
     for (let index = 0; index < particleCount; index += 1) {
-      const radius = 1.05 + Math.random() * 0.62;
+      const radius = 1.05 + Math.random() * 0.72;
       const theta = Math.random() * Math.PI * 2;
       const phi = Math.acos(2 * Math.random() - 1);
       particlePositions[index * 3] = radius * Math.sin(phi) * Math.cos(theta);
@@ -118,7 +228,7 @@ export const ThreeEngineCore: React.FC<ThreeEngineCoreProps> = ({
     );
     const particleMaterial = new THREE.PointsMaterial({
       color: 0x74c1b4,
-      size: 0.027,
+      size: 0.026,
       transparent: true,
       opacity: 0.3,
       blending: THREE.AdditiveBlending,
@@ -128,16 +238,20 @@ export const ThreeEngineCore: React.FC<ThreeEngineCoreProps> = ({
     const particles = new THREE.Points(particleGeometry, particleMaterial);
     engineGroup.add(particles);
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.78);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.72);
     scene.add(ambientLight);
 
-    const tealLight = new THREE.PointLight(0x2d8c7c, 3.1, 8, 2);
+    const tealLight = new THREE.PointLight(0x2d8c7c, 3.2, 8, 2);
     tealLight.position.set(1.1, 1.2, 2.1);
     scene.add(tealLight);
 
-    const rimLight = new THREE.PointLight(0xcbe9e3, 2.1, 6, 2);
+    const rimLight = new THREE.PointLight(0xcbe9e3, 2.2, 6, 2);
     rimLight.position.set(-1.7, -0.4, 2.4);
     scene.add(rimLight);
+
+    const nodeLight = new THREE.PointLight(0x7ad3c2, 2.8, 4.2, 2);
+    nodeLight.position.set(0, 0, 1.25);
+    scene.add(nodeLight);
 
     const resize = () => {
       const rect = mount.getBoundingClientRect();
@@ -159,48 +273,62 @@ export const ThreeEngineCore: React.FC<ThreeEngineCoreProps> = ({
       raf = window.requestAnimationFrame(animate);
       const elapsed = clock.getElapsedTime();
       const state = liveStateRef.current;
-      const activity = state.running ? 1 : 0.28;
+      const activity = state.running ? 1 : 0.3;
       const processing = state.step >= 1 && state.step < 4;
       const finalState = state.complete;
+      const pulse = (Math.sin(elapsed * 4.4) + 1) * 0.5;
 
-      engineGroup.rotation.y += 0.0022 * activity;
-      core.rotation.x = elapsed * 0.15 * activity;
-      core.rotation.y = elapsed * 0.23 * activity;
-      wireShell.rotation.x = -elapsed * 0.11 * activity;
-      wireShell.rotation.y = elapsed * 0.18 * activity;
-      particles.rotation.y = -elapsed * 0.085 * activity;
-      particles.rotation.x = elapsed * 0.035 * activity;
+      engineGroup.rotation.y = Math.sin(elapsed * 0.38) * 0.08;
+      engineGroup.rotation.x = -0.08 + Math.sin(elapsed * 0.28) * 0.025;
+      brainGroup.rotation.y = Math.sin(elapsed * 0.62) * 0.12 * activity;
+      brainGroup.rotation.x = Math.sin(elapsed * 0.42) * 0.035 * activity;
+      wireShell.rotation.x = -elapsed * 0.08 * activity;
+      wireShell.rotation.y = elapsed * 0.13 * activity;
+      particles.rotation.y = -elapsed * 0.08 * activity;
+      particles.rotation.x = elapsed * 0.028 * activity;
 
-      rings[0].ring.rotation.z = elapsed * 0.29 * activity;
-      rings[1].ring.rotation.z = -elapsed * 0.22 * activity;
-      rings[2].ring.rotation.z = elapsed * 0.14 * activity;
+      rings[0].ring.rotation.z = elapsed * 0.31 * activity;
+      rings[1].ring.rotation.z = -elapsed * 0.24 * activity;
+      rings[2].ring.rotation.z = elapsed * 0.16 * activity;
 
-      const processingPulse = processing ? (Math.sin(elapsed * 4.6) + 1) * 0.5 : 0;
       const targetScale = finalState
-        ? 1.06
+        ? 1.055
         : processing
-          ? 1.02 + processingPulse * 0.055
-          : state.step === 0 && state.running
-            ? 1 + Math.max(0, Math.sin(elapsed * 3.3)) * 0.025
+          ? 1.015 + pulse * 0.045
+          : state.running
+            ? 1 + pulse * 0.018
             : 1;
-      core.scale.setScalar(targetScale);
-      wireShell.scale.setScalar(targetScale * 1.01);
+      brainGroup.scale.setScalar(targetScale);
+      wireShell.scale.setScalar(1.01 + pulse * (processing ? 0.025 : 0.008));
+      centralNode.scale.setScalar(0.92 + pulse * (processing ? 0.38 : 0.18));
 
-      coreMaterial.emissiveIntensity = finalState
-        ? 0.72
+      lobeMaterial.emissiveIntensity = finalState
+        ? 0.88
         : processing
-          ? 0.82 + processingPulse * 0.52
+          ? 0.84 + pulse * 0.48
           : state.running
-            ? 0.58
-            : 0.34;
+            ? 0.62
+            : 0.38;
+      nodeMaterial.emissiveIntensity = finalState
+        ? 2.2
+        : processing
+          ? 1.8 + pulse * 1.2
+          : 1.35 + pulse * 0.35;
+      neuralMaterial.opacity = processing ? 0.46 + pulse * 0.28 : 0.32;
+      seamMaterial.opacity = processing ? 0.4 + pulse * 0.25 : 0.28;
       tealLight.intensity = finalState
-        ? 3.8
+        ? 4.1
         : processing
-          ? 3.4 + processingPulse * 2.1
+          ? 3.7 + pulse * 2.2
           : state.running
-            ? 2.9
-            : 1.5;
-      particleMaterial.opacity = processing ? 0.42 + processingPulse * 0.24 : 0.25;
+            ? 3
+            : 1.55;
+      nodeLight.intensity = processing ? 3.2 + pulse * 2.5 : 2.1 + pulse * 0.7;
+      particleMaterial.opacity = processing ? 0.4 + pulse * 0.24 : 0.24;
+
+      neuralTubes.forEach(({ mesh }, index) => {
+        mesh.rotation.z = Math.sin(elapsed * 0.55 + index) * 0.008;
+      });
 
       renderer.render(scene, camera);
     };
@@ -215,8 +343,15 @@ export const ThreeEngineCore: React.FC<ThreeEngineCoreProps> = ({
         geometry.dispose();
         material.dispose();
       });
-      coreGeometry.dispose();
-      coreMaterial.dispose();
+      neuralTubes.forEach(({ geometry }) => geometry.dispose());
+      lobeGeometry.dispose();
+      lobeMaterial.dispose();
+      brainWireMaterial.dispose();
+      neuralMaterial.dispose();
+      seamGeometry.dispose();
+      seamMaterial.dispose();
+      nodeGeometry.dispose();
+      nodeMaterial.dispose();
       wireGeometry.dispose();
       wireMaterial.dispose();
       particleGeometry.dispose();

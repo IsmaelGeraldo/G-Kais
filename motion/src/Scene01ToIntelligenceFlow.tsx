@@ -31,6 +31,17 @@ type Seed = {
   delay: number;
 };
 
+type IntelligenceWindow = {
+  id: 'context' | 'priority' | 'brief' | 'action';
+  title: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  signalStart: number;
+  signalEnd: number;
+};
+
 const seeds: Seed[] = [
   {label: 'IG', x: 350, y: 116, width: 176, hue: '#C9487F', delay: 0},
   {label: 'WA', x: 300, y: 468, width: 188, hue: '#26A866', delay: 4},
@@ -41,11 +52,11 @@ const seeds: Seed[] = [
   {label: '@', x: 92, y: 584, width: 174, hue: '#66747D', delay: 24},
 ];
 
-const intelligence = [
-  {title: 'CONTEXTO', body: '6/9 conocido', x: 1770, y: 92, width: 340, signalStart: 278, signalEnd: 310},
-  {title: 'PRIORIDAD', body: 'Alta', x: 2020, y: 206, width: 250, signalStart: 294, signalEnd: 328},
-  {title: 'AI BRIEF', body: 'Qué falta saber + cómo ayudar', x: 1810, y: 330, width: 430, signalStart: 312, signalEnd: 350},
-  {title: 'PRÓXIMA ACCIÓN', body: 'Confirmar llamada y revisar flujo', x: 1890, y: 510, width: 410, signalStart: 332, signalEnd: 372},
+const intelligence: IntelligenceWindow[] = [
+  {id: 'context', title: 'CONTEXTO CAPTURADO', x: 1760, y: 66, width: 448, height: 126, signalStart: 278, signalEnd: 310},
+  {id: 'priority', title: 'PRIORIDAD', x: 1768, y: 207, width: 438, height: 92, signalStart: 294, signalEnd: 328},
+  {id: 'brief', title: 'AI BRIEF', x: 1764, y: 315, width: 450, height: 192, signalStart: 312, signalEnd: 350},
+  {id: 'action', title: 'PRÓXIMA ACCIÓN', x: 1768, y: 523, width: 448, height: 98, signalStart: 332, signalEnd: 372},
 ];
 
 const cubic = (a: number, b: number, c: number, d: number, t: number) => {
@@ -78,18 +89,8 @@ const SignalFlight: React.FC<{seed: Seed; index: number}> = ({seed, index}) => {
   const c2y = 58 + index * 11;
   const x = cubic(startX, c1x, c2x, targetX, progress);
   const y = cubic(startY, c1y, c2y, targetY, progress);
-  const opacity = interpolate(
-    frame,
-    [launchStart - 5, launchStart + 3, launchEnd - 3, launchEnd + 5],
-    [0, 1, 1, 0],
-    clamp,
-  );
-  const pathOpacity = interpolate(
-    frame,
-    [launchStart - 5, launchStart + 8, launchEnd - 6, launchEnd + 6],
-    [0, 0.26, 0.20, 0],
-    clamp,
-  );
+  const opacity = interpolate(frame, [launchStart - 5, launchStart + 3, launchEnd - 3, launchEnd + 5], [0, 1, 1, 0], clamp);
+  const pathOpacity = interpolate(frame, [launchStart - 5, launchStart + 8, launchEnd - 6, launchEnd + 6], [0, 0.26, 0.20, 0], clamp);
   const path = `M ${startX} ${startY} C ${c1x} ${c1y} ${c2x} ${c2y} ${targetX} ${targetY}`;
   const dash = interpolate(progress, [0, 1], [520, 0]);
   const scale = interpolate(progress, [0, 0.7, 1], [0.82, 1.08, 0.92], clamp);
@@ -100,15 +101,7 @@ const SignalFlight: React.FC<{seed: Seed; index: number}> = ({seed, index}) => {
         <path d={path} fill="none" stroke={seed.hue} strokeWidth={1.1} strokeLinecap="round" strokeDasharray="36 22" strokeDashoffset={dash} opacity={0.58} />
         <path d={path} fill="none" stroke="rgba(255,255,255,0.78)" strokeWidth={0.55} strokeLinecap="round" strokeDasharray="10 62" strokeDashoffset={dash * 1.22} opacity={0.66} />
       </svg>
-      <div
-        style={{
-          position: 'absolute', left: x, top: y, width: 14, height: 14, marginLeft: -7, marginTop: -7,
-          borderRadius: '50%',
-          background: `radial-gradient(circle at 35% 30%, #fff 0%, ${seed.hue} 46%, ${accent} 100%)`,
-          boxShadow: `0 0 16px ${seed.hue}88, 0 0 30px rgba(10,63,77,0.20)`,
-          opacity, transform: `scale(${scale}) translateZ(0)`, zIndex: 14,
-        }}
-      />
+      <div style={{position: 'absolute', left: x, top: y, width: 14, height: 14, marginLeft: -7, marginTop: -7, borderRadius: '50%', background: `radial-gradient(circle at 35% 30%, #fff 0%, ${seed.hue} 46%, ${accent} 100%)`, boxShadow: `0 0 16px ${seed.hue}88, 0 0 30px rgba(10,63,77,0.20)`, opacity, transform: `scale(${scale}) translateZ(0)`, zIndex: 14}} />
     </>
   );
 };
@@ -119,10 +112,7 @@ const OrbitingSignal: React.FC<{seed: Seed; index: number}> = ({seed, index}) =>
   const age = Math.max(0, frame - arrival);
   if (frame < arrival) return null;
 
-  const acceleration = interpolate(age, [0, 58], [0, 1], {
-    ...clamp,
-    easing: Easing.in(Easing.cubic),
-  });
+  const acceleration = interpolate(age, [0, 58], [0, 1], {...clamp, easing: Easing.in(Easing.cubic)});
   const angleDeg = -90 + age * (1.25 + acceleration * 4.7) + age * age * 0.032;
   const angle = (angleDeg * Math.PI) / 180;
   const radius = interpolate(acceleration, [0, 1], [142 - index * 2, 108 + (index % 3) * 4], clamp);
@@ -132,9 +122,7 @@ const OrbitingSignal: React.FC<{seed: Seed; index: number}> = ({seed, index}) =>
   const fade = interpolate(age, [0, 78, 98], [1, 1, 0], clamp);
   const size = interpolate(acceleration, [0, 1], [11, 8], clamp);
 
-  return (
-    <div style={{position: 'absolute', left: x, top: y, width: size, height: size, marginLeft: -size / 2, marginTop: -size / 2, borderRadius: '50%', background: seed.hue, boxShadow: `0 0 ${12 + acceleration * 18}px ${seed.hue}AA, 0 0 ${24 + acceleration * 28}px rgba(10,63,77,0.24)`, opacity: fade, zIndex: 18}} />
-  );
+  return <div style={{position: 'absolute', left: x, top: y, width: size, height: size, marginLeft: -size / 2, marginTop: -size / 2, borderRadius: '50%', background: seed.hue, boxShadow: `0 0 ${12 + acceleration * 18}px ${seed.hue}AA, 0 0 ${24 + acceleration * 28}px rgba(10,63,77,0.24)`, opacity: fade, zIndex: 18}} />;
 };
 
 const EngineRing: React.FC<{size: number; speed: number; opacity: number; activation: number; dashed?: boolean}> = ({size, speed, opacity, activation, dashed = false}) => {
@@ -181,7 +169,7 @@ const OutgoingSignal: React.FC<{index: number}> = ({index}) => {
   const startX = ENGINE_CENTER_X + engineShift + 92;
   const startY = ENGINE_CENTER_Y + (index - 1.5) * 8;
   const targetX = item.x - 12;
-  const targetY = item.y + 42;
+  const targetY = item.y + item.height / 2;
   const c1x = startX + 145;
   const c1y = startY - 35 + index * 18;
   const c2x = targetX - 125;
@@ -203,20 +191,75 @@ const OutgoingSignal: React.FC<{index: number}> = ({index}) => {
   );
 };
 
+const HeaderIcon: React.FC<{symbol: string; dark?: boolean}> = ({symbol, dark = false}) => (
+  <div style={{width: 22, height: 22, borderRadius: 8, border: dark ? '1px solid rgba(255,255,255,0.18)' : '1px solid rgba(10,63,77,0.18)', display: 'grid', placeItems: 'center', color: dark ? '#BBD0CC' : accent, fontSize: 11, fontWeight: 900, background: dark ? 'rgba(255,255,255,0.04)' : 'rgba(10,63,77,0.035)'}}>{symbol}</div>
+);
+
 const FloatingWindow: React.FC<{index: number}> = ({index}) => {
   const frame = useCurrentFrame();
   const item = intelligence[index];
   const revealStart = item.signalEnd - 5;
   const revealEnd = item.signalEnd + 14;
   const reveal = interpolate(frame, [revealStart, revealEnd], [0, 1], {...clamp, easing: Easing.out(Easing.cubic)});
-  const isNext = index === 3;
-  const depthScale = 1 - index * 0.012;
+  const floatY = Math.sin((frame + index * 17) / 27) * (1.2 + index * 0.25);
+  const isAction = item.id === 'action';
+  const symbol = item.id === 'context' ? '▤' : item.id === 'priority' ? '◎' : item.id === 'brief' ? '✦' : '✓';
 
   return (
-    <div style={{position: 'absolute', left: item.x, top: item.y, width: item.width, minHeight: index === 2 ? 116 : 90, padding: '18px 21px', borderRadius: 24, background: isNext ? 'rgba(31,36,33,0.95)' : 'rgba(255,255,255,0.78)', color: isNext ? '#fff' : ink, border: isNext ? '1px solid rgba(255,255,255,0.10)' : '1px solid rgba(255,255,255,0.82)', boxShadow: `0 20px 56px rgba(25,30,28,${0.11 + index * 0.012})`, backdropFilter: 'blur(16px) saturate(1.03)', opacity: reveal, transform: `translate3d(${interpolate(reveal, [0, 1], [54, 0])}px, ${interpolate(reveal, [0, 1], [9, 0])}px, 0) scale(${interpolate(reveal, [0, 1], [0.965, depthScale])})`, transformOrigin: 'left center', zIndex: 12 + index}}>
-      <div style={{fontSize: 10, letterSpacing: 1.75, fontWeight: 900, color: isNext ? '#AFC7C2' : accent}}>{item.title}</div>
-      <div style={{fontFamily: roundedFamily, fontSize: index === 2 ? 19 : 22, fontWeight: 800, lineHeight: 1.12, marginTop: 8}}>{item.body}</div>
-      <div style={{position: 'absolute', left: -5, top: 37, width: 9, height: 9, borderRadius: '50%', background: accent, boxShadow: '0 0 0 5px rgba(10,63,77,0.08)'}} />
+    <div style={{position: 'absolute', left: item.x, top: item.y + floatY, width: item.width, height: item.height, padding: item.id === 'brief' ? '16px 18px' : '15px 18px', borderRadius: 21, background: isAction ? 'rgba(8,25,24,0.96)' : 'rgba(255,255,255,0.88)', color: isAction ? '#fff' : ink, border: isAction ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(16,18,17,0.10)', boxShadow: isAction ? '0 24px 52px rgba(6,18,17,0.24)' : '0 18px 44px rgba(25,30,28,0.12)', backdropFilter: 'blur(18px) saturate(1.04)', opacity: reveal, transform: `translate3d(${interpolate(reveal, [0, 1], [46, 0])}px, ${interpolate(reveal, [0, 1], [11, 0])}px, 0) scale(${interpolate(reveal, [0, 1], [0.972, 1])})`, transformOrigin: 'left center', zIndex: 22 + index}}>
+      <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12}}>
+        <div style={{display: 'flex', alignItems: 'center', gap: 9}}>
+          <HeaderIcon symbol={symbol} dark={isAction} />
+          <div style={{fontSize: 10, letterSpacing: 1.6, fontWeight: 900, color: isAction ? '#9EC0BA' : accent}}>{item.title}</div>
+        </div>
+        {item.id === 'context' && <div style={{fontSize: 11, fontWeight: 900, color: accent}}>3/9</div>}
+        {item.id === 'brief' && <div style={{fontSize: 10, fontWeight: 900, letterSpacing: 1.2, color: accent}}>LISTO</div>}
+      </div>
+
+      {item.id === 'context' && (
+        <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr 1.08fr', gap: 9, marginTop: 11}}>
+          {[
+            ['Negocio', 'Clínica estética'],
+            ['Canal', 'Instagram'],
+            ['Problema', 'Conversaciones sin continuidad'],
+          ].map(([label, value]) => (
+            <div key={label} style={{minHeight: 63, borderRadius: 13, background: 'rgba(16,18,17,0.035)', padding: '10px 10px 9px'}}>
+              <div style={{fontSize: 8.5, color: '#8B938F'}}>{label}</div>
+              <div style={{fontSize: 11.5, fontWeight: 760, lineHeight: 1.16, marginTop: 7}}>{value}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {item.id === 'priority' && (
+        <>
+          <div style={{fontSize: 12.5, color: muted, marginTop: 13}}>Interés detectado sin seguimiento posterior</div>
+          <div style={{position: 'absolute', right: 16, top: 43, padding: '5px 12px', borderRadius: 999, border: '1px solid rgba(10,63,77,0.18)', background: 'rgba(10,63,77,0.055)', color: accent, fontSize: 10.5, fontWeight: 900, letterSpacing: 0.7}}>MEDIA</div>
+        </>
+      )}
+
+      {item.id === 'brief' && (
+        <>
+          <div style={{fontSize: 13.5, fontWeight: 760, lineHeight: 1.28, marginTop: 10}}>Hay demanda, pero falta convertir las conversaciones en oportunidades con contexto y seguimiento.</div>
+          <div style={{marginTop: 11, paddingTop: 9, borderTop: '1px solid rgba(16,18,17,0.08)'}}>
+            <div style={{fontSize: 9, fontWeight: 900, letterSpacing: 1.15, color: accent}}>FALTA SABER</div>
+            <div style={{fontSize: 11.3, color: muted, lineHeight: 1.26, marginTop: 4}}>Qué tratamientos consultan y cuándo se considera un lead calificado.</div>
+          </div>
+          <div style={{marginTop: 9}}>
+            <div style={{fontSize: 9, fontWeight: 900, letterSpacing: 1.15, color: accent}}>CÓMO PUEDE AYUDAR</div>
+            <div style={{fontSize: 11.3, color: muted, lineHeight: 1.26, marginTop: 4}}>Convertir cada consulta en una oportunidad con contexto, prioridad y siguiente paso.</div>
+          </div>
+        </>
+      )}
+
+      {item.id === 'action' && (
+        <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginTop: 10}}>
+          <div style={{fontFamily: roundedFamily, fontSize: 14.5, fontWeight: 850, lineHeight: 1.16, maxWidth: 270}}>Definir criterios de calificación y tipo de consulta</div>
+          <div style={{padding: '9px 12px', borderRadius: 999, background: 'rgba(255,255,255,0.94)', color: ink, fontSize: 9.5, fontWeight: 800, whiteSpace: 'nowrap'}}>Equipo comercial</div>
+        </div>
+      )}
+
+      <div style={{position: 'absolute', left: -5, top: item.height / 2 - 4.5, width: 9, height: 9, borderRadius: '50%', background: accent, boxShadow: '0 0 0 5px rgba(10,63,77,0.08), 0 0 14px rgba(10,63,77,0.22)'}} />
     </div>
   );
 };
@@ -249,20 +292,15 @@ const FlowScene: React.FC = () => {
     <AbsoluteFill style={{overflow: 'hidden', background: 'radial-gradient(circle at 72% 44%, rgba(255,255,255,0.88), transparent 30%), linear-gradient(135deg, #CFD0CD 0%, #E8E9E5 50%, #C8CBC8 100%)'}}>
       <div style={{position: 'absolute', left: 0, top: 0, width: WORLD_WIDTH, height: 720, transform: `translate3d(${cameraX}px, ${cameraY}px, 0) scale(${cameraScale})`, transformOrigin: '640px 360px', willChange: 'transform'}}>
         <div style={{position: 'absolute', inset: 0, background: 'radial-gradient(circle at 28% 38%, rgba(255,255,255,0.54), transparent 24%), radial-gradient(circle at 72% 46%, rgba(10,63,77,0.052), transparent 29%), linear-gradient(135deg, #CFD0CD 0%, #E8E9E5 54%, #C8CBC8 100%)'}} />
-
-        <div style={{position: 'absolute', left: 0, top: 0, width: 1280, height: 720, opacity: scene01Opacity, filter: `blur(${scene01Blur}px)`}}>
-          <Scene01Cinematic />
-        </div>
+        <div style={{position: 'absolute', left: 0, top: 0, width: 1280, height: 720, opacity: scene01Opacity, filter: `blur(${scene01Blur}px)`}}><Scene01Cinematic /></div>
         <FrameDissolveMasks />
-
         <div style={{position: 'absolute', left: 1135, top: 0, width: 500, height: 720, background: 'linear-gradient(90deg, rgba(226,228,224,0) 0%, rgba(226,228,224,0.34) 35%, rgba(226,228,224,0.60) 70%, rgba(226,228,224,0) 100%)', filter: 'blur(20px)', opacity: interpolate(frame, [126, 174, 230], [0, 0.48, 0.10], clamp), pointerEvents: 'none', zIndex: 9}} />
         <div style={{position: 'absolute', left: 1350, top: 60, width: 720, height: 590, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,255,255,0.58), rgba(10,63,77,0.035) 42%, transparent 70%)', filter: 'blur(18px)', zIndex: 2}} />
-        <div style={{position: 'absolute', left: 1730, top: 40, width: 740, height: 640, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,255,255,0.52), rgba(10,63,77,0.025) 42%, transparent 72%)', filter: 'blur(24px)', zIndex: 1}} />
+        <div style={{position: 'absolute', left: 1715, top: 34, width: 760, height: 650, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,255,255,0.58), rgba(10,63,77,0.026) 44%, transparent 72%)', filter: 'blur(24px)', zIndex: 1}} />
 
         {seeds.map((seed, index) => <SignalFlight key={`flight-${index}`} seed={seed} index={index} />)}
         <GKAISSystemCore />
         {seeds.map((seed, index) => <OrbitingSignal key={`orbit-${index}`} seed={seed} index={index} />)}
-
         {intelligence.map((_, index) => <OutgoingSignal key={`out-${index}`} index={index} />)}
         {intelligence.map((_, index) => <FloatingWindow key={`window-${index}`} index={index} />)}
       </div>

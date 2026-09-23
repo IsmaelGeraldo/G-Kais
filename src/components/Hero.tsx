@@ -1,5 +1,5 @@
 import React from "react";
-import { ArrowRight, Play, Sparkles, Target } from "lucide-react";
+import { ArrowRight, Sparkles, Target } from "lucide-react";
 import { HeroSystemVisual } from "./HeroSystemVisual";
 import { useLanguage } from "../i18n/LanguageContext";
 import "./hero-conversations.css";
@@ -11,18 +11,7 @@ interface HeroProps {
 export const Hero: React.FC<HeroProps> = ({ onOpenAudit }) => {
   const { language } = useLanguage();
   const es = language === "es";
-  const showDemo = () => {
-    const demo = document.getElementById("hero-system-visual");
-    demo?.scrollIntoView({
-      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
-        ? "auto"
-        : "smooth",
-      block: "center",
-    });
-    const replay = document.getElementById("hero-demo-replay");
-    replay?.click();
-    replay?.focus({ preventScroll: true });
-  };
+
   return (
     <section className="gk-hero" aria-labelledby="gk-hero-title">
       <div className="gk-hero-layout">
@@ -52,15 +41,6 @@ export const Hero: React.FC<HeroProps> = ({ onOpenAudit }) => {
             >
               {es ? "Evaluar mi negocio" : "Assess my business"}
               <ArrowRight size={17} aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              id="hero-see-how-it-works-btn"
-              onClick={showDemo}
-              className="gk-secondary"
-            >
-              <Play size={15} aria-hidden="true" />
-              {es ? "Ver cómo funciona" : "See how it works"}
             </button>
           </div>
           <p className="gk-hero-note">

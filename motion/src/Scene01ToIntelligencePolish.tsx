@@ -47,10 +47,6 @@ const UnifiedSignal: React.FC<{seed: SignalSeed; index: number}> = ({seed, index
   const frame = useCurrentFrame();
   const launchStart = 132 + seed.delay;
   const arrival = 194 + Math.round(seed.delay * 0.55);
-  const flightProgress = interpolate(frame, [launchStart, arrival], [0, 1], {
-    ...clamp,
-    easing: Easing.inOut(Easing.cubic),
-  });
 
   const startX = seed.x + seed.width / 2;
   const startY = seed.y + 26;
@@ -58,9 +54,18 @@ const UnifiedSignal: React.FC<{seed: SignalSeed; index: number}> = ({seed, index
   const orbitStartX = ENGINE_CENTER_X;
   const orbitStartY = ENGINE_CENTER_Y - initialRadius;
 
+  // Keep non-zero velocity at the end of the incoming flight. The final
+  // Bezier handle is calculated from the first clockwise orbital speed so
+  // position, direction AND speed stay continuous at the handoff.
+  const flightDuration = Math.max(1, arrival - launchStart);
+  const initialOrbitAngularVelocity = (1.25 * Math.PI) / 180;
+  const initialOrbitTangentialSpeed = initialRadius * initialOrbitAngularVelocity;
+  const orbitEntryHandle = (initialOrbitTangentialSpeed * flightDuration) / 3;
+
+  const flightProgress = interpolate(frame, [launchStart, arrival], [0, 1], clamp);
   const c1x = startX + 220 + index * 16;
   const c1y = Math.max(58, startY - 80 - index * 5);
-  const c2x = orbitStartX - 180 + index * 8;
+  const c2x = orbitStartX - orbitEntryHandle;
   const c2y = orbitStartY;
 
   const path = `M ${startX} ${startY} C ${c1x} ${c1y} ${c2x} ${c2y} ${orbitStartX} ${orbitStartY}`;

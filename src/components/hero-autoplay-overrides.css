@@ -1,0 +1,58 @@
+/*
+ * Hero-specific motion override.
+ * AI Studio's preview can report prefers-reduced-motion even when the product
+ * demo is expected to autoplay. Keep this one illustrative component moving
+ * while the rest of the site can continue honoring the global preference.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .gk-hero .gk-engine-stage,
+  .gk-hero .gk-work-card,
+  .gk-hero .gk-floating-card,
+  .gk-hero .gk-context-cell,
+  .gk-hero .gk-core-orbit,
+  .gk-hero .gk-core-glyph,
+  .gk-hero .gk-message-ambient-glow,
+  .gk-hero .gk-next-arrow,
+  .gk-hero .gk-progress-item,
+  .gk-hero .gk-step-indicator,
+  .gk-hero .gk-step-text {
+    transition-duration: 260ms !important;
+    transition-timing-function: ease !important;
+  }
+
+  .gk-hero .gk-core-orbit.is-running::before {
+    animation: gk-engine-orbit 8s linear infinite !important;
+  }
+
+  .gk-hero .gk-signal-in.is-streaming .gk-p1 {
+    animation: gk-signal-stream-in 1.15s cubic-bezier(.35,.05,.25,1) infinite !important;
+  }
+
+  .gk-hero .gk-signal-in.is-streaming .gk-p2 {
+    animation: gk-signal-stream-in 1.15s cubic-bezier(.35,.05,.25,1) .58s infinite !important;
+  }
+
+  .gk-hero .gk-signal-out.is-streaming .gk-p1 {
+    animation: gk-signal-stream-out 1.15s cubic-bezier(.35,.05,.25,1) infinite !important;
+  }
+
+  .gk-hero .gk-signal-out.is-streaming .gk-p2 {
+    animation: gk-signal-stream-out 1.15s cubic-bezier(.35,.05,.25,1) .58s infinite !important;
+  }
+
+  .gk-hero .gk-core-orbit.is-processing .gk-core-outer-halo {
+    animation: gk-core-breathe 1.5s ease-in-out infinite !important;
+  }
+
+  .gk-hero .gk-progress-fill.is-animating {
+    animation: gk-progress-scrub 1.8s linear forwards !important;
+  }
+
+  .gk-hero .gk-loop-dot.is-pulsing {
+    animation: gk-live-pulse 1.8s ease-in-out infinite !important;
+  }
+
+  .gk-hero .gk-step-4 .gk-next-icon {
+    animation: gk-check-pop 520ms ease both !important;
+  }
+}

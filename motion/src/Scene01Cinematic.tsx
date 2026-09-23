@@ -1,5 +1,5 @@
 import React from 'react';
-import {loadFont} from '@remotion/google-fonts/NunitoSans';
+import {loadFont} from '@remotion/google-fonts/MPLUSRounded1c';
 import {AbsoluteFill, Easing, interpolate, useCurrentFrame} from 'remotion';
 
 type ChannelKind = 'instagram' | 'whatsapp' | 'email' | 'form';

@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useLanguage } from "../i18n/LanguageContext";
 import "./hero-conversations.css";
+import "./hero-autoplay-overrides.css";
 
 const scenarios = {
   es: [
@@ -162,76 +163,60 @@ const steps = {
   ],
 };
 
+const STEP_DELAYS = [1500, 1600, 1500, 2100, 2300];
+
 export const HeroSystemVisual: React.FC = () => {
   const { language } = useLanguage();
   const es = language === "es";
   const [scenarioIndex, setScenarioIndex] = useState(0);
   const [step, setStep] = useState(0);
-  const [reducedMotion, setReducedMotion] = useState(false);
   const [inView, setInView] = useState(false);
   const [pageVisible, setPageVisible] = useState(true);
   const root = useRef<HTMLDivElement>(null);
 
   const scenario = scenarios[language][scenarioIndex];
   const flowSteps = steps[language];
-  const autoRunning = inView && pageVisible && !reducedMotion;
+  const autoRunning = inView && pageVisible;
 
   useEffect(() => {
-    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
-
-    const syncMotion = () => {
-      setReducedMotion(media.matches);
-      if (media.matches) setStep(4);
-    };
-
     const syncVisibility = () => setPageVisible(!document.hidden);
-
-    syncMotion();
     syncVisibility();
-    media.addEventListener("change", syncMotion);
     document.addEventListener("visibilitychange", syncVisibility);
 
     const observer = new IntersectionObserver(
       ([entry]) => setInView(entry.isIntersecting),
-      { threshold: 0.28 }
+      { threshold: 0.18 }
     );
 
     if (root.current) observer.observe(root.current);
 
     return () => {
       observer.disconnect();
-      media.removeEventListener("change", syncMotion);
       document.removeEventListener("visibilitychange", syncVisibility);
     };
   }, []);
 
   useEffect(() => {
-    if (reducedMotion) {
-      setStep(4);
-      return;
-    }
-
     if (!autoRunning) return;
 
-    const delay = step === 4 ? 2100 : 1850;
     const timer = window.setTimeout(() => {
       if (step === 4) {
-        setScenarioIndex((current) =>
-          (current + 1) % scenarios[language].length
+        setScenarioIndex(
+          (current) => (current + 1) % scenarios[language].length
         );
         setStep(0);
         return;
       }
 
       setStep((current) => current + 1);
-    }, delay);
+    }, STEP_DELAYS[step]);
 
     return () => window.clearTimeout(timer);
-  }, [autoRunning, language, reducedMotion, step]);
+  }, [autoRunning, language, step]);
 
   const selectScenario = (index: number) => {
     setScenarioIndex(index);
-    setStep(reducedMotion ? 4 : 0);
+    setStep(0);
   };
 
   const stageLabel = useMemo(
@@ -262,13 +247,7 @@ export const HeroSystemVisual: React.FC = () => {
 
           <div className="gk-engine-top-status">
             <span className="gk-live-dot" />
-            {reducedMotion
-              ? es
-                ? "VISTA ESTÁTICA"
-                : "STATIC VIEW"
-              : es
-                ? "AUTO LOOP · EN VIVO"
-                : "AUTO LOOP · LIVE"}
+            {es ? "AUTO LOOP · EN VIVO" : "AUTO LOOP · LIVE"}
           </div>
         </div>
 
@@ -315,7 +294,10 @@ export const HeroSystemVisual: React.FC = () => {
               </div>
             </div>
 
-            <div className="gk-engine-message">{scenario.message}</div>
+            <div className="gk-engine-message">
+              {scenario.message}
+              <span className="gk-message-ambient-glow" aria-hidden="true" />
+            </div>
 
             <div className="gk-engine-conversation-foot">
               <span>{es ? "No se responde todavía." : "No reply yet."}</span>
@@ -328,11 +310,32 @@ export const HeroSystemVisual: React.FC = () => {
           </div>
 
           <div className="gk-engine-core">
-            <div className="gk-signal-rail gk-signal-in" aria-hidden="true">
-              <span />
+            <div
+              className={
+                "gk-signal-rail gk-signal-in" +
+                (step === 0 && autoRunning
+                  ? " is-streaming"
+                  : step > 0
+                    ? " is-connected"
+                    : "")
+              }
+              aria-hidden="true"
+            >
+              <span className="gk-rail-track" />
+              <span className="gk-rail-particle gk-p1" />
+              <span className="gk-rail-particle gk-p2" />
             </div>
-            <div className="gk-signal-rail gk-signal-out" aria-hidden="true">
-              <span />
+
+            <div
+              className={
+                "gk-signal-rail gk-signal-out" +
+                (step >= 1 && step < 4 && autoRunning ? " is-streaming" : "")
+              }
+              aria-hidden="true"
+            >
+              <span className="gk-rail-track" />
+              <span className="gk-rail-particle gk-p1" />
+              <span className="gk-rail-particle gk-p2" />
             </div>
 
             <div
@@ -343,8 +346,10 @@ export const HeroSystemVisual: React.FC = () => {
                 (step === 4 ? " is-complete" : "")
               }
             >
-              <span>G</span>
+              <span className="gk-core-outer-halo" aria-hidden="true" />
+              <span className="gk-core-glyph">G</span>
             </div>
+
             <p>{es ? "MOTOR G-KAIS" : "G-KAIS ENGINE"}</p>
             <strong>{stageLabel}</strong>
 
@@ -368,11 +373,12 @@ export const HeroSystemVisual: React.FC = () => {
                 <span>{es ? "CONTEXTO CAPTURADO" : "CAPTURED CONTEXT"}</span>
                 <strong>3/9</strong>
               </div>
+
               <div className="gk-context-grid">
                 {scenario.context.map(([label, value]) => (
-                  <div key={label}>
+                  <div className="gk-context-cell" key={label}>
                     <span>{label}</span>
-                    <strong>{value}</strong>
+                    <strong style={{ overflowWrap: "anywhere" }}>{value}</strong>
                   </div>
                 ))}
               </div>
@@ -433,7 +439,7 @@ export const HeroSystemVisual: React.FC = () => {
                 <span>{es ? "PRÓXIMA ACCIÓN" : "NEXT ACTION"}</span>
                 <strong>{scenario.next}</strong>
               </div>
-              <ArrowRight size={17} />
+              <ArrowRight className="gk-next-arrow" size={17} />
             </div>
           </div>
 
@@ -475,39 +481,43 @@ export const HeroSystemVisual: React.FC = () => {
                 role="listitem"
                 aria-current={current ? "step" : undefined}
                 className={
-                  "min-w-0 min-h-[34px] px-1 flex items-center justify-center gap-1.5 rounded-[10px] text-[8px] leading-tight transition-colors " +
-                  (current
-                    ? "bg-[#F4F7F5] text-[#27302B] font-bold"
-                    : reached
-                      ? "text-[#27302B] font-bold"
-                      : "text-[#8A8F8B]")
+                  "gk-progress-item" +
+                  (reached ? " is-reached" : "") +
+                  (current ? " is-current" : "")
                 }
               >
-                <span
-                  className={
-                    "w-[19px] h-[19px] rounded-full shrink-0 grid place-items-center text-[7px] " +
-                    (current
-                      ? "bg-[#0A3F4D] text-white"
-                      : reached
-                        ? "bg-[#DFEAE5] text-[#0A3F4D]"
-                        : "bg-[#EFF1EF] text-[#757A76]")
-                  }
-                >
-                  {index < step ? <Check size={11} /> : index + 1}
-                </span>
-                {label}
+                <div className="gk-progress-item-head">
+                  <span className="gk-step-indicator">
+                    {index < step ? <Check size={11} /> : index + 1}
+                  </span>
+                  <span className="gk-step-text">{label}</span>
+                </div>
+
+                <div className="gk-progress-track" aria-hidden="true">
+                  <div
+                    className={
+                      "gk-progress-fill" +
+                      (index < step
+                        ? " is-full"
+                        : current && autoRunning
+                          ? " is-animating"
+                          : "")
+                    }
+                  />
+                </div>
               </div>
             );
           })}
         </div>
 
-        <div
-          className="min-h-10 px-3 flex items-center justify-between gap-3 bg-white border border-[#E7E8E5] border-t-0 rounded-b-[17px] text-[8px] text-[#69706A]"
-          aria-live="polite"
-        >
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="gk-live-dot shrink-0" />
-            <strong className="text-[#27302B] truncate">
+        <div className="gk-engine-controls" aria-live="polite">
+          <div className="gk-engine-loop-status">
+            <span
+              className={
+                "gk-loop-dot" + (autoRunning ? " is-pulsing" : "")
+              }
+            />
+            <strong>
               {step === 4
                 ? es
                   ? "Oportunidad lista para actuar"
@@ -515,15 +525,10 @@ export const HeroSystemVisual: React.FC = () => {
                 : stageLabel}
             </strong>
           </div>
-          <span className="shrink-0">
-            {reducedMotion
-              ? es
-                ? "Movimiento reducido"
-                : "Reduced motion"
-              : es
-                ? "Reproducción automática"
-                : "Automatic playback"}
-          </span>
+
+          <div className="gk-engine-loop-status">
+            {es ? "Reproducción automática" : "Automatic playback"}
+          </div>
         </div>
       </div>
 

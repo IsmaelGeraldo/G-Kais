@@ -1,9 +1,127 @@
 /*
- * Hero-specific motion override.
- * AI Studio's preview can report prefers-reduced-motion even when the product
- * demo is expected to autoplay. Keep this one illustrative component moving
- * while the rest of the site can continue honoring the global preference.
+ * Hero-specific motion and routing overrides.
+ * The product demo stays in autoplay inside AI Studio preview, even when the
+ * preview reports prefers-reduced-motion. The rest of the site is untouched.
  */
+
+/* The old single outbound rail pointed to the middle of the whole workspace.
+ * Replace it with four independent currents from the engine to each module. */
+.gk-engine-core .gk-signal-out {
+  display: none !important;
+}
+
+.gk-engine-workspace {
+  isolation: isolate;
+  overflow: visible;
+}
+
+.gk-work-card {
+  overflow: visible !important;
+  z-index: 2;
+  --energy-angle: 0deg;
+  --energy-width: 82px;
+}
+
+.gk-context-card {
+  --energy-angle: -23deg;
+  --energy-width: 88px;
+}
+
+.gk-priority-card {
+  --energy-angle: -8deg;
+  --energy-width: 84px;
+}
+
+.gk-brief-card {
+  --energy-angle: 9deg;
+  --energy-width: 84px;
+}
+
+.gk-next-card {
+  --energy-angle: 24deg;
+  --energy-width: 90px;
+}
+
+.gk-work-card::before,
+.gk-work-card::after {
+  content: "";
+  position: absolute;
+  right: calc(100% - 1px);
+  top: 50%;
+  width: var(--energy-width);
+  height: 2px;
+  transform: translateY(-50%) rotate(var(--energy-angle));
+  transform-origin: right center;
+  border-radius: 999px;
+  pointer-events: none;
+  opacity: 0;
+}
+
+/* Faint conductor: once a module is reached, its own route remains visible. */
+.gk-work-card.is-visible::before {
+  opacity: 0.5;
+  background: linear-gradient(
+    90deg,
+    rgba(10, 63, 77, 0.03),
+    rgba(10, 63, 77, 0.24) 38%,
+    rgba(10, 63, 77, 0.5) 100%
+  );
+  box-shadow: 0 0 7px rgba(10, 63, 77, 0.08);
+}
+
+/* Moving current. Only the module currently being processed is energized. */
+.gk-work-card::after {
+  height: 3px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    transparent 16%,
+    rgba(10, 63, 77, 0.2) 27%,
+    rgba(10, 63, 77, 0.95) 44%,
+    rgba(118, 183, 173, 0.72) 52%,
+    rgba(10, 63, 77, 0.18) 64%,
+    transparent 78%,
+    transparent 100%
+  );
+  background-size: 58% 100%;
+  background-repeat: no-repeat;
+  filter: drop-shadow(0 0 4px rgba(10, 63, 77, 0.42));
+}
+
+.gk-step-1 .gk-context-card::after,
+.gk-step-2 .gk-priority-card::after,
+.gk-step-3 .gk-brief-card::after,
+.gk-step-4 .gk-next-card::after {
+  opacity: 1;
+  animation: gk-module-current 0.95s linear infinite;
+}
+
+/* A small receiving pulse makes each module feel independently powered. */
+.gk-step-1 .gk-context-card,
+.gk-step-2 .gk-priority-card,
+.gk-step-3 .gk-brief-card,
+.gk-step-4 .gk-next-card {
+  box-shadow:
+    0 12px 28px -24px rgba(0, 0, 0, 0.45),
+    -5px 0 16px -10px rgba(10, 63, 77, 0.55);
+}
+
+@keyframes gk-module-current {
+  0% {
+    background-position: -95px 0;
+  }
+  100% {
+    background-position: 105px 0;
+  }
+}
+
+@media (max-width: 720px) {
+  .gk-work-card::before,
+  .gk-work-card::after {
+    display: none !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .gk-hero .gk-engine-stage,
   .gk-hero .gk-work-card,
@@ -32,14 +150,6 @@
     animation: gk-signal-stream-in 1.15s cubic-bezier(.35,.05,.25,1) .58s infinite !important;
   }
 
-  .gk-hero .gk-signal-out.is-streaming .gk-p1 {
-    animation: gk-signal-stream-out 1.15s cubic-bezier(.35,.05,.25,1) infinite !important;
-  }
-
-  .gk-hero .gk-signal-out.is-streaming .gk-p2 {
-    animation: gk-signal-stream-out 1.15s cubic-bezier(.35,.05,.25,1) .58s infinite !important;
-  }
-
   .gk-hero .gk-core-orbit.is-processing .gk-core-outer-halo {
     animation: gk-core-breathe 1.5s ease-in-out infinite !important;
   }
@@ -54,5 +164,12 @@
 
   .gk-hero .gk-step-4 .gk-next-icon {
     animation: gk-check-pop 520ms ease both !important;
+  }
+
+  .gk-hero .gk-step-1 .gk-context-card::after,
+  .gk-hero .gk-step-2 .gk-priority-card::after,
+  .gk-hero .gk-step-3 .gk-brief-card::after,
+  .gk-hero .gk-step-4 .gk-next-card::after {
+    animation: gk-module-current 0.95s linear infinite !important;
   }
 }

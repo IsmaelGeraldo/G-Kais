@@ -13,11 +13,11 @@
 
 ## Approved narrative direction
 
-The approved story is now:
+The approved story is:
 
-**Demand / incoming inquiries → existing notifications fade into signals → signals travel together into the G-KAIS Engine from above → clockwise orbit accelerates → Engine activates → context / priority / AI Brief / next action → real CRM / lead record → final promise.**
+**Demand / incoming inquiries → notifications become signals → camera follows those signals through one continuous space → signals reach the G-KAIS Engine from above → clockwise orbit accelerates → Engine activates → context / priority / AI Brief / next action → real CRM / lead record → final promise.**
 
-The previous standalone `INPUT SIGNAL` panel is removed from the approved narrative. Structure is communicated through motion: the existing incoming notifications themselves become a coordinated signal flow before reaching the Engine.
+The previous standalone `INPUT SIGNAL` panel remains removed.
 
 The film must feel like one continuous living system, not a sequence of slides.
 
@@ -28,7 +28,7 @@ The film must feel like one continuous living system, not a sequence of slides.
 - Background depth is essential.
 - Use translucent / frosted-glass UI selectively.
 - Avoid neon-heavy generic AI aesthetics.
-- Keep transitions overlapped and spatially continuous.
+- Keep transitions spatially continuous.
 - The CRM reveal emerges **from depth toward camera** rather than continuing lateral travel.
 
 ## Revised baseline timeline
@@ -36,7 +36,7 @@ The film must feel like one continuous living system, not a sequence of slides.
 | Scene | Time | Frames @30fps | Function |
 |---|---:|---:|---|
 | 01 Phone + notifications | 0.0–4.2 s | 0–125 | Show attention overload |
-| 02 Notifications → signal flow | 4.2–6.8 s | 126–203 | Existing notifications fade and become coordinated signals |
+| 02 Continuous signal handoff | 4.2–6.8 s | 126–203 | Notifications become signals while camera follows them |
 | 03 G-KAIS Engine activation | 6.8–9.6 s | 204–287 | Signals enter from above, orbit clockwise, accelerate and activate Engine |
 | 04 Intelligence windows | 9.6–14.0 s | 288–419 | Context → priority → AI Brief → next action |
 | 05 Product / CRM reveal | 14.0–19.2 s | 420–575 | Show real product interaction |
@@ -69,35 +69,39 @@ Secondary:
 > Algunas esperan.
 
 ### Exit behavior
-The phone starts moving / blurring left while the existing notifications remain visually important for a fraction longer. Those same notifications become the material used in Scene 02. Do not create a duplicate notification layer during the handoff.
+There is no slide-style exit. The phone and notifications remain inside the same spatial world used by the Engine transition. The camera begins following the signals away from the phone rather than moving one scene out and another scene in.
 
 ---
 
-## Scene 02 — Existing notifications transform into signal flow
+## Scene 02 — Continuous signal handoff
 
 **Time:** 4.2–6.8 s  
 **Frames:** 126–203
 
 ### Purpose
-Avoid an intermediate UI panel or a second set of notification cards. Show directly that incoming demand is being converted into operational signals.
+Make the transition feel like one uninterrupted shot.
+
+### Core rule
+**Do not animate this as Scene 01 exiting and Scene 03 entering.**
+
+Phone, notifications, signal paths and Engine must coexist inside one larger virtual space. A single virtual camera moves through that space.
 
 ### Motion sequence
-1. The existing seven notification cards begin to fade in place.
-2. Their text disappears before the card surfaces fully dissolve.
-3. Each fading notification resolves into a compact signal node at the same visual origin.
-4. No new card or label such as “Nueva oportunidad” appears over the originals.
-5. Individual nodes retain subtle source identity through restrained color accents.
-6. Nodes follow curved paths and converge toward the top of the G-KAIS Engine.
-7. Their trajectories synchronize into one coordinated flow.
+1. Existing notifications remain the visual origin of the signals.
+2. Small signal nodes detach from those positions; do not create replacement cards or labels.
+3. The camera starts travelling with the signal flow.
+4. The phone naturally falls behind and leaves frame because of camera motion, not because of a wipe or slide-out animation.
+5. Signals follow long curved trajectories through depth.
+6. The Engine already exists ahead in the same world and becomes visible naturally as the camera reaches it.
+7. Any fade on the phone layer must be subtle and secondary to the camera motion.
 
-### Visual rule
-The transformation must read as the original notifications becoming signals, not as a new UI layer appearing on top. Avoid magic particles or generic neon energy.
-
-### Continuity
-- Scene 01 remains partially visible during the first phase of the fade.
+### Visual continuity
 - No hard wipe.
-- Maintain the same silver / grey environment and lighting.
-- Signal paths should have depth variation and mild parallax.
+- No bordered transition panel.
+- No `Nueva oportunidad` replacement cards.
+- No explanatory transition copy.
+- Avoid large independent opacity/translate animations that make the sequence feel like PowerPoint.
+- Camera motion should be eased and continuous, with mild scale/dolly movement and parallax.
 
 ---
 
@@ -106,33 +110,31 @@ The transformation must read as the original notifications becoming signals, not
 **Time:** 6.8–9.6 s  
 **Frames:** 204–287
 
-### Key rule
-Do not explain activation with copy. Motion must communicate it.
+### Engine design
+Return to the simpler previous Engine design used before the later mechanical redesign:
+- three restrained circular data rings;
+- compact metallic / graphite core;
+- silver / graphite / glass treatment;
+- simple depth through gradients, inner shadow and glow;
+- no oversized mechanical housing or heavy segmented casing.
 
-### Motion sequence
-1. The grouped signals reach the Engine **from above**.
-2. At the top entry point they bend naturally into orbit.
-3. All visible orbital motion turns **clockwise**.
-4. Orbital speed starts controlled and increases progressively.
-5. The orbit tightens slightly as speed rises.
-6. Some signals are absorbed into the core near the processing peak.
-7. The Engine responds with controlled illumination and faster mechanical movement.
-8. Core pulse / heartbeat becomes visible.
-9. Teal becomes more present only during the processing peak.
-10. The system settles into an active state ready to generate outputs.
+### Signal entry
+1. Signals approach the Engine from above.
+2. Each reaches the top of the outer orbit.
+3. Signals enter clockwise orbit from that top point.
+4. Orbital velocity increases progressively.
+5. Orbit radius may tighten slightly as speed rises.
+6. Signals fade / absorb into the Engine near the processing peak.
 
-### Engine look
-- Unique G-KAIS system core.
-- More physical body and depth than a flat circular graphic.
-- Layered metallic / glass / graphite / silver materials.
-- Thick outer housing, intermediate mechanical/data rings and a recessed illuminated core.
-- Highlights, internal shadows and contact shadow should make the Engine feel volumetric.
-- All main ring motion should support the clockwise processing direction.
-- Controlled teal energy.
-- Premium and architectural, not cartoonish or generic sci-fi.
+### Activation
+- Rings accelerate clockwise.
+- Core illumination increases gradually.
+- Pulse / heartbeat becomes visible.
+- Teal becomes more present only near the peak.
+- Do not explain activation with labels.
 
 ### Transition to intelligence
-Before the Engine fully settles, the first intelligence output may begin materializing on the right. This overlap is important for continuity.
+Before the Engine completely settles, the first intelligence output may begin materializing on the right.
 
 ---
 
@@ -143,7 +145,6 @@ Before the Engine fully settles, the first intelligence output may begin materia
 
 ### Windows
 Generate progressively:
-
 1. Contexto
 2. Prioridad
 3. AI Brief
@@ -162,7 +163,6 @@ Generate progressively:
 - Do not reveal all windows simultaneously.
 
 ### Narrative objective
-The viewer should understand visually:
 
 > G-KAIS recibe una oportunidad, la entiende, la prioriza y determina qué pasa después.
 
@@ -174,7 +174,7 @@ The viewer should understand visually:
 **Frames:** 420–575
 
 ### Transition rule
-Stop the lateral travel language here.
+Stop the long horizontal camera travel here.
 
 ### Entrance
 - Engine / intelligence layer recedes slightly.
@@ -226,18 +226,14 @@ Premium, quiet, confident. No excessive effects.
 ## Remotion composition plan
 
 Approved / current direction:
-
 - `Scene01Cinematic` — approved opening scene.
-- `Scene01ToEngineFlow` — current preview block for Scene 01 + notification fade / signal transformation + initial Engine activation.
-- Future dedicated components can be extracted once timing is locked:
-  - `NotificationSignalFlow`
-  - `GKAISEngineActivation`
+- `Scene01ToEngineFlow` — continuous virtual-camera composition joining Scene 01 to the Engine.
+- Future dedicated components:
   - `IntelligenceWindows`
   - `ProductCRMReveal`
   - `EndFrame`
 
 Shared components should remain editable:
-
 - `GlassNotification`
 - `ChannelIcon`
 - `DepthBackground`
@@ -248,14 +244,12 @@ Shared components should remain editable:
 - `BrandWordmark`
 
 ### Composition settings
-
 - Width: 1280
 - Height: 720
 - FPS: 30
 - Duration: 675 frames
 
 ## Editable parameters to expose
-
 - Scene durations
 - Main / secondary copy
 - G-KAIS accent color
@@ -263,6 +257,7 @@ Shared components should remain editable:
 - Phone X / Y / scale
 - Notification timing / count
 - Signal path / stagger / speed
+- Virtual camera X / scale / easing
 - Engine activation intensity
 - Engine orbit speed curve
 - Intelligence-window timing
@@ -283,6 +278,7 @@ Keep editable in code:
 - text
 - notification cards
 - signal paths
+- camera timing
 - Engine rings / timing
 - UI panels
 - logos / icons
@@ -295,19 +291,10 @@ Keep editable in code:
 - Never replace the master aesthetic with old V3 / V4 / V5 styling.
 - Never turn the animation into a generic neon AI demo.
 - Avoid explanatory labels when motion can communicate the idea.
-- Existing notifications must visibly fade into signals; never add a duplicate notification-card layer during this handoff.
-- Signals must approach the Engine from above and enter a clockwise accelerating orbit unless specifically re-approved otherwise.
-- The Engine should read as a volumetric layered object, not a flat circular graphic.
-- Do not introduce a standalone Input Signal template again unless specifically re-approved.
-- Keep transitions overlapped and continuous.
+- Notifications must visibly be the origin of the signals.
+- Never reintroduce `Nueva oportunidad` replacement cards during this handoff.
+- Never create a slide-style Scene 01 exit / Engine entrance transition.
+- Phone, signals and Engine should occupy one spatial world and be connected primarily by camera motion.
+- Use the simpler previous Engine design unless a later redesign is specifically approved.
 - Keep the CRM section grounded in the current product.
 - Preserve editability in Remotion.
-
-## Pending verification
-
-The Higgsfield automatic scene-by-scene analyzer for the master Media ID may still be pending. If it later completes:
-
-1. compare detected boundaries with this baseline;
-2. use the result only to refine rhythm / timing;
-3. do not overwrite the approved narrative direction without a clear visual reason;
-4. keep the notification → signal → Engine transformation as the current approved transition concept.

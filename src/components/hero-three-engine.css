@@ -1,8 +1,74 @@
 @media (min-width: 721px) {
   .gk-engine-stage {
-    grid-template-columns: minmax(0, 0.82fr) 96px minmax(0, 1.2fr);
-    gap: 14px;
+    grid-template-columns: minmax(0, 0.78fr) 112px minmax(0, 1.22fr);
+    gap: 20px;
   }
+}
+
+/* Premium engine shell: more contrast, depth and a moving ambient energy halo. */
+.gk-engine-shell {
+  isolation: isolate;
+  background:
+    linear-gradient(145deg, #d9ddda 0%, #eef0ee 42%, #d7dcda 100%);
+  border-color: #c8ceca;
+  box-shadow:
+    0 30px 78px -42px rgba(13, 27, 31, 0.48),
+    0 12px 28px -20px rgba(13, 27, 31, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.78);
+}
+
+.gk-engine-shell::before {
+  content: "";
+  position: absolute;
+  width: 250px;
+  height: 250px;
+  border-radius: 50%;
+  left: -125px;
+  top: 40%;
+  background:
+    radial-gradient(circle, rgba(61, 157, 143, 0.3) 0%, rgba(60, 139, 158, 0.14) 38%, transparent 72%);
+  filter: blur(28px);
+  opacity: 0.58;
+  z-index: 0;
+  pointer-events: none;
+  animation: gk-shell-orbit-glow-a 10.5s ease-in-out infinite;
+}
+
+.gk-engine-shell::after {
+  content: "";
+  position: absolute;
+  width: 300px;
+  height: 300px;
+  border-radius: 50%;
+  right: -150px;
+  top: -110px;
+  background:
+    radial-gradient(circle, rgba(61, 150, 135, 0.26) 0%, rgba(96, 159, 192, 0.15) 40%, transparent 72%);
+  filter: blur(34px);
+  opacity: 0.5;
+  z-index: 0;
+  pointer-events: none;
+  animation: gk-shell-orbit-glow-b 12.5s ease-in-out infinite;
+}
+
+.gk-engine-topbar,
+.gk-engine-scenarios,
+.gk-engine-progress,
+.gk-engine-controls {
+  background: rgba(249, 250, 249, 0.94);
+  border-color: rgba(213, 217, 214, 0.92);
+  backdrop-filter: blur(12px);
+}
+
+.gk-engine-stage {
+  background:
+    radial-gradient(circle at 49% 46%, rgba(10, 63, 77, 0.075), transparent 18%),
+    radial-gradient(circle at 88% 10%, rgba(80, 145, 155, 0.08), transparent 31%),
+    linear-gradient(145deg, #eef1ef 0%, #f7f8f6 54%, #edf0ee 100%);
+  border-color: #d7dcd8;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.72),
+    inset 0 -18px 46px rgba(35, 58, 55, 0.035);
 }
 
 .gk-engine-conversation,
@@ -11,25 +77,58 @@
   z-index: 6;
 }
 
+.gk-engine-conversation {
+  border-color: #d8ddda;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 248, 0.96));
+  box-shadow:
+    0 18px 42px -30px rgba(12, 31, 32, 0.42),
+    0 5px 14px -11px rgba(12, 31, 32, 0.18);
+}
+
+.gk-engine-workspace {
+  isolation: isolate;
+}
+
+/* Create breathing room between the electric network and the cards. */
+.gk-engine-workspace::before {
+  content: "";
+  position: absolute;
+  left: -24px;
+  top: -5px;
+  bottom: -5px;
+  width: 26px;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    rgba(239, 242, 240, 0),
+    rgba(239, 242, 240, 0.76) 48%,
+    rgba(239, 242, 240, 0.98) 78%,
+    #eff2f0 100%
+  );
+}
+
 .gk-engine-core {
   z-index: 8;
 }
 
 .gk-engine-core-anchor {
   position: relative;
-  width: 86px;
-  height: 86px;
-  margin: 0 auto 4px;
+  width: 96px;
+  height: 96px;
+  margin: 0 auto 5px;
   z-index: 9;
 }
 
 .gk-three-engine {
   position: absolute;
-  inset: -16px;
+  inset: -19px;
   display: grid;
   place-items: center;
   pointer-events: none;
-  filter: drop-shadow(0 8px 18px rgba(10, 63, 77, 0.12));
+  filter:
+    drop-shadow(0 10px 23px rgba(10, 63, 77, 0.18))
+    drop-shadow(0 0 18px rgba(93, 183, 166, 0.08));
 }
 
 .gk-three-engine canvas {
@@ -43,17 +142,25 @@
 .gk-three-fallback {
   position: relative;
   z-index: 4;
-  width: 34px;
-  height: 34px;
+  width: 27px;
+  height: 27px;
   display: grid;
   place-items: center;
   border-radius: 50%;
-  font-size: 17px;
-  font-weight: 800;
+  font-size: 12px;
+  font-weight: 850;
   letter-spacing: -0.04em;
-  color: rgba(255, 255, 255, 0.96);
-  text-shadow: 0 0 12px rgba(116, 193, 180, 0.48);
+  color: rgba(244, 255, 252, 0.94);
+  text-shadow:
+    0 0 8px rgba(255, 255, 255, 0.35),
+    0 0 16px rgba(116, 193, 180, 0.62);
   pointer-events: none;
+}
+
+.gk-three-glyph {
+  background: rgba(5, 19, 21, 0.2);
+  border: 1px solid rgba(159, 230, 216, 0.16);
+  box-shadow: inset 0 0 10px rgba(92, 190, 173, 0.12);
 }
 
 .gk-three-fallback {
@@ -65,8 +172,8 @@
 
 .gk-three-engine.is-complete .gk-three-glyph {
   text-shadow:
-    0 0 7px rgba(255, 255, 255, 0.45),
-    0 0 18px rgba(116, 193, 180, 0.68);
+    0 0 8px rgba(255, 255, 255, 0.5),
+    0 0 22px rgba(116, 193, 180, 0.82);
 }
 
 /* The circuit SVG sits behind the DOM cards but above the stage background. */
@@ -86,51 +193,52 @@
 .gk-circuit-input {
   fill: none;
   vector-effect: non-scaling-stroke;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+  stroke-linecap: square;
+  stroke-linejoin: bevel;
 }
 
 .gk-circuit-base {
-  stroke: rgba(10, 63, 77, 0.11);
-  stroke-width: 1.1;
+  stroke: rgba(10, 63, 77, 0.16);
+  stroke-width: 1.15;
 }
 
 .gk-circuit-reached {
-  stroke: rgba(10, 63, 77, 0.27);
-  stroke-width: 1.35;
+  stroke: rgba(24, 104, 94, 0.32);
+  stroke-width: 1.45;
+  filter: drop-shadow(0 0 2px rgba(75, 166, 150, 0.18));
 }
 
 .gk-circuit-active {
-  stroke: #0a3f4d;
-  stroke-width: 2.2;
-  stroke-dasharray: 3 7 13 5;
-  animation: gk-electric-dash 0.48s linear infinite;
+  stroke: #0b6659;
+  stroke-width: 2.25;
+  stroke-dasharray: 1 6 16 5 4 7;
+  animation: gk-electric-dash 0.42s linear infinite;
   filter: url(#gk-electric-glow);
 }
 
 .gk-circuit-active.gk-circuit-hot {
-  stroke: #62b6a7;
-  stroke-width: 2.9;
-  stroke-dasharray: 2 10 18 5;
-  animation-duration: 0.34s;
+  stroke: #6bc5b5;
+  stroke-width: 3;
+  stroke-dasharray: 1 8 20 5 3 10;
+  animation-duration: 0.3s;
 }
 
 .gk-circuit-input {
-  stroke: rgba(10, 63, 77, 0.66);
-  stroke-width: 1.8;
+  stroke: rgba(10, 63, 77, 0.64);
+  stroke-width: 1.85;
 }
 
 .gk-circuit-input.is-active {
-  stroke: #0a3f4d;
-  stroke-width: 2.5;
-  stroke-dasharray: 4 7 11 5;
-  animation: gk-electric-dash 0.44s linear infinite;
+  stroke: #0a7565;
+  stroke-width: 2.65;
+  stroke-dasharray: 2 7 14 4 3 8;
+  animation: gk-electric-dash 0.39s linear infinite;
   filter: url(#gk-electric-glow);
 }
 
 .gk-circuit-node {
   fill: #f7faf9;
-  stroke: rgba(10, 63, 77, 0.46);
+  stroke: rgba(10, 63, 77, 0.42);
   stroke-width: 1.2;
   transition: fill 220ms ease, stroke-width 220ms ease;
 }
@@ -144,21 +252,65 @@
 }
 
 .gk-circuit-spark {
-  fill: #8ed3c6;
+  fill: #a6ede0;
   filter: url(#gk-electric-glow-strong);
 }
 
 .gk-circuit-spark-secondary {
-  fill: #0a3f4d;
-  opacity: 0.72;
+  fill: #147e6d;
+  opacity: 0.82;
   filter: url(#gk-electric-glow);
 }
 
-/* Kill the previous straight pseudo-element currents. */
-.gk-work-card::before,
+/* Cards stay readable while the circuit appears to stop before their edge. */
+.gk-work-card {
+  position: relative;
+  z-index: 2;
+  overflow: visible !important;
+  border-color: #d9ddda;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(248, 250, 249, 0.98));
+  box-shadow:
+    0 12px 28px -24px rgba(0, 0, 0, 0.38),
+    0 4px 12px -10px rgba(12, 31, 32, 0.12);
+}
+
 .gk-work-card::after {
   content: none !important;
   display: none !important;
+}
+
+.gk-context-card::before,
+.gk-priority-card::before,
+.gk-brief-card::before,
+.gk-next-card::before {
+  content: "" !important;
+  display: block !important;
+  position: absolute;
+  left: -15px;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  margin-top: -3.5px;
+  border-radius: 50%;
+  background: #eff5f2;
+  border: 1.5px solid rgba(10, 63, 77, 0.46);
+  box-shadow:
+    0 0 0 5px rgba(10, 63, 77, 0.035),
+    0 0 11px rgba(10, 63, 77, 0.11);
+  z-index: 3;
+  pointer-events: none;
+}
+
+.gk-step-1 .gk-context-card::before,
+.gk-step-2 .gk-priority-card::before,
+.gk-step-3 .gk-brief-card::before,
+.gk-step-4 .gk-next-card::before {
+  background: #8fd8ca;
+  border-color: #0a6558;
+  box-shadow:
+    0 0 0 6px rgba(58, 164, 147, 0.09),
+    0 0 15px rgba(70, 184, 165, 0.48);
+  animation: gk-card-port-pulse 0.82s ease-in-out infinite;
 }
 
 /* Receiving edge glow when each independent circuit is energized. */
@@ -167,20 +319,20 @@
 .gk-step-3 .gk-brief-card,
 .gk-step-4 .gk-next-card {
   box-shadow:
-    0 12px 28px -24px rgba(0, 0, 0, 0.45),
-    -7px 0 18px -10px rgba(10, 63, 77, 0.62);
+    0 14px 32px -24px rgba(0, 0, 0, 0.42),
+    -8px 0 20px -12px rgba(10, 89, 76, 0.56);
 }
 
 @keyframes gk-electric-dash {
   to {
-    stroke-dashoffset: -35;
+    stroke-dashoffset: -48;
   }
 }
 
 @keyframes gk-circuit-node-pulse {
   0%, 100% {
     r: 3.5px;
-    opacity: 0.78;
+    opacity: 0.76;
   }
   50% {
     r: 5px;
@@ -188,26 +340,91 @@
   }
 }
 
+@keyframes gk-card-port-pulse {
+  0%, 100% {
+    transform: scale(0.94);
+    opacity: 0.78;
+  }
+  50% {
+    transform: scale(1.18);
+    opacity: 1;
+  }
+}
+
+@keyframes gk-shell-orbit-glow-a {
+  0% {
+    left: -125px;
+    top: 30%;
+  }
+  24% {
+    left: 24%;
+    top: -115px;
+  }
+  50% {
+    left: calc(100% - 120px);
+    top: 24%;
+  }
+  76% {
+    left: 46%;
+    top: calc(100% - 115px);
+  }
+  100% {
+    left: -125px;
+    top: 30%;
+  }
+}
+
+@keyframes gk-shell-orbit-glow-b {
+  0% {
+    right: -150px;
+    top: -110px;
+  }
+  28% {
+    right: 18%;
+    top: calc(100% - 135px);
+  }
+  55% {
+    right: calc(100% - 120px);
+    top: 34%;
+  }
+  82% {
+    right: 30%;
+    top: -120px;
+  }
+  100% {
+    right: -150px;
+    top: -110px;
+  }
+}
+
 @media (max-width: 720px) {
-  .gk-circuit-network {
+  .gk-circuit-network,
+  .gk-engine-workspace::before {
     display: none;
   }
 
   .gk-engine-core-anchor {
-    width: 60px;
-    height: 60px;
+    width: 64px;
+    height: 64px;
     margin: 0;
   }
 
   .gk-three-engine {
-    inset: -11px;
+    inset: -12px;
   }
 
   .gk-three-glyph,
   .gk-three-fallback {
-    width: 28px;
-    height: 28px;
-    font-size: 14px;
+    width: 25px;
+    height: 25px;
+    font-size: 11px;
+  }
+
+  .gk-context-card::before,
+  .gk-priority-card::before,
+  .gk-brief-card::before,
+  .gk-next-card::before {
+    display: none !important;
   }
 }
 
@@ -217,7 +434,13 @@
     animation-duration: 1.15s !important;
   }
 
-  .gk-circuit-node.is-active {
+  .gk-circuit-node.is-active,
+  .gk-card-port-pulse {
     animation-duration: 1.5s !important;
+  }
+
+  .gk-engine-shell::before,
+  .gk-engine-shell::after {
+    animation: none !important;
   }
 }

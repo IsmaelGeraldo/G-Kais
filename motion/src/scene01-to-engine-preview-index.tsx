@@ -7,7 +7,7 @@ const Scene01ToEnginePreviewRoot: React.FC = () => {
     <Composition
       id="GKAISScene01ToEnginePreview"
       component={Scene01ToIntelligenceFlow}
-      durationInFrames={420}
+      durationInFrames={510}
       fps={30}
       width={1280}
       height={720}

@@ -8,41 +8,39 @@
 - Duration: 22.5 s
 - Total frames: 675
 - Codec: H.264
-- This MP4 is the master visual reference.
-- Do **not** use V3 / V4 / V5 or later local renders as the design reference.
+- This MP4 remains the master visual reference.
+- Do **not** use old V3 / V4 / V5 local renders as the design reference.
 
-## Production principle
+## Approved narrative direction
 
-Preserve the master video's premium continuous-motion feeling while updating the story to current G-KAIS:
+The approved story is now:
 
-**Demand / incoming inquiries → structured input signal → G-KAIS Engine activates → context / priority / AI Brief / next action → real CRM / lead record → final promise.**
+**Demand / incoming inquiries → notifications transform into signals → signals travel together into the G-KAIS Engine → Engine activates → context / priority / AI Brief / next action → real CRM / lead record → final promise.**
 
-The video must feel like one cinematic system, not separate slides.
+The previous standalone `INPUT SIGNAL` panel is removed from the approved narrative. Structure is communicated through motion: many incoming notifications become a coordinated signal flow before reaching the Engine.
+
+The film must feel like one continuous living system, not a sequence of slides.
 
 ## Global art direction
 
 - Premium, cinematic, modern, technological, restrained.
 - G-KAIS palette: silver / soft grey / graphite / white with controlled teal `#0A3F4D` accents.
-- Background must have depth so panels feel suspended at different Z positions.
+- Background depth is essential.
 - Use translucent / frosted-glass UI selectively.
 - Avoid neon-heavy generic AI aesthetics.
-- Keep the original sense of continuity and soft transitions.
-- Core transition language: current composition moves / dissolves to the **left** while the next composition starts entering from the **right**.
-- The CRM reveal is different: it emerges **from depth**, toward camera, rather than continuing lateral travel.
+- Keep transitions overlapped and spatially continuous.
+- The CRM reveal emerges **from depth toward camera** rather than continuing lateral travel.
 
-## Baseline timeline for Remotion
-
-> These timings are the production baseline approved for reconstruction. The automatic Higgsfield scene analyzer is still pending; if its scene timing later provides useful master-reference boundaries, refine these values without changing the approved narrative.
+## Revised baseline timeline
 
 | Scene | Time | Frames @30fps | Function |
 |---|---:|---:|---|
 | 01 Phone + notifications | 0.0–4.2 s | 0–125 | Show attention overload |
-| 02 Lateral transition | 4.2–6.4 s | 126–191 | Move from demand to structured signal |
-| 03 Input Signal panel | 6.4–8.5 s | 192–254 | Collect and normalize incoming information |
-| 04 G-KAIS Engine activation | 8.5–11.7 s | 255–350 | Signal reaches / activates engine |
-| 05 Intelligence windows | 11.7–15.8 s | 351–473 | Context → priority → AI Brief → next action |
-| 06 Product / CRM reveal | 15.8–20.4 s | 474–611 | Show real product interaction |
-| 07 Resolution / end frame | 20.4–22.5 s | 612–674 | Brand promise / close |
+| 02 Notifications → signal flow | 4.2–6.8 s | 126–203 | Convert channel noise into coordinated signals |
+| 03 G-KAIS Engine activation | 6.8–9.6 s | 204–287 | Signals reach, orbit and activate the Engine |
+| 04 Intelligence windows | 9.6–14.0 s | 288–419 | Context → priority → AI Brief → next action |
+| 05 Product / CRM reveal | 14.0–19.2 s | 420–575 | Show real product interaction |
+| 06 Resolution / end frame | 19.2–22.5 s | 576–674 | Brand promise / close |
 
 Total: 675 frames.
 
@@ -53,117 +51,92 @@ Total: 675 frames.
 **Time:** 0.0–4.2 s  
 **Frames:** 0–125
 
-### Keep from the master
-- Opening premise: multiple incoming inquiries competing for attention.
-- Premium minimal composition.
-- Continuous motion rather than hard cuts.
-
-### New composition
-- Modern realistic smartphone positioned on the **left side**.
-- Phone should feel physically present, not like a flat UI mockup.
+### Approved composition
+- Modern realistic smartphone on the left side.
 - Notifications float around it at different depth layers.
-- Notifications are translucent / frosted, soft and premium.
-- Use recognizable channel identities: Instagram, WhatsApp, email and equivalent inbound sources.
-
-### Motion
-- Start with few notifications, then progressively increase visual pressure.
-- Recommended rhythm: 2 → 4 → 7 visible notifications, with overlap in timing.
-- Subtle parallax between phone, foreground notifications and background notifications.
-- Camera drift is minimal and elegant.
+- Use Instagram, WhatsApp, email and equivalent inbound identities.
+- Notifications remain translucent / frosted and premium.
+- Rhythm: 2 → 4 → 7 visible notifications.
+- Minimal camera drift and controlled parallax.
 
 ### Copy
-Primary line:
+Primary:
 
 > Cada consulta compite por atención.
 
-Secondary line appears after a short delay:
+Secondary:
 
 > Algunas esperan.
 
-Use the copy to occupy the negative space without turning the frame into a text slide.
-
-### Exit
-- Phone and existing notifications move / blur / dissolve to the **left**.
-- Scene 02 begins before the phone has fully disappeared.
+### Exit behavior
+The phone starts moving / blurring left while the notifications remain visually important for a fraction longer. Those notifications become the material used in Scene 02.
 
 ---
 
-## Scene 02 — Lateral transition
+## Scene 02 — Notifications transform into signal flow
 
-**Time:** 4.2–6.4 s  
-**Frames:** 126–191
+**Time:** 4.2–6.8 s  
+**Frames:** 126–203
 
 ### Purpose
-Create a continuous spatial transition from raw channel noise to a structured G-KAIS input.
-
-### Motion
-- Existing phone composition continues leftward.
-- Depth blur increases as it exits.
-- Input Signal panel enters from the **right** while the old scene is still partially visible.
-- No hard wipe and no presentation-slide feeling.
-
-### Visual continuity
-- Keep the same grey / silver world and lighting.
-- Maintain Z-depth and floating-window behavior.
-
----
-
-## Scene 03 — Input Signal panel
-
-**Time:** 6.4–8.5 s  
-**Frames:** 192–254
-
-### New concept
-Do not show an isolated generic card. Show a panel that receives and consolidates incoming information before alerting the G-KAIS Engine.
-
-### Suggested data groups
-- Source / channel
-- Lead / contact
-- Business / opportunity context
-- Short problem / intent signal
-- Timestamp / freshness
-
-### Motion
-- Individual inputs settle into the panel progressively.
-- A clear alert / signal state forms inside the panel.
-- The signal then detaches / emits toward the G-KAIS Engine.
-- The entire composition still has slight leftward progression so the Engine can be introduced from the right.
-
----
-
-## Scene 04 — G-KAIS Engine activation
-
-**Time:** 8.5–11.7 s  
-**Frames:** 255–350
-
-### Key rule
-Do **not** write “el motor se enciende”. Motion must communicate activation.
+Avoid an intermediate UI panel. Show directly that incoming demand is being converted into machine-readable / operational signals.
 
 ### Motion sequence
-1. Signal approaches the Engine.
-2. Signal begins orbiting the Engine.
-3. Orbital speed increases progressively.
-4. Engine responds with a controlled increase in light / energy.
-5. Core begins a visible but elegant pulse / heartbeat.
-6. Teal accent becomes more vibrant only during the processing peak.
+1. Existing notification cards detach from the phone composition.
+2. Their text and card surfaces progressively simplify.
+3. Cards shrink into compact signal nodes / pulses.
+4. Individual nodes retain subtle source identity through restrained color accents.
+5. Nodes begin following curved paths toward a shared direction.
+6. Their trajectories synchronize into one coordinated flow aimed at the G-KAIS Engine.
 
-### Look
-- Engine remains uniquely G-KAIS — intelligent system core, not a generic sci-fi orb.
-- Premium metallic / glass / graphite / silver materials.
-- Energy accent remains controlled and brand-consistent.
+### Visual rule
+Do not make the transformation look like magic particles or generic neon energy. It should feel like information becoming structured through motion.
 
-### Transition to output
-Before activation has fully settled, the first intelligence window starts materializing to the **right**. This overlap is essential for cinematic continuity.
+### Continuity
+- Scene 01 is still partially visible when the first signals detach.
+- No hard wipe.
+- Maintain the same silver / grey environment and lighting.
+- Signal paths should have depth variation and mild parallax.
 
 ---
 
-## Scene 05 — Intelligence windows
+## Scene 03 — G-KAIS Engine activation
 
-**Time:** 11.7–15.8 s  
-**Frames:** 351–473
+**Time:** 6.8–9.6 s  
+**Frames:** 204–287
+
+### Key rule
+Do not explain activation with copy. Motion must communicate it.
+
+### Motion sequence
+1. The grouped signals reach the Engine from the left.
+2. Several signals begin orbiting rather than disappearing immediately.
+3. Orbital speed increases progressively.
+4. Some signals are absorbed into the core.
+5. The Engine responds with controlled illumination and movement.
+6. Core pulse / heartbeat becomes visible.
+7. Teal becomes more present only during the processing peak.
+8. The system settles into an active state ready to generate outputs.
+
+### Engine look
+- Unique G-KAIS system core.
+- Metallic / glass / graphite / silver materials.
+- Layered mechanical / data rings rather than a generic sci-fi orb.
+- Controlled teal energy.
+- Premium and architectural, not cartoonish.
+
+### Transition to intelligence
+Before the Engine fully settles, the first intelligence output may begin materializing on the right. This overlap is important for continuity.
+
+---
+
+## Scene 04 — Intelligence windows
+
+**Time:** 9.6–14.0 s  
+**Frames:** 288–419
 
 ### Windows
-Build progressively on the right side of the Engine:
+Generate progressively:
 
 1. Contexto
 2. Prioridad
@@ -172,44 +145,38 @@ Build progressively on the right side of the Engine:
 
 ### Presentation
 - Floating windows, not rigid stacked cards.
-- Similar visual language to the current G-KAIS product, but simplified for motion.
-- Each window exists at a slightly different depth.
-- Small perspective variation / parallax is acceptable.
+- Each window at a slightly different Z position.
+- Simplified visual language related to the current G-KAIS product.
+- Small perspective / parallax variation is acceptable.
 
 ### Motion
 - Engine remains alive while outputs appear.
-- Windows should not all pop simultaneously.
-- Each state should look generated by the Engine.
-- Use energy flow / directional movement to connect Engine → output, but keep it elegant and readable.
-
-### Information hierarchy
-**Contexto** — what G-KAIS knows.  
-**Prioridad** — what needs attention.  
-**AI Brief** — interpretation, gap, recommended help.  
-**Próxima acción** — the operational resolution.
+- Outputs should look generated by the Engine.
+- Use elegant directional flow Engine → output.
+- Do not reveal all windows simultaneously.
 
 ### Narrative objective
 The viewer should understand visually:
 
-> G-KAIS receives an opportunity, understands it, prioritizes it and determines what happens next.
+> G-KAIS recibe una oportunidad, la entiende, la prioriza y determina qué pasa después.
 
 ---
 
-## Scene 06 — Real product / CRM reveal
+## Scene 05 — Real product / CRM reveal
 
-**Time:** 15.8–20.4 s  
-**Frames:** 474–611
+**Time:** 14.0–19.2 s  
+**Frames:** 420–575
 
 ### Transition rule
 Stop the lateral travel language here.
 
 ### Entrance
-- Previous Engine scene recedes / softens slightly.
-- Current G-KAIS interface appears **from the background**, moving toward camera.
-- It should feel like moving from the conceptual intelligence layer into the real operational product.
+- Engine / intelligence layer recedes slightly.
+- Current G-KAIS interface appears from the background and moves toward camera.
+- This is the transition from conceptual intelligence to the real operable product.
 
 ### Product content
-Use the current G-KAIS UI, not the obsolete CRM visuals from older concepts.
+Use the current G-KAIS UI, not obsolete CRM concepts.
 
 Prioritize:
 - Lead / business profile
@@ -221,18 +188,15 @@ Prioritize:
 ### Interaction
 - Smooth controlled scroll.
 - Visible mouse pointer.
-- Pointer can select a lead / open the relevant record / move through the important content.
-- Avoid frantic cursor movement.
-
-### Objective
-Prove that the Engine narrative maps to an actual operable product.
+- Pointer can select a lead / record and move through relevant content.
+- Avoid frantic movement.
 
 ---
 
-## Scene 07 — Resolution / end frame
+## Scene 06 — Resolution / end frame
 
-**Time:** 20.4–22.5 s  
-**Frames:** 612–674
+**Time:** 19.2–22.5 s  
+**Frames:** 576–674
 
 ### Motion
 - UI settles.
@@ -244,35 +208,36 @@ Preferred line:
 
 > Cada oportunidad, un siguiente paso.
 
-Optional small supporting line only if composition needs it:
+Optional supporting line:
 
 > Contexto. Prioridad. Próxima acción.
 
 ### End state
-Premium, quiet, confident. Do not end with excessive effects.
+Premium, quiet, confident. No excessive effects.
 
 ---
 
 ## Remotion composition plan
 
-Recommended editable components:
+Approved / current direction:
 
-- `Scene01PhoneNotifications`
-- `Scene02LateralTransition`
-- `Scene03InputSignal`
-- `Scene04EngineActivation`
-- `Scene05IntelligenceWindows`
-- `Scene06ProductCRM`
-- `Scene07EndFrame`
+- `Scene01Cinematic` — approved opening scene.
+- `Scene01ToEngineFlow` — current preview block for Scene 01 + notification transformation + initial Engine activation.
+- Future dedicated components can be extracted once timing is locked:
+  - `NotificationSignalFlow`
+  - `GKAISEngineActivation`
+  - `IntelligenceWindows`
+  - `ProductCRMReveal`
+  - `EndFrame`
 
-Shared components:
+Shared components should remain editable:
 
-- `FloatingPanel`
 - `GlassNotification`
 - `ChannelIcon`
 - `DepthBackground`
 - `GKAISEngine`
 - `EnergySignal`
+- `FloatingPanel`
 - `CursorDemo`
 - `BrandWordmark`
 
@@ -285,15 +250,13 @@ Shared components:
 
 ## Editable parameters to expose
 
-Keep these centralized so future changes do not require rebuilding scenes:
-
 - Scene durations
-- Main copy
-- Secondary copy
+- Main / secondary copy
 - G-KAIS accent color
 - Background silver / grey levels
 - Phone X / Y / scale
 - Notification timing / count
+- Signal path / stagger / speed
 - Engine activation intensity
 - Engine orbit speed curve
 - Intelligence-window timing
@@ -304,37 +267,38 @@ Keep these centralized so future changes do not require rebuilding scenes:
 ## Asset strategy
 
 ### Higgsfield-generated / cinematic assets
-Use Higgsfield where photorealism or cinematic rendering materially improves the result, for example:
-- premium realistic phone shot / device treatment
+Use Higgsfield only where photorealism or cinematic rendering materially improves the result, for example:
+- premium phone treatment
 - ambient depth plates
-- special visual textures / lighting elements when useful
+- special lighting / textures
 
 ### Remotion-native assets
-Keep these editable in code:
+Keep editable in code:
 - text
 - notification cards
+- signal paths
+- Engine rings / timing
 - UI panels
 - logos / icons
-- signal paths
-- timing
 - transitions
 - CRM cursor / scroll
 - final title
 
 ## Production guardrails
 
-- Never replace the master aesthetic with V3 / V4 / V5 styling.
+- Never replace the master aesthetic with old V3 / V4 / V5 styling.
 - Never turn the animation into a generic neon AI demo.
 - Avoid explanatory labels when motion can communicate the idea.
+- Notifications must visibly become signals; do not introduce a standalone Input Signal template again unless specifically re-approved.
 - Keep transitions overlapped and continuous.
 - Keep the CRM section grounded in the current product.
-- Preserve editability: any frequently changing text / timing / panel should remain Remotion-native.
+- Preserve editability in Remotion.
 
 ## Pending verification
 
-The Higgsfield automatic scene-by-scene analyzer for the master Media ID remains queued as of the storyboard commit. When it completes:
+The Higgsfield automatic scene-by-scene analyzer for the master Media ID may still be pending. If it later completes:
 
-1. compare its detected scene boundaries with this baseline;
-2. use the result only to refine timing / preserve master rhythm;
-3. do not overwrite the approved narrative or art direction unless there is a clear visual reason;
-4. update this document with the final master-derived timing notes.
+1. compare detected boundaries with this baseline;
+2. use the result only to refine rhythm / timing;
+3. do not overwrite the approved narrative direction without a clear visual reason;
+4. keep the notification → signal → Engine transformation as the current approved transition concept.

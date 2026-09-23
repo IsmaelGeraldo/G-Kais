@@ -106,40 +106,12 @@ export const ThreeEngineCore: React.FC<ThreeEngineCoreProps> = ({
     });
 
     const neuralCurves = [
-      [
-        [-0.55, 0.16, 0.44],
-        [-0.32, 0.36, 0.58],
-        [-0.08, 0.22, 0.52],
-        [0.05, 0.02, 0.56],
-      ],
-      [
-        [-0.48, -0.18, 0.5],
-        [-0.26, -0.38, 0.58],
-        [-0.03, -0.24, 0.55],
-        [0.08, -0.06, 0.58],
-      ],
-      [
-        [0.55, 0.18, 0.43],
-        [0.31, 0.37, 0.58],
-        [0.1, 0.2, 0.54],
-        [-0.02, 0.02, 0.57],
-      ],
-      [
-        [0.49, -0.2, 0.48],
-        [0.3, -0.39, 0.58],
-        [0.08, -0.25, 0.55],
-        [-0.02, -0.05, 0.58],
-      ],
-      [
-        [-0.42, 0.46, 0.25],
-        [-0.22, 0.56, 0.42],
-        [-0.05, 0.42, 0.5],
-      ],
-      [
-        [0.42, 0.46, 0.25],
-        [0.22, 0.56, 0.42],
-        [0.05, 0.42, 0.5],
-      ],
+      [[-0.55, 0.16, 0.44], [-0.32, 0.36, 0.58], [-0.08, 0.22, 0.52], [0.05, 0.02, 0.56]],
+      [[-0.48, -0.18, 0.5], [-0.26, -0.38, 0.58], [-0.03, -0.24, 0.55], [0.08, -0.06, 0.58]],
+      [[0.55, 0.18, 0.43], [0.31, 0.37, 0.58], [0.1, 0.2, 0.54], [-0.02, 0.02, 0.57]],
+      [[0.49, -0.2, 0.48], [0.3, -0.39, 0.58], [0.08, -0.25, 0.55], [-0.02, -0.05, 0.58]],
+      [[-0.42, 0.46, 0.25], [-0.22, 0.56, 0.42], [-0.05, 0.42, 0.5]],
+      [[0.42, 0.46, 0.25], [0.22, 0.56, 0.42], [0.05, 0.42, 0.5]],
     ];
 
     const neuralTubes = neuralCurves.map((curvePoints) => {
@@ -152,7 +124,7 @@ export const ThreeEngineCore: React.FC<ThreeEngineCoreProps> = ({
       return { geometry, mesh };
     });
 
-    const seamGeometry = new THREE.CapsuleGeometry(0.018, 0.88, 4, 10);
+    const seamGeometry = new THREE.CylinderGeometry(0.018, 0.018, 0.88, 8);
     const seamMaterial = new THREE.MeshBasicMaterial({
       color: 0xb8f3e9,
       transparent: true,
@@ -222,10 +194,7 @@ export const ThreeEngineCore: React.FC<ThreeEngineCoreProps> = ({
     }
 
     const particleGeometry = new THREE.BufferGeometry();
-    particleGeometry.setAttribute(
-      "position",
-      new THREE.BufferAttribute(particlePositions, 3)
-    );
+    particleGeometry.setAttribute("position", new THREE.BufferAttribute(particlePositions, 3));
     const particleMaterial = new THREE.PointsMaterial({
       color: 0x74c1b4,
       size: 0.026,

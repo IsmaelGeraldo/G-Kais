@@ -155,23 +155,12 @@ const scenarios = {
 };
 
 const steps = {
-  es: [
-    "Conversación",
-    "Captura contexto",
-    "Prioriza",
-    "AI Brief",
-    "Próxima acción",
-  ],
-  en: [
-    "Conversation",
-    "Capture context",
-    "Prioritize",
-    "AI Brief",
-    "Next action",
-  ],
+  es: ["Conversación", "Captura contexto", "Prioriza", "AI Brief", "Próxima acción"],
+  en: ["Conversation", "Capture context", "Prioritize", "AI Brief", "Next action"],
 };
 
-const STEP_DELAYS = [1500, 1600, 1500, 2100, 2300];
+// ~14 seconds per complete story including the final hold.
+const STEP_DELAYS = [2300, 2600, 2400, 3300, 3400];
 
 type Point = { x: number; y: number };
 type CircuitTarget = {
@@ -187,7 +176,6 @@ interface CircuitLayout {
   width: number;
   height: number;
   inputPath: string;
-  inputStart: Point;
   inputEnd: Point;
   targets: CircuitTarget[];
 }
@@ -196,42 +184,41 @@ const EMPTY_CIRCUIT_LAYOUT: CircuitLayout = {
   width: 1,
   height: 1,
   inputPath: "",
-  inputStart: { x: 0, y: 0 },
   inputEnd: { x: 0, y: 0 },
   targets: [],
 };
 
 function buildCircuitPath(start: Point, end: Point, laneIndex: number): string {
-  const horizontalDistance = Math.max(34, end.x - start.x);
-  const firstLane = start.x + Math.min(25 + laneIndex * 2, horizontalDistance * 0.3);
-  const finalLane = Math.max(firstLane + 16, end.x - 18 - laneIndex * 1.5);
-  const direction = end.y >= start.y ? 1 : -1;
-  const firstKinkY = start.y + direction * (6 + laneIndex * 2.2);
-  const approachY = end.y - direction * 7;
+  const distance = Math.max(70, end.x - start.x);
+  const rise = end.y >= start.y ? 1 : -1;
+  const launchX = start.x + 14 + laneIndex * 2;
+  const launchY = start.y + rise * (10 + laneIndex * 3);
+  const middleX = start.x + Math.max(34, distance * (0.48 + laneIndex * 0.035));
+  const approachX = Math.max(middleX + 12, end.x - 18);
+  const preEndY = end.y - rise * 8;
 
   return [
     `M ${start.x.toFixed(1)} ${start.y.toFixed(1)}`,
-    `H ${firstLane.toFixed(1)}`,
-    `L ${(firstLane + 6).toFixed(1)} ${firstKinkY.toFixed(1)}`,
-    `H ${finalLane.toFixed(1)}`,
-    `V ${approachY.toFixed(1)}`,
-    `L ${(finalLane + 7).toFixed(1)} ${end.y.toFixed(1)}`,
+    `L ${launchX.toFixed(1)} ${launchY.toFixed(1)}`,
+    `H ${middleX.toFixed(1)}`,
+    `V ${preEndY.toFixed(1)}`,
+    `L ${approachX.toFixed(1)} ${end.y.toFixed(1)}`,
     `H ${end.x.toFixed(1)}`,
   ].join(" ");
 }
 
 function buildInputCircuitPath(start: Point, end: Point): string {
-  const distance = Math.max(28, end.x - start.x);
-  const firstLane = start.x + distance * 0.32;
+  const distance = Math.max(36, end.x - start.x);
+  const firstLane = start.x + distance * 0.34;
   const secondLane = start.x + distance * 0.68;
   const direction = end.y >= start.y ? 1 : -1;
 
   return [
     `M ${start.x.toFixed(1)} ${start.y.toFixed(1)}`,
     `H ${firstLane.toFixed(1)}`,
-    `L ${(firstLane + 6).toFixed(1)} ${(start.y + direction * 6).toFixed(1)}`,
+    `L ${(firstLane + 7).toFixed(1)} ${(start.y + direction * 8).toFixed(1)}`,
     `H ${secondLane.toFixed(1)}`,
-    `L ${(secondLane + 6).toFixed(1)} ${end.y.toFixed(1)}`,
+    `L ${(secondLane + 7).toFixed(1)} ${end.y.toFixed(1)}`,
     `H ${end.x.toFixed(1)}`,
   ].join(" ");
 }
@@ -271,10 +258,10 @@ const EngineCircuitNetwork: React.FC<EngineCircuitNetworkProps> = ({
       const conversation = conversationRef.current;
       const core = coreRef.current;
       const targetElements = [
-        { key: "context" as const, step: 1, ref: contextRef },
-        { key: "priority" as const, step: 2, ref: priorityRef },
-        { key: "brief" as const, step: 3, ref: briefRef },
-        { key: "next" as const, step: 4, ref: nextRef },
+        { key: "context" as const, step: 1, ref: contextRef, port: "top" as const },
+        { key: "priority" as const, step: 2, ref: priorityRef, port: "top" as const },
+        { key: "brief" as const, step: 3, ref: briefRef, port: "bottom" as const },
+        { key: "next" as const, step: 4, ref: nextRef, port: "bottom" as const },
       ];
 
       if (!stage || !conversation || !core || window.innerWidth <= 720) {
@@ -285,35 +272,47 @@ const EngineCircuitNetwork: React.FC<EngineCircuitNetworkProps> = ({
       const stageRect = stage.getBoundingClientRect();
       const conversationRect = conversation.getBoundingClientRect();
       const coreRect = core.getBoundingClientRect();
-
       const coreCenterY = coreRect.top - stageRect.top + coreRect.height / 2;
+
       const inputStart = {
-        x: conversationRect.right - stageRect.left - 2,
+        x: conversationRect.right - stageRect.left - 3,
         y: conversationRect.top - stageRect.top + conversationRect.height * 0.48,
       };
       const inputEnd = {
-        x: coreRect.left - stageRect.left + 7,
+        x: coreRect.left - stageRect.left + 8,
         y: coreCenterY,
       };
-      const outputStart = {
-        x: coreRect.right - stageRect.left - 7,
-        y: coreCenterY,
+
+      // Separate launch ports: the upper pair feeds Context/Priority,
+      // the lower pair feeds AI Brief/Next Action.
+      const topOutput = {
+        x: coreRect.right - stageRect.left - 18,
+        y: coreRect.top - stageRect.top + 15,
+      };
+      const bottomOutput = {
+        x: coreRect.right - stageRect.left - 18,
+        y: coreRect.bottom - stageRect.top - 15,
       };
 
       const targets = targetElements.flatMap((target, index) => {
         const element = target.ref.current;
         if (!element) return [];
         const rect = element.getBoundingClientRect();
+
+        // Stop the SVG circuit well before the card. The DOM card owns a
+        // separate receiver port, leaving visible breathing room between them.
         const end = {
-          x: rect.left - stageRect.left + 1,
+          x: rect.left - stageRect.left - 24,
           y: rect.top - stageRect.top + rect.height / 2,
         };
+        const start = target.port === "top" ? topOutput : bottomOutput;
+
         return [
           {
             key: target.key,
             step: target.step,
             end,
-            path: buildCircuitPath(outputStart, end, index),
+            path: buildCircuitPath(start, end, index),
           },
         ];
       });
@@ -321,7 +320,6 @@ const EngineCircuitNetwork: React.FC<EngineCircuitNetworkProps> = ({
       setLayout({
         width: Math.max(1, stageRect.width),
         height: Math.max(1, stageRect.height),
-        inputStart,
         inputEnd,
         inputPath: buildInputCircuitPath(inputStart, inputEnd),
         targets,
@@ -353,16 +351,7 @@ const EngineCircuitNetwork: React.FC<EngineCircuitNetworkProps> = ({
       resizeObserver.disconnect();
       window.removeEventListener("resize", scheduleMeasure);
     };
-  }, [
-    briefRef,
-    contextRef,
-    conversationRef,
-    coreRef,
-    layoutKey,
-    nextRef,
-    priorityRef,
-    stageRef,
-  ]);
+  }, [briefRef, contextRef, conversationRef, coreRef, layoutKey, nextRef, priorityRef, stageRef]);
 
   if (!layout.inputPath || layout.targets.length === 0) return null;
 
@@ -375,20 +364,14 @@ const EngineCircuitNetwork: React.FC<EngineCircuitNetworkProps> = ({
     >
       <defs>
         <filter id="gk-electric-glow" x="-80%" y="-80%" width="260%" height="260%">
-          <feGaussianBlur stdDeviation="1.6" result="blur" />
+          <feGaussianBlur stdDeviation="1.35" result="blur" />
           <feMerge>
             <feMergeNode in="blur" />
             <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
-        <filter
-          id="gk-electric-glow-strong"
-          x="-120%"
-          y="-120%"
-          width="340%"
-          height="340%"
-        >
-          <feGaussianBlur stdDeviation="3.2" result="blur" />
+        <filter id="gk-electric-glow-strong" x="-120%" y="-120%" width="340%" height="340%">
+          <feGaussianBlur stdDeviation="2.5" result="blur" />
           <feMerge>
             <feMergeNode in="blur" />
             <feMergeNode in="SourceGraphic" />
@@ -397,34 +380,19 @@ const EngineCircuitNetwork: React.FC<EngineCircuitNetworkProps> = ({
       </defs>
 
       <path className="gk-circuit-base" d={layout.inputPath} />
-      <path
-        className={
-          "gk-circuit-input" + (step === 0 && running ? " is-active" : "")
-        }
-        d={layout.inputPath}
-      />
+      <path className={"gk-circuit-input" + (step === 0 && running ? " is-active" : "")} d={layout.inputPath} />
       {step === 0 && running && (
         <>
-          <circle className="gk-circuit-spark" r="3.2">
-            <animateMotion dur="0.72s" repeatCount="indefinite" path={layout.inputPath} />
+          <circle className="gk-circuit-spark" r="3">
+            <animateMotion dur="1.12s" repeatCount="indefinite" path={layout.inputPath} />
           </circle>
-          <circle className="gk-circuit-spark-secondary" r="2.1">
-            <animateMotion
-              begin="0.32s"
-              dur="0.72s"
-              repeatCount="indefinite"
-              path={layout.inputPath}
-            />
+          <circle className="gk-circuit-spark-secondary" r="1.9">
+            <animateMotion begin="0.5s" dur="1.12s" repeatCount="indefinite" path={layout.inputPath} />
           </circle>
         </>
       )}
 
-      <circle
-        className={"gk-circuit-node" + (step === 0 ? " is-active" : "")}
-        cx={layout.inputEnd.x}
-        cy={layout.inputEnd.y}
-        r="3.5"
-      />
+      <circle className={"gk-circuit-node" + (step === 0 ? " is-active" : "")} cx={layout.inputEnd.x} cy={layout.inputEnd.y} r="3.3" />
 
       {layout.targets.map((target) => {
         const reached = step >= target.step;
@@ -438,29 +406,15 @@ const EngineCircuitNetwork: React.FC<EngineCircuitNetworkProps> = ({
               <>
                 <path className="gk-circuit-active" d={target.path} />
                 <path className="gk-circuit-active gk-circuit-hot" d={target.path} />
-                <circle className="gk-circuit-spark" r="3.1">
-                  <animateMotion
-                    dur="0.64s"
-                    repeatCount="indefinite"
-                    path={target.path}
-                  />
+                <circle className="gk-circuit-spark" r="2.9">
+                  <animateMotion dur="1.22s" repeatCount="indefinite" path={target.path} />
                 </circle>
-                <circle className="gk-circuit-spark-secondary" r="2">
-                  <animateMotion
-                    begin="0.26s"
-                    dur="0.64s"
-                    repeatCount="indefinite"
-                    path={target.path}
-                  />
+                <circle className="gk-circuit-spark-secondary" r="1.8">
+                  <animateMotion begin="0.55s" dur="1.22s" repeatCount="indefinite" path={target.path} />
                 </circle>
               </>
             )}
-            <circle
-              className={"gk-circuit-node" + (active ? " is-active" : "")}
-              cx={target.end.x}
-              cy={target.end.y}
-              r="3.5"
-            />
+            <circle className={"gk-circuit-node" + (active ? " is-active" : "")} cx={target.end.x} cy={target.end.y} r="3.3" />
           </g>
         );
       })}
@@ -494,11 +448,7 @@ export const HeroSystemVisual: React.FC = () => {
     syncVisibility();
     document.addEventListener("visibilitychange", syncVisibility);
 
-    const observer = new IntersectionObserver(
-      ([entry]) => setInView(entry.isIntersecting),
-      { threshold: 0.18 }
-    );
-
+    const observer = new IntersectionObserver(([entry]) => setInView(entry.isIntersecting), { threshold: 0.18 });
     if (root.current) observer.observe(root.current);
 
     return () => {
@@ -512,13 +462,10 @@ export const HeroSystemVisual: React.FC = () => {
 
     const timer = window.setTimeout(() => {
       if (step === 4) {
-        setScenarioIndex(
-          (current) => (current + 1) % scenarios[language].length
-        );
+        setScenarioIndex((current) => (current + 1) % scenarios[language].length);
         setStep(0);
         return;
       }
-
       setStep((current) => current + 1);
     }, STEP_DELAYS[step]);
 
@@ -530,10 +477,7 @@ export const HeroSystemVisual: React.FC = () => {
     setStep(0);
   };
 
-  const stageLabel = useMemo(
-    () => flowSteps[Math.min(step, 4)],
-    [flowSteps, step]
-  );
+  const stageLabel = useMemo(() => flowSteps[Math.min(step, 4)], [flowSteps, step]);
 
   return (
     <div
@@ -547,6 +491,8 @@ export const HeroSystemVisual: React.FC = () => {
       }
     >
       <div className="gk-engine-shell">
+        <div className="gk-shell-orbit-halo" aria-hidden="true" />
+
         <div className="gk-engine-topbar">
           <div className="gk-engine-brand">
             <div className="gk-engine-logo">G</div>
@@ -555,7 +501,6 @@ export const HeroSystemVisual: React.FC = () => {
               <span>OPPORTUNITY ENGINE</span>
             </div>
           </div>
-
           <div className="gk-engine-top-status">
             <span className="gk-live-dot" />
             {es ? "AUTO LOOP · EN VIVO" : "AUTO LOOP · LIVE"}
@@ -564,12 +509,7 @@ export const HeroSystemVisual: React.FC = () => {
 
         <div className="gk-engine-scenarios">
           {scenarios[language].map((item, index) => (
-            <button
-              type="button"
-              key={item.label}
-              aria-pressed={scenarioIndex === index}
-              onClick={() => selectScenario(index)}
-            >
+            <button type="button" key={item.label} aria-pressed={scenarioIndex === index} onClick={() => selectScenario(index)}>
               {item.label}
             </button>
           ))}
@@ -602,50 +542,33 @@ export const HeroSystemVisual: React.FC = () => {
               <MessageCircle size={13} />
               <span>{es ? "SEÑAL ENTRANTE" : "INCOMING SIGNAL"}</span>
             </div>
-
             <div className="gk-engine-contact">
               <div className="gk-engine-avatar">
-                {scenario.person
-                  .split(" ")
-                  .slice(0, 2)
-                  .map((part) => part[0])
-                  .join("")}
+                {scenario.person.split(" ").slice(0, 2).map((part) => part[0]).join("")}
               </div>
               <div>
                 <strong>{scenario.person}</strong>
-                <span>
-                  {scenario.business} · {scenario.channel}
-                </span>
+                <span>{scenario.business} · {scenario.channel}</span>
               </div>
             </div>
-
             <div className="gk-engine-message">
               {scenario.message}
               <span className="gk-message-ambient-glow" aria-hidden="true" />
             </div>
-
             <div className="gk-engine-conversation-foot">
               <span>{es ? "No se responde todavía." : "No reply yet."}</span>
               <strong>
-                {es
-                  ? "Primero G-KAIS entiende qué está pasando."
-                  : "G-KAIS first understands what is happening."}
+                {es ? "Primero G-KAIS entiende qué está pasando." : "G-KAIS first understands what is happening."}
               </strong>
             </div>
           </div>
 
           <div className="gk-engine-core">
             <div className="gk-engine-core-anchor" ref={coreRef}>
-              <ThreeEngineCore
-                step={step}
-                running={autoRunning}
-                complete={step === 4}
-              />
+              <ThreeEngineCore step={step} running={autoRunning} complete={step === 4} />
             </div>
-
             <p>{es ? "MOTOR G-KAIS" : "G-KAIS ENGINE"}</p>
             <strong>{stageLabel}</strong>
-
             <div className="gk-core-line" aria-hidden="true">
               <span className={step >= 1 ? "is-active" : ""} />
               <span className={step >= 2 ? "is-active" : ""} />
@@ -655,19 +578,12 @@ export const HeroSystemVisual: React.FC = () => {
           </div>
 
           <div className="gk-engine-workspace">
-            <div
-              ref={contextRef}
-              className={
-                "gk-work-card gk-context-card" +
-                (step >= 1 ? " is-visible" : "")
-              }
-            >
+            <div ref={contextRef} className={"gk-work-card gk-context-card" + (step >= 1 ? " is-visible" : "")}>
               <div className="gk-work-card-head">
                 <FileText size={13} />
                 <span>{es ? "CONTEXTO CAPTURADO" : "CAPTURED CONTEXT"}</span>
                 <strong>3/9</strong>
               </div>
-
               <div className="gk-context-grid">
                 {scenario.context.map(([label, value]) => (
                   <div className="gk-context-cell" key={label}>
@@ -678,60 +594,34 @@ export const HeroSystemVisual: React.FC = () => {
               </div>
             </div>
 
-            <div
-              ref={priorityRef}
-              className={
-                "gk-work-card gk-priority-card" +
-                (step >= 2 ? " is-visible" : "")
-              }
-            >
+            <div ref={priorityRef} className={"gk-work-card gk-priority-card" + (step >= 2 ? " is-visible" : "")}>
               <div className="gk-work-card-head">
                 <Target size={13} />
                 <span>{es ? "PRIORIDAD" : "PRIORITY"}</span>
-                <strong className="gk-priority-pill">
-                  {scenario.priority}
-                </strong>
+                <strong className="gk-priority-pill">{scenario.priority}</strong>
               </div>
               <p>{scenario.reason}</p>
             </div>
 
-            <div
-              ref={briefRef}
-              className={
-                "gk-work-card gk-brief-card" +
-                (step >= 3 ? " is-visible" : "")
-              }
-            >
+            <div ref={briefRef} className={"gk-work-card gk-brief-card" + (step >= 3 ? " is-visible" : "")}>
               <div className="gk-work-card-head">
                 <Sparkles size={13} />
                 <span>AI BRIEF</span>
                 <strong>{es ? "LISTO" : "READY"}</strong>
               </div>
               <p className="gk-brief-summary">{scenario.brief}</p>
-
               <div className="gk-brief-row">
                 <span>{es ? "FALTA SABER" : "STILL UNKNOWN"}</span>
                 <p>{scenario.missing}</p>
               </div>
-
               <div className="gk-brief-row">
-                <span>
-                  {es ? "CÓMO PUEDE AYUDAR" : "HOW G-KAIS CAN HELP"}
-                </span>
+                <span>{es ? "CÓMO PUEDE AYUDAR" : "HOW G-KAIS CAN HELP"}</span>
                 <p>{scenario.help}</p>
               </div>
             </div>
 
-            <div
-              ref={nextRef}
-              className={
-                "gk-work-card gk-next-card" +
-                (step >= 4 ? " is-visible" : "")
-              }
-            >
-              <div className="gk-next-icon">
-                <CheckCircle2 size={18} />
-              </div>
+            <div ref={nextRef} className={"gk-work-card gk-next-card" + (step >= 4 ? " is-visible" : "")}>
+              <div className="gk-next-icon"><CheckCircle2 size={18} /></div>
               <div>
                 <span>{es ? "PRÓXIMA ACCIÓN" : "NEXT ACTION"}</span>
                 <strong>{scenario.next}</strong>
@@ -740,67 +630,31 @@ export const HeroSystemVisual: React.FC = () => {
             </div>
           </div>
 
-          <div
-            className={
-              "gk-floating-card gk-floating-priority" +
-              (step >= 2 ? " is-visible" : "")
-            }
-          >
+          <div className={"gk-floating-card gk-floating-priority" + (step >= 2 ? " is-visible" : "")}>
             <Target size={12} />
             <span>{es ? "Prioridad" : "Priority"}</span>
             <strong>{scenario.priority}</strong>
           </div>
 
-          <div
-            className={
-              "gk-floating-card gk-floating-owner" +
-              (step >= 4 ? " is-visible" : "")
-            }
-          >
+          <div className={"gk-floating-card gk-floating-owner" + (step >= 4 ? " is-visible" : "")}>
             <User size={12} />
             <span>{es ? "Responsable" : "Owner"}</span>
             <strong>{es ? "Equipo comercial" : "Sales team"}</strong>
           </div>
         </div>
 
-        <div
-          className="gk-engine-progress"
-          role="list"
-          aria-label={es ? "Progreso de la demostración" : "Demo progress"}
-        >
+        <div className="gk-engine-progress" role="list" aria-label={es ? "Progreso de la demostración" : "Demo progress"}>
           {flowSteps.map((label, index) => {
             const reached = index <= step;
             const current = index === step;
-
             return (
-              <div
-                key={label}
-                role="listitem"
-                aria-current={current ? "step" : undefined}
-                className={
-                  "gk-progress-item" +
-                  (reached ? " is-reached" : "") +
-                  (current ? " is-current" : "")
-                }
-              >
+              <div key={label} role="listitem" aria-current={current ? "step" : undefined} className={"gk-progress-item" + (reached ? " is-reached" : "") + (current ? " is-current" : "")}>
                 <div className="gk-progress-item-head">
-                  <span className="gk-step-indicator">
-                    {index < step ? <Check size={11} /> : index + 1}
-                  </span>
+                  <span className="gk-step-indicator">{index < step ? <Check size={11} /> : index + 1}</span>
                   <span className="gk-step-text">{label}</span>
                 </div>
-
                 <div className="gk-progress-track" aria-hidden="true">
-                  <div
-                    className={
-                      "gk-progress-fill" +
-                      (index < step
-                        ? " is-full"
-                        : current && autoRunning
-                          ? " is-animating"
-                          : "")
-                    }
-                  />
+                  <div className={"gk-progress-fill" + (index < step ? " is-full" : current && autoRunning ? " is-animating" : "")} />
                 </div>
               </div>
             );
@@ -809,23 +663,10 @@ export const HeroSystemVisual: React.FC = () => {
 
         <div className="gk-engine-controls" aria-live="polite">
           <div className="gk-engine-loop-status">
-            <span
-              className={
-                "gk-loop-dot" + (autoRunning ? " is-pulsing" : "")
-              }
-            />
-            <strong>
-              {step === 4
-                ? es
-                  ? "Oportunidad lista para actuar"
-                  : "Opportunity ready for action"
-                : stageLabel}
-            </strong>
+            <span className={"gk-loop-dot" + (autoRunning ? " is-pulsing" : "")} />
+            <strong>{step === 4 ? (es ? "Oportunidad lista para actuar" : "Opportunity ready for action") : stageLabel}</strong>
           </div>
-
-          <div className="gk-engine-loop-status">
-            {es ? "Reproducción automática" : "Automatic playback"}
-          </div>
+          <div className="gk-engine-loop-status">{es ? "Reproducción automática" : "Automatic playback"}</div>
         </div>
       </div>
 

@@ -1,0 +1,216 @@
+/* G-KAIS Engine V6 — spacing, calmer energy, clockwise perimeter halo. */
+
+.gk-engine-shell {
+  position: relative;
+  overflow: hidden;
+}
+
+/* Replace the old wandering corner blobs with a true clockwise perimeter glow. */
+.gk-engine-shell::before,
+.gk-engine-shell::after {
+  opacity: 0.12 !important;
+  animation: none !important;
+}
+
+.gk-shell-orbit-halo {
+  position: absolute;
+  inset: -5px;
+  border-radius: inherit;
+  padding: 5px;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.52;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    transparent 42deg,
+    rgba(67, 133, 123, 0.1) 70deg,
+    rgba(81, 139, 152, 0.32) 92deg,
+    rgba(82, 145, 132, 0.16) 118deg,
+    transparent 150deg,
+    transparent 360deg
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  filter: blur(7px);
+  transform-origin: 50% 50%;
+  animation: gk-halo-clockwise 18s linear infinite;
+}
+
+.gk-engine-topbar,
+.gk-engine-scenarios,
+.gk-engine-stage,
+.gk-engine-progress,
+.gk-engine-controls {
+  position: relative;
+  z-index: 2;
+}
+
+/* Keep more visual air between the SVG circuits and each receiving card. */
+.gk-engine-workspace::before {
+  left: -36px !important;
+  width: 38px !important;
+  background: linear-gradient(
+    90deg,
+    rgba(239, 242, 240, 0),
+    rgba(239, 242, 240, 0.22) 30%,
+    rgba(239, 242, 240, 0.72) 72%,
+    rgba(239, 242, 240, 0.96) 100%
+  ) !important;
+}
+
+.gk-context-card::before,
+.gk-priority-card::before,
+.gk-brief-card::before,
+.gk-next-card::before {
+  left: -10px !important;
+  width: 7px !important;
+  height: 7px !important;
+  margin-top: -3.5px !important;
+  background: #eef4f1 !important;
+  border-color: rgba(31, 91, 82, 0.38) !important;
+  box-shadow:
+    0 0 0 4px rgba(10, 63, 77, 0.025),
+    0 0 8px rgba(10, 63, 77, 0.08) !important;
+}
+
+.gk-step-1 .gk-context-card::before,
+.gk-step-2 .gk-priority-card::before,
+.gk-step-3 .gk-brief-card::before,
+.gk-step-4 .gk-next-card::before {
+  background: #7fb9ae !important;
+  border-color: #245f56 !important;
+  box-shadow:
+    0 0 0 5px rgba(58, 135, 123, 0.07),
+    0 0 11px rgba(70, 145, 133, 0.26) !important;
+}
+
+/* Electrical network: calmer color and slower motion. */
+.gk-circuit-base {
+  stroke: rgba(38, 86, 79, 0.13) !important;
+}
+
+.gk-circuit-reached {
+  stroke: rgba(42, 105, 95, 0.25) !important;
+  filter: drop-shadow(0 0 1px rgba(75, 140, 128, 0.12)) !important;
+}
+
+.gk-circuit-active {
+  stroke: #315f58 !important;
+  stroke-width: 2px !important;
+  animation-duration: 0.78s !important;
+  filter: url(#gk-electric-glow) !important;
+}
+
+.gk-circuit-active.gk-circuit-hot {
+  stroke: #74aa9f !important;
+  stroke-width: 2.5px !important;
+  animation-duration: 0.62s !important;
+  opacity: 0.78;
+}
+
+.gk-circuit-input.is-active {
+  stroke: #3f786e !important;
+  stroke-width: 2.25px !important;
+  animation-duration: 0.76s !important;
+}
+
+.gk-circuit-spark {
+  fill: #a1c8c0 !important;
+}
+
+.gk-circuit-spark-secondary {
+  fill: #376f65 !important;
+  opacity: 0.68 !important;
+}
+
+.gk-circuit-node.is-active {
+  fill: #78aaa0 !important;
+  stroke: #2b6057 !important;
+}
+
+/* Three.js container should feel premium rather than neon. */
+.gk-three-engine {
+  filter:
+    drop-shadow(0 9px 19px rgba(10, 63, 77, 0.1))
+    drop-shadow(0 0 12px rgba(88, 144, 134, 0.055)) !important;
+}
+
+.gk-three-glyph {
+  color: rgba(235, 246, 243, 0.86) !important;
+  text-shadow:
+    0 0 5px rgba(255, 255, 255, 0.18),
+    0 0 10px rgba(105, 160, 150, 0.3) !important;
+  background: rgba(7, 20, 22, 0.25) !important;
+  border-color: rgba(136, 190, 179, 0.11) !important;
+  box-shadow: inset 0 0 8px rgba(75, 135, 124, 0.08) !important;
+}
+
+.gk-three-engine.is-complete .gk-three-glyph {
+  text-shadow:
+    0 0 6px rgba(255, 255, 255, 0.24),
+    0 0 13px rgba(105, 160, 150, 0.38) !important;
+}
+
+/* Restore the final action as the visual destination of the workflow. */
+.gk-work-card.gk-next-card,
+.gk-work-card.gk-next-card.is-visible {
+  background: linear-gradient(135deg, #101819 0%, #0a1112 58%, #102526 100%) !important;
+  border-color: rgba(67, 113, 106, 0.48) !important;
+  color: #ffffff !important;
+  box-shadow:
+    0 16px 32px -22px rgba(2, 13, 15, 0.72),
+    -7px 0 18px -12px rgba(66, 127, 116, 0.34) !important;
+}
+
+.gk-next-card span {
+  color: rgba(225, 236, 233, 0.62) !important;
+}
+
+.gk-next-card strong,
+.gk-next-card .gk-next-arrow {
+  color: #ffffff !important;
+}
+
+.gk-next-card .gk-next-icon {
+  color: #dcebe7 !important;
+  background: rgba(75, 128, 118, 0.24) !important;
+  border: 1px solid rgba(111, 160, 151, 0.2);
+}
+
+/* The progress scrubber mirrors the slower story pacing. */
+.gk-progress-item:nth-child(1) .gk-progress-fill.is-animating {
+  animation-duration: 2.3s !important;
+}
+.gk-progress-item:nth-child(2) .gk-progress-fill.is-animating {
+  animation-duration: 2.6s !important;
+}
+.gk-progress-item:nth-child(3) .gk-progress-fill.is-animating {
+  animation-duration: 2.4s !important;
+}
+.gk-progress-item:nth-child(4) .gk-progress-fill.is-animating {
+  animation-duration: 3.3s !important;
+}
+.gk-progress-item:nth-child(5) .gk-progress-fill.is-animating {
+  animation-duration: 3.4s !important;
+}
+
+@keyframes gk-halo-clockwise {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 720px) {
+  .gk-shell-orbit-halo {
+    opacity: 0.32;
+    filter: blur(5px);
+    animation-duration: 24s;
+  }
+}

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
+import "./hero-engine-v6.css";
 
 interface ThreeEngineCoreProps {
   step: number;
@@ -25,13 +26,8 @@ export const ThreeEngineCore: React.FC<ThreeEngineCoreProps> = ({
     if (!mount) return;
 
     let renderer: THREE.WebGLRenderer;
-
     try {
-      renderer = new THREE.WebGLRenderer({
-        alpha: true,
-        antialias: true,
-        powerPreference: "high-performance",
-      });
+      renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: "high-performance" });
     } catch (error) {
       console.warn("[G-KAIS THREE] WebGL unavailable, using CSS fallback.", error);
       setFallback(true);
@@ -61,11 +57,11 @@ export const ThreeEngineCore: React.FC<ThreeEngineCoreProps> = ({
 
     const lobeGeometry = new THREE.SphereGeometry(0.52, 30, 22);
     const lobeMaterial = new THREE.MeshStandardMaterial({
-      color: 0x071417,
-      metalness: 0.66,
-      roughness: 0.28,
-      emissive: new THREE.Color(0x0a3f4d),
-      emissiveIntensity: 0.6,
+      color: 0x0b1719,
+      metalness: 0.62,
+      roughness: 0.34,
+      emissive: new THREE.Color(0x123f47),
+      emissiveIntensity: 0.34,
     });
 
     const leftLobe = new THREE.Mesh(lobeGeometry, lobeMaterial);
@@ -79,10 +75,10 @@ export const ThreeEngineCore: React.FC<ThreeEngineCoreProps> = ({
     brainGroup.add(rightLobe);
 
     const brainWireMaterial = new THREE.MeshBasicMaterial({
-      color: 0x73c7b8,
+      color: 0x6aa79e,
       wireframe: true,
       transparent: true,
-      opacity: 0.12,
+      opacity: 0.08,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
     });
@@ -98,9 +94,9 @@ export const ThreeEngineCore: React.FC<ThreeEngineCoreProps> = ({
     brainGroup.add(rightWire);
 
     const neuralMaterial = new THREE.MeshBasicMaterial({
-      color: 0x92dfd0,
+      color: 0x7ebbb0,
       transparent: true,
-      opacity: 0.4,
+      opacity: 0.28,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
     });
@@ -115,9 +111,7 @@ export const ThreeEngineCore: React.FC<ThreeEngineCoreProps> = ({
     ];
 
     const neuralTubes = neuralCurves.map((curvePoints) => {
-      const curve = new THREE.CatmullRomCurve3(
-        curvePoints.map(([x, y, z]) => new THREE.Vector3(x, y, z))
-      );
+      const curve = new THREE.CatmullRomCurve3(curvePoints.map(([x, y, z]) => new THREE.Vector3(x, y, z)));
       const geometry = new THREE.TubeGeometry(curve, 24, 0.011, 5, false);
       const mesh = new THREE.Mesh(geometry, neuralMaterial);
       brainGroup.add(mesh);
@@ -126,9 +120,9 @@ export const ThreeEngineCore: React.FC<ThreeEngineCoreProps> = ({
 
     const seamGeometry = new THREE.CylinderGeometry(0.018, 0.018, 0.88, 8);
     const seamMaterial = new THREE.MeshBasicMaterial({
-      color: 0xb8f3e9,
+      color: 0x9fcfc6,
       transparent: true,
-      opacity: 0.34,
+      opacity: 0.24,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
     });
@@ -138,11 +132,11 @@ export const ThreeEngineCore: React.FC<ThreeEngineCoreProps> = ({
 
     const nodeGeometry = new THREE.SphereGeometry(0.13, 24, 16);
     const nodeMaterial = new THREE.MeshStandardMaterial({
-      color: 0xb6f0e6,
-      emissive: new THREE.Color(0x60c1b0),
-      emissiveIntensity: 1.55,
-      metalness: 0.18,
-      roughness: 0.18,
+      color: 0x9cc9c1,
+      emissive: new THREE.Color(0x3f877b),
+      emissiveIntensity: 0.82,
+      metalness: 0.2,
+      roughness: 0.24,
     });
     const centralNode = new THREE.Mesh(nodeGeometry, nodeMaterial);
     centralNode.position.set(0, 0, 0.7);
@@ -150,10 +144,10 @@ export const ThreeEngineCore: React.FC<ThreeEngineCoreProps> = ({
 
     const wireGeometry = new THREE.IcosahedronGeometry(0.9, 2);
     const wireMaterial = new THREE.MeshBasicMaterial({
-      color: 0x79c8ba,
+      color: 0x6da59c,
       wireframe: true,
       transparent: true,
-      opacity: 0.09,
+      opacity: 0.06,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
     });
@@ -161,15 +155,15 @@ export const ThreeEngineCore: React.FC<ThreeEngineCoreProps> = ({
     engineGroup.add(wireShell);
 
     const ringConfigs = [
-      { radius: 1.02, tube: 0.013, opacity: 0.44, tiltX: 0.9, tiltY: 0.2 },
-      { radius: 1.23, tube: 0.009, opacity: 0.24, tiltX: 1.15, tiltY: -0.52 },
-      { radius: 1.43, tube: 0.007, opacity: 0.15, tiltX: 0.42, tiltY: 0.74 },
+      { radius: 1.02, tube: 0.013, opacity: 0.28, tiltX: 0.9, tiltY: 0.2 },
+      { radius: 1.23, tube: 0.009, opacity: 0.16, tiltX: 1.15, tiltY: -0.52 },
+      { radius: 1.43, tube: 0.007, opacity: 0.1, tiltX: 0.42, tiltY: 0.74 },
     ];
 
     const rings = ringConfigs.map((config, index) => {
       const geometry = new THREE.TorusGeometry(config.radius, config.tube, 8, 96);
       const material = new THREE.MeshBasicMaterial({
-        color: index === 0 ? 0x71c7b8 : 0x0a3f4d,
+        color: index === 0 ? 0x6aa99f : 0x315f65,
         transparent: true,
         opacity: config.opacity,
         blending: THREE.AdditiveBlending,
@@ -182,7 +176,7 @@ export const ThreeEngineCore: React.FC<ThreeEngineCoreProps> = ({
       return { ring, geometry, material };
     });
 
-    const particleCount = 125;
+    const particleCount = 110;
     const particlePositions = new Float32Array(particleCount * 3);
     for (let index = 0; index < particleCount; index += 1) {
       const radius = 1.05 + Math.random() * 0.72;
@@ -196,10 +190,10 @@ export const ThreeEngineCore: React.FC<ThreeEngineCoreProps> = ({
     const particleGeometry = new THREE.BufferGeometry();
     particleGeometry.setAttribute("position", new THREE.BufferAttribute(particlePositions, 3));
     const particleMaterial = new THREE.PointsMaterial({
-      color: 0x74c1b4,
-      size: 0.026,
+      color: 0x6f9f97,
+      size: 0.023,
       transparent: true,
-      opacity: 0.3,
+      opacity: 0.18,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
       sizeAttenuation: true,
@@ -207,18 +201,17 @@ export const ThreeEngineCore: React.FC<ThreeEngineCoreProps> = ({
     const particles = new THREE.Points(particleGeometry, particleMaterial);
     engineGroup.add(particles);
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.72);
-    scene.add(ambientLight);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.58));
 
-    const tealLight = new THREE.PointLight(0x2d8c7c, 3.2, 8, 2);
+    const tealLight = new THREE.PointLight(0x2f7167, 1.45, 8, 2);
     tealLight.position.set(1.1, 1.2, 2.1);
     scene.add(tealLight);
 
-    const rimLight = new THREE.PointLight(0xcbe9e3, 2.2, 6, 2);
+    const rimLight = new THREE.PointLight(0xc2d7d2, 1.1, 6, 2);
     rimLight.position.set(-1.7, -0.4, 2.4);
     scene.add(rimLight);
 
-    const nodeLight = new THREE.PointLight(0x7ad3c2, 2.8, 4.2, 2);
+    const nodeLight = new THREE.PointLight(0x6da99e, 1.35, 4.2, 2);
     nodeLight.position.set(0, 0, 1.25);
     scene.add(nodeLight);
 
@@ -242,61 +235,39 @@ export const ThreeEngineCore: React.FC<ThreeEngineCoreProps> = ({
       raf = window.requestAnimationFrame(animate);
       const elapsed = clock.getElapsedTime();
       const state = liveStateRef.current;
-      const activity = state.running ? 1 : 0.3;
+      const activity = state.running ? 1 : 0.28;
       const processing = state.step >= 1 && state.step < 4;
       const finalState = state.complete;
-      const pulse = (Math.sin(elapsed * 4.4) + 1) * 0.5;
+      const pulse = (Math.sin(elapsed * 2.7) + 1) * 0.5;
 
-      engineGroup.rotation.y = Math.sin(elapsed * 0.38) * 0.08;
-      engineGroup.rotation.x = -0.08 + Math.sin(elapsed * 0.28) * 0.025;
-      brainGroup.rotation.y = Math.sin(elapsed * 0.62) * 0.12 * activity;
-      brainGroup.rotation.x = Math.sin(elapsed * 0.42) * 0.035 * activity;
-      wireShell.rotation.x = -elapsed * 0.08 * activity;
-      wireShell.rotation.y = elapsed * 0.13 * activity;
-      particles.rotation.y = -elapsed * 0.08 * activity;
-      particles.rotation.x = elapsed * 0.028 * activity;
+      engineGroup.rotation.y = Math.sin(elapsed * 0.24) * 0.065;
+      engineGroup.rotation.x = -0.08 + Math.sin(elapsed * 0.18) * 0.02;
+      brainGroup.rotation.y = Math.sin(elapsed * 0.38) * 0.09 * activity;
+      brainGroup.rotation.x = Math.sin(elapsed * 0.28) * 0.025 * activity;
+      wireShell.rotation.x = -elapsed * 0.045 * activity;
+      wireShell.rotation.y = elapsed * 0.07 * activity;
+      particles.rotation.y = -elapsed * 0.045 * activity;
+      particles.rotation.x = elapsed * 0.016 * activity;
 
-      rings[0].ring.rotation.z = elapsed * 0.31 * activity;
-      rings[1].ring.rotation.z = -elapsed * 0.24 * activity;
-      rings[2].ring.rotation.z = elapsed * 0.16 * activity;
+      rings[0].ring.rotation.z = elapsed * 0.17 * activity;
+      rings[1].ring.rotation.z = -elapsed * 0.13 * activity;
+      rings[2].ring.rotation.z = elapsed * 0.085 * activity;
 
-      const targetScale = finalState
-        ? 1.055
-        : processing
-          ? 1.015 + pulse * 0.045
-          : state.running
-            ? 1 + pulse * 0.018
-            : 1;
+      const targetScale = finalState ? 1.035 : processing ? 1.01 + pulse * 0.026 : state.running ? 1 + pulse * 0.01 : 1;
       brainGroup.scale.setScalar(targetScale);
-      wireShell.scale.setScalar(1.01 + pulse * (processing ? 0.025 : 0.008));
-      centralNode.scale.setScalar(0.92 + pulse * (processing ? 0.38 : 0.18));
+      wireShell.scale.setScalar(1.005 + pulse * (processing ? 0.015 : 0.005));
+      centralNode.scale.setScalar(0.95 + pulse * (processing ? 0.18 : 0.08));
 
-      lobeMaterial.emissiveIntensity = finalState
-        ? 0.88
-        : processing
-          ? 0.84 + pulse * 0.48
-          : state.running
-            ? 0.62
-            : 0.38;
-      nodeMaterial.emissiveIntensity = finalState
-        ? 2.2
-        : processing
-          ? 1.8 + pulse * 1.2
-          : 1.35 + pulse * 0.35;
-      neuralMaterial.opacity = processing ? 0.46 + pulse * 0.28 : 0.32;
-      seamMaterial.opacity = processing ? 0.4 + pulse * 0.25 : 0.28;
-      tealLight.intensity = finalState
-        ? 4.1
-        : processing
-          ? 3.7 + pulse * 2.2
-          : state.running
-            ? 3
-            : 1.55;
-      nodeLight.intensity = processing ? 3.2 + pulse * 2.5 : 2.1 + pulse * 0.7;
-      particleMaterial.opacity = processing ? 0.4 + pulse * 0.24 : 0.24;
+      lobeMaterial.emissiveIntensity = finalState ? 0.5 : processing ? 0.46 + pulse * 0.2 : state.running ? 0.36 : 0.24;
+      nodeMaterial.emissiveIntensity = finalState ? 1.05 : processing ? 0.9 + pulse * 0.45 : 0.72 + pulse * 0.16;
+      neuralMaterial.opacity = processing ? 0.3 + pulse * 0.13 : 0.22;
+      seamMaterial.opacity = processing ? 0.27 + pulse * 0.1 : 0.2;
+      tealLight.intensity = finalState ? 1.85 : processing ? 1.65 + pulse * 0.75 : state.running ? 1.35 : 0.8;
+      nodeLight.intensity = processing ? 1.55 + pulse * 0.8 : 1.05 + pulse * 0.28;
+      particleMaterial.opacity = processing ? 0.22 + pulse * 0.1 : 0.14;
 
       neuralTubes.forEach(({ mesh }, index) => {
-        mesh.rotation.z = Math.sin(elapsed * 0.55 + index) * 0.008;
+        mesh.rotation.z = Math.sin(elapsed * 0.35 + index) * 0.006;
       });
 
       renderer.render(scene, camera);
@@ -307,7 +278,6 @@ export const ThreeEngineCore: React.FC<ThreeEngineCoreProps> = ({
     return () => {
       window.cancelAnimationFrame(raf);
       resizeObserver.disconnect();
-
       rings.forEach(({ geometry, material }) => {
         geometry.dispose();
         material.dispose();
@@ -326,20 +296,13 @@ export const ThreeEngineCore: React.FC<ThreeEngineCoreProps> = ({
       particleGeometry.dispose();
       particleMaterial.dispose();
       renderer.dispose();
-
-      if (renderer.domElement.parentElement === mount) {
-        mount.removeChild(renderer.domElement);
-      }
+      if (renderer.domElement.parentElement === mount) mount.removeChild(renderer.domElement);
     };
   }, []);
 
   return (
     <div
-      className={
-        "gk-three-engine" +
-        (running ? " is-running" : "") +
-        (complete ? " is-complete" : "")
-      }
+      className={"gk-three-engine" + (running ? " is-running" : "") + (complete ? " is-complete" : "")}
       ref={mountRef}
       aria-hidden="true"
     >

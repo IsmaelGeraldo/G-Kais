@@ -14,104 +14,78 @@ const clamp = {
 };
 
 const accent = '#0A3F4D';
+const WORLD_WIDTH = 2360;
+const ENGINE_X = 1540;
+const ENGINE_Y = 178;
+const ENGINE_CENTER_X = ENGINE_X + 165;
+const ENGINE_CENTER_Y = ENGINE_Y + 173;
 
-const ENGINE_X = 930;
-const ENGINE_Y = 354;
-const ENTRY_RADIUS = 164;
-const ENTRY_X = ENGINE_X;
-const ENTRY_Y = ENGINE_Y - ENTRY_RADIUS;
-
-type SignalSeed = {
+type Seed = {
+  label: string;
   x: number;
   y: number;
+  width: number;
   hue: string;
   delay: number;
-  controlX: number;
-  controlY: number;
 };
 
-const signals: SignalSeed[] = [
-  {x: 438, y: 142, hue: '#C9487F', delay: 0, controlX: 640, controlY: 74},
-  {x: 394, y: 493, hue: '#26A866', delay: 3, controlX: 655, controlY: 355},
-  {x: 486, y: 246, hue: '#66747D', delay: 6, controlX: 694, controlY: 132},
-  {x: 445, y: 391, hue: accent, delay: 9, controlX: 706, controlY: 268},
-  {x: 132, y: 296, hue: '#C9487F', delay: 12, controlX: 520, controlY: 126},
-  {x: 168, y: 132, hue: '#26A866', delay: 15, controlX: 555, controlY: 54},
-  {x: 178, y: 606, hue: '#66747D', delay: 18, controlX: 548, controlY: 394},
+const seeds: Seed[] = [
+  {label: 'IG', x: 350, y: 116, width: 176, hue: '#C9487F', delay: 0},
+  {label: 'WA', x: 300, y: 468, width: 188, hue: '#26A866', delay: 4},
+  {label: '@', x: 405, y: 220, width: 165, hue: '#66747D', delay: 8},
+  {label: 'F', x: 362, y: 366, width: 174, hue: accent, delay: 12},
+  {label: 'IG', x: 48, y: 270, width: 170, hue: '#C9487F', delay: 16},
+  {label: 'WA', x: 84, y: 106, width: 162, hue: '#26A866', delay: 20},
+  {label: '@', x: 92, y: 584, width: 174, hue: '#66747D', delay: 24},
 ];
 
-const bezier = (a: number, b: number, c: number, t: number) => {
+const cubic = (a: number, b: number, c: number, d: number, t: number) => {
   const u = 1 - t;
-  return u * u * a + 2 * u * t * b + t * t * c;
+  return u * u * u * a + 3 * u * u * t * b + 3 * u * t * t * c + t * t * t * d;
 };
 
-const orbitPoint = (angleDeg: number, radius: number) => {
-  const radians = (angleDeg * Math.PI) / 180;
-  return {
-    x: ENGINE_X + Math.cos(radians) * radius,
-    y: ENGINE_Y + Math.sin(radians) * radius,
-  };
-};
-
-const SignalDot: React.FC<{seed: SignalSeed; index: number}> = ({seed, index}) => {
+const SignalFlight: React.FC<{seed: Seed; index: number}> = ({seed, index}) => {
   const frame = useCurrentFrame();
-  const appearStart = 148 + seed.delay;
-  const travelStart = 154 + seed.delay;
-  const travelEnd = 193 + Math.round(seed.delay * 0.48);
-  const orbitStart = travelEnd - 1;
-
-  const appear = interpolate(frame, [appearStart, appearStart + 9], [0, 1], {
-    ...clamp,
-    easing: Easing.out(Easing.cubic),
-  });
-
-  const travel = interpolate(frame, [travelStart, travelEnd], [0, 1], {
+  const launchStart = 132 + seed.delay;
+  const launchEnd = 194 + Math.round(seed.delay * 0.55);
+  const progress = interpolate(frame, [launchStart, launchEnd], [0, 1], {
     ...clamp,
     easing: Easing.inOut(Easing.cubic),
   });
 
-  const orbitElapsed = Math.max(0, frame - orbitStart);
-  const orbitRamp = interpolate(frame, [orbitStart, 278], [0, 1], {
-    ...clamp,
-    easing: Easing.in(Easing.quad),
-  });
-  const radius = 164 - orbitRamp * 18 + (index - 3) * 1.7;
-  const angle = -90 + orbitElapsed * 2.7 + orbitElapsed * orbitElapsed * 0.11 + index * 4.6;
-  const orbital = orbitPoint(angle, radius);
+  const startX = seed.x + seed.width / 2;
+  const startY = seed.y + 26;
+  const targetX = ENGINE_CENTER_X + (index - 3) * 5;
+  const targetY = ENGINE_Y + 16;
+  const c1x = startX + 220 + index * 16;
+  const c1y = Math.max(58, startY - 80 - index * 5);
+  const c2x = 1280 + index * 24;
+  const c2y = 58 + index * 11;
 
-  const travelX = bezier(seed.x, seed.controlX, ENTRY_X, travel);
-  const travelY = bezier(seed.y, seed.controlY, ENTRY_Y, travel);
-
-  const x = travel < 1 ? travelX : orbital.x;
-  const y = travel < 1 ? travelY : orbital.y;
-
-  const absorb = interpolate(frame, [270, 287], [1, 0], clamp);
-  const opacity = appear * absorb;
-  const size = interpolate(frame, [appearStart, travelStart + 8, 260, 287], [8, 12, 13, 8], clamp);
-  const pathOpacity = interpolate(
+  const x = cubic(startX, c1x, c2x, targetX, progress);
+  const y = cubic(startY, c1y, c2y, targetY, progress);
+  const opacity = interpolate(
     frame,
-    [travelStart - 4, travelStart + 6, travelEnd - 2, travelEnd + 8],
-    [0, 0.38, 0.24, 0],
+    [launchStart - 5, launchStart + 3, launchEnd - 3, launchEnd + 5],
+    [0, 1, 1, 0],
     clamp,
   );
-  const path = `M ${seed.x} ${seed.y} Q ${seed.controlX} ${seed.controlY} ${ENTRY_X} ${ENTRY_Y}`;
-  const dash = interpolate(travel, [0, 1], [350, 0]);
-
-  const trail = [10, 19, 28].map((angleOffset, trailIndex) => {
-    const point = orbitPoint(angle - angleOffset, radius + trailIndex * 1.2);
-    return {
-      ...point,
-      opacity: orbitElapsed > 0 ? opacity * (0.34 - trailIndex * 0.085) : 0,
-      size: Math.max(3, size - 4 - trailIndex * 1.4),
-    };
-  });
+  const pathOpacity = interpolate(
+    frame,
+    [launchStart - 5, launchStart + 8, launchEnd - 6, launchEnd + 6],
+    [0, 0.28, 0.22, 0],
+    clamp,
+  );
+  const path = `M ${startX} ${startY} C ${c1x} ${c1y} ${c2x} ${c2y} ${targetX} ${targetY}`;
+  const dash = interpolate(progress, [0, 1], [520, 0]);
+  const scale = interpolate(progress, [0, 0.7, 1], [0.82, 1.08, 0.92], clamp);
 
   return (
     <>
       <svg
-        width="1280"
+        width={WORLD_WIDTH}
         height="720"
-        viewBox="0 0 1280 720"
+        viewBox={`0 0 ${WORLD_WIDTH} 720`}
         style={{position: 'absolute', inset: 0, opacity: pathOpacity, pointerEvents: 'none'}}
       >
         <path
@@ -120,88 +94,105 @@ const SignalDot: React.FC<{seed: SignalSeed; index: number}> = ({seed, index}) =
           stroke={seed.hue}
           strokeWidth={1.1}
           strokeLinecap="round"
-          strokeDasharray="30 22"
+          strokeDasharray="36 22"
           strokeDashoffset={dash}
-          opacity={0.5}
+          opacity={0.58}
         />
         <path
           d={path}
           fill="none"
-          stroke="rgba(255,255,255,0.92)"
+          stroke="rgba(255,255,255,0.78)"
           strokeWidth={0.55}
           strokeLinecap="round"
-          strokeDasharray="11 54"
-          strokeDashoffset={dash * 1.16}
-          opacity={0.68}
+          strokeDasharray="10 62"
+          strokeDashoffset={dash * 1.22}
+          opacity={0.66}
         />
       </svg>
-
-      {trail.map((dot, trailIndex) => (
-        <div
-          key={trailIndex}
-          style={{
-            position: 'absolute',
-            left: dot.x,
-            top: dot.y,
-            width: dot.size,
-            height: dot.size,
-            borderRadius: '50%',
-            transform: 'translate(-50%, -50%)',
-            background: seed.hue,
-            opacity: dot.opacity,
-            filter: 'blur(0.4px)',
-            boxShadow: `0 0 12px rgba(10,63,77,${0.14 + orbitRamp * 0.18})`,
-            zIndex: 12,
-          }}
-        />
-      ))}
 
       <div
         style={{
           position: 'absolute',
           left: x,
           top: y,
-          width: size,
-          height: size,
+          width: 14,
+          height: 14,
+          marginLeft: -7,
+          marginTop: -7,
           borderRadius: '50%',
-          transform: 'translate(-50%, -50%)',
+          background: `radial-gradient(circle at 35% 30%, #fff 0%, ${seed.hue} 46%, ${accent} 100%)`,
+          boxShadow: `0 0 16px ${seed.hue}88, 0 0 30px rgba(10,63,77,0.20)`,
           opacity,
-          zIndex: 13,
-          background: `radial-gradient(circle at 34% 28%, #FFFFFF 0%, ${seed.hue} 42%, ${accent} 100%)`,
-          border: '1px solid rgba(255,255,255,0.82)',
-          boxShadow: `0 0 ${14 + orbitRamp * 18}px rgba(10,63,77,${0.26 + orbitRamp * 0.28}), inset 0 1px 1px rgba(255,255,255,0.9)`,
+          transform: `scale(${scale}) translateZ(0)`,
+          zIndex: 14,
         }}
       />
     </>
   );
 };
 
-const MechanicalRing: React.FC<{
-  size: number;
-  thickness: number;
-  baseSpeed: number;
-  accel: number;
-  activation: number;
-  opacity: number;
-  dashed?: boolean;
-}> = ({size, thickness, baseSpeed, accel, activation, opacity, dashed = false}) => {
+const OrbitingSignal: React.FC<{seed: Seed; index: number}> = ({seed, index}) => {
   const frame = useCurrentFrame();
-  const elapsed = Math.max(0, frame - 184);
-  const angle = elapsed * baseSpeed + elapsed * elapsed * accel * activation;
+  const arrival = 194 + Math.round(seed.delay * 0.55);
+  const age = Math.max(0, frame - arrival);
+  const visible = frame >= arrival;
+  if (!visible) return null;
+
+  const acceleration = interpolate(age, [0, 58], [0, 1], {
+    ...clamp,
+    easing: Easing.in(Easing.cubic),
+  });
+  const angleDeg = -90 + age * (1.25 + acceleration * 4.7) + age * age * 0.032;
+  const angle = (angleDeg * Math.PI) / 180;
+  const radius = interpolate(acceleration, [0, 1], [142 - index * 2, 108 + (index % 3) * 4], clamp);
+  const x = ENGINE_CENTER_X + Math.cos(angle) * radius;
+  const y = ENGINE_CENTER_Y + Math.sin(angle) * radius;
+  const fade = interpolate(age, [0, 66, 84], [1, 1, 0], clamp);
+  const size = interpolate(acceleration, [0, 1], [11, 8], clamp);
 
   return (
     <div
       style={{
         position: 'absolute',
-        left: '50%',
-        top: '50%',
+        left: x,
+        top: y,
         width: size,
         height: size,
         marginLeft: -size / 2,
         marginTop: -size / 2,
         borderRadius: '50%',
-        border: `${thickness}px ${dashed ? 'dashed' : 'solid'} rgba(68,77,73,${0.18 + activation * 0.17})`,
-        boxShadow: `inset 0 0 0 1px rgba(255,255,255,0.34), inset 0 0 18px rgba(0,0,0,0.07), 0 0 ${10 + activation * 22}px rgba(10,63,77,${activation * 0.12})`,
+        background: seed.hue,
+        boxShadow: `0 0 ${12 + acceleration * 18}px ${seed.hue}AA, 0 0 ${24 + acceleration * 28}px rgba(10,63,77,0.24)`,
+        opacity: fade,
+        zIndex: 18,
+      }}
+    />
+  );
+};
+
+const EngineRing: React.FC<{
+  size: number;
+  speed: number;
+  opacity: number;
+  activation: number;
+  dashed?: boolean;
+}> = ({size, speed, opacity, activation, dashed = false}) => {
+  const frame = useCurrentFrame();
+  const angle = frame * speed * (1 + activation * 2.9);
+
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        width: size,
+        height: size,
+        left: '50%',
+        top: '50%',
+        marginLeft: -size / 2,
+        marginTop: -size / 2,
+        borderRadius: '50%',
+        border: dashed ? '1px dashed rgba(10,63,77,0.42)' : '1px solid rgba(45,55,51,0.20)',
+        boxShadow: activation > 0.35 ? `0 0 ${16 + activation * 18}px rgba(10,63,77,${0.08 + activation * 0.10})` : 'none',
         opacity,
         transform: `rotate(${angle}deg)`,
       }}
@@ -209,14 +200,14 @@ const MechanicalRing: React.FC<{
       <div
         style={{
           position: 'absolute',
-          width: 10,
-          height: 10,
+          width: 8,
+          height: 8,
           borderRadius: '50%',
-          background: activation > 0.12 ? accent : '#737B77',
-          top: -thickness / 2 - 4,
+          background: activation > 0.15 ? accent : '#707875',
+          top: -4,
           left: '50%',
-          marginLeft: -5,
-          boxShadow: activation > 0.12 ? `0 0 ${12 + activation * 18}px rgba(10,63,77,0.48)` : 'none',
+          marginLeft: -4,
+          boxShadow: activation > 0.15 ? `0 0 ${12 + activation * 12}px rgba(10,63,77,0.55)` : 'none',
         }}
       />
     </div>
@@ -225,146 +216,84 @@ const MechanicalRing: React.FC<{
 
 const GKAISSystemCore: React.FC = () => {
   const frame = useCurrentFrame();
-  const enter = interpolate(frame, [166, 204], [0, 1], {
+  const activation = interpolate(frame, [216, 286], [0, 1], {
+    ...clamp,
+    easing: Easing.inOut(Easing.cubic),
+  });
+  const reveal = interpolate(frame, [156, 214], [0.86, 1], {
     ...clamp,
     easing: Easing.out(Easing.cubic),
   });
-  const activation = interpolate(frame, [208, 282], [0, 1], {
-    ...clamp,
-    easing: Easing.in(Easing.cubic),
-  });
-  const pulse = Math.sin((frame - 218) / 3.7) * 0.5 + 0.5;
-  const impact = interpolate(frame, [212, 226, 250, 283], [0, 1, 0.58, 0.2], clamp);
-  const coreScale = 1 + activation * 0.035 + activation * pulse * 0.025;
-  const shellRotation = Math.max(0, frame - 184) * 0.24 + Math.pow(Math.max(0, frame - 214), 2) * 0.014;
+  const impact = interpolate(frame, [214, 228, 248, 274], [0, 1, 0.58, 0.18], clamp);
+  const pulse = Math.sin((frame - 224) / 4.6) * 0.5 + 0.5;
+  const corePulse = 1 + activation * 0.026 + activation * pulse * 0.021;
 
   return (
     <div
       style={{
         position: 'absolute',
-        left: 740 + interpolate(enter, [0, 1], [310, 0]),
-        top: 154,
-        width: 380,
-        height: 410,
-        opacity: enter,
-        transform: `perspective(1200px) rotateX(4deg) scale(${interpolate(enter, [0, 1], [0.9, 1])})`,
+        left: ENGINE_X,
+        top: ENGINE_Y,
+        width: 330,
+        height: 360,
+        transform: `scale(${reveal})`,
         transformOrigin: 'center center',
-        transformStyle: 'preserve-3d',
-        zIndex: 8,
+        zIndex: 10,
       }}
     >
       <div
         style={{
           position: 'absolute',
-          left: 42,
-          right: 42,
-          bottom: 8,
-          height: 42,
+          width: 330,
+          height: 330,
+          left: 0,
+          top: 8,
           borderRadius: '50%',
-          background: 'rgba(20,26,23,0.22)',
-          filter: 'blur(18px)',
-          transform: 'scaleX(1.08)',
-          opacity: 0.55,
+          background: `radial-gradient(circle, rgba(10,63,77,${0.08 + activation * 0.11}) 0%, rgba(10,63,77,0.035) 37%, transparent 72%)`,
+          filter: `blur(${14 - activation * 5}px)`,
         }}
       />
 
-      <div
-        style={{
-          position: 'absolute',
-          width: 350,
-          height: 350,
-          left: 15,
-          top: 10,
-          borderRadius: '50%',
-          background: `radial-gradient(circle, rgba(10,63,77,${0.08 + activation * 0.18}) 0%, rgba(10,63,77,0.05) 36%, transparent 72%)`,
-          filter: `blur(${18 - activation * 7}px)`,
-        }}
-      />
-
-      <div
-        style={{
-          position: 'absolute',
-          left: 33,
-          top: 29,
-          width: 314,
-          height: 314,
-          borderRadius: '50%',
-          background:
-            'radial-gradient(circle at 38% 25%, rgba(255,255,255,0.82), rgba(174,181,177,0.74) 12%, rgba(75,83,79,0.94) 42%, rgba(21,27,24,0.99) 74%, #0A0D0B 100%)',
-          boxShadow:
-            'inset 0 3px 3px rgba(255,255,255,0.44), inset 0 -20px 34px rgba(0,0,0,0.34), 0 30px 58px rgba(12,17,14,0.26)',
-          transform: 'translateY(9px)',
-        }}
-      />
-
-      <div
-        style={{
-          position: 'absolute',
-          left: 26,
-          top: 20,
-          width: 326,
-          height: 326,
-          borderRadius: '50%',
-          background:
-            'conic-gradient(from 8deg, #AEB5B1 0deg, #343B37 32deg, #D8DDDA 66deg, #202622 108deg, #929B96 152deg, #2D3531 206deg, #D5D9D6 254deg, #303733 310deg, #AEB5B1 360deg)',
-          boxShadow:
-            'inset 0 0 0 1px rgba(255,255,255,0.55), inset 0 -14px 28px rgba(0,0,0,0.22), 0 16px 34px rgba(18,23,20,0.18)',
-          transform: `rotate(${shellRotation}deg)`,
-        }}
-      >
-        <div
-          style={{
-            position: 'absolute',
-            inset: 18,
-            borderRadius: '50%',
-            background:
-              'radial-gradient(circle at 42% 28%, rgba(245,247,245,0.95), rgba(196,201,198,0.88) 13%, rgba(73,80,76,0.96) 44%, #171C19 72%, #0B0E0C 100%)',
-            boxShadow:
-              'inset 0 4px 8px rgba(255,255,255,0.28), inset 0 -20px 34px rgba(0,0,0,0.36)',
-          }}
-        />
-      </div>
-
-      <MechanicalRing size={278} thickness={7} baseSpeed={0.48} accel={0.035} activation={activation} opacity={0.62 + activation * 0.26} />
-      <MechanicalRing size={232} thickness={5} baseSpeed={0.68} accel={0.052} activation={activation} opacity={0.52 + activation * 0.31} dashed />
-      <MechanicalRing size={192} thickness={4} baseSpeed={0.92} accel={0.068} activation={activation} opacity={0.44 + activation * 0.36} />
+      <EngineRing size={286} speed={0.16} opacity={0.56 + activation * 0.26} activation={activation} />
+      <EngineRing size={238} speed={0.23} opacity={0.46 + activation * 0.30} activation={activation} dashed />
+      <EngineRing size={196} speed={0.34} opacity={0.36 + activation * 0.40} activation={activation} />
 
       <div
         style={{
           position: 'absolute',
           left: '50%',
           top: '50%',
-          width: 170,
-          height: 170,
-          marginLeft: -85,
-          marginTop: -85,
+          width: 164,
+          height: 164,
+          marginLeft: -82,
+          marginTop: -82,
           borderRadius: '50%',
-          transform: `translateY(3px) scale(${coreScale})`,
+          transform: `scale(${corePulse})`,
           background:
-            'radial-gradient(circle at 34% 26%, rgba(255,255,255,0.98), rgba(207,214,210,0.92) 15%, rgba(82,91,86,0.94) 37%, rgba(21,28,24,0.99) 62%, #090C0A 100%)',
-          border: '1px solid rgba(255,255,255,0.68)',
-          boxShadow: `inset 0 4px 5px rgba(255,255,255,0.42), inset 0 -22px 38px rgba(0,0,0,0.34), 0 22px 46px rgba(10,15,12,0.34), 0 0 ${18 + activation * 58}px rgba(10,63,77,${0.04 + activation * 0.28})`,
+            'radial-gradient(circle at 34% 27%, rgba(255,255,255,0.94), rgba(224,228,225,0.83) 17%, rgba(102,111,107,0.88) 38%, rgba(25,31,28,0.98) 63%, #0B0E0C 100%)',
+          border: '1px solid rgba(255,255,255,0.72)',
+          boxShadow: `inset 0 2px 2px rgba(255,255,255,0.52), inset 0 -18px 36px rgba(0,0,0,0.26), 0 28px 64px rgba(13,18,16,0.30), 0 0 ${20 + activation * 50}px rgba(10,63,77,${0.05 + activation * 0.22})`,
           overflow: 'hidden',
         }}
       >
         <div
           style={{
             position: 'absolute',
-            inset: 12,
+            inset: 11,
             borderRadius: '50%',
             background:
-              'repeating-conic-gradient(from 0deg, rgba(255,255,255,0.26) 0deg 2deg, transparent 2deg 14deg)',
-            opacity: 0.34 + activation * 0.42,
-            transform: `rotate(${Math.max(0, frame - 184) * (0.34 + activation * 1.45)}deg)`,
+              'repeating-conic-gradient(from 12deg, rgba(255,255,255,0.34) 0deg 2deg, transparent 2deg 17deg)',
+            opacity: 0.45 + activation * 0.30,
+            transform: `rotate(${frame * (0.18 + activation * 0.42)}deg)`,
           }}
         />
         <div
           style={{
             position: 'absolute',
-            inset: 35,
+            inset: 34,
             borderRadius: '50%',
-            background: `radial-gradient(circle at 40% 31%, rgba(255,255,255,0.98), rgba(17,94,108,${0.10 + activation * 0.56}) 36%, #0F1714 78%)`,
-            boxShadow: `inset 0 0 0 1px rgba(255,255,255,0.16), 0 0 ${12 + activation * 34}px rgba(10,63,77,${0.12 + activation * 0.40})`,
+            background: `radial-gradient(circle at 42% 34%, rgba(255,255,255,0.95), rgba(10,63,77,${0.16 + activation * 0.46}) 38%, #101613 76%)`,
+            boxShadow: `inset 0 0 0 1px rgba(255,255,255,0.17), 0 0 ${14 + activation * 28}px rgba(10,63,77,${0.16 + activation * 0.34})`,
           }}
         />
         <div
@@ -376,9 +305,9 @@ const GKAISSystemCore: React.FC = () => {
             color: '#fff',
             fontFamily: roundedFamily,
             fontWeight: 900,
-            letterSpacing: 1.1,
+            letterSpacing: 1.2,
             fontSize: 15,
-            textShadow: '0 2px 12px rgba(0,0,0,0.42)',
+            textShadow: '0 1px 12px rgba(0,0,0,0.34)',
           }}
         >
           G-KAIS
@@ -388,85 +317,135 @@ const GKAISSystemCore: React.FC = () => {
       <div
         style={{
           position: 'absolute',
-          left: 31,
-          top: 23,
-          width: 318,
-          height: 318,
+          left: 17,
+          right: 17,
+          top: 14,
+          bottom: 14,
           borderRadius: '50%',
-          border: `1px solid rgba(10,63,77,${0.06 + impact * 0.34})`,
-          transform: `scale(${1 + impact * 0.12})`,
+          border: `1px solid rgba(10,63,77,${0.06 + impact * 0.26})`,
+          transform: `scale(${1 + impact * 0.11})`,
           opacity: impact,
-          boxShadow: `0 0 ${16 + impact * 34}px rgba(10,63,77,${impact * 0.14})`,
         }}
       />
+
+      <div
+        style={{
+          position: 'absolute',
+          left: 70,
+          right: 70,
+          bottom: -6,
+          textAlign: 'center',
+          fontFamily: roundedFamily,
+          fontSize: 10,
+          letterSpacing: 2.2,
+          fontWeight: 900,
+          color: '#5F6964',
+          opacity: interpolate(frame, [205, 226], [0, 1], clamp),
+        }}
+      >
+        SYSTEM CORE
+      </div>
     </div>
   );
 };
 
 const FlowScene: React.FC = () => {
   const frame = useCurrentFrame();
-  const sceneExit = interpolate(frame, [122, 160], [0, 1], {
+  const cameraProgress = interpolate(frame, [118, 222], [0, 1], {
     ...clamp,
     easing: Easing.inOut(Easing.cubic),
   });
-  const sceneOpacity = interpolate(frame, [126, 158], [1, 0], clamp);
-  const blur = interpolate(sceneExit, [0, 1], [0, 7]);
-  const rightGlow = interpolate(frame, [162, 224, 287], [0, 0.16, 0.11], clamp);
+  const cameraX = interpolate(cameraProgress, [0, 1], [0, -950]);
+  const cameraScale = interpolate(cameraProgress, [0, 0.45, 1], [1, 1.018, 1.032], clamp);
+  const cameraY = interpolate(cameraProgress, [0, 1], [0, -5]);
+  const scene01Opacity = interpolate(frame, [150, 218], [1, 0.12], clamp);
+  const scene01Blur = interpolate(frame, [158, 218], [0, 1.7], clamp);
 
   return (
     <AbsoluteFill
       style={{
         overflow: 'hidden',
         background:
-          'radial-gradient(circle at 77% 42%, rgba(255,255,255,0.88), transparent 27%), linear-gradient(135deg, #CFD0CD 0%, #E8E9E5 52%, #C8CBC8 100%)',
+          'radial-gradient(circle at 72% 44%, rgba(255,255,255,0.88), transparent 30%), linear-gradient(135deg, #CFD0CD 0%, #E8E9E5 50%, #C8CBC8 100%)',
       }}
     >
       <div
         style={{
           position: 'absolute',
-          inset: 0,
-          opacity: sceneOpacity,
-          filter: `blur(${blur}px)`,
-          transform: `translateX(${interpolate(sceneExit, [0, 1], [0, -160])}px) scale(${interpolate(sceneExit, [0, 1], [1, 0.975])})`,
+          left: 0,
+          top: 0,
+          width: WORLD_WIDTH,
+          height: 720,
+          transform: `translate3d(${cameraX}px, ${cameraY}px, 0) scale(${cameraScale})`,
+          transformOrigin: '640px 360px',
+          willChange: 'transform',
         }}
       >
-        <Scene01Cinematic />
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background:
+              'radial-gradient(circle at 30% 38%, rgba(255,255,255,0.54), transparent 24%), radial-gradient(circle at 78% 46%, rgba(10,63,77,0.055), transparent 28%), linear-gradient(135deg, #CFD0CD 0%, #E8E9E5 54%, #C8CBC8 100%)',
+          }}
+        />
+
+        <div
+          style={{
+            position: 'absolute',
+            left: 0,
+            top: 0,
+            width: 1280,
+            height: 720,
+            opacity: scene01Opacity,
+            filter: `blur(${scene01Blur}px)`,
+          }}
+        >
+          <Scene01Cinematic />
+        </div>
+
+        <div
+          style={{
+            position: 'absolute',
+            left: 1030,
+            top: 0,
+            width: 520,
+            height: 720,
+            background:
+              'linear-gradient(90deg, rgba(226,228,224,0) 0%, rgba(226,228,224,0.42) 38%, rgba(226,228,224,0.82) 74%, rgba(226,228,224,0) 100%)',
+            filter: 'blur(18px)',
+            opacity: interpolate(frame, [128, 174, 220], [0, 0.54, 0.18], clamp),
+            pointerEvents: 'none',
+            zIndex: 4,
+          }}
+        />
+
+        <div
+          style={{
+            position: 'absolute',
+            left: 1370,
+            top: 70,
+            width: 670,
+            height: 570,
+            borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(255,255,255,0.58), rgba(10,63,77,0.035) 42%, transparent 70%)',
+            filter: 'blur(18px)',
+            zIndex: 2,
+          }}
+        />
+
+        {seeds.map((seed, index) => (
+          <SignalFlight key={`flight-${index}`} seed={seed} index={index} />
+        ))}
+
+        <GKAISSystemCore />
+
+        {seeds.map((seed, index) => (
+          <OrbitingSignal key={`orbit-${index}`} seed={seed} index={index} />
+        ))}
       </div>
-
-      <div
-        style={{
-          position: 'absolute',
-          inset: 26,
-          borderRadius: 38,
-          border: '1px solid rgba(255,255,255,0.54)',
-          background: 'rgba(242,243,240,0.17)',
-          boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.028), 0 22px 72px rgba(28,34,31,0.09)',
-          opacity: interpolate(frame, [132, 160], [0, 1], clamp),
-        }}
-      />
-
-      <div
-        style={{
-          position: 'absolute',
-          width: 540,
-          height: 540,
-          right: -62,
-          top: 76,
-          borderRadius: '50%',
-          background: `radial-gradient(circle, rgba(10,63,77,${rightGlow}), transparent 70%)`,
-          filter: 'blur(26px)',
-        }}
-      />
-
-      {signals.map((seed, index) => (
-        <SignalDot key={index} seed={seed} index={index} />
-      ))}
-
-      <GKAISSystemCore />
     </AbsoluteFill>
   );
 };
 
-export const Scene01ToEngineFlow: React.FC = () => {
-  return <FlowScene />;
-};
+export const Scene01ToEngineFlow: React.FC = () => <FlowScene />;

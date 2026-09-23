@@ -7,7 +7,7 @@ const Scene01ToCRMPreviewRoot: React.FC = () => {
     <Composition
       id="GKAISScene01ToCRMPreview"
       component={Scene01ToCRMPreview}
-      durationInFrames={660}
+      durationInFrames={735}
       fps={30}
       width={1280}
       height={720}

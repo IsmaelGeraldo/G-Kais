@@ -1,0 +1,223 @@
+@media (min-width: 721px) {
+  .gk-engine-stage {
+    grid-template-columns: minmax(0, 0.82fr) 96px minmax(0, 1.2fr);
+    gap: 14px;
+  }
+}
+
+.gk-engine-conversation,
+.gk-engine-workspace {
+  position: relative;
+  z-index: 6;
+}
+
+.gk-engine-core {
+  z-index: 8;
+}
+
+.gk-engine-core-anchor {
+  position: relative;
+  width: 86px;
+  height: 86px;
+  margin: 0 auto 4px;
+  z-index: 9;
+}
+
+.gk-three-engine {
+  position: absolute;
+  inset: -16px;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  filter: drop-shadow(0 8px 18px rgba(10, 63, 77, 0.12));
+}
+
+.gk-three-engine canvas {
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.gk-three-glyph,
+.gk-three-fallback {
+  position: relative;
+  z-index: 4;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  color: rgba(255, 255, 255, 0.96);
+  text-shadow: 0 0 12px rgba(116, 193, 180, 0.48);
+  pointer-events: none;
+}
+
+.gk-three-fallback {
+  background: #0a3f4d;
+  box-shadow:
+    0 0 0 8px rgba(10, 63, 77, 0.08),
+    0 0 22px rgba(10, 63, 77, 0.25);
+}
+
+.gk-three-engine.is-complete .gk-three-glyph {
+  text-shadow:
+    0 0 7px rgba(255, 255, 255, 0.45),
+    0 0 18px rgba(116, 193, 180, 0.68);
+}
+
+/* The circuit SVG sits behind the DOM cards but above the stage background. */
+.gk-circuit-network {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 4;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.gk-circuit-base,
+.gk-circuit-reached,
+.gk-circuit-active,
+.gk-circuit-input {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.gk-circuit-base {
+  stroke: rgba(10, 63, 77, 0.11);
+  stroke-width: 1.1;
+}
+
+.gk-circuit-reached {
+  stroke: rgba(10, 63, 77, 0.27);
+  stroke-width: 1.35;
+}
+
+.gk-circuit-active {
+  stroke: #0a3f4d;
+  stroke-width: 2.2;
+  stroke-dasharray: 3 7 13 5;
+  animation: gk-electric-dash 0.48s linear infinite;
+  filter: url(#gk-electric-glow);
+}
+
+.gk-circuit-active.gk-circuit-hot {
+  stroke: #62b6a7;
+  stroke-width: 2.9;
+  stroke-dasharray: 2 10 18 5;
+  animation-duration: 0.34s;
+}
+
+.gk-circuit-input {
+  stroke: rgba(10, 63, 77, 0.66);
+  stroke-width: 1.8;
+}
+
+.gk-circuit-input.is-active {
+  stroke: #0a3f4d;
+  stroke-width: 2.5;
+  stroke-dasharray: 4 7 11 5;
+  animation: gk-electric-dash 0.44s linear infinite;
+  filter: url(#gk-electric-glow);
+}
+
+.gk-circuit-node {
+  fill: #f7faf9;
+  stroke: rgba(10, 63, 77, 0.46);
+  stroke-width: 1.2;
+  transition: fill 220ms ease, stroke-width 220ms ease;
+}
+
+.gk-circuit-node.is-active {
+  fill: #70bcaf;
+  stroke: #0a3f4d;
+  stroke-width: 1.8;
+  filter: url(#gk-electric-glow);
+  animation: gk-circuit-node-pulse 0.8s ease-in-out infinite;
+}
+
+.gk-circuit-spark {
+  fill: #8ed3c6;
+  filter: url(#gk-electric-glow-strong);
+}
+
+.gk-circuit-spark-secondary {
+  fill: #0a3f4d;
+  opacity: 0.72;
+  filter: url(#gk-electric-glow);
+}
+
+/* Kill the previous straight pseudo-element currents. */
+.gk-work-card::before,
+.gk-work-card::after {
+  content: none !important;
+  display: none !important;
+}
+
+/* Receiving edge glow when each independent circuit is energized. */
+.gk-step-1 .gk-context-card,
+.gk-step-2 .gk-priority-card,
+.gk-step-3 .gk-brief-card,
+.gk-step-4 .gk-next-card {
+  box-shadow:
+    0 12px 28px -24px rgba(0, 0, 0, 0.45),
+    -7px 0 18px -10px rgba(10, 63, 77, 0.62);
+}
+
+@keyframes gk-electric-dash {
+  to {
+    stroke-dashoffset: -35;
+  }
+}
+
+@keyframes gk-circuit-node-pulse {
+  0%, 100% {
+    r: 3.5px;
+    opacity: 0.78;
+  }
+  50% {
+    r: 5px;
+    opacity: 1;
+  }
+}
+
+@media (max-width: 720px) {
+  .gk-circuit-network {
+    display: none;
+  }
+
+  .gk-engine-core-anchor {
+    width: 60px;
+    height: 60px;
+    margin: 0;
+  }
+
+  .gk-three-engine {
+    inset: -11px;
+  }
+
+  .gk-three-glyph,
+  .gk-three-fallback {
+    width: 28px;
+    height: 28px;
+    font-size: 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gk-circuit-active,
+  .gk-circuit-input.is-active {
+    animation-duration: 1.15s !important;
+  }
+
+  .gk-circuit-node.is-active {
+    animation-duration: 1.5s !important;
+  }
+}

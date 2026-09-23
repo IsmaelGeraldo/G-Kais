@@ -1,4 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ArrowRight,
   Check,
@@ -10,8 +16,10 @@ import {
   User,
 } from "lucide-react";
 import { useLanguage } from "../i18n/LanguageContext";
+import { ThreeEngineCore } from "./ThreeEngineCore";
 import "./hero-conversations.css";
 import "./hero-autoplay-overrides.css";
+import "./hero-three-engine.css";
 
 const scenarios = {
   es: [
@@ -165,6 +173,301 @@ const steps = {
 
 const STEP_DELAYS = [1500, 1600, 1500, 2100, 2300];
 
+type Point = { x: number; y: number };
+type CircuitTarget = {
+  key: "context" | "priority" | "brief" | "next";
+  step: number;
+  path: string;
+  end: Point;
+};
+
+type ElementRef = React.RefObject<HTMLDivElement | null>;
+
+interface CircuitLayout {
+  width: number;
+  height: number;
+  inputPath: string;
+  inputStart: Point;
+  inputEnd: Point;
+  targets: CircuitTarget[];
+}
+
+const EMPTY_CIRCUIT_LAYOUT: CircuitLayout = {
+  width: 1,
+  height: 1,
+  inputPath: "",
+  inputStart: { x: 0, y: 0 },
+  inputEnd: { x: 0, y: 0 },
+  targets: [],
+};
+
+function buildCircuitPath(start: Point, end: Point, laneIndex: number): string {
+  const horizontalDistance = Math.max(34, end.x - start.x);
+  const firstLane = start.x + Math.min(25 + laneIndex * 2, horizontalDistance * 0.3);
+  const finalLane = Math.max(firstLane + 16, end.x - 18 - laneIndex * 1.5);
+  const direction = end.y >= start.y ? 1 : -1;
+  const firstKinkY = start.y + direction * (6 + laneIndex * 2.2);
+  const approachY = end.y - direction * 7;
+
+  return [
+    `M ${start.x.toFixed(1)} ${start.y.toFixed(1)}`,
+    `H ${firstLane.toFixed(1)}`,
+    `L ${(firstLane + 6).toFixed(1)} ${firstKinkY.toFixed(1)}`,
+    `H ${finalLane.toFixed(1)}`,
+    `V ${approachY.toFixed(1)}`,
+    `L ${(finalLane + 7).toFixed(1)} ${end.y.toFixed(1)}`,
+    `H ${end.x.toFixed(1)}`,
+  ].join(" ");
+}
+
+function buildInputCircuitPath(start: Point, end: Point): string {
+  const distance = Math.max(28, end.x - start.x);
+  const firstLane = start.x + distance * 0.32;
+  const secondLane = start.x + distance * 0.68;
+  const direction = end.y >= start.y ? 1 : -1;
+
+  return [
+    `M ${start.x.toFixed(1)} ${start.y.toFixed(1)}`,
+    `H ${firstLane.toFixed(1)}`,
+    `L ${(firstLane + 6).toFixed(1)} ${(start.y + direction * 6).toFixed(1)}`,
+    `H ${secondLane.toFixed(1)}`,
+    `L ${(secondLane + 6).toFixed(1)} ${end.y.toFixed(1)}`,
+    `H ${end.x.toFixed(1)}`,
+  ].join(" ");
+}
+
+interface EngineCircuitNetworkProps {
+  stageRef: ElementRef;
+  conversationRef: ElementRef;
+  coreRef: ElementRef;
+  contextRef: ElementRef;
+  priorityRef: ElementRef;
+  briefRef: ElementRef;
+  nextRef: ElementRef;
+  step: number;
+  running: boolean;
+  layoutKey: string;
+}
+
+const EngineCircuitNetwork: React.FC<EngineCircuitNetworkProps> = ({
+  stageRef,
+  conversationRef,
+  coreRef,
+  contextRef,
+  priorityRef,
+  briefRef,
+  nextRef,
+  step,
+  running,
+  layoutKey,
+}) => {
+  const [layout, setLayout] = useState<CircuitLayout>(EMPTY_CIRCUIT_LAYOUT);
+
+  useLayoutEffect(() => {
+    let frame = 0;
+
+    const measure = () => {
+      const stage = stageRef.current;
+      const conversation = conversationRef.current;
+      const core = coreRef.current;
+      const targetElements = [
+        { key: "context" as const, step: 1, ref: contextRef },
+        { key: "priority" as const, step: 2, ref: priorityRef },
+        { key: "brief" as const, step: 3, ref: briefRef },
+        { key: "next" as const, step: 4, ref: nextRef },
+      ];
+
+      if (!stage || !conversation || !core || window.innerWidth <= 720) {
+        setLayout(EMPTY_CIRCUIT_LAYOUT);
+        return;
+      }
+
+      const stageRect = stage.getBoundingClientRect();
+      const conversationRect = conversation.getBoundingClientRect();
+      const coreRect = core.getBoundingClientRect();
+
+      const coreCenterY = coreRect.top - stageRect.top + coreRect.height / 2;
+      const inputStart = {
+        x: conversationRect.right - stageRect.left - 2,
+        y: conversationRect.top - stageRect.top + conversationRect.height * 0.48,
+      };
+      const inputEnd = {
+        x: coreRect.left - stageRect.left + 7,
+        y: coreCenterY,
+      };
+      const outputStart = {
+        x: coreRect.right - stageRect.left - 7,
+        y: coreCenterY,
+      };
+
+      const targets = targetElements.flatMap((target, index) => {
+        const element = target.ref.current;
+        if (!element) return [];
+        const rect = element.getBoundingClientRect();
+        const end = {
+          x: rect.left - stageRect.left + 1,
+          y: rect.top - stageRect.top + rect.height / 2,
+        };
+        return [
+          {
+            key: target.key,
+            step: target.step,
+            end,
+            path: buildCircuitPath(outputStart, end, index),
+          },
+        ];
+      });
+
+      setLayout({
+        width: Math.max(1, stageRect.width),
+        height: Math.max(1, stageRect.height),
+        inputStart,
+        inputEnd,
+        inputPath: buildInputCircuitPath(inputStart, inputEnd),
+        targets,
+      });
+    };
+
+    const scheduleMeasure = () => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(measure);
+    };
+
+    scheduleMeasure();
+    const resizeObserver = new ResizeObserver(scheduleMeasure);
+    [
+      stageRef.current,
+      conversationRef.current,
+      coreRef.current,
+      contextRef.current,
+      priorityRef.current,
+      briefRef.current,
+      nextRef.current,
+    ].forEach((element) => {
+      if (element) resizeObserver.observe(element);
+    });
+    window.addEventListener("resize", scheduleMeasure);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", scheduleMeasure);
+    };
+  }, [
+    briefRef,
+    contextRef,
+    conversationRef,
+    coreRef,
+    layoutKey,
+    nextRef,
+    priorityRef,
+    stageRef,
+  ]);
+
+  if (!layout.inputPath || layout.targets.length === 0) return null;
+
+  return (
+    <svg
+      className="gk-circuit-network"
+      viewBox={`0 0 ${layout.width} ${layout.height}`}
+      preserveAspectRatio="none"
+      aria-hidden="true"
+    >
+      <defs>
+        <filter id="gk-electric-glow" x="-80%" y="-80%" width="260%" height="260%">
+          <feGaussianBlur stdDeviation="1.6" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+        <filter
+          id="gk-electric-glow-strong"
+          x="-120%"
+          y="-120%"
+          width="340%"
+          height="340%"
+        >
+          <feGaussianBlur stdDeviation="3.2" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+
+      <path className="gk-circuit-base" d={layout.inputPath} />
+      <path
+        className={
+          "gk-circuit-input" + (step === 0 && running ? " is-active" : "")
+        }
+        d={layout.inputPath}
+      />
+      {step === 0 && running && (
+        <>
+          <circle className="gk-circuit-spark" r="3.2">
+            <animateMotion dur="0.72s" repeatCount="indefinite" path={layout.inputPath} />
+          </circle>
+          <circle className="gk-circuit-spark-secondary" r="2.1">
+            <animateMotion
+              begin="0.32s"
+              dur="0.72s"
+              repeatCount="indefinite"
+              path={layout.inputPath}
+            />
+          </circle>
+        </>
+      )}
+
+      <circle
+        className={"gk-circuit-node" + (step === 0 ? " is-active" : "")}
+        cx={layout.inputEnd.x}
+        cy={layout.inputEnd.y}
+        r="3.5"
+      />
+
+      {layout.targets.map((target) => {
+        const reached = step >= target.step;
+        const active = step === target.step && running;
+
+        return (
+          <g key={target.key}>
+            <path className="gk-circuit-base" d={target.path} />
+            {reached && <path className="gk-circuit-reached" d={target.path} />}
+            {active && (
+              <>
+                <path className="gk-circuit-active" d={target.path} />
+                <path className="gk-circuit-active gk-circuit-hot" d={target.path} />
+                <circle className="gk-circuit-spark" r="3.1">
+                  <animateMotion
+                    dur="0.64s"
+                    repeatCount="indefinite"
+                    path={target.path}
+                  />
+                </circle>
+                <circle className="gk-circuit-spark-secondary" r="2">
+                  <animateMotion
+                    begin="0.26s"
+                    dur="0.64s"
+                    repeatCount="indefinite"
+                    path={target.path}
+                  />
+                </circle>
+              </>
+            )}
+            <circle
+              className={"gk-circuit-node" + (active ? " is-active" : "")}
+              cx={target.end.x}
+              cy={target.end.y}
+              r="3.5"
+            />
+          </g>
+        );
+      })}
+    </svg>
+  );
+};
+
 export const HeroSystemVisual: React.FC = () => {
   const { language } = useLanguage();
   const es = language === "es";
@@ -172,7 +475,15 @@ export const HeroSystemVisual: React.FC = () => {
   const [step, setStep] = useState(0);
   const [inView, setInView] = useState(false);
   const [pageVisible, setPageVisible] = useState(true);
+
   const root = useRef<HTMLDivElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const conversationRef = useRef<HTMLDivElement>(null);
+  const coreRef = useRef<HTMLDivElement>(null);
+  const contextRef = useRef<HTMLDivElement>(null);
+  const priorityRef = useRef<HTMLDivElement>(null);
+  const briefRef = useRef<HTMLDivElement>(null);
+  const nextRef = useRef<HTMLDivElement>(null);
 
   const scenario = scenarios[language][scenarioIndex];
   const flowSteps = steps[language];
@@ -265,6 +576,7 @@ export const HeroSystemVisual: React.FC = () => {
         </div>
 
         <div
+          ref={stageRef}
           className={
             "gk-engine-stage gk-step-" +
             step +
@@ -272,7 +584,20 @@ export const HeroSystemVisual: React.FC = () => {
             (step === 4 ? " is-complete" : "")
           }
         >
-          <div className="gk-engine-conversation">
+          <EngineCircuitNetwork
+            stageRef={stageRef}
+            conversationRef={conversationRef}
+            coreRef={coreRef}
+            contextRef={contextRef}
+            priorityRef={priorityRef}
+            briefRef={briefRef}
+            nextRef={nextRef}
+            step={step}
+            running={autoRunning}
+            layoutKey={`${language}-${scenarioIndex}`}
+          />
+
+          <div className="gk-engine-conversation" ref={conversationRef}>
             <div className="gk-engine-panel-label">
               <MessageCircle size={13} />
               <span>{es ? "SEÑAL ENTRANTE" : "INCOMING SIGNAL"}</span>
@@ -310,44 +635,12 @@ export const HeroSystemVisual: React.FC = () => {
           </div>
 
           <div className="gk-engine-core">
-            <div
-              className={
-                "gk-signal-rail gk-signal-in" +
-                (step === 0 && autoRunning
-                  ? " is-streaming"
-                  : step > 0
-                    ? " is-connected"
-                    : "")
-              }
-              aria-hidden="true"
-            >
-              <span className="gk-rail-track" />
-              <span className="gk-rail-particle gk-p1" />
-              <span className="gk-rail-particle gk-p2" />
-            </div>
-
-            <div
-              className={
-                "gk-signal-rail gk-signal-out" +
-                (step >= 1 && step < 4 && autoRunning ? " is-streaming" : "")
-              }
-              aria-hidden="true"
-            >
-              <span className="gk-rail-track" />
-              <span className="gk-rail-particle gk-p1" />
-              <span className="gk-rail-particle gk-p2" />
-            </div>
-
-            <div
-              className={
-                "gk-core-orbit" +
-                (autoRunning ? " is-running" : "") +
-                (step >= 1 && step < 4 ? " is-processing" : "") +
-                (step === 4 ? " is-complete" : "")
-              }
-            >
-              <span className="gk-core-outer-halo" aria-hidden="true" />
-              <span className="gk-core-glyph">G</span>
+            <div className="gk-engine-core-anchor" ref={coreRef}>
+              <ThreeEngineCore
+                step={step}
+                running={autoRunning}
+                complete={step === 4}
+              />
             </div>
 
             <p>{es ? "MOTOR G-KAIS" : "G-KAIS ENGINE"}</p>
@@ -363,6 +656,7 @@ export const HeroSystemVisual: React.FC = () => {
 
           <div className="gk-engine-workspace">
             <div
+              ref={contextRef}
               className={
                 "gk-work-card gk-context-card" +
                 (step >= 1 ? " is-visible" : "")
@@ -385,6 +679,7 @@ export const HeroSystemVisual: React.FC = () => {
             </div>
 
             <div
+              ref={priorityRef}
               className={
                 "gk-work-card gk-priority-card" +
                 (step >= 2 ? " is-visible" : "")
@@ -401,6 +696,7 @@ export const HeroSystemVisual: React.FC = () => {
             </div>
 
             <div
+              ref={briefRef}
               className={
                 "gk-work-card gk-brief-card" +
                 (step >= 3 ? " is-visible" : "")
@@ -427,6 +723,7 @@ export const HeroSystemVisual: React.FC = () => {
             </div>
 
             <div
+              ref={nextRef}
               className={
                 "gk-work-card gk-next-card" +
                 (step >= 4 ? " is-visible" : "")

@@ -14,7 +14,7 @@
   z-index: 2;
 }
 
-/* The V4 circuit SVG replaces every previous pseudo-element/straight route. */
+/* The circuit SVG replaces every previous pseudo-element/straight route. */
 .gk-work-card::before,
 .gk-work-card::after {
   content: none !important;
@@ -31,19 +31,21 @@
   .gk-hero .gk-progress-item,
   .gk-hero .gk-step-indicator,
   .gk-hero .gk-step-text {
-    transition-duration: 300ms !important;
+    transition-duration: 420ms !important;
     transition-timing-function: ease !important;
   }
 
+  /* Keep the product story moving in AI Studio preview without forcing the
+     previous 2.1s scrub duration. V6 defines the duration per stage. */
   .gk-hero .gk-progress-fill.is-animating {
-    animation: gk-progress-scrub 2.1s linear forwards !important;
+    animation-timing-function: linear !important;
   }
 
   .gk-hero .gk-loop-dot.is-pulsing {
-    animation: gk-live-pulse 2.2s ease-in-out infinite !important;
+    animation: gk-live-pulse 2.8s ease-in-out infinite !important;
   }
 
   .gk-hero .gk-step-4 .gk-next-icon {
-    animation: gk-check-pop 620ms ease both !important;
+    animation: gk-check-pop 760ms ease both !important;
   }
 }

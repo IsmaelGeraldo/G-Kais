@@ -1,0 +1,22 @@
+{
+  "name": "gkais-motor-film",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "remotion studio src/index.ts",
+    "render": "remotion render src/index.ts GKAISMasterFilm out/gkais-master-film.mp4",
+    "still": "remotion still src/index.ts GKAISMasterFilm out/gkais-master-film.png --frame=612"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.527",
+    "remotion": "4.0.527",
+    "react": "19.0.1",
+    "react-dom": "19.0.1"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "typescript": "7.0.2"
+  }
+}

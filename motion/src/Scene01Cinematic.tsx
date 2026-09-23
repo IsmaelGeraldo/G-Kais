@@ -1,7 +1,13 @@
 import React from 'react';
+import {loadFont} from '@remotion/google-fonts/NunitoSans';
 import {AbsoluteFill, Easing, interpolate, useCurrentFrame} from 'remotion';
 
 type ChannelKind = 'instagram' | 'whatsapp' | 'email' | 'form';
+
+const {fontFamily: roundedHeadlineFamily} = loadFont('normal', {
+  weights: ['700', '800', '900'],
+  subsets: ['latin'],
+});
 
 const clamp = {
   extrapolateLeft: 'clamp' as const,
@@ -43,7 +49,7 @@ const ChannelIcon: React.FC<{kind: ChannelKind}> = ({kind}) => {
         borderRadius: 11,
         background: current.background,
         boxShadow:
-          'inset 0 1px 0 rgba(255,255,255,0.35), 0 7px 18px rgba(11,19,17,0.18)',
+          'inset 0 1px 0 rgba(255,255,255,0.40), 0 7px 18px rgba(11,19,17,0.16)',
         display: 'grid',
         placeItems: 'center',
         color: '#fff',
@@ -51,6 +57,8 @@ const ChannelIcon: React.FC<{kind: ChannelKind}> = ({kind}) => {
         fontSize: kind === 'email' ? 17 : 11,
         letterSpacing: kind === 'instagram' || kind === 'whatsapp' ? 0.4 : 0,
         flex: '0 0 auto',
+        position: 'relative',
+        zIndex: 1,
       }}
     >
       {current.label}
@@ -74,17 +82,18 @@ const GlassNotification: React.FC<{
     ...clamp,
     easing: Easing.out(Easing.cubic),
   });
-  const driftY = Math.sin((frame + seed * 7) / (20 + seed)) * (2.5 + depth * 3.5);
-  const driftX = Math.cos((frame + seed * 11) / (28 + seed)) * (1.5 + depth * 2.5);
-  const perspectiveScale = 0.88 + depth * 0.15;
-  const blur = interpolate(depth, [0.45, 1], [1.1, 0]);
+  const driftY = Math.sin((frame + seed * 7) / (22 + seed)) * (2 + depth * 3);
+  const driftX = Math.cos((frame + seed * 11) / (30 + seed)) * (1.2 + depth * 2.2);
+  const perspectiveScale = 0.91 + depth * 0.12;
+  const revealScale = interpolate(reveal, [0, 1], [0.965, 1]);
+  const blur = interpolate(depth, [0.45, 1], [0.5, 0]);
 
   return (
     <div
       style={{
         position: 'absolute',
-        left: x + driftX,
-        top: y + driftY + interpolate(reveal, [0, 1], [18, 0]),
+        left: Math.round(x + driftX),
+        top: Math.round(y + driftY + interpolate(reveal, [0, 1], [16, 0])),
         width,
         minHeight: 66,
         padding: '11px 14px 11px 11px',
@@ -93,28 +102,40 @@ const GlassNotification: React.FC<{
         alignItems: 'center',
         gap: 11,
         background:
-          'linear-gradient(135deg, rgba(255,255,255,0.78), rgba(244,246,244,0.54))',
-        border: '1px solid rgba(255,255,255,0.78)',
-        boxShadow: `0 ${14 + depth * 16}px ${34 + depth * 26}px rgba(27,34,31,${
-          0.08 + depth * 0.08
-        })`,
-        backdropFilter: 'blur(22px) saturate(1.08)',
-        opacity: reveal * (0.64 + depth * 0.36),
+          'linear-gradient(180deg, rgba(255,255,255,0.88) 0%, rgba(247,248,247,0.69) 100%)',
+        border: `1.25px solid rgba(255,255,255,${0.80 + depth * 0.1})`,
+        boxShadow: `inset 0 1px 0 rgba(255,255,255,0.90), inset 0 -1px 0 rgba(21,28,25,0.035), 0 ${
+          12 + depth * 14
+        }px ${28 + depth * 18}px rgba(18,24,21,${0.075 + depth * 0.055})`,
+        backdropFilter: 'blur(16px) saturate(1.04)',
+        opacity: reveal * (0.7 + depth * 0.3),
         filter: `blur(${blur}px)`,
-        transform: `scale(${
-          perspectiveScale * interpolate(reveal, [0, 1], [0.94, 1])
-        })`,
+        transform: `translateZ(0) scale(${perspectiveScale * revealScale})`,
         transformOrigin: 'left center',
+        overflow: 'hidden',
+        backfaceVisibility: 'hidden',
       }}
     >
+      <div
+        style={{
+          position: 'absolute',
+          inset: 1,
+          borderRadius: 18.8,
+          background:
+            'linear-gradient(180deg, rgba(255,255,255,0.30), rgba(255,255,255,0.04) 48%, rgba(255,255,255,0))',
+          pointerEvents: 'none',
+        }}
+      />
+
       <ChannelIcon kind={channel} />
-      <div style={{minWidth: 0}}>
+
+      <div style={{minWidth: 0, position: 'relative', zIndex: 1}}>
         <div
           style={{
             fontSize: 10,
             fontWeight: 850,
             letterSpacing: 1.05,
-            color: '#707874',
+            color: '#68716C',
             textTransform: 'uppercase',
           }}
         >
@@ -134,6 +155,7 @@ const GlassNotification: React.FC<{
           {message}
         </div>
       </div>
+
       <div
         style={{
           marginLeft: 'auto',
@@ -142,7 +164,9 @@ const GlassNotification: React.FC<{
           height: 6,
           borderRadius: '50%',
           background: '#0A3F4D',
-          boxShadow: '0 0 0 4px rgba(10,63,77,0.08)',
+          boxShadow: '0 0 0 4px rgba(10,63,77,0.075)',
+          position: 'relative',
+          zIndex: 1,
         }}
       />
     </div>
@@ -167,8 +191,8 @@ export const Scene01Cinematic: React.FC<{accent?: string}> = ({accent = '#0A3F4D
       channel: 'instagram' as const,
       eyebrow: 'Instagram',
       message: '¿Tienen disponibilidad?',
-      x: 336,
-      y: 108,
+      x: 338,
+      y: 106,
       width: 292,
       start: 17,
       depth: 0.92,
@@ -178,9 +202,9 @@ export const Scene01Cinematic: React.FC<{accent?: string}> = ({accent = '#0A3F4D
       channel: 'whatsapp' as const,
       eyebrow: 'WhatsApp',
       message: 'Hola, quiero cotizar',
-      x: 270,
-      y: 454,
-      width: 314,
+      x: 286,
+      y: 455,
+      width: 306,
       start: 27,
       depth: 1,
       seed: 2,
@@ -189,55 +213,55 @@ export const Scene01Cinematic: React.FC<{accent?: string}> = ({accent = '#0A3F4D
       channel: 'email' as const,
       eyebrow: 'Email',
       message: 'Consulta por servicios',
-      x: 406,
-      y: 206,
-      width: 276,
+      x: 398,
+      y: 205,
+      width: 272,
       start: 42,
-      depth: 0.66,
+      depth: 0.68,
       seed: 3,
     },
     {
       channel: 'form' as const,
       eyebrow: 'Formulario web',
       message: 'Nuevo lead recibido',
-      x: 360,
-      y: 352,
-      width: 294,
+      x: 356,
+      y: 350,
+      width: 286,
       start: 54,
       depth: 0.84,
       seed: 4,
     },
     {
-      channel: 'whatsapp' as const,
-      eyebrow: 'WhatsApp',
-      message: '¿Podemos hablar hoy?',
-      x: 64,
-      y: 77,
-      width: 264,
-      start: 72,
-      depth: 0.56,
+      channel: 'instagram' as const,
+      eyebrow: 'Instagram',
+      message: 'Vi su anuncio y quiero saber más',
+      x: 32,
+      y: 250,
+      width: 272,
+      start: 62,
+      depth: 0.62,
       seed: 5,
     },
     {
-      channel: 'instagram' as const,
-      eyebrow: 'Instagram',
-      message: 'Vi su anuncio',
-      x: 430,
-      y: 520,
-      width: 250,
-      start: 83,
-      depth: 0.74,
+      channel: 'whatsapp' as const,
+      eyebrow: 'WhatsApp',
+      message: '¿Podemos hablar hoy?',
+      x: 72,
+      y: 88,
+      width: 258,
+      start: 76,
+      depth: 0.58,
       seed: 6,
     },
     {
       channel: 'email' as const,
       eyebrow: 'Email',
       message: 'Necesito más información',
-      x: 68,
-      y: 575,
-      width: 286,
+      x: 82,
+      y: 570,
+      width: 280,
       start: 94,
-      depth: 0.48,
+      depth: 0.5,
       seed: 7,
     },
   ];
@@ -308,7 +332,7 @@ export const Scene01Cinematic: React.FC<{accent?: string}> = ({accent = '#0A3F4D
         <div
           style={{
             position: 'absolute',
-            left: 115,
+            left: 126,
             bottom: 48,
             width: 400,
             height: 54,
@@ -322,7 +346,7 @@ export const Scene01Cinematic: React.FC<{accent?: string}> = ({accent = '#0A3F4D
         <div
           style={{
             position: 'absolute',
-            left: 138,
+            left: 150,
             top: 89 + phoneFloat,
             width: 284,
             height: 548,
@@ -566,9 +590,9 @@ export const Scene01Cinematic: React.FC<{accent?: string}> = ({accent = '#0A3F4D
       <div
         style={{
           position: 'absolute',
-          right: 102,
-          top: 203,
-          width: 505,
+          right: 72,
+          top: 184,
+          width: 530,
           opacity: copyOpacity,
           transform: `translateY(${interpolate(copyOpacity, [0, 1], [14, 0])}px)`,
         }}
@@ -586,11 +610,13 @@ export const Scene01Cinematic: React.FC<{accent?: string}> = ({accent = '#0A3F4D
         </div>
         <div
           style={{
-            fontSize: 58,
-            lineHeight: 0.99,
-            fontWeight: 880,
-            letterSpacing: -3.15,
-            maxWidth: 500,
+            fontSize: 64,
+            lineHeight: 0.97,
+            fontWeight: 800,
+            letterSpacing: -2.25,
+            maxWidth: 530,
+            fontFamily: roundedHeadlineFamily,
+            WebkitFontSmoothing: 'antialiased',
           }}
         >
           Cada consulta compite por atención.
@@ -598,12 +624,14 @@ export const Scene01Cinematic: React.FC<{accent?: string}> = ({accent = '#0A3F4D
         <div
           style={{
             marginTop: 24,
-            fontSize: 28,
-            lineHeight: 1.2,
-            fontWeight: 650,
+            fontSize: 30,
+            lineHeight: 1.18,
+            fontWeight: 700,
             color: palette.muted,
             opacity: secondLineOpacity,
             transform: `translateY(${interpolate(secondLineOpacity, [0, 1], [8, 0])}px)`,
+            fontFamily: roundedHeadlineFamily,
+            WebkitFontSmoothing: 'antialiased',
           }}
         >
           Algunas esperan.

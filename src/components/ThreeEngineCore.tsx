@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
+import "./hero-engine-v6.css";
 
 interface ThreeEngineCoreProps {
   step: number;
@@ -25,13 +26,8 @@ export const ThreeEngineCore: React.FC<ThreeEngineCoreProps> = ({
     if (!mount) return;
 
     let renderer: THREE.WebGLRenderer;
-
     try {
-      renderer = new THREE.WebGLRenderer({
-        alpha: true,
-        antialias: true,
-        powerPreference: "high-performance",
-      });
+      renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: "high-performance" });
     } catch (error) {
       console.warn("[G-KAIS THREE] WebGL unavailable, using CSS fallback.", error);
       setFallback(true);
@@ -115,9 +111,7 @@ export const ThreeEngineCore: React.FC<ThreeEngineCoreProps> = ({
     ];
 
     const neuralTubes = neuralCurves.map((curvePoints) => {
-      const curve = new THREE.CatmullRomCurve3(
-        curvePoints.map(([x, y, z]) => new THREE.Vector3(x, y, z))
-      );
+      const curve = new THREE.CatmullRomCurve3(curvePoints.map(([x, y, z]) => new THREE.Vector3(x, y, z)));
       const geometry = new THREE.TubeGeometry(curve, 24, 0.011, 5, false);
       const mesh = new THREE.Mesh(geometry, neuralMaterial);
       brainGroup.add(mesh);
@@ -259,38 +253,16 @@ export const ThreeEngineCore: React.FC<ThreeEngineCoreProps> = ({
       rings[1].ring.rotation.z = -elapsed * 0.13 * activity;
       rings[2].ring.rotation.z = elapsed * 0.085 * activity;
 
-      const targetScale = finalState
-        ? 1.035
-        : processing
-          ? 1.01 + pulse * 0.026
-          : state.running
-            ? 1 + pulse * 0.01
-            : 1;
+      const targetScale = finalState ? 1.035 : processing ? 1.01 + pulse * 0.026 : state.running ? 1 + pulse * 0.01 : 1;
       brainGroup.scale.setScalar(targetScale);
       wireShell.scale.setScalar(1.005 + pulse * (processing ? 0.015 : 0.005));
       centralNode.scale.setScalar(0.95 + pulse * (processing ? 0.18 : 0.08));
 
-      lobeMaterial.emissiveIntensity = finalState
-        ? 0.5
-        : processing
-          ? 0.46 + pulse * 0.2
-          : state.running
-            ? 0.36
-            : 0.24;
-      nodeMaterial.emissiveIntensity = finalState
-        ? 1.05
-        : processing
-          ? 0.9 + pulse * 0.45
-          : 0.72 + pulse * 0.16;
+      lobeMaterial.emissiveIntensity = finalState ? 0.5 : processing ? 0.46 + pulse * 0.2 : state.running ? 0.36 : 0.24;
+      nodeMaterial.emissiveIntensity = finalState ? 1.05 : processing ? 0.9 + pulse * 0.45 : 0.72 + pulse * 0.16;
       neuralMaterial.opacity = processing ? 0.3 + pulse * 0.13 : 0.22;
       seamMaterial.opacity = processing ? 0.27 + pulse * 0.1 : 0.2;
-      tealLight.intensity = finalState
-        ? 1.85
-        : processing
-          ? 1.65 + pulse * 0.75
-          : state.running
-            ? 1.35
-            : 0.8;
+      tealLight.intensity = finalState ? 1.85 : processing ? 1.65 + pulse * 0.75 : state.running ? 1.35 : 0.8;
       nodeLight.intensity = processing ? 1.55 + pulse * 0.8 : 1.05 + pulse * 0.28;
       particleMaterial.opacity = processing ? 0.22 + pulse * 0.1 : 0.14;
 
@@ -324,20 +296,13 @@ export const ThreeEngineCore: React.FC<ThreeEngineCoreProps> = ({
       particleGeometry.dispose();
       particleMaterial.dispose();
       renderer.dispose();
-
-      if (renderer.domElement.parentElement === mount) {
-        mount.removeChild(renderer.domElement);
-      }
+      if (renderer.domElement.parentElement === mount) mount.removeChild(renderer.domElement);
     };
   }, []);
 
   return (
     <div
-      className={
-        "gk-three-engine" +
-        (running ? " is-running" : "") +
-        (complete ? " is-complete" : "")
-      }
+      className={"gk-three-engine" + (running ? " is-running" : "") + (complete ? " is-complete" : "")}
       ref={mountRef}
       aria-hidden="true"
     >

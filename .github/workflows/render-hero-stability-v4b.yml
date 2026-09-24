@@ -1,0 +1,182 @@
+name: Render G-KAIS hero stability v4 retry
+
+on:
+  push:
+    branches:
+      - fix/hero-text-stability-v4
+    paths:
+      - '.github/workflows/render-hero-stability-v4b.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/hero-text-stability-v4
+
+      - name: Apply anti-shimmer pixel-grid pass
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path('motion/src/Scene01Cinematic.tsx')
+          s = p.read_text()
+          anchor = "const clamp = {\n  extrapolateLeft: 'clamp' as const,\n  extrapolateRight: 'clamp' as const,\n};"
+          replacement = anchor + "\n\n// 0.5 composition px = 1 physical px in the 2x desktop render.\nconst snapToRenderPixel = (value: number) => Math.round(value * 2) / 2;"
+          if anchor not in s:
+              raise SystemExit('Scene01Cinematic clamp anchor not found')
+          s = s.replace(anchor, replacement, 1)
+          edits = [
+            ("left: Math.round(x + driftX),", "left: snapToRenderPixel(x + driftX),"),
+            ("top: Math.round(y + driftY + interpolate(reveal, [0, 1], [16, 0])),", "top: snapToRenderPixel(y + driftY + interpolate(reveal, [0, 1], [16, 0])),"),
+            ("const cameraX = interpolate(frame, [0, 125], [0, -13], clamp);", "const cameraX = snapToRenderPixel(interpolate(frame, [0, 125], [0, -13], clamp));"),
+            ("const cameraY = interpolate(frame, [0, 125], [8, -4], clamp);", "const cameraY = snapToRenderPixel(interpolate(frame, [0, 125], [8, -4], clamp));"),
+            ("const phoneFloat = Math.sin(frame / 24) * 4;", "const phoneFloat = snapToRenderPixel(Math.sin(frame / 24) * 4);"),
+          ]
+          for old, new in edits:
+              if old not in s:
+                  raise SystemExit(f'Scene01Cinematic replacement not found: {old}')
+              s = s.replace(old, new, 1)
+          p.write_text(s)
+
+          p = Path('motion/src/Scene01ToIntelligenceFlow.tsx')
+          s = p.read_text()
+          anchor = "const clamp = {\n  extrapolateLeft: 'clamp' as const,\n  extrapolateRight: 'clamp' as const,\n};"
+          replacement = anchor + "\n\nconst snapToRenderPixel = (value: number) => Math.round(value * 2) / 2;"
+          if anchor not in s:
+              raise SystemExit('Intelligence clamp anchor not found')
+          s = s.replace(anchor, replacement, 1)
+          changes = [
+            ("const floatY = Math.round(Math.sin((frame + index * 13) / 36));", "const floatY = 0;"),
+            ("const cameraX = interpolate(firstCamera, [0, 1], [0, -930]) + interpolate(secondCamera, [0, 1], [0, -110]) + interpolate(galleryCamera, [0, 1], [0, -510]);", "const cameraX = snapToRenderPixel(interpolate(firstCamera, [0, 1], [0, -930]) + interpolate(secondCamera, [0, 1], [0, -110]) + interpolate(galleryCamera, [0, 1], [0, -510]));"),
+            ("const cameraY = interpolate(frame, [118, 222, 344, 466], [0, -5, -5, 2], {...clamp, easing: Easing.inOut(Easing.cubic)});", "const cameraY = snapToRenderPixel(interpolate(frame, [118, 222, 344, 466], [0, -5, -5, 2], {...clamp, easing: Easing.inOut(Easing.cubic)}));"),
+          ]
+          for old, new in changes:
+              if old not in s:
+                  raise SystemExit(f'Intelligence replacement not found: {old}')
+              s = s.replace(old, new, 1)
+          p.write_text(s)
+
+          p = Path('motion/src/UnifiedCRMScene.tsx')
+          s = p.read_text()
+          anchor = "const clamp = {extrapolateLeft: 'clamp' as const, extrapolateRight: 'clamp' as const};"
+          replacement = anchor + "\nconst snapToRenderPixel = (value: number) => Math.round(value * 2) / 2;"
+          if anchor not in s:
+              raise SystemExit('CRM clamp anchor not found')
+          s = s.replace(anchor, replacement, 1)
+          changes = [
+            ("const scroll = gentleScroll + exitScroll;", "const scroll = snapToRenderPixel(gentleScroll + exitScroll);"),
+            ("transform:`perspective(1400px) translateY(${interpolate(reveal,[0,1],[30,0])}px) scale(${interpolate(reveal,[0,1],[.82,1])}) rotateX(${interpolate(reveal,[0,1],[3.5,0])}deg)`", "transform:`translateY(${snapToRenderPixel(interpolate(reveal,[0,1],[30,0]))}px)`"),
+            ("transform:`translateY(${(1-dropdownOpen)*-6}px) scale(${.98+dropdownOpen*.02})`", "transform:`translateY(${snapToRenderPixel((1-dropdownOpen)*-6)}px)`"),
+          ]
+          for old, new in changes:
+              if old not in s:
+                  raise SystemExit(f'CRM replacement not found: {old}')
+              s = s.replace(old, new, 1)
+          p.write_text(s)
+          print('Anti-shimmer source pass applied successfully')
+          PY
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Remotion dependencies
+        working-directory: motion
+        run: npm install --no-audit --no-fund
+
+      - name: Validate Remotion composition bundle
+        working-directory: motion
+        run: npx remotion compositions src/gkais-final-master-index.tsx
+
+      - name: Ensure browser
+        working-directory: motion
+        run: npx remotion browser ensure
+
+      - name: Render 1440p 4:4:4 mezzanine
+        working-directory: motion
+        run: |
+          mkdir -p out
+          npx remotion render src/gkais-final-master-index.tsx GKAISFinalMaster out/gkais-hero-stable-v4-master.mp4 \
+            --codec=h264 \
+            --scale=2 \
+            --crf=1 \
+            --pixel-format=yuv444p \
+            --concurrency=4
+
+      - name: Encode desktop WebM 4:4:4 and MP4 fallback
+        run: |
+          ffmpeg -y -i motion/out/gkais-hero-stable-v4-master.mp4 \
+            -an -c:v libvpx-vp9 -b:v 0 -crf 14 -pix_fmt yuv444p \
+            -row-mt 1 -tile-columns 2 -speed 2 \
+            motion/out/gkais-hero-stable-v4.webm
+          ffmpeg -y -i motion/out/gkais-hero-stable-v4-master.mp4 \
+            -an -c:v libx264 -preset medium -crf 7 -pix_fmt yuv420p -movflags +faststart \
+            motion/out/gkais-hero-stable-v4.mp4
+
+      - name: Validate encoded assets
+        run: |
+          for f in motion/out/gkais-hero-stable-v4.webm motion/out/gkais-hero-stable-v4.mp4; do
+            echo "== $f =="
+            ffprobe -v error -select_streams v:0 \
+              -show_entries stream=width,height,r_frame_rate,pix_fmt \
+              -show_entries format=duration,size \
+              -of default=noprint_wrappers=1 "$f"
+            width=$(ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 "$f")
+            height=$(ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 "$f")
+            test "$width" = "2560"
+            test "$height" = "1440"
+          done
+          webm_pix=$(ffprobe -v error -select_streams v:0 -show_entries stream=pix_fmt -of default=nw=1:nk=1 motion/out/gkais-hero-stable-v4.webm)
+          test "$webm_pix" = "yuv444p"
+
+      - name: Publish stable desktop assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="gkais-hero-stable-v4"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release delete "$TAG" -y --cleanup-tag
+          fi
+          gh release create "$TAG" \
+            motion/out/gkais-hero-stable-v4.webm \
+            motion/out/gkais-hero-stable-v4.mp4 \
+            --title "G-KAIS Hero Stable v4" \
+            --notes "Anti-shimmer desktop hero: pixel-grid motion, stable intelligence cards, 2560x1440 VP9 4:4:4 primary with H.264 fallback." \
+            --target "$GITHUB_SHA"
+
+      - name: Point Hero to stable desktop assets
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/components/HeroVideo.tsx')
+          s = p.read_text()
+          old_const = '''const HERO_VIDEO_DESKTOP =\n  "https://github.com/IsmaelGeraldo/G-Kais/releases/download/gkais-hero-legible-v3/gkais-hero-legible-v3.mp4";'''
+          new_const = '''const HERO_VIDEO_DESKTOP_WEBM =\n  "https://github.com/IsmaelGeraldo/G-Kais/releases/download/gkais-hero-stable-v4/gkais-hero-stable-v4.webm";\nconst HERO_VIDEO_DESKTOP_MP4 =\n  "https://github.com/IsmaelGeraldo/G-Kais/releases/download/gkais-hero-stable-v4/gkais-hero-stable-v4.mp4";'''
+          if old_const not in s:
+              raise SystemExit('Current v3 desktop constant not found')
+          s = s.replace(old_const, new_const, 1)
+          old_source = '          <source src={HERO_VIDEO_DESKTOP} type="video/mp4" />'
+          new_source = '''          <source src={HERO_VIDEO_DESKTOP_WEBM} type="video/webm" />\n          <source src={HERO_VIDEO_DESKTOP_MP4} type="video/mp4" />'''
+          if old_source not in s:
+              raise SystemExit('Current desktop source element not found')
+          s = s.replace(old_source, new_source, 1)
+          p.write_text(s)
+          PY
+
+      - name: Remove one-off workflows and commit final source changes
+        run: |
+          rm .github/workflows/render-hero-stability-v4.yml .github/workflows/render-hero-stability-v4b.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add motion/src/Scene01Cinematic.tsx motion/src/Scene01ToIntelligenceFlow.tsx motion/src/UnifiedCRMScene.tsx src/components/HeroVideo.tsx .github/workflows/render-hero-stability-v4.yml .github/workflows/render-hero-stability-v4b.yml
+          git commit -m "Stabilize hero text rendering and add 4:4:4 desktop source"
+          git push origin HEAD:fix/hero-text-stability-v4

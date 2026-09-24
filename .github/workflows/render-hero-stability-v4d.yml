@@ -1,0 +1,124 @@
+name: Render G-KAIS hero stability v4 final rerun
+
+on:
+  push:
+    branches:
+      - fix/hero-text-stability-v4
+    paths:
+      - '.github/workflows/render-hero-stability-v4d.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/hero-text-stability-v4
+
+      - name: Apply anti-shimmer source pass
+        run: python3 scripts/apply_hero_stability_v4.py
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update >/dev/null
+          sudo apt-get install -y ffmpeg >/dev/null
+          cd motion
+          npm install --no-audit --no-fund
+
+      - name: Validate Remotion composition
+        working-directory: motion
+        run: |
+          npx remotion compositions src/gkais-final-master-index.tsx
+          npx remotion browser ensure
+
+      - name: Render 2560x1440 4:4:4 master
+        working-directory: motion
+        run: |
+          mkdir -p out
+          npx remotion render src/gkais-final-master-index.tsx GKAISFinalMaster out/gkais-hero-stable-v4-master.mp4 \
+            --codec=h264 \
+            --scale=2 \
+            --crf=1 \
+            --pixel-format=yuv444p \
+            --concurrency=4
+
+      - name: Encode stable desktop sources
+        run: |
+          ffmpeg -y -i motion/out/gkais-hero-stable-v4-master.mp4 \
+            -an -c:v libvpx-vp9 -b:v 0 -crf 14 -pix_fmt yuv444p \
+            -row-mt 1 -tile-columns 2 -speed 2 \
+            motion/out/gkais-hero-stable-v4.webm
+          ffmpeg -y -i motion/out/gkais-hero-stable-v4-master.mp4 \
+            -an -c:v libx264 -preset medium -crf 7 -pix_fmt yuv420p -movflags +faststart \
+            motion/out/gkais-hero-stable-v4.mp4
+
+      - name: Validate encoded assets
+        run: |
+          for f in motion/out/gkais-hero-stable-v4.webm motion/out/gkais-hero-stable-v4.mp4; do
+            echo "== $f =="
+            ffprobe -v error -select_streams v:0 \
+              -show_entries stream=width,height,r_frame_rate,pix_fmt \
+              -show_entries format=duration,size \
+              -of default=noprint_wrappers=1 "$f"
+            test "$(ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 "$f")" = "2560"
+            test "$(ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 "$f")" = "1440"
+          done
+          test "$(ffprobe -v error -select_streams v:0 -show_entries stream=pix_fmt -of default=nw=1:nk=1 motion/out/gkais-hero-stable-v4.webm)" = "yuv444p"
+
+      - name: Publish stable desktop assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="gkais-hero-stable-v4"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release delete "$TAG" -y --cleanup-tag
+          fi
+          gh release create "$TAG" \
+            motion/out/gkais-hero-stable-v4.webm \
+            motion/out/gkais-hero-stable-v4.mp4 \
+            --title "G-KAIS Hero Stable v4" \
+            --notes "Anti-shimmer desktop hero: pixel-grid motion, stable UI cards, 2560x1440 VP9 4:4:4 primary with H.264 fallback." \
+            --target "$GITHUB_SHA"
+
+      - name: Update Hero desktop sources
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/components/HeroVideo.tsx')
+          s = p.read_text()
+          old = '''const HERO_VIDEO_DESKTOP =\n  "https://github.com/IsmaelGeraldo/G-Kais/releases/download/gkais-hero-legible-v3/gkais-hero-legible-v3.mp4";'''
+          new = '''const HERO_VIDEO_DESKTOP_WEBM =\n  "https://github.com/IsmaelGeraldo/G-Kais/releases/download/gkais-hero-stable-v4/gkais-hero-stable-v4.webm";\nconst HERO_VIDEO_DESKTOP_MP4 =\n  "https://github.com/IsmaelGeraldo/G-Kais/releases/download/gkais-hero-stable-v4/gkais-hero-stable-v4.mp4";'''
+          if old not in s:
+              raise SystemExit('Current v3 desktop source constant not found')
+          s = s.replace(old, new, 1)
+          old_source = '          <source src={HERO_VIDEO_DESKTOP} type="video/mp4" />'
+          new_source = '''          <source src={HERO_VIDEO_DESKTOP_WEBM} type="video/webm" />\n          <source src={HERO_VIDEO_DESKTOP_MP4} type="video/mp4" />'''
+          if old_source not in s:
+              raise SystemExit('Current desktop source element not found')
+          p.write_text(s.replace(old_source, new_source, 1))
+          PY
+
+      - name: Commit final changes and remove one-off tooling
+        run: |
+          rm -f \
+            .github/workflows/render-hero-stability-v4.yml \
+            .github/workflows/render-hero-stability-v4b.yml \
+            .github/workflows/render-hero-stability-v4c.yml \
+            .github/workflows/render-hero-stability-v4d.yml \
+            scripts/apply_hero_stability_v4.py
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Stabilize hero text rendering and add 4:4:4 desktop source"
+          git push origin HEAD:fix/hero-text-stability-v4

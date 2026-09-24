@@ -56,43 +56,43 @@ const MouseCursor: React.FC<{x: number; y: number; opacity: number; clicking: nu
 export const ProductCRMRevealPolish: React.FC = () => {
   const frame = useCurrentFrame();
 
-  const gentleScroll = interpolate(frame, [640, 680], [0, -150], {
+  const gentleScroll = interpolate(frame, [666, 698], [0, -150], {
     ...clamp,
     easing: Easing.inOut(Easing.cubic),
   });
-  const exitScroll = interpolate(frame, [680, 734], [0, -620], {
+  const exitScroll = interpolate(frame, [698, 734], [0, -620], {
     ...clamp,
     easing: Easing.in(Easing.cubic),
   });
   const scroll = gentleScroll + exitScroll;
 
-  const dropdownOpen = interpolate(frame, [592, 600, 620, 630], [0, 1, 1, 0], clamp);
-  const stateChanged = frame >= 626;
-  const stateFlash = interpolate(frame, [624, 632, 646], [0, 1, 0], clamp);
-  const interactionOpacity = interpolate(frame, [580, 588, 660, 672], [0, 1, 1, 0], clamp);
+  const dropdownOpen = interpolate(frame, [624, 632, 654, 664], [0, 1, 1, 0], clamp);
+  const stateChanged = frame >= 650;
+  const stateFlash = interpolate(frame, [648, 656, 670], [0, 1, 0], clamp);
+  const interactionOpacity = interpolate(frame, [580, 588, 706, 720], [0, 1, 1, 0], clamp);
 
-  const exitProgress = interpolate(frame, [700, 734], [0, 1], {
+  const exitProgress = interpolate(frame, [708, 734], [0, 1], {
     ...clamp,
     easing: Easing.in(Easing.cubic),
   });
 
-  const cursorOpacity = interpolate(frame, [544, 552, 670, 684], [0, 1, 1, 0], clamp);
+  const cursorOpacity = interpolate(frame, [536, 544], [0, 1], clamp);
   const cursorX = interpolate(
     frame,
-    [550, 570, 590, 600, 616, 626, 646, 670],
-    [182, 182, 930, 1100, 1100, 1100, 930, 902],
+    [544, 568, 584, 602, 616, 624, 640, 650, 670, 700],
+    [182, 182, 360, 650, 920, 1106, 1106, 1106, 1080, 1040],
     {...clamp, easing: Easing.inOut(Easing.cubic)},
   );
   const cursorY = interpolate(
     frame,
-    [550, 570, 590, 600, 616, 626, 646, 670],
-    [214, 214, 308, 390, 446, 446, 500, 548],
+    [544, 568, 584, 602, 616, 624, 640, 650, 670, 700],
+    [214, 214, 220, 260, 330, 392, 438, 468, 500, 520],
     {...clamp, easing: Easing.inOut(Easing.cubic)},
   );
   const clicking = Math.max(
-    interpolate(frame, [566, 570, 574], [0, 1, 0], clamp),
-    interpolate(frame, [596, 600, 604], [0, 1, 0], clamp),
-    interpolate(frame, [622, 626, 630], [0, 1, 0], clamp),
+    interpolate(frame, [564, 568, 572], [0, 1, 0], clamp),
+    interpolate(frame, [620, 624, 628], [0, 1, 0], clamp),
+    interpolate(frame, [646, 650, 654], [0, 1, 0], clamp),
   );
 
   return (
@@ -204,7 +204,7 @@ export const ProductCRMRevealPolish: React.FC = () => {
           }}
         >
           {['Seguimiento', 'Reunión agendada', 'Cliente'].map((option) => {
-            const active = option === 'Reunión agendada' && frame >= 616;
+            const active = option === 'Reunión agendada' && frame >= 640;
             return (
               <div
                 key={option}

@@ -123,13 +123,31 @@ jobs:
         run: |
           sudo apt-get update >/dev/null
           sudo apt-get install -y ffmpeg >/dev/null
-          ffprobe -v error \
-            -show_entries stream=width,height,r_frame_rate \
-            -show_entries format=duration,size \
-            -of default=noprint_wrappers=1 \
-            motion/out/gkais-hero-legible-v3.mp4
-          test "$(ffprobe -v error -select_streams v:0 -show_entries stream=width -of csv=p=0 motion/out/gkais-hero-legible-v3.mp4)" = "2560"
-          test "$(ffprobe -v error -select_streams v:0 -show_entries stream=height -of csv=p=0 motion/out/gkais-hero-legible-v3.mp4)" = "1440"
+          python3 - <<'PY'
+          import json
+          import subprocess
+
+          path = 'motion/out/gkais-hero-legible-v3.mp4'
+          raw = subprocess.check_output([
+              'ffprobe', '-v', 'error', '-select_streams', 'v:0',
+              '-show_entries', 'stream=width,height,r_frame_rate',
+              '-show_entries', 'format=duration,size',
+              '-of', 'json', path
+          ], text=True)
+          meta = json.loads(raw)
+          stream = meta['streams'][0]
+          fmt = meta['format']
+          print(f"width={stream['width']}")
+          print(f"height={stream['height']}")
+          print(f"r_frame_rate={stream['r_frame_rate']}")
+          print(f"duration={fmt['duration']}")
+          print(f"size={fmt['size']}")
+          assert int(stream['width']) == 2560
+          assert int(stream['height']) == 1440
+          assert stream['r_frame_rate'] == '30/1'
+          assert 26.7 < float(fmt['duration']) < 27.0
+          assert int(fmt['size']) > 40_000_000
+          PY
 
       - name: Publish external release asset
         env:

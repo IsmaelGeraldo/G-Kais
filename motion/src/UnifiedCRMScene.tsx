@@ -50,7 +50,7 @@ const SOFIA: LeadDetail = {
 };
 
 const DIEGO: LeadDetail = {
-  name:'Diego Fuentes',company:'Diseño Norte',industry:'Diseño interior',channel:'Web + email',service:'Diseño interior',volume:'12 cotizaciones/mes',crm:'Email + planilla',problem:'Propuestas enviadas sin próxima acción definida',context:'5/9 completo',
+  name:'Diego Fuentes',company:'Diseño Norte',industry:'Diseño interior',channel:'Web + email',service:'Disiño interior',volume:'12 cotizaciones/mes',crm:'Email + planilla',problem:'Propuestas enviadas sin próxima acción definida',context:'5/9 completo',
   task:'Revisar propuesta y agendar seguimiento',taskTime:'Programada para hoy · 15:00',status:'Cotización',note:'Pidió revisar alcance y fecha de entrega',
   brief:'Existe interés comercial, pero el proceso posterior a la cotización no está estandarizado.',help:'Definir responsable, fecha y próxima acción antes de que la oportunidad se enfríe.',missing:'Presupuesto final y fecha de decisión',signal:'Abrió la propuesta hace 24 min'
 };
@@ -66,26 +66,43 @@ export const UnifiedCRMScene: React.FC = () => {
   const frame = useCurrentFrame();
   const reveal = interpolate(frame,[488,528],[0,1],{...clamp,easing:Easing.out(Easing.cubic)});
   const settle = interpolate(frame,[528,550],[0,1],{...clamp,easing:Easing.out(Easing.cubic)});
-  const exitProgress = interpolate(frame,[718,734],[0,1],{...clamp,easing:Easing.in(Easing.cubic)});
+  const exitProgress = interpolate(frame,[724,734],[0,1],{...clamp,easing:Easing.in(Easing.cubic)});
 
-  const diegoSelected = frame >= 582 && frame < 644;
+  // One interaction timeline, driven by the actual cursor clicks.
+  const DIEGO_CLICK = 594;
+  const SOFIA_CLICK = 662;
+  const STATE_OPEN_CLICK = 698;
+  const MEETING_CLICK = 710;
+
+  const diegoSelected = frame >= DIEGO_CLICK && frame < SOFIA_CLICK;
   const selected = diegoSelected ? DIEGO : SOFIA;
-  const meetingSelected = frame >= 694;
+  const meetingSelected = frame >= MEETING_CLICK;
   const shownStatus = !diegoSelected && meetingSelected ? 'Reunión agendada' : selected.status;
 
-  const dropdownOpen = interpolate(frame,[678,684,696,704],[0,1,1,0],clamp);
-  const gentleScroll = interpolate(frame,[704,720],[0,-150],{...clamp,easing:Easing.inOut(Easing.cubic)});
-  const exitScroll = interpolate(frame,[720,734],[0,-620],{...clamp,easing:Easing.in(Easing.cubic)});
+  const dropdownOpen = interpolate(frame,[STATE_OPEN_CLICK,702,712,716],[0,1,1,0],clamp);
+  const gentleScroll = interpolate(frame,[716,726],[0,-150],{...clamp,easing:Easing.inOut(Easing.cubic)});
+  const exitScroll = interpolate(frame,[726,734],[0,-620],{...clamp,easing:Easing.in(Easing.cubic)});
   const scroll = gentleScroll + exitScroll;
 
-  const cursorOpacity = interpolate(frame,[522,530,724,732],[0,1,1,0],clamp) * (1-exitProgress);
-  const cursorX = interpolate(frame,[522,536,552,568,582,602,616,632,644,656,668,678,686,694,710,724],[-35,20,80,140,182,182,178,172,182,430,820,1100,1100,1100,1030,950],{...clamp,easing:Easing.inOut(Easing.cubic)});
-  const cursorY = interpolate(frame,[522,536,552,568,582,602,616,632,644,656,668,678,686,694,710,724],[165,175,220,310,372,372,315,245,205,230,310,390,420,446,505,560],{...clamp,easing:Easing.inOut(Easing.cubic)});
+  // New cursor choreography: enter -> Diego -> pause/click -> Sofia -> pause/click -> Estado -> Reunión.
+  const cursorOpacity = interpolate(frame,[540,548,724,732],[0,1,1,0],clamp) * (1-exitProgress);
+  const cursorX = interpolate(
+    frame,
+    [540,552,564,576,584,592,594,606,620,632,644,652,660,662,672,682,690,696,698,704,708,710,716,726],
+    [-32,28,82,140,176,180,180,180,176,174,178,180,180,180,330,610,880,1060,1100,1100,1100,1100,1060,1010],
+    {...clamp,easing:Easing.inOut(Easing.cubic)},
+  );
+  const cursorY = interpolate(
+    frame,
+    [540,552,564,576,584,592,594,606,620,632,644,652,660,662,672,682,690,696,698,704,708,710,716,726],
+    [176,180,220,304,360,372,372,372,340,292,238,205,205,205,220,258,322,374,390,408,438,446,480,530],
+    {...clamp,easing:Easing.inOut(Easing.cubic)},
+  );
   const clicking = Math.max(
-    interpolate(frame,[578,582,586],[0,1,0],clamp),
-    interpolate(frame,[640,644,648],[0,1,0],clamp),
-    interpolate(frame,[674,678,682],[0,1,0],clamp),
-    interpolate(frame,[690,694,698],[0,1,0],clamp),
+    interpolate(frame,[590,DIEGO_CLICK,598],[0,1,0],clamp),
+    interpolate(frame,[658,SOFIA_CLICK,666],[0,1,0],clamp),
+    interpolate(frame,[694,STATE_OPEN_CLICK,702],[0,1,0],clamp),
+    interpolate(frame,[706,MEETING_CLICK,714],[0,1,0],clamp),
   );
 
   const activity = diegoSelected

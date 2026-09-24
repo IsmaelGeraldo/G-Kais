@@ -66,7 +66,8 @@ export const UnifiedCRMScene: React.FC = () => {
   const frame = useCurrentFrame();
   const reveal = interpolate(frame,[488,528],[0,1],{...clamp,easing:Easing.out(Easing.cubic)});
   const settle = interpolate(frame,[528,550],[0,1],{...clamp,easing:Easing.out(Easing.cubic)});
-  const exitProgress = interpolate(frame,[728,734],[0,1],{...clamp,easing:Easing.inOut(Easing.cubic)});
+  const exitProgress = interpolate(frame,[714,734],[0,1],{...clamp,easing:Easing.inOut(Easing.cubic)});
+  const whiteFade = interpolate(frame,[720,734],[0,1],{...clamp,easing:Easing.inOut(Easing.cubic)});
 
   // One continuous interaction timeline. Sparse waypoints avoid the stop-start feel
   // caused by repeatedly easing through many near-identical cursor positions.
@@ -84,22 +85,22 @@ export const UnifiedCRMScene: React.FC = () => {
   // then close only after the meeting option has been selected.
   const dropdownOpen = interpolate(frame,[STATE_OPEN_CLICK,678,700,706],[0,1,1,0],{...clamp,easing:Easing.inOut(Easing.cubic)});
 
-  // One deliberately slow scroll curve instead of stacking two scroll animations.
-  const scroll = interpolate(frame,[708,732],[0,-560],{...clamp,easing:Easing.inOut(Easing.cubic)});
+  // Pause after selecting Reunión agendada, then accelerate into one continuous final scroll.
+  const scroll = interpolate(frame,[708,734],[0,-520],{...clamp,easing:Easing.in(Easing.quad)});
 
   // Continuous cursor choreography: enter -> Diego -> Sofia -> Estado -> Reunión.
-  // Each destination is a meaningful interaction point; there are no micro-waypoints.
-  const cursorOpacity = interpolate(frame,[540,548,704,714],[0,1,1,0],clamp) * (1-exitProgress);
+  // The cursor stays parked on Reunión agendada after the click before fading out.
+  const cursorOpacity = interpolate(frame,[540,548,706,716],[0,1,1,0],clamp) * (1-exitProgress);
   const cursorX = interpolate(
     frame,
-    [540,584,626,672,696,710],
-    [-32,180,180,1100,1100,1060],
+    [540,584,626,672,696,706],
+    [-32,180,180,1100,1100,1100],
     {...clamp,easing:Easing.bezier(0.32,0.04,0.22,1)},
   );
   const cursorY = interpolate(
     frame,
-    [540,584,626,672,696,710],
-    [176,372,205,390,446,480],
+    [540,584,626,672,696,706],
+    [176,372,205,390,462,462],
     {...clamp,easing:Easing.bezier(0.32,0.04,0.22,1)},
   );
   const clicking = Math.max(
@@ -114,8 +115,8 @@ export const UnifiedCRMScene: React.FC = () => {
     : [['11:42','Nota añadida','Preguntó por horarios y disponibilidad.'],['11:18','Instagram','Solicitó información sobre tratamiento facial.'],['10:56','Lead creado','Ingreso desde campaña Meta Ads.']];
 
   return (
-    <div style={{position:'absolute',inset:0,opacity:reveal*(1-exitProgress),filter:`blur(${exitProgress*9}px)`,transform:`perspective(1400px) translateY(${interpolate(reveal,[0,1],[30,0])}px) scale(${interpolate(reveal,[0,1],[.82,1])*(1+exitProgress*.055)}) rotateX(${interpolate(reveal,[0,1],[3.5,0])}deg)`,transformOrigin:'50% 50%',fontFamily:'Arial, Helvetica, sans-serif',zIndex:40}}>
-      <div style={{position:'absolute',left:58,top:48,width:1164,height:624,borderRadius:28,border:'1px solid rgba(10,63,77,.18)',background:'#F7F7F5',boxShadow:`0 34px 88px rgba(14,24,22,${.12+settle*.06}),0 4px 14px rgba(10,63,77,.06)`,overflow:'hidden'}}>
+    <div style={{position:'absolute',inset:0,opacity:reveal,backgroundColor:`rgba(255,255,255,${whiteFade})`,transform:`perspective(1400px) translateY(${interpolate(reveal,[0,1],[30,0])}px) scale(${interpolate(reveal,[0,1],[.82,1])}) rotateX(${interpolate(reveal,[0,1],[3.5,0])}deg)`,transformOrigin:'50% 50%',fontFamily:'Arial, Helvetica, sans-serif',zIndex:40}}>
+      <div style={{position:'absolute',left:58,top:48,width:1164,height:624,borderRadius:28,border:'1px solid rgba(10,63,77,.18)',background:'#F7F7F5',boxShadow:`0 34px 88px rgba(14,24,22,${.12+settle*.06}),0 4px 14px rgba(10,63,77,.06)`,overflow:'hidden',opacity:1-exitProgress,filter:`blur(${exitProgress*9}px)`,transform:`scale(${1+exitProgress*.055})`,transformOrigin:'50% 50%'}}>
         <div style={{height:58,background:'#FFF',borderBottom:`1px solid ${softBorder}`,display:'flex',alignItems:'center',justifyContent:'space-between',padding:'0 20px'}}>
           <div style={{display:'flex',alignItems:'center',gap:12}}>
             <div style={{width:30,height:30,borderRadius:10,background:accent,color:'#FFF',display:'grid',placeItems:'center',fontSize:13,fontWeight:900}}>G</div>

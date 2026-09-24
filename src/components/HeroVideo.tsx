@@ -16,7 +16,7 @@ export const HeroVideo: React.FC = () => {
           muted
           loop
           playsInline
-          preload="metadata"
+          preload="auto"
           aria-hidden="true"
           tabIndex={-1}
         >
@@ -27,7 +27,6 @@ export const HeroVideo: React.FC = () => {
           />
           <source src={HERO_VIDEO_DESKTOP} type="video/mp4" />
         </video>
-        <div className="gk-hero-video-edge" aria-hidden="true" />
       </div>
     </div>
   );

@@ -264,7 +264,7 @@ const ModuleHeader: React.FC<{title: string; symbol: string; dark?: boolean; rig
   <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10}}>
     <div style={{display: 'flex', alignItems: 'center', gap: 8}}>
       <HeaderIcon symbol={symbol} dark={dark} />
-      <div style={{fontSize: 10.5, letterSpacing: 1.45, fontWeight: 900, color: dark ? '#9EC0BA' : accent}}>{title}</div>
+      <div style={{fontSize: 12, letterSpacing: 1.15, fontWeight: 900, color: dark ? '#9EC0BA' : accent}}>{title}</div>
     </div>
     {right}
   </div>
@@ -282,7 +282,7 @@ const OpportunityStack: React.FC<{column: OpportunityColumn; index: number}> = (
   return (
     <div style={{position: 'absolute', left: column.x, top: 34 + floatY, width: COL_W, height: 630, opacity: reveal, transform: `translate3d(${offsetX}px, 0, 0)`, zIndex: 24 + index * 2}}>
       <div style={{height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 9}}>
-        <div style={{padding: '8px 17px', borderRadius: 999, background: 'rgba(255,255,255,0.90)', border: '1px solid rgba(10,63,77,0.16)', boxShadow: '0 8px 22px rgba(18,26,22,0.08)', fontFamily: roundedFamily, color: accent, fontSize: 11, fontWeight: 900, letterSpacing: 1.15}}>{column.label}</div>
+        <div style={{padding: '8px 17px', borderRadius: 999, background: 'rgba(255,255,255,0.90)', border: '1px solid rgba(10,63,77,0.16)', boxShadow: '0 8px 22px rgba(18,26,22,0.08)', fontFamily: roundedFamily, color: accent, fontSize: 12.5, fontWeight: 900, letterSpacing: 0.95}}>{column.label}</div>
       </div>
 
       <div style={{position: 'absolute', left: 0, top: 48, width: COL_W, height: 116, padding: '14px 16px', borderRadius: 19, background: cardBg, border, boxShadow: shadow}}>
@@ -290,36 +290,36 @@ const OpportunityStack: React.FC<{column: OpportunityColumn; index: number}> = (
         <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr 1.08fr', gap: 8, marginTop: 10}}>
           {column.context.map(([label, value]) => (
             <div key={label} style={{minHeight: 58, borderRadius: 12, background: '#F6F7F5', padding: '9px 9px 8px', border: '1px solid rgba(15,22,18,0.025)'}}>
-              <div style={{fontSize: 8.5, color: '#8A938E', lineHeight: 1.15}}>{label}</div>
-              <div style={{fontSize: 11.7, color: ink, fontWeight: 800, lineHeight: 1.18, marginTop: 6}}>{value}</div>
+              <div style={{fontSize: 10, fontWeight: 700, color: '#737C77', lineHeight: 1.15}}>{label}</div>
+              <div style={{fontSize: 13, color: ink, fontWeight: 800, lineHeight: 1.18, marginTop: 6}}>{value}</div>
             </div>
           ))}
         </div>
       </div>
 
       <div style={{position: 'absolute', left: 0, top: 176, width: COL_W, height: 82, padding: '13px 16px', borderRadius: 19, background: cardBg, border, boxShadow: shadow}}>
-        <ModuleHeader title="PRIORIDAD" symbol="◎" right={<div style={{padding: '5px 11px', borderRadius: 999, border: '1px solid rgba(10,63,77,0.22)', background: 'rgba(10,63,77,0.065)', color: accent, fontSize: 10.5, fontWeight: 900, letterSpacing: 0.7}}>{column.priority}</div>} />
-        <div style={{fontSize: 12.3, color: muted, lineHeight: 1.25, marginTop: 11, paddingRight: 4}}>{column.priorityText}</div>
+        <ModuleHeader title="PRIORIDAD" symbol="◎" right={<div style={{padding: '5px 11px', borderRadius: 999, border: '1px solid rgba(10,63,77,0.22)', background: 'rgba(10,63,77,0.065)', color: accent, fontSize: 11.5, fontWeight: 900, letterSpacing: 0.55}}>{column.priority}</div>} />
+        <div style={{fontSize: 13.5, fontWeight: 600, color: '#59635E', lineHeight: 1.25, marginTop: 11, paddingRight: 4}}>{column.priorityText}</div>
       </div>
 
       <div style={{position: 'absolute', left: 0, top: 270, width: COL_W, height: 180, padding: '14px 16px', borderRadius: 19, background: cardBg, border, boxShadow: shadow}}>
-        <ModuleHeader title="AI BRIEF" symbol="✦" right={<div style={{fontSize: 10, fontWeight: 900, letterSpacing: 1.15, color: accent}}>LISTO</div>} />
-        <div style={{fontSize: 13.3, fontWeight: 800, color: ink, lineHeight: 1.27, marginTop: 9}}>{column.brief}</div>
+        <ModuleHeader title="AI BRIEF" symbol="✦" right={<div style={{fontSize: 11.2, fontWeight: 900, letterSpacing: 0.9, color: accent}}>LISTO</div>} />
+        <div style={{fontSize: 14.5, fontWeight: 800, color: ink, lineHeight: 1.27, marginTop: 9}}>{column.brief}</div>
         <div style={{marginTop: 9, paddingTop: 8, borderTop: '1px solid rgba(16,18,17,0.08)'}}>
-          <div style={{fontSize: 8.8, fontWeight: 900, letterSpacing: 1.05, color: accent}}>FALTA SABER</div>
-          <div style={{fontSize: 11.2, color: muted, lineHeight: 1.23, marginTop: 3}}>{column.missing}</div>
+          <div style={{fontSize: 10.2, fontWeight: 900, letterSpacing: 0.8, color: accent}}>FALTA SABER</div>
+          <div style={{fontSize: 12.4, color: '#59635E', lineHeight: 1.23, marginTop: 3}}>{column.missing}</div>
         </div>
         <div style={{marginTop: 7}}>
-          <div style={{fontSize: 8.8, fontWeight: 900, letterSpacing: 1.05, color: accent}}>CÓMO PUEDE AYUDAR</div>
-          <div style={{fontSize: 11.2, color: muted, lineHeight: 1.23, marginTop: 3}}>{column.help}</div>
+          <div style={{fontSize: 10.2, fontWeight: 900, letterSpacing: 0.8, color: accent}}>CÓMO PUEDE AYUDAR</div>
+          <div style={{fontSize: 12.4, color: '#59635E', lineHeight: 1.23, marginTop: 3}}>{column.help}</div>
         </div>
       </div>
 
       <div style={{position: 'absolute', left: 0, top: 462, width: COL_W, height: 92, padding: '13px 15px', borderRadius: 19, background: '#0B201E', color: '#fff', border: '1px solid rgba(255,255,255,0.07)', boxShadow: '0 18px 40px rgba(5,18,16,0.23)'}}>
         <ModuleHeader title="PRÓXIMA ACCIÓN" symbol="✓" dark />
         <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 8}}>
-          <div style={{fontFamily: roundedFamily, fontSize: 13.6, fontWeight: 900, lineHeight: 1.15, maxWidth: 262}}>{column.action}</div>
-          <div style={{padding: '8px 10px', borderRadius: 999, background: '#F7F8F6', color: ink, fontSize: 9.2, fontWeight: 800, whiteSpace: 'nowrap', border: '1px solid rgba(255,255,255,0.78)'}}>{column.owner}</div>
+          <div style={{fontFamily: roundedFamily, fontSize: 14.8, fontWeight: 900, lineHeight: 1.15, maxWidth: 262}}>{column.action}</div>
+          <div style={{padding: '8px 10px', borderRadius: 999, background: '#F7F8F6', color: ink, fontSize: 10.3, fontWeight: 800, whiteSpace: 'nowrap', border: '1px solid rgba(255,255,255,0.78)'}}>{column.owner}</div>
         </div>
       </div>
 

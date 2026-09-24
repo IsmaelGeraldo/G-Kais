@@ -1,0 +1,156 @@
+name: Render G-KAIS hero legibility v3
+
+on:
+  push:
+    branches:
+      - fix/hero-video-legibility-v3
+    paths:
+      - '.github/workflows/render-hero-legibility-v3.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/hero-video-legibility-v3
+
+      - name: Apply targeted typography legibility pass
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          replacements = {
+            'motion/src/UnifiedCRMScene.tsx': [
+              ("fontSize:10,fontWeight:700,letterSpacing:1.35", "fontSize:11.5,fontWeight:800,letterSpacing:1.05"),
+              ("fontSize:9,fontWeight:700,letterSpacing:.45", "fontSize:10.5,fontWeight:800,letterSpacing:.3"),
+              ("fontSize:9,color:'#8A8A8A'", "fontSize:10.5,fontWeight:700,color:'#737A76'"),
+              ("fontSize:12,fontWeight:700,color:changed?accent:'#151515'", "fontSize:13,fontWeight:800,color:changed?accent:'#151515'"),
+              ("fontSize:10,color:accent", "fontSize:11,color:accent"),
+              ("fontSize:10,color:muted,marginTop:2", "fontSize:11,color:muted,marginTop:2"),
+              ("fontSize:10,color:muted}}>4 leads", "fontSize:11,color:muted}}>4 leads"),
+              ("fontSize:11,lineHeight:1.4,color:'#5E6662'", "fontSize:12,lineHeight:1.4,fontWeight:600,color:'#515A56'"),
+              ("fontSize:10,color:muted,marginTop:4", "fontSize:11,color:muted,marginTop:4"),
+              ("fontSize:10,color:muted,marginTop:7", "fontSize:11,color:muted,marginTop:7"),
+              ("fontSize:10,fontWeight:active?800:600", "fontSize:11.5,fontWeight:active?800:700"),
+              ("fontSize:11,fontWeight:700,marginTop:6", "fontSize:12,fontWeight:800,marginTop:6"),
+              ("fontSize:9,color:muted,marginTop:3", "fontSize:10.5,color:muted,marginTop:3"),
+              ("fontSize:11,color:'#657477',marginTop:5", "fontSize:12,color:'#566561',marginTop:5"),
+              ("fontSize:13,fontWeight:800,lineHeight:1.35", "fontSize:14,fontWeight:800,lineHeight:1.35"),
+              ("fontSize:11,lineHeight:1.4,color:'#4E5955'", "fontSize:12,lineHeight:1.38,color:'#46514D'"),
+              ("fontSize:9,color:'#8A8A8A'", "fontSize:10.5,color:'#767D79'"),
+              ("fontSize:10,fontWeight:800", "fontSize:11,fontWeight:800"),
+              ("fontSize:10,color:'#5F6663'", "fontSize:11,color:'#555D59'"),
+            ],
+            'motion/src/Scene01ToIntelligenceFlow.tsx': [
+              ("fontSize: 10.5, letterSpacing: 1.45, fontWeight: 900", "fontSize: 12, letterSpacing: 1.15, fontWeight: 900"),
+              ("fontSize: 11, fontWeight: 900, letterSpacing: 1.15", "fontSize: 12.5, fontWeight: 900, letterSpacing: 0.95"),
+              ("fontSize: 8.5, color: '#8A938E'", "fontSize: 10, fontWeight: 700, color: '#737C77'"),
+              ("fontSize: 11.7, color: ink, fontWeight: 800", "fontSize: 13, color: ink, fontWeight: 800"),
+              ("fontSize: 10.5, fontWeight: 900, letterSpacing: 0.7", "fontSize: 11.5, fontWeight: 900, letterSpacing: 0.55"),
+              ("fontSize: 12.3, color: muted", "fontSize: 13.5, fontWeight: 600, color: '#59635E'"),
+              ("fontSize: 10, fontWeight: 900, letterSpacing: 1.15", "fontSize: 11.2, fontWeight: 900, letterSpacing: 0.9"),
+              ("fontSize: 13.3, fontWeight: 800", "fontSize: 14.5, fontWeight: 800"),
+              ("fontSize: 8.8, fontWeight: 900, letterSpacing: 1.05", "fontSize: 10.2, fontWeight: 900, letterSpacing: 0.8"),
+              ("fontSize: 11.2, color: muted", "fontSize: 12.4, color: '#59635E'"),
+              ("fontSize: 13.6, fontWeight: 900", "fontSize: 14.8, fontWeight: 900"),
+              ("fontSize: 9.2, fontWeight: 800", "fontSize: 10.3, fontWeight: 800"),
+            ],
+            'motion/src/Scene01Cinematic.tsx': [
+              ("fontSize: 10,\n            fontWeight: 850,\n            letterSpacing: 1.05", "fontSize: 11.5,\n            fontWeight: 900,\n            letterSpacing: 0.85"),
+              ("fontSize: 10,\n                      color: '#7A827E'", "fontSize: 11,\n                      color: '#68716C'"),
+              ("fontSize: 9,\n                          textTransform: 'uppercase'", "fontSize: 10.5,\n                          textTransform: 'uppercase'"),
+              ("fontSize: 13,\n                          color: '#1B1F1D'", "fontSize: 14.5,\n                          color: '#1B1F1D'"),
+              ("fontSize: 11,\n                  color: '#737B77'", "fontSize: 12,\n                  color: '#626B66'"),
+            ],
+          }
+
+          for filename, edits in replacements.items():
+              path = Path(filename)
+              text = path.read_text()
+              for old, new in edits:
+                  if old not in text:
+                      raise SystemExit(f'Missing expected pattern in {filename}: {old!r}')
+                  text = text.replace(old, new)
+              path.write_text(text)
+          PY
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Remotion dependencies
+        working-directory: motion
+        run: npm install --no-audit --no-fund
+
+      - name: Type-check motion project
+        working-directory: motion
+        run: npx tsc --noEmit
+
+      - name: Ensure browser
+        working-directory: motion
+        run: npx remotion browser ensure
+
+      - name: Render 2560x1440 legible desktop master
+        working-directory: motion
+        run: |
+          mkdir -p out
+          npx remotion render src/gkais-final-master-index.tsx GKAISFinalMaster out/gkais-hero-legible-v3.mp4 \
+            --codec=h264 \
+            --scale=2 \
+            --crf=8 \
+            --concurrency=4
+
+      - name: Validate rendered asset
+        run: |
+          sudo apt-get update >/dev/null
+          sudo apt-get install -y ffmpeg >/dev/null
+          ffprobe -v error \
+            -show_entries stream=width,height,r_frame_rate \
+            -show_entries format=duration,size \
+            -of default=noprint_wrappers=1 \
+            motion/out/gkais-hero-legible-v3.mp4
+          test "$(ffprobe -v error -select_streams v:0 -show_entries stream=width -of csv=p=0 motion/out/gkais-hero-legible-v3.mp4)" = "2560"
+          test "$(ffprobe -v error -select_streams v:0 -show_entries stream=height -of csv=p=0 motion/out/gkais-hero-legible-v3.mp4)" = "1440"
+
+      - name: Publish external release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="gkais-hero-legible-v3"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release delete "$TAG" -y --cleanup-tag
+          fi
+          gh release create "$TAG" motion/out/gkais-hero-legible-v3.mp4 \
+            --title "G-KAIS Hero Legible v3" \
+            --notes "Desktop hero with larger UI typography and 2560x1440 H.264 CRF 8 render." \
+            --target "$GITHUB_SHA"
+
+      - name: Point Hero to legible external asset
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/components/HeroVideo.tsx')
+          text = p.read_text()
+          old = 'https://github.com/IsmaelGeraldo/G-Kais/releases/download/gkais-hero-hq-v2/gkais-hero-desktop-hq-v2.mp4'
+          new = 'https://github.com/IsmaelGeraldo/G-Kais/releases/download/gkais-hero-legible-v3/gkais-hero-legible-v3.mp4'
+          if old not in text:
+              raise SystemExit('Current desktop HQ release URL not found')
+          p.write_text(text.replace(old, new))
+          PY
+
+      - name: Remove one-off workflow and commit final source changes
+        run: |
+          rm .github/workflows/render-hero-legibility-v3.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add motion/src/UnifiedCRMScene.tsx motion/src/Scene01ToIntelligenceFlow.tsx motion/src/Scene01Cinematic.tsx src/components/HeroVideo.tsx .github/workflows/render-hero-legibility-v3.yml
+          git commit -m "Improve hero video text legibility and use 1440p render"
+          git push origin HEAD:fix/hero-video-legibility-v3

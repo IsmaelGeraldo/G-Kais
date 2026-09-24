@@ -27,9 +27,9 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Render from approved master
+      - name: Persist approved master and HQ source
         env:
           GH_TOKEN: ${{ github.token }}
         run: bash scripts/render-hero-master-clean-v7.sh
 
-# retry with supported near-lossless H.264 CRF
+# final source-persistence pass; HQ render already validated and published

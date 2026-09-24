@@ -29,13 +29,13 @@ section.gk-hero {
 
 @media (min-width: 1101px) {
   .gk-hero .gk-hero-layout {
-    max-width: 1320px;
-    grid-template-columns: minmax(0, 0.74fr) minmax(0, 1.26fr);
-    gap: 40px;
+    max-width: 1540px;
+    grid-template-columns: minmax(0, 0.62fr) minmax(0, 1.38fr);
+    gap: 28px;
   }
 
   .gk-hero .gk-hero-foot {
-    max-width: 1320px;
+    max-width: 1540px;
   }
 }
 

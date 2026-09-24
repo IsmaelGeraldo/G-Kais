@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "remotion studio src/index.ts",
-    "render": "remotion render src/index.ts GKAISMasterFilm out/gkais-master-film.mp4",
-    "still": "remotion still src/index.ts GKAISMasterFilm out/gkais-master-film.png --frame=612"
+    "render": "remotion render src/index.ts GKAISFinalMaster out/gkais-final-master.mp4",
+    "render:legacy": "remotion render src/index.ts GKAISMasterFilm out/gkais-master-film.mp4",
+    "still": "remotion still src/index.ts GKAISFinalMaster out/gkais-final-master.png --frame=612"
   },
   "dependencies": {
     "@remotion/cli": "4.0.527",

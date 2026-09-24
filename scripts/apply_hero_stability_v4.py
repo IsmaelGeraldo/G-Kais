@@ -74,15 +74,4 @@ for old, new, label in [
 ]:
     require_replace(crm, old, new, label)
 
-
-# Do not upscale the already-rendered video with a CSS transform. Enlarge the
-# actual box instead, so Chrome does not resample fine UI text on every frame.
-css = "src/components/hero-video.css"
-require_replace(
-    css,
-    "  .gk-hero-video {\n    width: min(100%, 860px);\n    transform: scale(1.08);\n    transform-origin: center center;\n  }",
-    "  .gk-hero-video {\n    width: min(calc(100% + 56px), 860px);\n    max-width: none;\n    margin-left: -28px;\n    margin-right: -28px;\n  }",
-    "Hero desktop transform scaling",
-)
-
-print("Anti-shimmer source and Hero display pass applied successfully")
+print("Anti-shimmer source pass applied successfully")

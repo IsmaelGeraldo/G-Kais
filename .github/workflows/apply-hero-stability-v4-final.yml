@@ -29,18 +29,13 @@ jobs:
           from pathlib import Path
           p = Path('src/components/HeroVideo.tsx')
           s = p.read_text()
-          old = '''const HERO_VIDEO_DESKTOP =
-  "https://github.com/IsmaelGeraldo/G-Kais/releases/download/gkais-hero-legible-v3/gkais-hero-legible-v3.mp4";'''
-          new = '''const HERO_VIDEO_DESKTOP_WEBM =
-  "https://github.com/IsmaelGeraldo/G-Kais/releases/download/gkais-hero-stable-v4/gkais-hero-stable-v4.webm";
-const HERO_VIDEO_DESKTOP_MP4 =
-  "https://github.com/IsmaelGeraldo/G-Kais/releases/download/gkais-hero-stable-v4/gkais-hero-stable-v4.mp4";'''
+          old = 'const HERO_VIDEO_DESKTOP =\n  "https://github.com/IsmaelGeraldo/G-Kais/releases/download/gkais-hero-legible-v3/gkais-hero-legible-v3.mp4";'
+          new = 'const HERO_VIDEO_DESKTOP_WEBM =\n  "https://github.com/IsmaelGeraldo/G-Kais/releases/download/gkais-hero-stable-v4/gkais-hero-stable-v4.webm";\nconst HERO_VIDEO_DESKTOP_MP4 =\n  "https://github.com/IsmaelGeraldo/G-Kais/releases/download/gkais-hero-stable-v4/gkais-hero-stable-v4.mp4";'
           if old not in s:
               raise SystemExit('Current v3 desktop source constant not found')
           s = s.replace(old, new, 1)
           old_source = '          <source src={HERO_VIDEO_DESKTOP} type="video/mp4" />'
-          new_source = '''          <source src={HERO_VIDEO_DESKTOP_WEBM} type="video/webm" />
-          <source src={HERO_VIDEO_DESKTOP_MP4} type="video/mp4" />'''
+          new_source = '          <source src={HERO_VIDEO_DESKTOP_WEBM} type="video/webm" />\n          <source src={HERO_VIDEO_DESKTOP_MP4} type="video/mp4" />'
           if old_source not in s:
               raise SystemExit('Current desktop source element not found')
           p.write_text(s.replace(old_source, new_source, 1))

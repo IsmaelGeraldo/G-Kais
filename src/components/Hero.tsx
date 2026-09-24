@@ -1,6 +1,6 @@
 import React from "react";
 import { ArrowRight, Sparkles, Target } from "lucide-react";
-import { HeroSystemVisual } from "./HeroSystemVisual";
+import { HeroVideo } from "./HeroVideo";
 import { useLanguage } from "../i18n/LanguageContext";
 import "./hero-conversations.css";
 
@@ -58,7 +58,7 @@ export const Hero: React.FC<HeroProps> = ({ onOpenAudit }) => {
             <span>{es ? "Próxima acción clara" : "Clear next action"}</span>
           </div>
         </div>
-        <HeroSystemVisual />
+        <HeroVideo />
       </div>
       <div className="gk-hero-foot">
         <span>

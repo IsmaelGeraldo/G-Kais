@@ -2,7 +2,7 @@ import React from "react";
 import "./hero-video.css";
 
 const HERO_VIDEO_DESKTOP =
-  "https://github.com/IsmaelGeraldo/G-Kais/releases/download/gkais-hero-stable-v5/gkais-hero-stable-v5.mp4";
+  "https://github.com/IsmaelGeraldo/G-Kais/releases/download/gkais-hero-native-v6/gkais-hero-native-v6.mp4";
 const HERO_VIDEO_MOBILE =
   "https://d2ol7oe51mr4n9.cloudfront.net/user_3JjLYpV2xzn5QTLEZhkGddrqtlj/755b4b23-e496-4249-b0a4-76e7021c1bd0.mp4";
 

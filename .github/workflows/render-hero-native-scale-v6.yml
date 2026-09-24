@@ -37,15 +37,34 @@ jobs:
       - name: Validate output
         working-directory: motion
         run: |
-          WIDTH=$(ffprobe -v error -select_streams v:0 -show_entries stream=width -of csv=p=0 out/gkais-hero-native-v6.mp4 | tr -d '\r\n')
-          HEIGHT=$(ffprobe -v error -select_streams v:0 -show_entries stream=height -of csv=p=0 out/gkais-hero-native-v6.mp4 | tr -d '\r\n')
-          FPS=$(ffprobe -v error -select_streams v:0 -show_entries stream=r_frame_rate -of csv=p=0 out/gkais-hero-native-v6.mp4 | tr -d '\r\n')
-          DURATION=$(ffprobe -v error -show_entries format=duration -of csv=p=0 out/gkais-hero-native-v6.mp4 | tr -d '\r\n')
-          SIZE=$(stat -c%s out/gkais-hero-native-v6.mp4)
-          echo "${WIDTH}x${HEIGHT} ${FPS} duration=${DURATION}s size=${SIZE}"
-          test "$WIDTH" = "2560"
-          test "$HEIGHT" = "1440"
-          test "$FPS" = "30/1"
+          python3 - <<'PY'
+          import json
+          import subprocess
+
+          path = 'out/gkais-hero-native-v6.mp4'
+          raw = subprocess.check_output([
+              'ffprobe', '-v', 'error',
+              '-select_streams', 'v:0',
+              '-show_entries', 'stream=width,height,r_frame_rate',
+              '-show_entries', 'format=duration,size',
+              '-of', 'json',
+              path,
+          ], text=True)
+          data = json.loads(raw)
+          stream = data['streams'][0]
+          fmt = data['format']
+          width = int(stream['width'])
+          height = int(stream['height'])
+          fps = stream['r_frame_rate']
+          duration = float(fmt['duration'])
+          size = int(fmt['size'])
+          print(f'{width}x{height} {fps} duration={duration:.6f}s size={size}')
+          assert width == 2560
+          assert height == 1440
+          assert fps == '30/1'
+          assert 26.7 < duration < 27.0
+          assert size > 20_000_000
+          PY
 
       - name: Publish release asset
         env:

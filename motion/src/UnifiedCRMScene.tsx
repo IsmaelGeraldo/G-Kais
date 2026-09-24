@@ -2,6 +2,7 @@ import React from 'react';
 import {Easing, interpolate, useCurrentFrame} from 'remotion';
 
 const clamp = {extrapolateLeft: 'clamp' as const, extrapolateRight: 'clamp' as const};
+const snapToRenderPixel = (value: number) => Math.round(value * 2) / 2;
 const accent = '#0A3F4D';
 const border = '#D8D8D8';
 const softBorder = '#E7E7E7';
@@ -88,7 +89,7 @@ export const UnifiedCRMScene: React.FC = () => {
   // Preserve the approved scroll: gentle movement first, then accelerating exit.
   const gentleScroll = interpolate(frame,[710,750],[0,-150],{...clamp,easing:Easing.inOut(Easing.cubic)});
   const exitScroll = interpolate(frame,[750,804],[0,-620],{...clamp,easing:Easing.in(Easing.cubic)});
-  const scroll = gentleScroll + exitScroll;
+  const scroll = snapToRenderPixel(gentleScroll + exitScroll);
 
   // Continuous cursor choreography: enter -> Diego -> Sofia -> Estado -> Reunión -> AI Brief.
   // After selecting the meeting, the cursor moves into the AI Brief area and fades with the exit blur.
@@ -117,7 +118,7 @@ export const UnifiedCRMScene: React.FC = () => {
     : [['11:42','Nota añadida','Preguntó por horarios y disponibilidad.'],['11:18','Instagram','Solicitó información sobre tratamiento facial.'],['10:56','Lead creado','Ingreso desde campaña Meta Ads.']];
 
   return (
-    <div style={{position:'absolute',inset:0,opacity:reveal,backgroundColor:`rgba(255,255,255,${whiteFade})`,transform:`perspective(1400px) translateY(${interpolate(reveal,[0,1],[30,0])}px) scale(${interpolate(reveal,[0,1],[.82,1])}) rotateX(${interpolate(reveal,[0,1],[3.5,0])}deg)`,transformOrigin:'50% 50%',fontFamily:'Arial, Helvetica, sans-serif',zIndex:40}}>
+    <div style={{position:'absolute',inset:0,opacity:reveal,backgroundColor:`rgba(255,255,255,${whiteFade})`,transform:`translateY(${snapToRenderPixel(interpolate(reveal,[0,1],[30,0]))}px)`,transformOrigin:'50% 50%',fontFamily:'Arial, Helvetica, sans-serif',zIndex:40}}>
       <div style={{position:'absolute',left:58,top:48,width:1164,height:624,borderRadius:28,border:'1px solid rgba(10,63,77,.18)',background:'#F7F7F5',boxShadow:`0 34px 88px rgba(14,24,22,${.12+settle*.06}),0 4px 14px rgba(10,63,77,.06)`,overflow:'hidden',opacity:1-exitProgress,filter:`blur(${exitProgress*9}px)`,transform:`scale(${1+exitProgress*.055})`,transformOrigin:'50% 50%'}}>
         <div style={{height:58,background:'#FFF',borderBottom:`1px solid ${softBorder}`,display:'flex',alignItems:'center',justifyContent:'space-between',padding:'0 20px'}}>
           <div style={{display:'flex',alignItems:'center',gap:12}}>
@@ -160,7 +161,7 @@ export const UnifiedCRMScene: React.FC = () => {
                     <div style={{display:'flex',justifyContent:'space-between',gap:10}}><div><Label teal>Qué toca hacer ahora</Label><div style={{fontSize:11,color:muted,marginTop:4}}>Resumen operativo del lead</div></div><Pill tone="amber">Alta</Pill></div>
                     <div style={{marginTop:12,border:`1px solid ${softBorder}`,borderRadius:14,background:'#FFF',padding:12}}><Label>Tarea pendiente</Label><div style={{fontSize:16,fontWeight:900,lineHeight:1.12,marginTop:7}}>{selected.task}</div><div style={{fontSize:11,color:muted,marginTop:7}}>{selected.taskTime}</div></div>
                     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginTop:8}}><MiniField label="Responsable" value="Equipo comercial"/><div style={{position:'relative'}}><MiniField label="Estado" value={shownStatus} interactive changed={!diegoSelected&&meetingSelected}/>
-                      {!diegoSelected?<div style={{position:'absolute',left:0,right:0,top:61,borderRadius:12,border:'1px solid rgba(10,63,77,.18)',background:'#FFF',boxShadow:'0 14px 28px rgba(17,30,27,.16)',padding:6,opacity:dropdownOpen,transform:`translateY(${(1-dropdownOpen)*-6}px) scale(${.98+dropdownOpen*.02})`,transformOrigin:'50% 0%',zIndex:20}}>{['Seguimiento','Reunión agendada','Cliente'].map((option)=>{const active=option==='Reunión agendada'&&frame>=690;return <div key={option} style={{borderRadius:8,padding:'7px 8px',fontSize:11.5,fontWeight:active?800:700,color:active?accent:'#4E5552',background:active?'#F1F7F6':'#FFF'}}>{option}</div>;})}</div>:null}
+                      {!diegoSelected?<div style={{position:'absolute',left:0,right:0,top:61,borderRadius:12,border:'1px solid rgba(10,63,77,.18)',background:'#FFF',boxShadow:'0 14px 28px rgba(17,30,27,.16)',padding:6,opacity:dropdownOpen,transform:`translateY(${snapToRenderPixel((1-dropdownOpen)*-6)}px)`,transformOrigin:'50% 0%',zIndex:20}}>{['Seguimiento','Reunión agendada','Cliente'].map((option)=>{const active=option==='Reunión agendada'&&frame>=690;return <div key={option} style={{borderRadius:8,padding:'7px 8px',fontSize:11.5,fontWeight:active?800:700,color:active?accent:'#4E5552',background:active?'#F1F7F6':'#FFF'}}>{option}</div>;})}</div>:null}
                     </div></div>
                     <div style={{marginTop:8,border:`1px solid ${softBorder}`,borderRadius:12,background:'#FFF',padding:10}}><Label>Última nota</Label><div style={{fontSize:12,fontWeight:800,marginTop:6}}>{selected.note}</div><div style={{fontSize:10.5,color:muted,marginTop:3}}>Hoy · {diegoSelected?'14:16':'11:42'}</div></div>
                   </section>

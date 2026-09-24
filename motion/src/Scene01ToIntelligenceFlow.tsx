@@ -13,6 +13,8 @@ const clamp = {
   extrapolateRight: 'clamp' as const,
 };
 
+const snapToRenderPixel = (value: number) => Math.round(value * 2) / 2;
+
 const accent = '#0A3F4D';
 const ink = '#111412';
 const muted = '#66706B';
@@ -274,7 +276,7 @@ const OpportunityStack: React.FC<{column: OpportunityColumn; index: number}> = (
   const frame = useCurrentFrame();
   const reveal = interpolate(frame, [column.revealStart, column.revealStart + 24], [0, 1], {...clamp, easing: Easing.out(Easing.cubic)});
   const offsetX = Math.round(interpolate(reveal, [0, 1], [34, 0]));
-  const floatY = Math.round(Math.sin((frame + index * 13) / 36));
+  const floatY = 0;
   const cardBg = 'rgba(255,255,255,0.965)';
   const border = '1px solid rgba(10,63,77,0.13)';
   const shadow = '0 14px 34px rgba(22,30,26,0.11)';
@@ -349,9 +351,9 @@ const FlowScene: React.FC = () => {
   const firstCamera = interpolate(frame, [118, 222], [0, 1], {...clamp, easing: Easing.inOut(Easing.cubic)});
   const secondCamera = interpolate(frame, [232, 350], [0, 1], {...clamp, easing: Easing.inOut(Easing.cubic)});
   const galleryCamera = interpolate(frame, [344, 466], [0, 1], {...clamp, easing: Easing.inOut(Easing.cubic)});
-  const cameraX = interpolate(firstCamera, [0, 1], [0, -930]) + interpolate(secondCamera, [0, 1], [0, -110]) + interpolate(galleryCamera, [0, 1], [0, -510]);
+  const cameraX = snapToRenderPixel(interpolate(firstCamera, [0, 1], [0, -930]) + interpolate(secondCamera, [0, 1], [0, -110]) + interpolate(galleryCamera, [0, 1], [0, -510]));
   const cameraScale = interpolate(frame, [118, 222, 344, 466], [1, 1.032, 1.032, 0.82], {...clamp, easing: Easing.inOut(Easing.cubic)});
-  const cameraY = interpolate(frame, [118, 222, 344, 466], [0, -5, -5, 2], {...clamp, easing: Easing.inOut(Easing.cubic)});
+  const cameraY = snapToRenderPixel(interpolate(frame, [118, 222, 344, 466], [0, -5, -5, 2], {...clamp, easing: Easing.inOut(Easing.cubic)}));
   const scene01Opacity = interpolate(frame, [150, 222], [1, 0], clamp);
   const scene01Blur = interpolate(frame, [158, 220], [0, 2.2], clamp);
 

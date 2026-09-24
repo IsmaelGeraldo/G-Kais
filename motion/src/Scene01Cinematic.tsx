@@ -14,6 +14,9 @@ const clamp = {
   extrapolateRight: 'clamp' as const,
 };
 
+// Keep animated UI aligned to the 2x render pixel grid.
+const snapToRenderPixel = (value: number) => Math.round(value * 2) / 2;
+
 const palette = {
   ink: '#101211',
   muted: '#747B77',
@@ -92,8 +95,8 @@ const GlassNotification: React.FC<{
     <div
       style={{
         position: 'absolute',
-        left: Math.round(x + driftX),
-        top: Math.round(y + driftY + interpolate(reveal, [0, 1], [16, 0])),
+        left: snapToRenderPixel(x + driftX),
+        top: snapToRenderPixel(y + driftY + interpolate(reveal, [0, 1], [16, 0])),
         width,
         minHeight: 66,
         padding: '11px 14px 11px 11px',
@@ -181,9 +184,9 @@ export const Scene01Cinematic: React.FC<{accent?: string}> = ({accent = '#0A3F4D
   });
   const copyOpacity = interpolate(frame, [22, 48], [0, 1], clamp);
   const secondLineOpacity = interpolate(frame, [66, 92], [0, 1], clamp);
-  const cameraX = interpolate(frame, [0, 125], [0, -13], clamp);
-  const cameraY = interpolate(frame, [0, 125], [8, -4], clamp);
-  const phoneFloat = Math.sin(frame / 24) * 4;
+  const cameraX = snapToRenderPixel(interpolate(frame, [0, 125], [0, -13], clamp));
+  const cameraY = snapToRenderPixel(interpolate(frame, [0, 125], [8, -4], clamp));
+  const phoneFloat = snapToRenderPixel(Math.sin(frame / 24) * 4);
   const unread = frame < 34 ? 2 : frame < 70 ? 4 : 7;
 
   const notifications = [

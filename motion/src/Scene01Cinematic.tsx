@@ -14,7 +14,6 @@ const clamp = {
   extrapolateRight: 'clamp' as const,
 };
 
-// Keep animated UI aligned to the 2x render pixel grid.
 const snapToRenderPixel = (value: number) => Math.round(value * 2) / 2;
 
 const palette = {
@@ -135,9 +134,9 @@ const GlassNotification: React.FC<{
       <div style={{minWidth: 0, position: 'relative', zIndex: 1}}>
         <div
           style={{
-            fontSize: 11.5,
-            fontWeight: 900,
-            letterSpacing: 0.85,
+            fontSize: 10,
+            fontWeight: 850,
+            letterSpacing: 1.05,
             color: '#68716C',
             textTransform: 'uppercase',
           }}
@@ -450,8 +449,8 @@ export const Scene01Cinematic: React.FC<{accent?: string}> = ({accent = '#0A3F4D
                 <div>
                   <div
                     style={{
-                      fontSize: 11,
-                      color: '#68716C',
+                      fontSize: 10,
+                      color: '#7A827E',
                       fontWeight: 850,
                       letterSpacing: 1.5,
                     }}
@@ -533,7 +532,7 @@ export const Scene01Cinematic: React.FC<{accent?: string}> = ({accent = '#0A3F4D
                     <div style={{minWidth: 0}}>
                       <div
                         style={{
-                          fontSize: 10.5,
+                          fontSize: 9,
                           textTransform: 'uppercase',
                           color: '#858C88',
                           letterSpacing: 0.9,
@@ -544,7 +543,7 @@ export const Scene01Cinematic: React.FC<{accent?: string}> = ({accent = '#0A3F4D
                       </div>
                       <div
                         style={{
-                          fontSize: 14.5,
+                          fontSize: 13,
                           color: '#1B1F1D',
                           fontWeight: 760,
                           marginTop: 4,
@@ -574,8 +573,8 @@ export const Scene01Cinematic: React.FC<{accent?: string}> = ({accent = '#0A3F4D
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontSize: 12,
-                  color: '#626B66',
+                  fontSize: 11,
+                  color: '#737B77',
                   fontWeight: 800,
                 }}
               >

@@ -1,0 +1,110 @@
+name: Render G-KAIS Hero Cut v1
+
+on:
+  push:
+    branches:
+      - feat/hero-cut-composition-v1
+    paths:
+      - '.github/workflows/render-gkais-hero-cut-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout Hero Cut branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/hero-cut-composition-v1
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Render 4K Hero Cut
+        run: |
+          cd motion
+          npm install --no-audit --no-fund
+          npx remotion compositions src/gkais-hero-cut-index.tsx
+          npx remotion browser ensure
+          mkdir -p out
+          npx remotion render src/gkais-hero-cut-index.tsx GKAISHeroCut out/gkais-hero-cut-v1-master.mp4 \
+            --codec=h264 \
+            --scale=3 \
+            --crf=1 \
+            --pixel-format=yuv444p \
+            --concurrency=4
+
+      - name: Encode smooth high-quality web MP4
+        run: |
+          ffmpeg -y -i motion/out/gkais-hero-cut-v1-master.mp4 \
+            -an -c:v libx264 -preset slow -crf 7 -pix_fmt yuv420p \
+            -movflags +faststart motion/out/gkais-hero-cut-v1.mp4
+
+      - name: Validate Hero Cut
+        run: |
+          WIDTH=$(ffprobe -v error -select_streams v:0 -show_entries stream=width -of csv=p=0 motion/out/gkais-hero-cut-v1.mp4)
+          HEIGHT=$(ffprobe -v error -select_streams v:0 -show_entries stream=height -of csv=p=0 motion/out/gkais-hero-cut-v1.mp4)
+          FPS=$(ffprobe -v error -select_streams v:0 -show_entries stream=r_frame_rate -of csv=p=0 motion/out/gkais-hero-cut-v1.mp4)
+          DURATION=$(ffprobe -v error -show_entries format=duration -of csv=p=0 motion/out/gkais-hero-cut-v1.mp4)
+          SIZE=$(stat -c%s motion/out/gkais-hero-cut-v1.mp4)
+          echo "${WIDTH}x${HEIGHT} fps=${FPS} duration=${DURATION}s size=${SIZE}"
+          test "$WIDTH" = "3840"
+          test "$HEIGHT" = "2160"
+          test "$FPS" = "30/1"
+
+      - name: Publish Hero Cut release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete gkais-hero-cut-v1 -y --cleanup-tag || true
+          gh release create gkais-hero-cut-v1 \
+            motion/out/gkais-hero-cut-v1.mp4 \
+            --title "G-KAIS Hero Cut v1" \
+            --notes "Hero-specific composition derived from the approved master. No scene redesign. Three-opportunity scene uses a fixed 1.12x camera once readable; CRM uses a fixed 1.085x camera once readable. 3840x2160, 30 fps, H.264 CRF 7, faststart." \
+            --target "$GITHUB_SHA"
+
+      - name: Point desktop Hero to the new 4K cut
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/components/HeroVideo.tsx')
+          s = p.read_text()
+          old = '''const HERO_VIDEO_DESKTOP_WEBM =
+            "https://github.com/IsmaelGeraldo/G-Kais/releases/download/gkais-hero-master-clean-v7/gkais-hero-master-clean-v7.webm";
+          const HERO_VIDEO_DESKTOP_MP4 =
+            "https://github.com/IsmaelGeraldo/G-Kais/releases/download/gkais-hero-master-clean-v7/gkais-hero-master-clean-v7.mp4";'''
+          new = '''const HERO_VIDEO_DESKTOP =
+            "https://github.com/IsmaelGeraldo/G-Kais/releases/download/gkais-hero-cut-v1/gkais-hero-cut-v1.mp4";'''
+          if old not in s:
+              raise SystemExit('Expected v7 desktop source block not found')
+          s = s.replace(old, new, 1)
+          old_sources = '''          <source src={HERO_VIDEO_DESKTOP_WEBM} type="video/webm" />
+                    <source src={HERO_VIDEO_DESKTOP_MP4} type="video/mp4" />'''
+          new_sources = '''          <source src={HERO_VIDEO_DESKTOP} type="video/mp4" />'''
+          if old_sources not in s:
+              raise SystemExit('Expected v7 desktop source elements not found')
+          s = s.replace(old_sources, new_sources, 1)
+          p.write_text(s)
+          PY
+
+      - name: Commit product files only
+        run: |
+          rm -f .github/workflows/render-gkais-hero-cut-v1.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add motion/src/GKaisHeroCut.tsx motion/src/gkais-hero-cut-index.tsx src/components/HeroVideo.tsx
+          git add -u .github/workflows/render-gkais-hero-cut-v1.yml
+          git commit -m "Add 4K Hero Cut composition and desktop asset"
+          git push origin HEAD:feat/hero-cut-composition-v1

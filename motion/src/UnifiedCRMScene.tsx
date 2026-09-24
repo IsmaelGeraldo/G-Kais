@@ -66,8 +66,8 @@ export const UnifiedCRMScene: React.FC = () => {
   const frame = useCurrentFrame();
   const reveal = interpolate(frame,[488,528],[0,1],{...clamp,easing:Easing.out(Easing.cubic)});
   const settle = interpolate(frame,[528,550],[0,1],{...clamp,easing:Easing.out(Easing.cubic)});
-  const exitProgress = interpolate(frame,[714,734],[0,1],{...clamp,easing:Easing.inOut(Easing.cubic)});
-  const whiteFade = interpolate(frame,[720,734],[0,1],{...clamp,easing:Easing.inOut(Easing.cubic)});
+  const exitProgress = interpolate(frame,[770,804],[0,1],{...clamp,easing:Easing.in(Easing.cubic)});
+  const whiteFade = interpolate(frame,[786,804],[0,1],{...clamp,easing:Easing.inOut(Easing.cubic)});
 
   // One continuous interaction timeline. Sparse waypoints avoid the stop-start feel
   // caused by repeatedly easing through many near-identical cursor positions.
@@ -85,22 +85,24 @@ export const UnifiedCRMScene: React.FC = () => {
   // then close only after the meeting option has been selected.
   const dropdownOpen = interpolate(frame,[STATE_OPEN_CLICK,678,700,706],[0,1,1,0],{...clamp,easing:Easing.inOut(Easing.cubic)});
 
-  // Pause after selecting Reunión agendada, then accelerate into one continuous final scroll.
-  const scroll = interpolate(frame,[708,734],[0,-520],{...clamp,easing:Easing.in(Easing.quad)});
+  // Preserve the approved scroll: gentle movement first, then accelerating exit.
+  const gentleScroll = interpolate(frame,[710,750],[0,-150],{...clamp,easing:Easing.inOut(Easing.cubic)});
+  const exitScroll = interpolate(frame,[750,804],[0,-620],{...clamp,easing:Easing.in(Easing.cubic)});
+  const scroll = gentleScroll + exitScroll;
 
-  // Continuous cursor choreography: enter -> Diego -> Sofia -> Estado -> Reunión.
-  // The cursor stays parked on Reunión agendada after the click before fading out.
-  const cursorOpacity = interpolate(frame,[540,548,706,716],[0,1,1,0],clamp) * (1-exitProgress);
+  // Continuous cursor choreography: enter -> Diego -> Sofia -> Estado -> Reunión -> AI Brief.
+  // After selecting the meeting, the cursor moves into the AI Brief area and fades with the exit blur.
+  const cursorOpacity = interpolate(frame,[540,548],[0,1],clamp) * (1-exitProgress);
   const cursorX = interpolate(
     frame,
-    [540,584,626,672,696,706],
-    [-32,180,180,1100,1100,1100],
+    [540,584,626,672,696,710],
+    [-32,180,180,1100,1100,930],
     {...clamp,easing:Easing.bezier(0.32,0.04,0.22,1)},
   );
   const cursorY = interpolate(
     frame,
-    [540,584,626,672,696,706],
-    [176,372,205,390,462,462],
+    [540,584,626,672,696,710],
+    [176,372,205,408,480,560],
     {...clamp,easing:Easing.bezier(0.32,0.04,0.22,1)},
   );
   const clicking = Math.max(

@@ -48,6 +48,18 @@ export const TargetedVisualFixes: React.FC = () => (
         letter-spacing: 0 !important;
         background: url("data:image/svg+xml;base64,${WHATSAPP_ICON}") center / 23px 23px no-repeat, linear-gradient(145deg, #2DCB70 0%, #159447 100%) !important;
       }
+
+      /* The logo marked in the screenshot is the FIRST inbox-row WhatsApp glyph inside PhoneLogos.
+         Remove that global overlay so it can no longer sit above a floating glass notification. */
+      div[style*="width: 3600px"][style*="z-index: 116"] > div[style*="width: 284px"][style*="height: 548px"] > div:first-child[style*="left: 38px"] {
+        display: none !important;
+      }
+
+      /* Render the same WhatsApp glyph inside the phone's real first inbox-row icon instead.
+         It now belongs to the phone layer, so exterior notifications naturally cover it. */
+      div[style*="top: 126px"][style*="display: grid"][style*="gap: 10px"] > div:first-child > div:first-child[style*="width: 30px"][style*="height: 30px"] {
+        background: url("data:image/svg+xml;base64,${WHATSAPP_ICON}") center / 20px 20px no-repeat, #1FA855 !important;
+      }
     `}</style>
   </AbsoluteFill>
 );

@@ -31,3 +31,5 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: bash scripts/render-hero-master-clean-v7.sh
+
+# retry with supported near-lossless H.264 CRF

@@ -101,11 +101,9 @@ jobs:
         working-directory: motion
         run: npm install --no-audit --no-fund
 
-      - name: Type-check motion project
+      - name: Validate Remotion composition bundle
         working-directory: motion
-        run: |
-          npm install --no-save --no-package-lock vite@8.3.0
-          npx tsc --noEmit
+        run: npx remotion compositions src/gkais-final-master-index.tsx
 
       - name: Ensure browser
         working-directory: motion

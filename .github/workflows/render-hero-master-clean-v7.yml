@@ -1,0 +1,223 @@
+name: Render G-KAIS clean master v7
+
+on:
+  push:
+    branches:
+      - fix/hero-master-clean-v7
+    paths:
+      - '.github/workflows/render-hero-master-clean-v7.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout branch with full history
+        uses: actions/checkout@v4
+        with:
+          ref: fix/hero-master-clean-v7
+          fetch-depth: 0
+
+      - name: Restore approved Remotion master
+        run: |
+          git checkout c1bdba148c8169dfba351bbe892c98b9fa08991d -- \
+            motion/src/Scene01Cinematic.tsx \
+            motion/src/Scene01ToIntelligenceFlow.tsx \
+            motion/src/Scene01ToCRMPreview.tsx \
+            motion/src/UnifiedCRMScene.tsx
+
+      - name: Apply minimal anti-shimmer fixes only
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          # Scene 01: same motion/timing as master, aligned to the physical pixel grid
+          # of the 2x render so fine text does not vibrate between pixels.
+          p = Path('motion/src/Scene01Cinematic.tsx')
+          s = p.read_text()
+          anchor = "const clamp = {\n  extrapolateLeft: 'clamp' as const,\n  extrapolateRight: 'clamp' as const,\n};"
+          replacement = anchor + "\n\nconst snapToRenderPixel = (value: number) => Math.round(value * 2) / 2;"
+          if anchor not in s:
+              raise SystemExit('Scene01Cinematic clamp anchor not found')
+          s = s.replace(anchor, replacement, 1)
+          edits = [
+            ("left: Math.round(x + driftX),", "left: snapToRenderPixel(x + driftX),"),
+            ("top: Math.round(y + driftY + interpolate(reveal, [0, 1], [16, 0])),", "top: snapToRenderPixel(y + driftY + interpolate(reveal, [0, 1], [16, 0])),"),
+            ("const cameraX = interpolate(frame, [0, 125], [0, -13], clamp);", "const cameraX = snapToRenderPixel(interpolate(frame, [0, 125], [0, -13], clamp));"),
+            ("const cameraY = interpolate(frame, [0, 125], [8, -4], clamp);", "const cameraY = snapToRenderPixel(interpolate(frame, [0, 125], [8, -4], clamp));"),
+            ("const phoneFloat = Math.sin(frame / 24) * 4;", "const phoneFloat = snapToRenderPixel(Math.sin(frame / 24) * 4);"),
+          ]
+          for old, new in edits:
+              if old not in s:
+                  raise SystemExit(f'Scene01Cinematic replacement not found: {old}')
+              s = s.replace(old, new, 1)
+          p.write_text(s)
+
+          # Intelligence flow: preserve master camera timings/scale/layout exactly.
+          # Remove only the perpetual +/-1 px card bob and align camera translation.
+          p = Path('motion/src/Scene01ToIntelligenceFlow.tsx')
+          s = p.read_text()
+          anchor = "const clamp = {\n  extrapolateLeft: 'clamp' as const,\n  extrapolateRight: 'clamp' as const,\n};"
+          replacement = anchor + "\n\nconst snapToRenderPixel = (value: number) => Math.round(value * 2) / 2;"
+          if anchor not in s:
+              raise SystemExit('Intelligence clamp anchor not found')
+          s = s.replace(anchor, replacement, 1)
+          replacements = [
+            ("const floatY = Math.round(Math.sin((frame + index * 13) / 36));", "const floatY = 0;"),
+            ("const cameraX = interpolate(firstCamera, [0, 1], [0, -930]) + interpolate(secondCamera, [0, 1], [0, -110]) + interpolate(galleryCamera, [0, 1], [0, -510]);", "const cameraX = snapToRenderPixel(interpolate(firstCamera, [0, 1], [0, -930]) + interpolate(secondCamera, [0, 1], [0, -110]) + interpolate(galleryCamera, [0, 1], [0, -510]));"),
+            ("const cameraY = interpolate(frame, [118, 222, 344, 466], [0, -5, -5, 2], {...clamp, easing: Easing.inOut(Easing.cubic)});", "const cameraY = snapToRenderPixel(interpolate(frame, [118, 222, 344, 466], [0, -5, -5, 2], {...clamp, easing: Easing.inOut(Easing.cubic)}));"),
+          ]
+          for old, new in replacements:
+              if old not in s:
+                  raise SystemExit(f'Intelligence replacement not found: {old}')
+              s = s.replace(old, new, 1)
+          p.write_text(s)
+
+          # CRM: preserve the approved 3D entrance, dropdown, interactions and exit.
+          # Snap only the intentional vertical scroll to the 2x physical pixel grid.
+          p = Path('motion/src/UnifiedCRMScene.tsx')
+          s = p.read_text()
+          anchor = "const clamp = {extrapolateLeft: 'clamp' as const, extrapolateRight: 'clamp' as const};"
+          replacement = anchor + "\nconst snapToRenderPixel = (value: number) => Math.round(value * 2) / 2;"
+          if anchor not in s:
+              raise SystemExit('CRM clamp anchor not found')
+          s = s.replace(anchor, replacement, 1)
+          old = "const scroll = gentleScroll + exitScroll;"
+          new = "const scroll = snapToRenderPixel(gentleScroll + exitScroll);"
+          if old not in s:
+              raise SystemExit('CRM scroll anchor not found')
+          s = s.replace(old, new, 1)
+          p.write_text(s)
+
+          print('Approved master restored; minimal anti-shimmer pass applied')
+          PY
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install FFmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Install Remotion dependencies
+        working-directory: motion
+        run: npm install --no-audit --no-fund
+
+      - name: Validate final composition
+        working-directory: motion
+        run: npx remotion compositions src/gkais-final-master-index.tsx
+
+      - name: Ensure Remotion browser
+        working-directory: motion
+        run: npx remotion browser ensure
+
+      - name: Render lossless-like 2x master
+        working-directory: motion
+        run: |
+          mkdir -p out
+          npx remotion render src/gkais-final-master-index.tsx GKAISFinalMaster out/gkais-hero-master-clean-v7-master.mp4 \
+            --codec=h264 \
+            --scale=2 \
+            --crf=0 \
+            --pixel-format=yuv444p \
+            --concurrency=4
+
+      - name: Encode high-legibility desktop assets
+        run: |
+          ffmpeg -y -i motion/out/gkais-hero-master-clean-v7-master.mp4 \
+            -an -c:v libvpx-vp9 -b:v 0 -crf 10 -pix_fmt yuv444p \
+            -row-mt 1 -tile-columns 2 -speed 2 \
+            motion/out/gkais-hero-master-clean-v7.webm
+          ffmpeg -y -i motion/out/gkais-hero-master-clean-v7-master.mp4 \
+            -an -c:v libx264 -preset slow -crf 6 -pix_fmt yuv420p -movflags +faststart \
+            motion/out/gkais-hero-master-clean-v7.mp4
+
+      - name: Validate encoded assets
+        run: |
+          for f in motion/out/gkais-hero-master-clean-v7.webm motion/out/gkais-hero-master-clean-v7.mp4; do
+            echo "== $f =="
+            ffprobe -v error -select_streams v:0 \
+              -show_entries stream=width,height,r_frame_rate,pix_fmt \
+              -show_entries format=duration,size \
+              -of default=noprint_wrappers=1 "$f"
+            test "$(ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 "$f")" = "2560"
+            test "$(ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 "$f")" = "1440"
+          done
+          test "$(ffprobe -v error -select_streams v:0 -show_entries stream=pix_fmt -of default=nw=1:nk=1 motion/out/gkais-hero-master-clean-v7.webm)" = "yuv444p"
+
+      - name: Publish clean master desktop assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="gkais-hero-master-clean-v7"
+          gh release delete "$TAG" -y --cleanup-tag || true
+          gh release create "$TAG" \
+            motion/out/gkais-hero-master-clean-v7.webm \
+            motion/out/gkais-hero-master-clean-v7.mp4 \
+            --title "G-KAIS Hero Master Clean v7" \
+            --notes "Approved #117 master restored. Only physical-pixel snapping, removal of the +/-1px gallery bob, and CRM scroll snapping are applied. Desktop render: native 1280x720 composition at 2x scale, 2560x1440; VP9 4:4:4 primary plus high-quality H.264 fallback." \
+            --target "$GITHUB_SHA"
+
+      - name: Point desktop Hero to clean master assets
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/components/HeroVideo.tsx')
+          s = p.read_text()
+          old_const = '''const HERO_VIDEO_DESKTOP =
+  "https://github.com/IsmaelGeraldo/G-Kais/releases/download/gkais-hero-native-v6/gkais-hero-native-v6.mp4";'''
+          new_const = '''const HERO_VIDEO_DESKTOP_WEBM =
+  "https://github.com/IsmaelGeraldo/G-Kais/releases/download/gkais-hero-master-clean-v7/gkais-hero-master-clean-v7.webm";
+const HERO_VIDEO_DESKTOP_MP4 =
+  "https://github.com/IsmaelGeraldo/G-Kais/releases/download/gkais-hero-master-clean-v7/gkais-hero-master-clean-v7.mp4";'''
+          if old_const not in s:
+              raise SystemExit('Current v6 desktop source constant not found')
+          s = s.replace(old_const, new_const, 1)
+          old_source = '          <source src={HERO_VIDEO_DESKTOP} type="video/mp4" />'
+          new_source = '''          <source src={HERO_VIDEO_DESKTOP_WEBM} type="video/webm" />
+          <source src={HERO_VIDEO_DESKTOP_MP4} type="video/mp4" />'''
+          if old_source not in s:
+              raise SystemExit('Current desktop source element not found')
+          s = s.replace(old_source, new_source, 1)
+          p.write_text(s)
+          PY
+
+      - name: Verify only intended source files changed
+        run: |
+          echo "--- changed files ---"
+          git status --short
+          python3 - <<'PY'
+          import subprocess
+          allowed = {
+              'motion/src/Scene01Cinematic.tsx',
+              'motion/src/Scene01ToIntelligenceFlow.tsx',
+              'motion/src/Scene01ToCRMPreview.tsx',
+              'motion/src/UnifiedCRMScene.tsx',
+              'src/components/HeroVideo.tsx',
+              '.github/workflows/render-hero-master-clean-v7.yml',
+          }
+          changed = set(subprocess.check_output(['git','status','--porcelain'], text=True).splitlines())
+          paths = {line[3:] for line in changed}
+          unexpected = paths - allowed
+          if unexpected:
+              raise SystemExit(f'Unexpected changed files: {sorted(unexpected)}')
+          PY
+
+      - name: Commit clean master source and remove one-off workflow
+        run: |
+          rm -f .github/workflows/render-hero-master-clean-v7.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add motion/src/Scene01Cinematic.tsx \
+                  motion/src/Scene01ToIntelligenceFlow.tsx \
+                  motion/src/Scene01ToCRMPreview.tsx \
+                  motion/src/UnifiedCRMScene.tsx \
+                  src/components/HeroVideo.tsx
+          git add -u .github/workflows/render-hero-master-clean-v7.yml
+          git commit -m "Restore approved master and render clean anti-shimmer hero"
+          git push origin HEAD:fix/hero-master-clean-v7

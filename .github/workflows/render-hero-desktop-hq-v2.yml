@@ -45,6 +45,11 @@ jobs:
             --crf=10 \
             --concurrency=4
 
+      - name: Install ffprobe
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
       - name: Validate rendered asset
         run: |
           ffprobe -v error \

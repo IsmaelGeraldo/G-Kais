@@ -37,7 +37,7 @@ jobs:
             --scale=1 \
             --crf=14 \
             --pixel-format=yuv420p \
-            --concurrency=6
+            --concurrency=4
 
       - name: Publish preview release
         env:

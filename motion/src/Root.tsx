@@ -9,7 +9,7 @@ export const RemotionRoot: React.FC = () => {
       <Composition
         id="GKAISFinalMaster"
         component={GKaisFinalMaster}
-        durationInFrames={735}
+        durationInFrames={805}
         fps={30}
         width={1280}
         height={720}

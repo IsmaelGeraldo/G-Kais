@@ -1,7 +1,7 @@
 import React from 'react';
 import {AbsoluteFill, Easing, interpolate, useCurrentFrame} from 'remotion';
 import {Scene01ToIntelligencePolish} from './Scene01ToIntelligencePolish';
-import {ProductCRMRevealPolish} from './ProductCRMRevealPolish';
+import {UnifiedCRMScene} from './UnifiedCRMScene';
 
 const clamp = {
   extrapolateLeft: 'clamp' as const,
@@ -36,7 +36,7 @@ export const Scene01ToCRMPreview: React.FC = () => {
         <Scene01ToIntelligencePolish />
       </div>
 
-      <ProductCRMRevealPolish />
+      <UnifiedCRMScene />
     </AbsoluteFill>
   );
 };

@@ -1,8 +1,7 @@
 import React from "react";
 import "./hero-video.css";
 
-const HERO_VIDEO_DESKTOP_HQ = "/media/gkais-hero-desktop-hq-v2.mp4";
-const HERO_VIDEO_DESKTOP_FALLBACK =
+const HERO_VIDEO_DESKTOP =
   "https://d2ol7oe51mr4n9.cloudfront.net/user_3JjLYpV2xzn5QTLEZhkGddrqtlj/241c86d9-dc6c-4814-9af1-b01ee7070a9e.mp4";
 const HERO_VIDEO_MOBILE =
   "https://d2ol7oe51mr4n9.cloudfront.net/user_3JjLYpV2xzn5QTLEZhkGddrqtlj/755b4b23-e496-4249-b0a4-76e7021c1bd0.mp4";
@@ -26,8 +25,7 @@ export const HeroVideo: React.FC = () => {
             src={HERO_VIDEO_MOBILE}
             type="video/mp4"
           />
-          <source src={HERO_VIDEO_DESKTOP_HQ} type="video/mp4" />
-          <source src={HERO_VIDEO_DESKTOP_FALLBACK} type="video/mp4" />
+          <source src={HERO_VIDEO_DESKTOP} type="video/mp4" />
         </video>
       </div>
     </div>

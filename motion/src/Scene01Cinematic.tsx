@@ -132,9 +132,9 @@ const GlassNotification: React.FC<{
       <div style={{minWidth: 0, position: 'relative', zIndex: 1}}>
         <div
           style={{
-            fontSize: 10,
-            fontWeight: 850,
-            letterSpacing: 1.05,
+            fontSize: 11.5,
+            fontWeight: 900,
+            letterSpacing: 0.85,
             color: '#68716C',
             textTransform: 'uppercase',
           }}
@@ -447,8 +447,8 @@ export const Scene01Cinematic: React.FC<{accent?: string}> = ({accent = '#0A3F4D
                 <div>
                   <div
                     style={{
-                      fontSize: 10,
-                      color: '#7A827E',
+                      fontSize: 11,
+                      color: '#68716C',
                       fontWeight: 850,
                       letterSpacing: 1.5,
                     }}
@@ -530,7 +530,7 @@ export const Scene01Cinematic: React.FC<{accent?: string}> = ({accent = '#0A3F4D
                     <div style={{minWidth: 0}}>
                       <div
                         style={{
-                          fontSize: 9,
+                          fontSize: 10.5,
                           textTransform: 'uppercase',
                           color: '#858C88',
                           letterSpacing: 0.9,
@@ -541,7 +541,7 @@ export const Scene01Cinematic: React.FC<{accent?: string}> = ({accent = '#0A3F4D
                       </div>
                       <div
                         style={{
-                          fontSize: 13,
+                          fontSize: 14.5,
                           color: '#1B1F1D',
                           fontWeight: 760,
                           marginTop: 4,
@@ -571,8 +571,8 @@ export const Scene01Cinematic: React.FC<{accent?: string}> = ({accent = '#0A3F4D
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontSize: 11,
-                  color: '#737B77',
+                  fontSize: 12,
+                  color: '#626B66',
                   fontWeight: 800,
                 }}
               >

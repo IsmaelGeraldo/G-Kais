@@ -8,7 +8,7 @@ const softBorder = '#E7E7E7';
 const muted = '#777777';
 
 const Label: React.FC<React.PropsWithChildren<{teal?: boolean}>> = ({children, teal = false}) => (
-  <div style={{fontFamily:'Arial, Helvetica, sans-serif',fontSize:10,fontWeight:700,letterSpacing:1.35,textTransform:'uppercase',color:teal?accent:'#6B6B6B'}}>{children}</div>
+  <div style={{fontFamily:'Arial, Helvetica, sans-serif',fontSize:11.5,fontWeight:800,letterSpacing:1.05,textTransform:'uppercase',color:teal?accent:'#6B6B6B'}}>{children}</div>
 );
 
 const Pill: React.FC<React.PropsWithChildren<{tone?:'teal'|'amber'|'neutral'}>> = ({children,tone='neutral'}) => {
@@ -17,14 +17,14 @@ const Pill: React.FC<React.PropsWithChildren<{tone?:'teal'|'amber'|'neutral'}>> 
     : tone==='amber'
       ? {border:'#E7D3A2',background:'#FFF9EC',color:'#8A6215'}
       : {border:softBorder,background:'#FFFFFF',color:'#676767'};
-  return <span style={{display:'inline-flex',alignItems:'center',border:`1px solid ${s.border}`,background:s.background,color:s.color,borderRadius:999,padding:'5px 9px',fontFamily:'Arial, Helvetica, sans-serif',fontSize:9,fontWeight:700,letterSpacing:.45}}>{children}</span>;
+  return <span style={{display:'inline-flex',alignItems:'center',border:`1px solid ${s.border}`,background:s.background,color:s.color,borderRadius:999,padding:'5px 9px',fontFamily:'Arial, Helvetica, sans-serif',fontSize:10.5,fontWeight:800,letterSpacing:.3}}>{children}</span>;
 };
 
 const MiniField: React.FC<{label:string;value:string;interactive?:boolean;changed?:boolean}> = ({label,value,interactive=false,changed=false}) => (
   <div style={{border:`1px solid ${changed?'rgba(10,63,77,0.34)':softBorder}`,borderRadius:12,background:changed?'linear-gradient(180deg,#F8FBFA 0%,#F1F7F6 100%)':'#FFFFFF',padding:'10px 11px',minHeight:54,boxSizing:'border-box',boxShadow:changed?'0 5px 14px rgba(20,34,31,0.06)':'none'}}>
-    <div style={{fontFamily:'Arial, Helvetica, sans-serif',fontSize:9,color:'#8A8A8A'}}>{label}</div>
-    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,fontFamily:'Arial, Helvetica, sans-serif',fontSize:12,fontWeight:700,color:changed?accent:'#151515',marginTop:5,lineHeight:1.25}}>
-      <span>{value}</span>{interactive?<span style={{fontSize:10,color:accent}}>⌄</span>:null}
+    <div style={{fontFamily:'Arial, Helvetica, sans-serif',fontSize:10.5,fontWeight:700,color:'#737A76'}}>{label}</div>
+    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,fontFamily:'Arial, Helvetica, sans-serif',fontSize:13,fontWeight:800,color:changed?accent:'#151515',marginTop:5,lineHeight:1.25}}>
+      <span>{value}</span>{interactive?<span style={{fontSize:11,color:accent}}>⌄</span>:null}
     </div>
   </div>
 );
@@ -33,7 +33,7 @@ const LeadRow: React.FC<{name:string;company:string;status:string;selected:boole
   <div style={{position:'relative',minHeight:78,border:selected?'1px solid rgba(10,63,77,0.34)':`1px solid ${softBorder}`,background:selected?'#F4F8F8':'#FFFFFF',borderRadius:14,padding:'11px 12px',boxSizing:'border-box',boxShadow:selected?'0 0 18px rgba(10,63,77,0.10)':'none'}}>
     {selected?<div style={{position:'absolute',left:-1,top:13,bottom:13,width:3,borderRadius:3,background:accent}}/>:null}
     <div style={{fontFamily:'Arial, Helvetica, sans-serif',fontSize:12,fontWeight:800,color:'#111'}}>{name}</div>
-    <div style={{fontFamily:'Arial, Helvetica, sans-serif',fontSize:10,color:muted,marginTop:2}}>{company}</div>
+    <div style={{fontFamily:'Arial, Helvetica, sans-serif',fontSize:11,color:muted,marginTop:2}}>{company}</div>
     <div style={{marginTop:8}}><Pill tone={selected?'teal':'neutral'}>{status}</Pill></div>
   </div>
 );
@@ -130,7 +130,7 @@ export const UnifiedCRMScene: React.FC = () => {
         <div style={{display:'flex',height:566}}>
           <aside style={{width:278,borderRight:`1px solid ${softBorder}`,background:'#FAFAFA',padding:16,boxSizing:'border-box'}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'end',marginBottom:12}}>
-              <div><Label>Lead pipeline</Label><div style={{fontSize:12,fontWeight:800,marginTop:4}}>Trabajo prioritario</div></div><span style={{fontSize:10,color:muted}}>4 leads</span>
+              <div><Label>Lead pipeline</Label><div style={{fontSize:12,fontWeight:800,marginTop:4}}>Trabajo prioritario</div></div><span style={{fontSize:11,color:muted}}>4 leads</span>
             </div>
             <div style={{display:'grid',gap:8}}>
               <LeadRow name="Sofía Martínez" company="Clínica Aurora" status="Seguimiento hoy" selected={!diegoSelected}/>
@@ -138,7 +138,7 @@ export const UnifiedCRMScene: React.FC = () => {
               <LeadRow name="Diego Fuentes" company="Diseño Norte" status="Cotización" selected={diegoSelected}/>
               <LeadRow name="Martín Silva" company="Studio Forma" status="Esperando respuesta" selected={false}/>
             </div>
-            <div style={{marginTop:12,borderRadius:14,border:`1px solid ${softBorder}`,background:'#FFF',padding:12}}><Label teal>Priority work</Label><div style={{fontSize:11,lineHeight:1.4,color:'#5E6662',marginTop:7}}>Ordenado por urgencia operativa y próxima acción.</div></div>
+            <div style={{marginTop:12,borderRadius:14,border:`1px solid ${softBorder}`,background:'#FFF',padding:12}}><Label teal>Priority work</Label><div style={{fontSize:12,lineHeight:1.4,fontWeight:600,color:'#515A56',marginTop:7}}>Ordenado por urgencia operativa y próxima acción.</div></div>
           </aside>
 
           <main style={{position:'relative',flex:1,background:'#F1F3F2',overflow:'hidden'}}>
@@ -151,28 +151,28 @@ export const UnifiedCRMScene: React.FC = () => {
 
                 <div style={{display:'grid',gridTemplateColumns:'1.15fr .85fr',gap:14,marginTop:14}}>
                   <section style={{border:`1px solid ${border}`,borderRadius:18,background:'linear-gradient(180deg,#FFFFFF 0%,#FBFCFB 100%)',padding:15,boxShadow:'0 14px 34px rgba(20,34,31,.075)'}}>
-                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}><div><Label>Perfil del negocio y calificación</Label><div style={{fontSize:10,color:muted,marginTop:4}}>Contexto para AI Brief</div></div><Pill tone="teal">{selected.context}</Pill></div>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}><div><Label>Perfil del negocio y calificación</Label><div style={{fontSize:11,color:muted,marginTop:4}}>Contexto para AI Brief</div></div><Pill tone="teal">{selected.context}</Pill></div>
                     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginTop:12}}><MiniField label="Canal" value={selected.channel}/><MiniField label="Servicio" value={selected.service}/><MiniField label="Volumen" value={selected.volume}/><MiniField label="CRM actual" value={selected.crm}/></div>
                     <div style={{marginTop:8}}><MiniField label="Problema principal" value={selected.problem}/></div>
                   </section>
 
                   <section style={{border:'1px solid rgba(10,63,77,.20)',borderRadius:18,background:'linear-gradient(180deg,#F8FAF9 0%,#F1F5F4 100%)',padding:15,boxShadow:'0 16px 38px rgba(10,63,77,.105)'}}>
-                    <div style={{display:'flex',justifyContent:'space-between',gap:10}}><div><Label teal>Qué toca hacer ahora</Label><div style={{fontSize:10,color:muted,marginTop:4}}>Resumen operativo del lead</div></div><Pill tone="amber">Alta</Pill></div>
-                    <div style={{marginTop:12,border:`1px solid ${softBorder}`,borderRadius:14,background:'#FFF',padding:12}}><Label>Tarea pendiente</Label><div style={{fontSize:16,fontWeight:900,lineHeight:1.12,marginTop:7}}>{selected.task}</div><div style={{fontSize:10,color:muted,marginTop:7}}>{selected.taskTime}</div></div>
+                    <div style={{display:'flex',justifyContent:'space-between',gap:10}}><div><Label teal>Qué toca hacer ahora</Label><div style={{fontSize:11,color:muted,marginTop:4}}>Resumen operativo del lead</div></div><Pill tone="amber">Alta</Pill></div>
+                    <div style={{marginTop:12,border:`1px solid ${softBorder}`,borderRadius:14,background:'#FFF',padding:12}}><Label>Tarea pendiente</Label><div style={{fontSize:16,fontWeight:900,lineHeight:1.12,marginTop:7}}>{selected.task}</div><div style={{fontSize:11,color:muted,marginTop:7}}>{selected.taskTime}</div></div>
                     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginTop:8}}><MiniField label="Responsable" value="Equipo comercial"/><div style={{position:'relative'}}><MiniField label="Estado" value={shownStatus} interactive changed={!diegoSelected&&meetingSelected}/>
-                      {!diegoSelected?<div style={{position:'absolute',left:0,right:0,top:61,borderRadius:12,border:'1px solid rgba(10,63,77,.18)',background:'#FFF',boxShadow:'0 14px 28px rgba(17,30,27,.16)',padding:6,opacity:dropdownOpen,transform:`translateY(${(1-dropdownOpen)*-6}px) scale(${.98+dropdownOpen*.02})`,transformOrigin:'50% 0%',zIndex:20}}>{['Seguimiento','Reunión agendada','Cliente'].map((option)=>{const active=option==='Reunión agendada'&&frame>=690;return <div key={option} style={{borderRadius:8,padding:'7px 8px',fontSize:10,fontWeight:active?800:600,color:active?accent:'#4E5552',background:active?'#F1F7F6':'#FFF'}}>{option}</div>;})}</div>:null}
+                      {!diegoSelected?<div style={{position:'absolute',left:0,right:0,top:61,borderRadius:12,border:'1px solid rgba(10,63,77,.18)',background:'#FFF',boxShadow:'0 14px 28px rgba(17,30,27,.16)',padding:6,opacity:dropdownOpen,transform:`translateY(${(1-dropdownOpen)*-6}px) scale(${.98+dropdownOpen*.02})`,transformOrigin:'50% 0%',zIndex:20}}>{['Seguimiento','Reunión agendada','Cliente'].map((option)=>{const active=option==='Reunión agendada'&&frame>=690;return <div key={option} style={{borderRadius:8,padding:'7px 8px',fontSize:11.5,fontWeight:active?800:700,color:active?accent:'#4E5552',background:active?'#F1F7F6':'#FFF'}}>{option}</div>;})}</div>:null}
                     </div></div>
-                    <div style={{marginTop:8,border:`1px solid ${softBorder}`,borderRadius:12,background:'#FFF',padding:10}}><Label>Última nota</Label><div style={{fontSize:11,fontWeight:700,marginTop:6}}>{selected.note}</div><div style={{fontSize:9,color:muted,marginTop:3}}>Hoy · {diegoSelected?'14:16':'11:42'}</div></div>
+                    <div style={{marginTop:8,border:`1px solid ${softBorder}`,borderRadius:12,background:'#FFF',padding:10}}><Label>Última nota</Label><div style={{fontSize:12,fontWeight:800,marginTop:6}}>{selected.note}</div><div style={{fontSize:10.5,color:muted,marginTop:3}}>Hoy · {diegoSelected?'14:16':'11:42'}</div></div>
                   </section>
                 </div>
 
                 <section style={{marginTop:14,border:'1px solid rgba(10,63,77,.22)',borderRadius:20,background:'linear-gradient(180deg,#F5F9F8 0%,#EDF5F3 100%)',padding:16,boxShadow:'0 14px 34px rgba(10,63,77,.09)'}}>
-                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12}}><div><Label teal>G-KAIS AI BRIEF</Label><div style={{fontSize:11,color:'#657477',marginTop:5}}>Análisis comercial usando ficha, contexto e historial del lead.</div></div><Pill tone="teal">Intención · Alta</Pill></div>
-                  <div style={{display:'grid',gridTemplateColumns:'1.25fr .75fr',gap:12,marginTop:12}}><div style={{borderRadius:14,background:'#FFF',border:'1px solid rgba(10,63,77,.10)',padding:12}}><div style={{fontSize:13,fontWeight:800,lineHeight:1.35}}>{selected.brief}</div><div style={{height:1,background:'#E6ECEB',margin:'10px 0'}}/><Label teal>Cómo puede ayudar</Label><div style={{fontSize:11,lineHeight:1.4,color:'#4E5955',marginTop:5}}>{selected.help}</div></div><div style={{display:'grid',gap:8}}><MiniField label="Falta saber" value={selected.missing}/><MiniField label="Señal reciente" value={selected.signal}/></div></div>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12}}><div><Label teal>G-KAIS AI BRIEF</Label><div style={{fontSize:12,color:'#566561',marginTop:5}}>Análisis comercial usando ficha, contexto e historial del lead.</div></div><Pill tone="teal">Intención · Alta</Pill></div>
+                  <div style={{display:'grid',gridTemplateColumns:'1.25fr .75fr',gap:12,marginTop:12}}><div style={{borderRadius:14,background:'#FFF',border:'1px solid rgba(10,63,77,.10)',padding:12}}><div style={{fontSize:14,fontWeight:800,lineHeight:1.35}}>{selected.brief}</div><div style={{height:1,background:'#E6ECEB',margin:'10px 0'}}/><Label teal>Cómo puede ayudar</Label><div style={{fontSize:12,lineHeight:1.38,color:'#46514D',marginTop:5}}>{selected.help}</div></div><div style={{display:'grid',gap:8}}><MiniField label="Falta saber" value={selected.missing}/><MiniField label="Señal reciente" value={selected.signal}/></div></div>
                 </section>
 
                 <section style={{marginTop:14,border:`1px solid ${border}`,borderRadius:18,background:'linear-gradient(180deg,#FFFFFF 0%,#FAFBFA 100%)',padding:14,boxShadow:'0 12px 30px rgba(20,34,31,.07)'}}>
-                  <Label>Actividad del lead</Label><div style={{display:'grid',gap:7,marginTop:10}}>{activity.map(([time,title,text])=><div key={time} style={{display:'grid',gridTemplateColumns:'48px 108px 1fr',gap:10,alignItems:'center'}}><span style={{fontSize:9,color:'#8A8A8A'}}>{time}</span><span style={{fontSize:10,fontWeight:800}}>{title}</span><span style={{fontSize:10,color:'#5F6663'}}>{text}</span></div>)}</div>
+                  <Label>Actividad del lead</Label><div style={{display:'grid',gap:7,marginTop:10}}>{activity.map(([time,title,text])=><div key={time} style={{display:'grid',gridTemplateColumns:'48px 108px 1fr',gap:10,alignItems:'center'}}><span style={{fontSize:10.5,fontWeight:700,color:'#737A76'}}>{time}</span><span style={{fontSize:11,fontWeight:800}}>{title}</span><span style={{fontSize:11,color:'#555D59'}}>{text}</span></div>)}</div>
                 </section>
               </div>
             </div>

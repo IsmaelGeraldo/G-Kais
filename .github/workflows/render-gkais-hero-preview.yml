@@ -1,0 +1,51 @@
+name: Render G-KAIS Hero Cut Preview
+
+on:
+  push:
+    branches:
+      - feat/hero-cut-composition-v1
+    paths:
+      - '.github/workflows/render-gkais-hero-preview.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout Hero Cut branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/hero-cut-composition-v1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Render preview
+        run: |
+          cd motion
+          npm install --no-audit --no-fund
+          npx remotion browser ensure
+          mkdir -p out
+          npx remotion render src/gkais-hero-cut-index.tsx GKAISHeroCut out/gkais-hero-cut-preview.mp4 \
+            --codec=h264 \
+            --scale=1 \
+            --crf=14 \
+            --pixel-format=yuv420p \
+            --concurrency=6
+
+      - name: Publish preview release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete gkais-hero-cut-preview -y --cleanup-tag || true
+          gh release create gkais-hero-cut-preview \
+            motion/out/gkais-hero-cut-preview.mp4 \
+            --title "G-KAIS Hero Cut Preview" \
+            --notes "Preview-only render of GKAISHeroCut. Same timing and framing as the 4K Hero Cut, rendered at 1280x720 for fast review." \
+            --target "$GITHUB_SHA"

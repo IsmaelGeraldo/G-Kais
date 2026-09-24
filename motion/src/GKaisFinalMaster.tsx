@@ -3,7 +3,7 @@ import {AbsoluteFill} from 'remotion';
 import {Scene01ToCRMPreview} from './Scene01ToCRMPreview';
 import {Scene01MasterPolish} from './Scene01MasterPolish';
 import {FinalStructuralPolish} from './FinalStructuralPolish';
-import {FinalVisualClosure} from './FinalVisualClosure';
+import {TargetedVisualFixes} from './TargetedVisualFixes';
 
 export const GKaisFinalMaster: React.FC = () => {
   return (
@@ -11,7 +11,7 @@ export const GKaisFinalMaster: React.FC = () => {
       <Scene01ToCRMPreview />
       <Scene01MasterPolish />
       <FinalStructuralPolish />
-      <FinalVisualClosure />
+      <TargetedVisualFixes />
     </AbsoluteFill>
   );
 };

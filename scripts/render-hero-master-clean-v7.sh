@@ -82,7 +82,7 @@ mkdir -p out
 npx remotion render src/gkais-final-master-index.tsx GKAISFinalMaster out/gkais-hero-master-clean-v7-master.mp4 \
   --codec=h264 \
   --scale=2 \
-  --crf=0 \
+  --crf=1 \
   --pixel-format=yuv444p \
   --concurrency=4
 popd >/dev/null
@@ -136,8 +136,6 @@ s = s.replace(old_source, new_source, 1)
 p.write_text(s)
 PY
 
-# The branch must contain only the master restoration/stability changes and the
-# desktop source switch. Temporary render files are never committed.
 python3 - <<'PY'
 import subprocess
 allowed = {

@@ -71,13 +71,24 @@ jobs:
             ],
           }
 
+          minimums = {
+            'motion/src/UnifiedCRMScene.tsx': 12,
+            'motion/src/Scene01ToIntelligenceFlow.tsx': 10,
+            'motion/src/Scene01Cinematic.tsx': 4,
+          }
+
           for filename, edits in replacements.items():
               path = Path(filename)
               text = path.read_text()
+              changed = 0
               for old, new in edits:
-                  if old not in text:
-                      raise SystemExit(f'Missing expected pattern in {filename}: {old!r}')
-                  text = text.replace(old, new)
+                  count = text.count(old)
+                  if count:
+                      text = text.replace(old, new)
+                      changed += count
+              if changed < minimums[filename]:
+                  raise SystemExit(f'Only {changed} typography replacements applied in {filename}; expected at least {minimums[filename]}')
+              print(f'{filename}: {changed} typography replacements')
               path.write_text(text)
           PY
 

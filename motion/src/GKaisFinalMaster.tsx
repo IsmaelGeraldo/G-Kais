@@ -4,6 +4,7 @@ import {Scene01ToCRMPreview} from './Scene01ToCRMPreview';
 import {Scene01MasterPolish} from './Scene01MasterPolish';
 import {FinalStructuralPolish} from './FinalStructuralPolish';
 import {TargetedVisualFixes} from './TargetedVisualFixes';
+import {CRMStoryPolish} from './CRMStoryPolish';
 
 export const GKaisFinalMaster: React.FC = () => {
   return (
@@ -12,6 +13,7 @@ export const GKaisFinalMaster: React.FC = () => {
       <Scene01MasterPolish />
       <FinalStructuralPolish />
       <TargetedVisualFixes />
+      <CRMStoryPolish />
     </AbsoluteFill>
   );
 };

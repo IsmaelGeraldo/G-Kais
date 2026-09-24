@@ -11,10 +11,22 @@ export const TargetedVisualFixes: React.FC = () => (
         background: transparent !important;
       }
 
-      /* Match the world to Scene 01, but very slightly darker so the handoff does not jump light. */
+      /* Use one persistent background treatment through Scene 01 -> Motor.
+         The subtle teal corner glow now belongs to the shared world, so it cannot disappear at the handoff. */
       div[style*="radial-gradient(circle at 72% 44%"],
       div[style*="radial-gradient(circle at 28% 38%"] {
-        background: radial-gradient(circle at 78% 22%, rgba(255,255,255,0.78), transparent 28%), linear-gradient(135deg, #CDCECA 0%, #E6E7E3 48%, #C7C9C6 100%) !important;
+        background: radial-gradient(circle at 1180px 0px, rgba(10,63,77,0.105) 0%, rgba(10,63,77,0.042) 18%, transparent 34%), radial-gradient(circle at 78% 22%, rgba(255,255,255,0.78), transparent 28%), linear-gradient(135deg, #CDCECA 0%, #E6E7E3 48%, #C7C9C6 100%) !important;
+      }
+
+      /* Remove the Scene 01-only corner glow. The shared world above now carries the same tone persistently. */
+      div[style*="width: 420px"][style*="height: 420px"][style*="right: -150px"][style*="top: -150px"][style*="filter: blur(18px)"] {
+        opacity: 0 !important;
+      }
+
+      /* The blur applied to the whole 1280px Scene 01 wrapper creates a visible moving rectangular seam
+         at its right edge during the camera handoff. Keep the opacity fade, but remove that wrapper blur. */
+      div[style*="width: 1280px"][style*="height: 720px"][style*="filter: blur("] {
+        filter: none !important;
       }
 
       /* Keep the already-approved enlarged gallery/world background. */

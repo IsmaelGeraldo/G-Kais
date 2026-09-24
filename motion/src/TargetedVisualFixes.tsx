@@ -36,6 +36,22 @@ export const TargetedVisualFixes: React.FC = () => (
         height: 1080px !important;
       }
 
+      /* Give each opportunity column a distinct captured-context count while keeping /9. */
+      div[style*="width: 430px"][style*="height: 630px"][style*="z-index: 26"] > div[style*="top: 48px"] > div:first-child > div:last-child,
+      div[style*="width: 430px"][style*="height: 630px"][style*="z-index: 28"] > div[style*="top: 48px"] > div:first-child > div:last-child {
+        font-size: 0 !important;
+      }
+      div[style*="width: 430px"][style*="height: 630px"][style*="z-index: 26"] > div[style*="top: 48px"] > div:first-child > div:last-child::after {
+        content: '5/9';
+        font-size: 11px;
+        font-weight: 900;
+      }
+      div[style*="width: 430px"][style*="height: 630px"][style*="z-index: 28"] > div[style*="top: 48px"] > div:first-child > div:last-child::after {
+        content: '7/9';
+        font-size: 11px;
+        font-weight: 900;
+      }
+
       /* Remove the old extra brand-logo layer from Scene01MasterPolish. */
       div[style*="z-index: 72"] {
         display: none !important;

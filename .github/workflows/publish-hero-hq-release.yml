@@ -1,0 +1,31 @@
+name: Publish G-KAIS hero HQ release
+
+on:
+  push:
+    branches:
+      - release/hero-hq-external
+    paths:
+      - '.github/workflows/publish-hero-hq-release.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: release/hero-hq-external
+
+      - name: Create release and upload HQ video
+        uses: ncipollo/release-action@v1.21.0
+        with:
+          tag: gkais-hero-hq-v2
+          name: G-KAIS Hero HQ v2
+          body: High-quality desktop hero video, 1920x1080, 30 fps, 26.83 seconds, H.264 CRF 10.
+          artifacts: public/media/gkais-hero-desktop-hq-v2.mp4
+          artifactContentType: video/mp4
+          allowUpdates: true
+          replacesArtifacts: true

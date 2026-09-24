@@ -66,43 +66,47 @@ export const UnifiedCRMScene: React.FC = () => {
   const frame = useCurrentFrame();
   const reveal = interpolate(frame,[488,528],[0,1],{...clamp,easing:Easing.out(Easing.cubic)});
   const settle = interpolate(frame,[528,550],[0,1],{...clamp,easing:Easing.out(Easing.cubic)});
-  const exitProgress = interpolate(frame,[724,734],[0,1],{...clamp,easing:Easing.in(Easing.cubic)});
+  const exitProgress = interpolate(frame,[728,734],[0,1],{...clamp,easing:Easing.inOut(Easing.cubic)});
 
-  // One interaction timeline, driven by the actual cursor clicks.
-  const DIEGO_CLICK = 594;
-  const SOFIA_CLICK = 662;
-  const STATE_OPEN_CLICK = 698;
-  const MEETING_CLICK = 710;
+  // One continuous interaction timeline. Sparse waypoints avoid the stop-start feel
+  // caused by repeatedly easing through many near-identical cursor positions.
+  const DIEGO_CLICK = 584;
+  const SOFIA_CLICK = 626;
+  const STATE_OPEN_CLICK = 672;
+  const MEETING_CLICK = 696;
 
   const diegoSelected = frame >= DIEGO_CLICK && frame < SOFIA_CLICK;
   const selected = diegoSelected ? DIEGO : SOFIA;
   const meetingSelected = frame >= MEETING_CLICK;
   const shownStatus = !diegoSelected && meetingSelected ? 'Reunión agendada' : selected.status;
 
-  const dropdownOpen = interpolate(frame,[STATE_OPEN_CLICK,702,712,716],[0,1,1,0],clamp);
-  const gentleScroll = interpolate(frame,[716,726],[0,-150],{...clamp,easing:Easing.inOut(Easing.cubic)});
-  const exitScroll = interpolate(frame,[726,734],[0,-620],{...clamp,easing:Easing.in(Easing.cubic)});
-  const scroll = gentleScroll + exitScroll;
+  // Give the Estado menu time to open, let the cursor travel down visibly,
+  // then close only after the meeting option has been selected.
+  const dropdownOpen = interpolate(frame,[STATE_OPEN_CLICK,678,700,706],[0,1,1,0],{...clamp,easing:Easing.inOut(Easing.cubic)});
 
-  // New cursor choreography: enter -> Diego -> pause/click -> Sofia -> pause/click -> Estado -> Reunión.
-  const cursorOpacity = interpolate(frame,[540,548,724,732],[0,1,1,0],clamp) * (1-exitProgress);
+  // One deliberately slow scroll curve instead of stacking two scroll animations.
+  const scroll = interpolate(frame,[708,732],[0,-560],{...clamp,easing:Easing.inOut(Easing.cubic)});
+
+  // Continuous cursor choreography: enter -> Diego -> Sofia -> Estado -> Reunión.
+  // Each destination is a meaningful interaction point; there are no micro-waypoints.
+  const cursorOpacity = interpolate(frame,[540,548,704,714],[0,1,1,0],clamp) * (1-exitProgress);
   const cursorX = interpolate(
     frame,
-    [540,552,564,576,584,592,594,606,620,632,644,652,660,662,672,682,690,696,698,704,708,710,716,726],
-    [-32,28,82,140,176,180,180,180,176,174,178,180,180,180,330,610,880,1060,1100,1100,1100,1100,1060,1010],
-    {...clamp,easing:Easing.inOut(Easing.cubic)},
+    [540,584,626,672,696,710],
+    [-32,180,180,1100,1100,1060],
+    {...clamp,easing:Easing.bezier(0.32,0.04,0.22,1)},
   );
   const cursorY = interpolate(
     frame,
-    [540,552,564,576,584,592,594,606,620,632,644,652,660,662,672,682,690,696,698,704,708,710,716,726],
-    [176,180,220,304,360,372,372,372,340,292,238,205,205,205,220,258,322,374,390,408,438,446,480,530],
-    {...clamp,easing:Easing.inOut(Easing.cubic)},
+    [540,584,626,672,696,710],
+    [176,372,205,390,446,480],
+    {...clamp,easing:Easing.bezier(0.32,0.04,0.22,1)},
   );
   const clicking = Math.max(
-    interpolate(frame,[590,DIEGO_CLICK,598],[0,1,0],clamp),
-    interpolate(frame,[658,SOFIA_CLICK,666],[0,1,0],clamp),
-    interpolate(frame,[694,STATE_OPEN_CLICK,702],[0,1,0],clamp),
-    interpolate(frame,[706,MEETING_CLICK,714],[0,1,0],clamp),
+    interpolate(frame,[581,DIEGO_CLICK,587],[0,1,0],clamp),
+    interpolate(frame,[623,SOFIA_CLICK,629],[0,1,0],clamp),
+    interpolate(frame,[669,STATE_OPEN_CLICK,675],[0,1,0],clamp),
+    interpolate(frame,[693,MEETING_CLICK,699],[0,1,0],clamp),
   );
 
   const activity = diegoSelected

@@ -282,7 +282,7 @@ const OpportunityStack: React.FC<{column: OpportunityColumn; index: number}> = (
   const shadow = '0 14px 34px rgba(22,30,26,0.11)';
 
   return (
-    <div style={{position: 'absolute', left: column.x, top: 34 + floatY, width: COL_W, height: 630, opacity: reveal, transform: `translate3d(${offsetX}px, 0, 0)`, zIndex: 24 + index * 2}}>
+    <div style={{position: 'absolute', left: column.x, top: 34 + floatY, width: COL_W, height: 630, opacity: reveal, transform: `translateX(${offsetX}px)`, zIndex: 24 + index * 2}}>
       <div style={{height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 9}}>
         <div style={{padding: '8px 17px', borderRadius: 999, background: 'rgba(255,255,255,0.90)', border: '1px solid rgba(10,63,77,0.16)', boxShadow: '0 8px 22px rgba(18,26,22,0.08)', fontFamily: roundedFamily, color: accent, fontSize: 12.5, fontWeight: 900, letterSpacing: 0.95}}>{column.label}</div>
       </div>
@@ -290,8 +290,8 @@ const OpportunityStack: React.FC<{column: OpportunityColumn; index: number}> = (
       <div style={{position: 'absolute', left: 0, top: 48, width: COL_W, height: 116, padding: '14px 16px', borderRadius: 19, background: cardBg, border, boxShadow: shadow}}>
         <ModuleHeader title="CONTEXTO CAPTURADO" symbol="▤" right={<div style={{fontSize: 11, fontWeight: 900, color: accent}}>3/9</div>} />
         <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr 1.08fr', gap: 8, marginTop: 10}}>
-          {column.context.map(([label, value]) => (
-            <div key={label} style={{minHeight: 58, borderRadius: 12, background: '#F6F7F5', padding: '9px 9px 8px', border: '1px solid rgba(15,22,18,0.025)'}}>
+          {column.context.map(([label, value], contextIndex) => (
+            <div key={label} style={{minHeight: 58, padding: '8px 10px 7px', borderLeft: contextIndex === 0 ? '0' : '1px solid rgba(10,63,77,0.10)'}}>
               <div style={{fontSize: 10, fontWeight: 700, color: '#737C77', lineHeight: 1.15}}>{label}</div>
               <div style={{fontSize: 13, color: ink, fontWeight: 800, lineHeight: 1.18, marginTop: 6}}>{value}</div>
             </div>
@@ -317,11 +317,11 @@ const OpportunityStack: React.FC<{column: OpportunityColumn; index: number}> = (
         </div>
       </div>
 
-      <div style={{position: 'absolute', left: 0, top: 462, width: COL_W, height: 92, padding: '13px 15px', borderRadius: 19, background: '#0B201E', color: '#fff', border: '1px solid rgba(255,255,255,0.07)', boxShadow: '0 18px 40px rgba(5,18,16,0.23)'}}>
+      <div style={{position: 'absolute', left: 0, top: 458, width: COL_W, height: 108, padding: '14px 16px 13px', borderRadius: 19, background: '#0B201E', color: '#fff', border: '1px solid rgba(255,255,255,0.07)', boxShadow: '0 18px 40px rgba(5,18,16,0.23)'}}>
         <ModuleHeader title="PRÓXIMA ACCIÓN" symbol="✓" dark />
-        <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 8}}>
-          <div style={{fontFamily: roundedFamily, fontSize: 14.8, fontWeight: 900, lineHeight: 1.15, maxWidth: 262}}>{column.action}</div>
-          <div style={{padding: '8px 10px', borderRadius: 999, background: '#F7F8F6', color: ink, fontSize: 10.3, fontWeight: 800, whiteSpace: 'nowrap', border: '1px solid rgba(255,255,255,0.78)'}}>{column.owner}</div>
+        <div style={{display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', alignItems: 'center', gap: 10, marginTop: 10}}>
+          <div style={{fontFamily: 'Arial, Helvetica, sans-serif', fontSize: 14.5, fontWeight: 800, lineHeight: 1.2, color: '#F7FAF9', paddingRight: 2}}>{column.action}</div>
+          <div style={{padding: '7px 9px', borderRadius: 999, background: '#F7F8F6', color: ink, fontSize: 10, fontWeight: 800, whiteSpace: 'nowrap', border: '1px solid rgba(255,255,255,0.78)'}}>{column.owner}</div>
         </div>
       </div>
 
@@ -349,11 +349,11 @@ const FrameDissolveMasks: React.FC = () => {
 const FlowScene: React.FC = () => {
   const frame = useCurrentFrame();
   const firstCamera = interpolate(frame, [118, 222], [0, 1], {...clamp, easing: Easing.inOut(Easing.cubic)});
-  const secondCamera = interpolate(frame, [232, 350], [0, 1], {...clamp, easing: Easing.inOut(Easing.cubic)});
-  const galleryCamera = interpolate(frame, [344, 466], [0, 1], {...clamp, easing: Easing.inOut(Easing.cubic)});
+  const secondCamera = interpolate(frame, [220, 342], [0, 1], {...clamp, easing: Easing.inOut(Easing.cubic)});
+  const galleryCamera = interpolate(frame, [336, 458], [0, 1], {...clamp, easing: Easing.inOut(Easing.cubic)});
   const cameraX = snapToRenderPixel(interpolate(firstCamera, [0, 1], [0, -930]) + interpolate(secondCamera, [0, 1], [0, -110]) + interpolate(galleryCamera, [0, 1], [0, -510]));
-  const cameraScale = interpolate(frame, [118, 222, 344, 466], [1, 1.032, 1.032, 0.82], {...clamp, easing: Easing.inOut(Easing.cubic)});
-  const cameraY = snapToRenderPixel(interpolate(frame, [118, 222, 344, 466], [0, -5, -5, 2], {...clamp, easing: Easing.inOut(Easing.cubic)}));
+  const cameraScale = interpolate(frame, [118, 222, 248, 280], [1, 1.032, 1.032, 0.82], {...clamp, easing: Easing.inOut(Easing.cubic)});
+  const cameraY = snapToRenderPixel(interpolate(frame, [118, 222, 248, 280], [0, -5, -5, 2], {...clamp, easing: Easing.inOut(Easing.cubic)}));
   const scene01Opacity = interpolate(frame, [150, 222], [1, 0], clamp);
   const scene01Blur = interpolate(frame, [158, 220], [0, 2.2], clamp);
 

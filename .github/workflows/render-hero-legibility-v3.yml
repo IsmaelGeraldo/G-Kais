@@ -103,7 +103,9 @@ jobs:
 
       - name: Type-check motion project
         working-directory: motion
-        run: npx tsc --noEmit
+        run: |
+          npm install --no-save --no-package-lock vite@8.3.0
+          npx tsc --noEmit
 
       - name: Ensure browser
         working-directory: motion

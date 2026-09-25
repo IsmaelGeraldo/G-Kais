@@ -1,0 +1,144 @@
+name: Render Hero Cut text legibility v5
+
+on:
+  push:
+    branches:
+      - tune/hero-text-legibility-v5
+    paths:
+      - '.github/workflows/render-hero-legibility-v5.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: tune/hero-text-legibility-v5
+          fetch-depth: 0
+
+      - name: Apply text legibility tuning only
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          changes = {
+            Path('motion/src/Scene01ToIntelligenceFlow.tsx'): [
+              ("const muted = '#66706B';", "const muted = '#4F5954';"),
+              ("<div style={{fontSize: 8.5, color: '#8A938E', lineHeight: 1.15}}>{label}</div>", "<div style={{fontSize: 8.5, fontWeight: 700, color: '#5F6964', lineHeight: 1.15}}>{label}</div>"),
+            ],
+            Path('motion/src/UnifiedCRMScene.tsx'): [
+              ("const muted = '#777777';", "const muted = '#5F5F5F';"),
+              ("color:teal?accent:'#6B6B6B'", "color:teal?accent:'#555555'"),
+              ("{border:softBorder,background:'#FFFFFF',color:'#676767'}", "{border:softBorder,background:'#FFFFFF',color:'#565656'}"),
+              ("fontSize:9,color:'#8A8A8A'", "fontSize:9,fontWeight:600,color:'#606060'"),
+            ],
+          }
+
+          for path, replacements in changes.items():
+            text = path.read_text()
+            for old, new in replacements:
+              count = text.count(old)
+              if count != 1:
+                raise SystemExit(f'{path}: expected exactly 1 match for {old!r}, found {count}')
+              text = text.replace(old, new)
+            path.write_text(text)
+          PY
+
+          git diff --check
+          git diff -- motion/src/Scene01ToIntelligenceFlow.tsx motion/src/UnifiedCRMScene.tsx
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Render Hero Cut v5
+        run: |
+          cd motion
+          npm install --no-audit --no-fund
+          npx remotion browser ensure
+          mkdir -p out
+          npx remotion render src/gkais-hero-cut-index.tsx GKAISHeroCut out/gkais-hero-cut-legibility-v5-render.mp4 \
+            --codec=h264 \
+            --scale=2 \
+            --crf=5 \
+            --pixel-format=yuv420p \
+            --concurrency=4
+
+      - name: Enable faststart
+        run: |
+          ffmpeg -y -i motion/out/gkais-hero-cut-legibility-v5-render.mp4 \
+            -map 0:v:0 -c copy -movflags +faststart \
+            motion/out/gkais-hero-cut-legibility-v5.mp4
+
+      - name: Validate video
+        run: |
+          ffprobe -v error \
+            -select_streams v:0 \
+            -show_entries stream=width,height,r_frame_rate,pix_fmt \
+            -show_entries format=duration \
+            -of json \
+            motion/out/gkais-hero-cut-legibility-v5.mp4 > /tmp/probe.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          probe = json.loads(Path('/tmp/probe.json').read_text())
+          stream = probe['streams'][0]
+          duration = float(probe['format']['duration'])
+          size = Path('motion/out/gkais-hero-cut-legibility-v5.mp4').stat().st_size
+          print(stream, duration, size)
+          assert int(stream['width']) == 2560
+          assert int(stream['height']) == 1440
+          assert stream['r_frame_rate'] == '30/1'
+          assert stream['pix_fmt'] in {'yuv420p', 'yuvj420p'}
+          assert 26.80 <= duration <= 26.87
+          assert size > 30_000_000
+          PY
+
+      - name: Publish test release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete gkais-hero-cut-legibility-v5 -y --cleanup-tag || true
+          gh release create gkais-hero-cut-legibility-v5 \
+            motion/out/gkais-hero-cut-legibility-v5.mp4 \
+            --title "G-KAIS Hero Cut Legibility v5" \
+            --notes "Hero Cut v4 with only small secondary-text contrast/weight adjustments for web legibility. No size, camera, timing, motion, or layout changes." \
+            --target tune/hero-text-legibility-v5
+
+      - name: Point branch Hero to v5
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/components/HeroVideo.tsx')
+          text = p.read_text()
+          old = 'https://github.com/IsmaelGeraldo/G-Kais/releases/download/gkais-hero-cut-final-v4/gkais-hero-cut-final-v4.mp4'
+          new = 'https://github.com/IsmaelGeraldo/G-Kais/releases/download/gkais-hero-cut-legibility-v5/gkais-hero-cut-legibility-v5.mp4'
+          if old not in text:
+            raise SystemExit('Expected v4 Hero URL not found')
+          p.write_text(text.replace(old, new))
+          PY
+
+      - name: Validate app build
+        run: |
+          npm install --legacy-peer-deps --no-audit --no-fund
+          npm run build
+
+      - name: Commit approved-scope source changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add motion/src/Scene01ToIntelligenceFlow.tsx motion/src/UnifiedCRMScene.tsx src/components/HeroVideo.tsx
+          git commit -m "Tune small Hero text legibility [skip ci]"
+          git push origin tune/hero-text-legibility-v5

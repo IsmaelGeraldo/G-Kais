@@ -84,8 +84,8 @@ const GlassNotification: React.FC<{
     ...clamp,
     easing: Easing.out(Easing.cubic),
   });
-  const driftY = Math.sin((frame + seed * 7) / (22 + seed)) * (2 + depth * 3);
-  const driftX = Math.cos((frame + seed * 11) / (30 + seed)) * (1.2 + depth * 2.2);
+  const driftY = 0;
+  const driftX = 0;
   const perspectiveScale = 0.91 + depth * 0.12;
   const revealScale = interpolate(reveal, [0, 1], [0.965, 1]);
   const blur = interpolate(depth, [0.45, 1], [0.5, 0]);
@@ -183,8 +183,8 @@ export const Scene01Cinematic: React.FC<{accent?: string}> = ({accent = '#0A3F4D
   });
   const copyOpacity = interpolate(frame, [22, 48], [0, 1], clamp);
   const secondLineOpacity = interpolate(frame, [66, 92], [0, 1], clamp);
-  const cameraX = snapToRenderPixel(interpolate(frame, [0, 125], [0, -13], clamp));
-  const cameraY = snapToRenderPixel(interpolate(frame, [0, 125], [8, -4], clamp));
+  const cameraX = 0;
+  const cameraY = 0;
   const phoneFloat = 0;
   const unread = frame < 34 ? 2 : frame < 70 ? 4 : 7;
 

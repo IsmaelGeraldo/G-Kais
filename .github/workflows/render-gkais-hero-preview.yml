@@ -26,7 +26,7 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Render preview
+      - name: Render stabilized 2x preview
         run: |
           cd motion
           npm install --no-audit --no-fund
@@ -34,8 +34,8 @@ jobs:
           mkdir -p out
           npx remotion render src/gkais-hero-cut-index.tsx GKAISHeroCut out/gkais-hero-cut-preview.mp4 \
             --codec=h264 \
-            --scale=1 \
-            --crf=14 \
+            --scale=2 \
+            --crf=8 \
             --pixel-format=yuv420p \
             --concurrency=4
 
@@ -47,5 +47,5 @@ jobs:
           gh release create gkais-hero-cut-preview \
             motion/out/gkais-hero-cut-preview.mp4 \
             --title "G-KAIS Hero Cut Preview" \
-            --notes "Preview-only render of GKAISHeroCut. Same timing and framing as the 4K Hero Cut, rendered at 1280x720 for fast review." \
+            --notes "Preview-only render of GKAISHeroCut at the same 2x pixel grid used by the approved anti-shimmer master. 2560x1440, same scenes, timing and Hero Cut framing." \
             --target "$GITHUB_SHA"

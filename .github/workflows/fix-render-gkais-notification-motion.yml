@@ -1,0 +1,84 @@
+name: Fix and Render G-KAIS Notification Stability
+
+on:
+  push:
+    branches:
+      - feat/hero-cut-composition-v1
+    paths:
+      - '.github/workflows/fix-render-gkais-notification-motion.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix-and-preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout Hero Cut branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/hero-cut-composition-v1
+
+      - name: Stabilize notification motion
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('motion/src/Scene01Cinematic.tsx')
+          text = path.read_text()
+
+          replacements = {
+              "  const driftY = Math.sin((frame + seed * 7) / (22 + seed)) * (2 + depth * 3);": "  const driftY = 0;",
+              "  const driftX = Math.cos((frame + seed * 11) / (30 + seed)) * (1.2 + depth * 2.2);": "  const driftX = 0;",
+              "  const cameraX = snapToRenderPixel(interpolate(frame, [0, 125], [0, -13], clamp));": "  const cameraX = 0;",
+              "  const cameraY = snapToRenderPixel(interpolate(frame, [0, 125], [8, -4], clamp));": "  const cameraY = 0;",
+          }
+
+          for old, new in replacements.items():
+              if old not in text:
+                  raise SystemExit(f'Expected source line not found: {old}')
+              text = text.replace(old, new, 1)
+
+          path.write_text(text)
+          PY
+
+      - name: Commit stabilized scene
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add motion/src/Scene01Cinematic.tsx
+          git diff --cached --check
+          git commit -m "Stabilize notification logos in first scene"
+          git push origin HEAD:feat/hero-cut-composition-v1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Render first-scene stability preview
+        run: |
+          cd motion
+          npm install --no-audit --no-fund
+          npx remotion browser ensure
+          mkdir -p out
+          npx remotion render src/gkais-hero-cut-index.tsx GKAISHeroCut out/gkais-notification-stability-preview.mp4 \
+            --codec=h264 \
+            --scale=2 \
+            --crf=5 \
+            --pixel-format=yuv420p \
+            --concurrency=4 \
+            --frames=0-135
+
+      - name: Publish stability preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete gkais-notification-stability-preview -y --cleanup-tag || true
+          gh release create gkais-notification-stability-preview \
+            motion/out/gkais-notification-stability-preview.mp4 \
+            --title "G-KAIS Notification Stability Preview" \
+            --notes "First-scene verification. Exterior notification drift removed, scene camera drift removed, phone float remains disabled. Entry reveals preserved. 2x H.264 CRF 5." \
+            --target feat/hero-cut-composition-v1

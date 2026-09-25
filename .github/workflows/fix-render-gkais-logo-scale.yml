@@ -1,0 +1,82 @@
+name: Fix G-KAIS Logo Scale Motion
+
+on:
+  push:
+    branches:
+      - feat/hero-cut-composition-v1
+    paths:
+      - '.github/workflows/fix-render-gkais-logo-scale.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix-and-preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout Hero Cut branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/hero-cut-composition-v1
+
+      - name: Remove residual scale motion
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('motion/src/Scene01Cinematic.tsx')
+          s = p.read_text()
+          old1 = "const revealScale = interpolate(reveal, [0, 1], [0.965, 1]);"
+          new1 = "const revealScale = 1;"
+          old2 = "top: snapToRenderPixel(y + driftY + interpolate(reveal, [0, 1], [16, 0])),"
+          new2 = "top: snapToRenderPixel(y),"
+          old3 = "scale(${interpolate(\n              phoneReveal,\n              [0, 1],\n              [0.94, 1],\n            )})"
+          new3 = "scale(1)"
+          for old in (old1, old2, old3):
+              if old not in s:
+                  raise SystemExit(f'Expected pattern not found: {old}')
+          s = s.replace(old1, new1).replace(old2, new2).replace(old3, new3)
+          p.write_text(s)
+          PY
+          grep -F "const revealScale = 1;" motion/src/Scene01Cinematic.tsx
+          grep -F "top: snapToRenderPixel(y)," motion/src/Scene01Cinematic.tsx
+          grep -F "scale(1)" motion/src/Scene01Cinematic.tsx
+
+      - name: Commit stabilized logos
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add motion/src/Scene01Cinematic.tsx
+          git diff --cached --quiet || git commit -m "Remove residual notification logo scale motion"
+          git push origin HEAD:feat/hero-cut-composition-v1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Render first-scene logo stability preview
+        run: |
+          cd motion
+          npm install --no-audit --no-fund
+          npx remotion browser ensure
+          mkdir -p out
+          npx remotion render src/gkais-hero-cut-index.tsx GKAISHeroCut out/gkais-logo-stability-preview.mp4 \
+            --codec=h264 \
+            --scale=2 \
+            --crf=5 \
+            --pixel-format=yuv420p \
+            --concurrency=4 \
+            --frames=0-124
+
+      - name: Publish logo stability preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete gkais-logo-stability-preview -y --cleanup-tag || true
+          gh release create gkais-logo-stability-preview \
+            motion/out/gkais-logo-stability-preview.mp4 \
+            --title "G-KAIS Logo Stability Preview" \
+            --notes "First scene only. Residual notification reveal scaling removed, vertical reveal offset removed, phone scale fixed at 1. Existing drift/camera/phone float remain disabled. 2x H.264 CRF 5." \
+            --target feat/hero-cut-composition-v1

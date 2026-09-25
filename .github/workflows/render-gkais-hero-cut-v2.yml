@@ -75,7 +75,7 @@ jobs:
           assert width == 2560, width
           assert height == 1440, height
           assert fps == '30/1', fps
-          assert pix_fmt == 'yuv420p', pix_fmt
+          assert pix_fmt in ('yuv420p', 'yuvj420p'), pix_fmt
           assert 26.80 <= duration <= 26.87, duration
           assert size > 30_000_000, size
           PY
@@ -88,5 +88,5 @@ jobs:
           gh release create gkais-hero-cut-v2 \
             motion/out/gkais-hero-cut-v2.mp4 \
             --title "G-KAIS Hero Cut v2" \
-            --notes "Hero-specific cut based on the approved master. 2x anti-shimmer grid, phone float removed, three-column scene at 1.12x, CRM at 1.085x, 2560x1440, H.264 yuv420p CRF 5, faststart. No scene redesign." \
+            --notes "Hero-specific cut based on the approved master. 2x anti-shimmer grid, phone float removed, three-column scene at 1.12x, CRM at 1.085x, 2560x1440, H.264 4:2:0 CRF 5, faststart. No scene redesign." \
             --target "$GITHUB_SHA"

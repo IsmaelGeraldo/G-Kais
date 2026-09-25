@@ -32,7 +32,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ffmpeg
 
-      - name: Render 4K Hero Cut
+      - name: Render stabilized 2x Hero Cut
         run: |
           cd motion
           npm install --no-audit --no-fund
@@ -41,7 +41,7 @@ jobs:
           mkdir -p out
           npx remotion render src/gkais-hero-cut-index.tsx GKAISHeroCut out/gkais-hero-cut-v1-master.mp4 \
             --codec=h264 \
-            --scale=3 \
+            --scale=2 \
             --crf=1 \
             --pixel-format=yuv444p \
             --concurrency=4
@@ -49,7 +49,7 @@ jobs:
       - name: Encode smooth high-quality web MP4
         run: |
           ffmpeg -y -i motion/out/gkais-hero-cut-v1-master.mp4 \
-            -an -c:v libx264 -preset slow -crf 7 -pix_fmt yuv420p \
+            -an -c:v libx264 -preset slow -crf 6 -pix_fmt yuv420p \
             -movflags +faststart motion/out/gkais-hero-cut-v1.mp4
 
       - name: Validate Hero Cut
@@ -73,11 +73,11 @@ jobs:
           size = Path('motion/out/gkais-hero-cut-v1.mp4').stat().st_size
 
           print(f'{width}x{height} fps={fps} duration={duration:.6f}s size={size}')
-          assert width == 3840, width
-          assert height == 2160, height
+          assert width == 2560, width
+          assert height == 1440, height
           assert fps == '30/1', fps
           assert 26.80 <= duration <= 26.87, duration
-          assert size > 50_000_000, size
+          assert size > 30_000_000, size
           PY
 
       - name: Publish Hero Cut release
@@ -88,10 +88,10 @@ jobs:
           gh release create gkais-hero-cut-v1 \
             motion/out/gkais-hero-cut-v1.mp4 \
             --title "G-KAIS Hero Cut v1" \
-            --notes "Hero-specific composition derived from the approved master. No scene redesign. Three-opportunity scene uses a fixed 1.12x camera once readable; CRM uses a fixed 1.085x camera once readable. 3840x2160, 30 fps, H.264 CRF 7, faststart." \
+            --notes "Hero-specific composition derived from the approved master. No scene redesign. Three-opportunity scene uses a fixed 1.12x Hero framing; CRM uses 1.085x. Rendered on the same 2x physical-pixel grid as the approved anti-shimmer master: 2560x1440, 30 fps, H.264 CRF 6, faststart." \
             --target "$GITHUB_SHA"
 
-      - name: Point desktop Hero to the new 4K cut
+      - name: Point desktop Hero to the new stabilized cut
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -118,9 +118,12 @@ jobs:
       - name: Commit product files only
         run: |
           rm -f .github/workflows/render-gkais-hero-cut-v1.yml
+          rm -f .github/workflows/render-gkais-hero-preview.yml
+          rm -f .github/workflows/deploy-hero-cut-preview-pages.yml
+          rm -rf preview
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add motion/src/GKaisHeroCut.tsx motion/src/gkais-hero-cut-index.tsx src/components/HeroVideo.tsx
-          git add -u .github/workflows/render-gkais-hero-cut-v1.yml
-          git commit -m "Add 4K Hero Cut composition and desktop asset"
+          git add -u .github/workflows preview
+          git commit -m "Add stabilized 2x Hero Cut composition and desktop asset"
           git push origin HEAD:feat/hero-cut-composition-v1

@@ -20,6 +20,7 @@ import { AuditModal } from './components/AuditModal.tsx';
 import { LeadFlowModal } from './components/LeadFlowModal.tsx';
 import { ContactModal } from './components/ContactModal.tsx';
 import { AdminPage } from './components/AdminPage.tsx';
+import { ExpertsCommercialDemo } from './components/ExpertsCommercialDemo.tsx';
 import { LanguageProvider } from './i18n/LanguageContext.tsx';
 
 function PublicApp({ onOpenAdmin }: { onOpenAdmin: () => void }) {
@@ -89,20 +90,20 @@ function PublicApp({ onOpenAdmin }: { onOpenAdmin: () => void }) {
         <AuditCtaSection onOpenAudit={handleOpenAudit} />
       </main>
 
-      {/* 10. Footer */}
+      {/* Footer */}
       <Footer onOpenAudit={handleOpenAudit} onOpenContact={handleOpenContact} />
 
       {/* Interactive Modals */}
       <AuditModal isOpen={isAuditModalOpen} onClose={handleCloseAudit} />
-      <LeadFlowModal 
-        isOpen={isLeadFlowModalOpen} 
-        onClose={handleCloseLeadFlow} 
-        onOpenAudit={handleOpenAudit} 
+      <LeadFlowModal
+        isOpen={isLeadFlowModalOpen}
+        onClose={handleCloseLeadFlow}
+        onOpenAudit={handleOpenAudit}
       />
-      <ContactModal 
-        isOpen={isContactModalOpen} 
-        onClose={handleCloseContact} 
-        onOpenAudit={handleOpenAudit} 
+      <ContactModal
+        isOpen={isContactModalOpen}
+        onClose={handleCloseContact}
+        onOpenAudit={handleOpenAudit}
       />
     </div>
   );
@@ -113,6 +114,11 @@ function isAdminRoute(): boolean {
     window.location.pathname.startsWith('/admin/');
 }
 
+function isExpertsDemoRoute(): boolean {
+  return window.location.pathname === '/demo/experts' ||
+    window.location.pathname.startsWith('/demo/experts/');
+}
+
 function AppContent() {
   const [showAdmin, setShowAdmin] = useState<boolean>(() => {
     return (
@@ -121,9 +127,15 @@ function AppContent() {
         window.sessionStorage.getItem('gkais-dev-admin') === '1')
     );
   });
+  const [showExpertsDemo, setShowExpertsDemo] = useState<boolean>(() =>
+    isExpertsDemoRoute()
+  );
 
   useEffect(() => {
-    const handlePopState = () => setShowAdmin(isAdminRoute());
+    const handlePopState = () => {
+      setShowAdmin(isAdminRoute());
+      setShowExpertsDemo(isExpertsDemoRoute());
+    };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
@@ -133,6 +145,7 @@ function AppContent() {
       window.sessionStorage.setItem('gkais-dev-admin', '1');
     }
     window.history.pushState({}, '', '/admin');
+    setShowExpertsDemo(false);
     setShowAdmin(true);
   };
 
@@ -144,11 +157,20 @@ function AppContent() {
     setShowAdmin(false);
   };
 
+  const exitExpertsDemo = () => {
+    window.history.pushState({}, '', '/');
+    setShowExpertsDemo(false);
+    setShowAdmin(false);
+  };
+
+  if (showExpertsDemo) {
+    return <ExpertsCommercialDemo onExit={exitExpertsDemo} />;
+  }
+
   return showAdmin
     ? <AdminPage onExitAdmin={exitAdmin} />
     : <PublicApp onOpenAdmin={openAdmin} />;
 }
-
 
 export default function App() {
   return (

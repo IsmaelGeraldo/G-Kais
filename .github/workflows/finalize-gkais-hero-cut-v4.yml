@@ -1,0 +1,131 @@
+name: Finalize G-KAIS Hero Cut v4
+
+on:
+  push:
+    branches:
+      - release/hero-cut-final-v4
+    paths:
+      - '.github/workflows/finalize-gkais-hero-cut-v4.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout clean release branch
+        uses: actions/checkout@v4
+        with:
+          ref: release/hero-cut-final-v4
+          fetch-depth: 0
+
+      - name: Bring in only approved Hero Cut files
+        run: |
+          git fetch origin feat/hero-cut-composition-v1
+          git checkout origin/feat/hero-cut-composition-v1 -- \
+            motion/src/FinalStructuralPolish.tsx \
+            motion/src/GKaisHeroCut.tsx \
+            motion/src/Scene01Cinematic.tsx \
+            motion/src/Scene01MasterPolish.tsx \
+            motion/src/gkais-hero-cut-index.tsx
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add motion/src/FinalStructuralPolish.tsx motion/src/GKaisHeroCut.tsx motion/src/Scene01Cinematic.tsx motion/src/Scene01MasterPolish.tsx motion/src/gkais-hero-cut-index.tsx
+          git commit -m "Add approved stabilized Hero Cut composition"
+          git push origin release/hero-cut-final-v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Render final Hero Cut
+        run: |
+          cd motion
+          npm install --no-audit --no-fund
+          npx remotion browser ensure
+          mkdir -p out
+          npx remotion render src/gkais-hero-cut-index.tsx GKAISHeroCut out/gkais-hero-cut-final-v4-render.mp4 \
+            --codec=h264 \
+            --scale=2 \
+            --crf=5 \
+            --pixel-format=yuv420p \
+            --concurrency=4
+
+      - name: Enable faststart
+        run: |
+          ffmpeg -y -i motion/out/gkais-hero-cut-final-v4-render.mp4 \
+            -map 0:v:0 -c copy -movflags +faststart \
+            motion/out/gkais-hero-cut-final-v4.mp4
+
+      - name: Validate final video
+        run: |
+          ffprobe -v error \
+            -select_streams v:0 \
+            -show_entries stream=width,height,r_frame_rate,pix_fmt \
+            -show_entries format=duration \
+            -of json \
+            motion/out/gkais-hero-cut-final-v4.mp4 > /tmp/final-probe.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          probe = json.loads(Path('/tmp/final-probe.json').read_text())
+          stream = probe['streams'][0]
+          duration = float(probe['format']['duration'])
+          width = int(stream['width'])
+          height = int(stream['height'])
+          fps = stream['r_frame_rate']
+          pix_fmt = stream['pix_fmt']
+          size = Path('motion/out/gkais-hero-cut-final-v4.mp4').stat().st_size
+          print(f'{width}x{height} fps={fps} pix_fmt={pix_fmt} duration={duration:.6f}s size={size}')
+          assert width == 2560
+          assert height == 1440
+          assert fps == '30/1'
+          assert pix_fmt in {'yuv420p', 'yuvj420p'}
+          assert 26.80 <= duration <= 26.87
+          assert size > 30_000_000
+          PY
+
+      - name: Publish final release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete gkais-hero-cut-final-v4 -y --cleanup-tag || true
+          gh release create gkais-hero-cut-final-v4 \
+            motion/out/gkais-hero-cut-final-v4.mp4 \
+            --title "G-KAIS Hero Cut Final v4" \
+            --notes "Final approved Hero Cut. Stable first-scene logos with duplicate overlays removed; three-column scene 1.12x; CRM 1.085x; 2560x1440 at 30fps; H.264 CRF 5; faststart." \
+            --target release/hero-cut-final-v4
+
+      - name: Point desktop Hero to final MP4
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/components/HeroVideo.tsx')
+          text = p.read_text()
+          start = text.index('const HERO_VIDEO_DESKTOP_WEBM')
+          end = text.index('const HERO_VIDEO_MOBILE')
+          replacement = 'const HERO_VIDEO_DESKTOP_MP4 =\n  "https://github.com/IsmaelGeraldo/G-Kais/releases/download/gkais-hero-cut-final-v4/gkais-hero-cut-final-v4.mp4";\n'
+          text = text[:start] + replacement + text[end:]
+          text = text.replace('          <source src={HERO_VIDEO_DESKTOP_WEBM} type="video/webm" />\n', '')
+          p.write_text(text)
+          PY
+
+      - name: Validate application build
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+
+      - name: Commit final Hero source
+        run: |
+          git add src/components/HeroVideo.tsx
+          git commit -m "Serve final high-quality Hero Cut"
+          git push origin release/hero-cut-final-v4

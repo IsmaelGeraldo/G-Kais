@@ -87,7 +87,7 @@ const GlassNotification: React.FC<{
   const driftY = 0;
   const driftX = 0;
   const perspectiveScale = 0.91 + depth * 0.12;
-  const revealScale = interpolate(reveal, [0, 1], [0.965, 1]);
+  const revealScale = 1;
   const blur = interpolate(depth, [0.45, 1], [0.5, 0]);
 
   return (
@@ -95,7 +95,7 @@ const GlassNotification: React.FC<{
       style={{
         position: 'absolute',
         left: snapToRenderPixel(x + driftX),
-        top: snapToRenderPixel(y + driftY + interpolate(reveal, [0, 1], [16, 0])),
+        top: snapToRenderPixel(y),
         width,
         minHeight: 66,
         padding: '11px 14px 11px 11px',
@@ -357,11 +357,7 @@ export const Scene01Cinematic: React.FC<{accent?: string}> = ({accent = '#0A3F4D
               phoneReveal,
               [0, 1],
               [-82, 0],
-            )}px) rotateY(-10deg) rotateX(1.5deg) rotateZ(-3.1deg) scale(${interpolate(
-              phoneReveal,
-              [0, 1],
-              [0.94, 1],
-            )})`,
+            )}px) rotateY(-10deg) rotateX(1.5deg) rotateZ(-3.1deg) scale(1)`,
             transformStyle: 'preserve-3d',
           }}
         >

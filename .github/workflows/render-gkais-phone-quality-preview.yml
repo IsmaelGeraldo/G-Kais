@@ -1,0 +1,52 @@
+name: Render G-KAIS Phone Quality Preview
+
+on:
+  push:
+    branches:
+      - feat/hero-cut-composition-v1
+    paths:
+      - '.github/workflows/render-gkais-phone-quality-preview.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout Hero Cut branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/hero-cut-composition-v1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Render phone scene at stabilized 2x high quality
+        run: |
+          cd motion
+          npm install --no-audit --no-fund
+          npx remotion browser ensure
+          mkdir -p out
+          npx remotion render src/gkais-hero-cut-index.tsx GKAISHeroCut out/gkais-phone-quality-preview.mp4 \
+            --codec=h264 \
+            --scale=2 \
+            --crf=5 \
+            --pixel-format=yuv420p \
+            --concurrency=4 \
+            --frames=0-145
+
+      - name: Publish phone preview release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete gkais-phone-quality-preview -y --cleanup-tag || true
+          gh release create gkais-phone-quality-preview \
+            motion/out/gkais-phone-quality-preview.mp4 \
+            --title "G-KAIS Phone Stability + Quality Preview" \
+            --notes "Focused preview of the first scene. Phone float removed, same approved scene otherwise. Stabilized 2x render, H.264 yuv420p, CRF 5." \
+            --target "$GITHUB_SHA"

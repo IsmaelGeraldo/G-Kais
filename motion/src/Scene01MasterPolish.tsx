@@ -95,9 +95,9 @@ const PhoneMaterialOverlay: React.FC = () => {
     ...clamp,
     easing: Easing.out(Easing.cubic),
   });
-  const cameraX = interpolate(frame, [0, 125], [0, -13], clamp);
-  const cameraY = interpolate(frame, [0, 125], [8, -4], clamp);
-  const phoneFloat = Math.sin(frame / 24) * 4;
+  const cameraX = 0;
+  const cameraY = 0;
+  const phoneFloat = 0;
   const masterFade = interpolate(frame, [112, 140], [1, 0], clamp);
 
   return (
@@ -109,7 +109,7 @@ const PhoneMaterialOverlay: React.FC = () => {
         width: 284,
         height: 548,
         opacity: phoneReveal * masterFade,
-        transform: `perspective(1250px) translateX(${interpolate(phoneReveal, [0, 1], [-82, 0])}px) rotateY(-10deg) rotateX(1.5deg) rotateZ(-3.1deg) scale(${interpolate(phoneReveal, [0, 1], [0.94, 1])})`,
+        transform: `perspective(1250px) translateX(${interpolate(phoneReveal, [0, 1], [-82, 0])}px) rotateY(-10deg) rotateX(1.5deg) rotateZ(-3.1deg) scale(1)`,
         transformStyle: 'preserve-3d',
         pointerEvents: 'none',
         zIndex: 68,
@@ -246,9 +246,6 @@ export const Scene01MasterPolish: React.FC = () => {
   return (
     <AbsoluteFill style={{pointerEvents: 'none'}}>
       <PhoneMaterialOverlay />
-      {brandedNotifications.map((notification, index) => (
-        <NotificationLogoOverlay key={`${notification.kind}-${index}`} notification={notification} />
-      ))}
     </AbsoluteFill>
   );
 };

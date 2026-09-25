@@ -62,28 +62,21 @@ const World: React.FC<{children:React.ReactNode}> = ({children}) => {
 const NotificationLogos: React.FC = () => {
   const frame = useCurrentFrame();
   if (frame > 222) return null;
-  const internalX = interpolate(frame,[0,125],[0,-13],clamp);
-  const internalY = interpolate(frame,[0,125],[8,-4],clamp);
   const sceneFade = interpolate(frame,[150,222],[1,0],clamp);
   return <World>{notifications.map((n,index)=>{
     const reveal = interpolate(frame,[n.start,n.start+13],[0,1],{...clamp,easing:Easing.out(Easing.cubic)});
-    const driftY = Math.sin((frame+n.seed*7)/(22+n.seed))*(2+n.depth*3);
-    const driftX = Math.cos((frame+n.seed*11)/(30+n.seed))*(1.2+n.depth*2.2);
-    const scale = (.91+n.depth*.12)*interpolate(reveal,[0,1],[.965,1]);
-    return <div key={index} style={{position:'absolute',left:Math.round(n.x+driftX+internalX),top:Math.round(n.y+driftY+interpolate(reveal,[0,1],[16,0])+internalY),width:n.width,minHeight:66,opacity:reveal*sceneFade,transform:`scale(${scale})`,transformOrigin:'left center'}}><div style={{position:'absolute',left:11,top:16}}><Mark kind={n.kind}/></div></div>;
+    const scale = .91+n.depth*.12;
+    return <div key={index} style={{position:'absolute',left:Math.round(n.x),top:Math.round(n.y),width:n.width,minHeight:66,opacity:reveal*sceneFade,transform:`scale(${scale})`,transformOrigin:'left center'}}><div style={{position:'absolute',left:11,top:16}}><Mark kind={n.kind}/></div></div>;
   })}</World>;
 };
 
 const PhoneLogos: React.FC = () => {
   const frame = useCurrentFrame();
   if (frame > 222) return null;
-  const internalX=interpolate(frame,[0,125],[0,-13],clamp);
-  const internalY=interpolate(frame,[0,125],[8,-4],clamp);
   const phoneReveal=interpolate(frame,[0,28],[0,1],{...clamp,easing:Easing.out(Easing.cubic)});
-  const phoneFloat=Math.sin(frame/24)*4;
   const sceneFade=interpolate(frame,[150,222],[1,0],clamp);
   const rows:[Kind,number][]=[['whatsapp',151],['instagram',225],['gmail',299],['form',373],['whatsapp',447]];
-  return <World><div style={{position:'absolute',left:150+internalX,top:89+phoneFloat+internalY,width:284,height:548,opacity:phoneReveal*sceneFade,transform:`perspective(1250px) translateX(${interpolate(phoneReveal,[0,1],[-82,0])}px) rotateY(-10deg) rotateX(1.5deg) rotateZ(-3.1deg) scale(${interpolate(phoneReveal,[0,1],[.94,1])})`,transformStyle:'preserve-3d'}}>{rows.map(([kind,top],index)=><div key={index} style={{position:'absolute',left:38,top}}><Mark kind={kind} size={30}/></div>)}</div></World>;
+  return <World><div style={{position:'absolute',left:150,top:89,width:284,height:548,opacity:phoneReveal*sceneFade,transform:`perspective(1250px) translateX(${interpolate(phoneReveal,[0,1],[-82,0])}px) rotateY(-10deg) rotateX(1.5deg) rotateZ(-3.1deg) scale(1)`,transformStyle:'preserve-3d'}}>{rows.map(([kind,top],index)=><div key={index} style={{position:'absolute',left:38,top}}><Mark kind={kind} size={30}/></div>)}</div></World>;
 };
 
 const engineShiftAt = (frame:number) => interpolate(frame,[258,342],[0,-185],{...clamp,easing:Easing.inOut(Easing.cubic)});

@@ -1,10 +1,8 @@
 import React from "react";
 import "./hero-video.css";
 
-const HERO_VIDEO_DESKTOP_WEBM =
-  "https://github.com/IsmaelGeraldo/G-Kais/releases/download/gkais-hero-master-clean-v7/gkais-hero-master-clean-v7.webm";
 const HERO_VIDEO_DESKTOP_MP4 =
-  "https://github.com/IsmaelGeraldo/G-Kais/releases/download/gkais-hero-master-clean-v7/gkais-hero-master-clean-v7.mp4";
+  "https://github.com/IsmaelGeraldo/G-Kais/releases/download/gkais-hero-cut-final-v4/gkais-hero-cut-final-v4.mp4";
 const HERO_VIDEO_MOBILE =
   "https://d2ol7oe51mr4n9.cloudfront.net/user_3JjLYpV2xzn5QTLEZhkGddrqtlj/755b4b23-e496-4249-b0a4-76e7021c1bd0.mp4";
 
@@ -27,7 +25,6 @@ export const HeroVideo: React.FC = () => {
             src={HERO_VIDEO_MOBILE}
             type="video/mp4"
           />
-          <source src={HERO_VIDEO_DESKTOP_WEBM} type="video/webm" />
           <source src={HERO_VIDEO_DESKTOP_MP4} type="video/mp4" />
         </video>
       </div>

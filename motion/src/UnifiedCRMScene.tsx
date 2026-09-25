@@ -6,10 +6,10 @@ const snapToRenderPixel = (value: number) => Math.round(value * 2) / 2;
 const accent = '#0A3F4D';
 const border = '#D8D8D8';
 const softBorder = '#E7E7E7';
-const muted = '#777777';
+const muted = '#5F5F5F';
 
 const Label: React.FC<React.PropsWithChildren<{teal?: boolean}>> = ({children, teal = false}) => (
-  <div style={{fontFamily:'Arial, Helvetica, sans-serif',fontSize:10,fontWeight:700,letterSpacing:1.35,textTransform:'uppercase',color:teal?accent:'#6B6B6B'}}>{children}</div>
+  <div style={{fontFamily:'Arial, Helvetica, sans-serif',fontSize:10,fontWeight:700,letterSpacing:1.35,textTransform:'uppercase',color:teal?accent:'#555555'}}>{children}</div>
 );
 
 const Pill: React.FC<React.PropsWithChildren<{tone?:'teal'|'amber'|'neutral'}>> = ({children,tone='neutral'}) => {
@@ -17,13 +17,13 @@ const Pill: React.FC<React.PropsWithChildren<{tone?:'teal'|'amber'|'neutral'}>> 
     ? {border:'rgba(10,63,77,0.26)',background:'#F4F8F8',color:accent}
     : tone==='amber'
       ? {border:'#E7D3A2',background:'#FFF9EC',color:'#8A6215'}
-      : {border:softBorder,background:'#FFFFFF',color:'#676767'};
+      : {border:softBorder,background:'#FFFFFF',color:'#565656'};
   return <span style={{display:'inline-flex',alignItems:'center',border:`1px solid ${s.border}`,background:s.background,color:s.color,borderRadius:999,padding:'5px 9px',fontFamily:'Arial, Helvetica, sans-serif',fontSize:9,fontWeight:700,letterSpacing:.45}}>{children}</span>;
 };
 
 const MiniField: React.FC<{label:string;value:string;interactive?:boolean;changed?:boolean}> = ({label,value,interactive=false,changed=false}) => (
   <div style={{border:`1px solid ${changed?'rgba(10,63,77,0.34)':softBorder}`,borderRadius:12,background:changed?'linear-gradient(180deg,#F8FBFA 0%,#F1F7F6 100%)':'#FFFFFF',padding:'10px 11px',minHeight:54,boxSizing:'border-box',boxShadow:changed?'0 5px 14px rgba(20,34,31,0.06)':'none'}}>
-    <div style={{fontFamily:'Arial, Helvetica, sans-serif',fontSize:9,color:'#8A8A8A'}}>{label}</div>
+    <div style={{fontFamily:'Arial, Helvetica, sans-serif',fontSize:9,fontWeight:600,color:'#606060'}}>{label}</div>
     <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,fontFamily:'Arial, Helvetica, sans-serif',fontSize:12,fontWeight:700,color:changed?accent:'#151515',marginTop:5,lineHeight:1.25}}>
       <span>{value}</span>{interactive?<span style={{fontSize:10,color:accent}}>⌄</span>:null}
     </div>
@@ -173,7 +173,7 @@ export const UnifiedCRMScene: React.FC = () => {
                 </section>
 
                 <section style={{marginTop:14,border:`1px solid ${border}`,borderRadius:18,background:'linear-gradient(180deg,#FFFFFF 0%,#FAFBFA 100%)',padding:14,boxShadow:'0 12px 30px rgba(20,34,31,.07)'}}>
-                  <Label>Actividad del lead</Label><div style={{display:'grid',gap:7,marginTop:10}}>{activity.map(([time,title,text])=><div key={time} style={{display:'grid',gridTemplateColumns:'48px 108px 1fr',gap:10,alignItems:'center'}}><span style={{fontSize:9,color:'#8A8A8A'}}>{time}</span><span style={{fontSize:10,fontWeight:800}}>{title}</span><span style={{fontSize:10,color:'#5F6663'}}>{text}</span></div>)}</div>
+                  <Label>Actividad del lead</Label><div style={{display:'grid',gap:7,marginTop:10}}>{activity.map(([time,title,text])=><div key={time} style={{display:'grid',gridTemplateColumns:'48px 108px 1fr',gap:10,alignItems:'center'}}><span style={{fontSize:9,fontWeight:600,color:'#606060'}}>{time}</span><span style={{fontSize:10,fontWeight:800}}>{title}</span><span style={{fontSize:10,color:'#5F6663'}}>{text}</span></div>)}</div>
                 </section>
               </div>
             </div>

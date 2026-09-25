@@ -17,7 +17,7 @@ const snapToRenderPixel = (value: number) => Math.round(value * 2) / 2;
 
 const accent = '#0A3F4D';
 const ink = '#111412';
-const muted = '#66706B';
+const muted = '#4F5954';
 const WORLD_WIDTH = 3600;
 const ENGINE_X = 1490;
 const ENGINE_Y = 178;
@@ -292,7 +292,7 @@ const OpportunityStack: React.FC<{column: OpportunityColumn; index: number}> = (
         <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr 1.08fr', gap: 8, marginTop: 10}}>
           {column.context.map(([label, value]) => (
             <div key={label} style={{minHeight: 58, borderRadius: 12, background: '#F6F7F5', padding: '9px 9px 8px', border: '1px solid rgba(15,22,18,0.025)'}}>
-              <div style={{fontSize: 8.5, color: '#8A938E', lineHeight: 1.15}}>{label}</div>
+              <div style={{fontSize: 8.5, fontWeight: 700, color: '#5F6964', lineHeight: 1.15}}>{label}</div>
               <div style={{fontSize: 11.7, color: ink, fontWeight: 800, lineHeight: 1.18, marginTop: 6}}>{value}</div>
             </div>
           ))}

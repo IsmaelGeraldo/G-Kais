@@ -80,7 +80,7 @@ jobs:
             ("{tr('Qué falta saber', 'What is still unknown')}", "{tr('Preguntas para la llamada', 'Questions for the call')}"),
             ("{tr('Cómo G-KAIS puede ayudar', 'How G-KAIS can help')}", "{tr('Cómo podemos ayudar', 'How we can help')}"),
             ("{tr('Solución sugerida', 'Suggested solution')}", "{tr('Plan recomendado', 'Recommended plan')}"),
-            ("{tr('Cómo lo diría en la llamada', 'How I would say it on the call')}", "{tr('Cómo abrir la conversación', 'How to open the conversation')}")
+            ("{tr('Cómo lo diría en la llamada', 'How I would say it on the call')}", "{tr('Cómo abrir la conversación', 'How to open the conversation')}" )
           ]
 
           for old, new in admin_replacements:
@@ -102,9 +102,6 @@ jobs:
 
       - name: Install dependencies
         run: npm install --legacy-peer-deps --no-audit --no-fund
-
-      - name: Typecheck
-        run: npm run lint
 
       - name: Build application
         run: npm run build

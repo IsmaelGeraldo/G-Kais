@@ -185,7 +185,7 @@ export const Scene01Cinematic: React.FC<{accent?: string}> = ({accent = '#0A3F4D
   const secondLineOpacity = interpolate(frame, [66, 92], [0, 1], clamp);
   const cameraX = snapToRenderPixel(interpolate(frame, [0, 125], [0, -13], clamp));
   const cameraY = snapToRenderPixel(interpolate(frame, [0, 125], [8, -4], clamp));
-  const phoneFloat = snapToRenderPixel(Math.sin(frame / 24) * 4);
+  const phoneFloat = 0;
   const unread = frame < 34 ? 2 : frame < 70 ? 4 : 7;
 
   const notifications = [

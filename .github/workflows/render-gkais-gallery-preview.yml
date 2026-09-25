@@ -1,0 +1,52 @@
+name: Render G-KAIS Gallery Stability Preview
+
+on:
+  push:
+    branches:
+      - feat/hero-cut-composition-v1
+    paths:
+      - '.github/workflows/render-gkais-gallery-preview.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout Hero Cut branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/hero-cut-composition-v1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Render gallery segment at stabilized 2x scale
+        run: |
+          cd motion
+          npm install --no-audit --no-fund
+          npx remotion browser ensure
+          mkdir -p out
+          npx remotion render src/gkais-hero-cut-index.tsx GKAISHeroCut out/gkais-gallery-stability-preview.mp4 \
+            --codec=h264 \
+            --scale=2 \
+            --crf=8 \
+            --pixel-format=yuv420p \
+            --concurrency=4 \
+            --frames=330-485
+
+      - name: Publish gallery preview release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete gkais-gallery-stability-preview -y --cleanup-tag || true
+          gh release create gkais-gallery-stability-preview \
+            motion/out/gkais-gallery-stability-preview.mp4 \
+            --title "G-KAIS Gallery Stability Preview" \
+            --notes "Focused 2x preview for the three-column scene. Same Hero Cut framing, rendered on the anti-shimmer 2x physical-pixel grid." \
+            --target "$GITHUB_SHA"

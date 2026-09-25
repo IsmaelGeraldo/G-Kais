@@ -4573,17 +4573,17 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                         <div className="flex items-center gap-2">
                           <Target className="w-4 h-4 text-[#0A3F4D]" />
                           <p className="font-mono-code text-[9px] uppercase tracking-[0.18em] text-[#0A3F4D] font-bold">
-                            {tr('G-KAIS AI Brief', 'G-KAIS AI Brief')}
+                            {tr('G-KAIS Copiloto Comercial', 'G-KAIS Sales Copilot')}
                           </p>
                         </div>
                         <p className="text-xs text-[#657477] mt-1 max-w-3xl">
                           {tr(
                             hasBusinessKnowledge(businessKnowledge)
-                              ? 'Análisis comercial del lead usando su ficha, historial y la Knowledge Base del negocio.'
-                              : 'Análisis comercial del lead usando la información disponible en su ficha e historial.',
+                              ? 'Copiloto para preparar la conversación, descubrir vacíos y definir la próxima acción usando la ficha, historial y Knowledge Base del negocio.'
+                              : 'Copiloto para preparar la conversación, descubrir vacíos y definir la próxima acción usando la información disponible en la ficha e historial.',
                             hasBusinessKnowledge(businessKnowledge)
-                              ? 'Commercial lead analysis using its record, history and the business Knowledge Base.'
-                              : 'Commercial lead analysis using the information available in its record and history.'
+                              ? 'Sales copilot for preparing the conversation, finding gaps and defining the next action using the record, history and business Knowledge Base.'
+                              : 'Sales copilot for preparing the conversation, finding gaps and defining the next action using the available record and history.'
                           )}
                         </p>
                       </div>
@@ -4649,7 +4649,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                         <div className="xl:col-span-7 space-y-4">
                           <div className="rounded-2xl border border-[#D8E3E5] bg-white p-4">
                             <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#777]">
-                              {tr('Lectura rápida', 'Quick read')}
+                              {tr('Situación y brecha', 'Situation and gap')}
                             </p>
                             <p className="text-sm leading-relaxed mt-2">
                               {leadBriefs[selectedLead.id].summary}
@@ -4660,7 +4660,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                             {leadBriefs[selectedLead.id].signals.length > 0 && (
                               <div className="rounded-2xl border border-[#E5E5E5] bg-white p-4">
                                 <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#777] mb-2">
-                                  {tr('Señales detectadas', 'Detected signals')}
+                                  {tr('Qué sabemos', 'What we know')}
                                 </p>
                                 <div className="space-y-1.5">
                                   {leadBriefs[selectedLead.id].signals.map((signal, index) => (
@@ -4675,7 +4675,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                             {leadBriefs[selectedLead.id].risks.length > 0 && (
                               <div className="rounded-2xl border border-[#E5E5E5] bg-white p-4">
                                 <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#777] mb-2">
-                                  {tr('Riesgos o vacíos', 'Risks or gaps')}
+                                  {tr('Qué falta descubrir', 'What we still need to discover')}
                                 </p>
                                 <div className="space-y-1.5">
                                   {leadBriefs[selectedLead.id].risks.map((risk, index) => (
@@ -4691,7 +4691,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="rounded-2xl border border-[#0A3F4D]/20 bg-white p-4">
                               <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#0A3F4D]">
-                                {tr('Próximo paso sugerido', 'Suggested next step')}
+                                {tr('Próxima acción', 'Next action')}
                               </p>
                               <p className="text-xs font-semibold leading-relaxed mt-2">
                                 {leadBriefs[selectedLead.id].recommendedAction}
@@ -4701,7 +4701,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                             {leadBriefs[selectedLead.id].qualificationQuestions.length > 0 && (
                               <div className="rounded-2xl border border-[#E5E5E5] bg-white p-4">
                                 <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#777] mb-2">
-                                  {tr('Qué falta saber', 'What is still unknown')}
+                                  {tr('Preguntas para la llamada', 'Questions for the call')}
                                 </p>
                                 <div className="space-y-1.5">
                                   {leadBriefs[selectedLead.id].qualificationQuestions.map((question, index) => (
@@ -4719,7 +4719,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                           {leadBriefs[selectedLead.id].howGkaisCanHelp.length > 0 && (
                             <div className="rounded-2xl border border-[#0A3F4D]/25 bg-white p-4">
                               <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#0A3F4D] mb-2">
-                                {tr('Cómo G-KAIS puede ayudar', 'How G-KAIS can help')}
+                                {tr('Cómo podemos ayudar', 'How we can help')}
                               </p>
                               <div className="space-y-2">
                                 {leadBriefs[selectedLead.id].howGkaisCanHelp.map((item, index) => (
@@ -4737,7 +4737,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                           {leadBriefs[selectedLead.id].solutionPlan.length > 0 && (
                             <div className="rounded-2xl border border-[#D8D8D8] bg-white p-4">
                               <p className="font-mono-code text-[9px] uppercase tracking-wider text-[#777] mb-2">
-                                {tr('Solución sugerida', 'Suggested solution')}
+                                {tr('Plan recomendado', 'Recommended plan')}
                               </p>
                               <div className="space-y-2">
                                 {leadBriefs[selectedLead.id].solutionPlan.map((step, index) => (
@@ -4755,7 +4755,7 @@ export const AdminPage: React.FC<{ onExitAdmin: () => void }> = ({ onExitAdmin }
                           {leadBriefs[selectedLead.id].callPositioning && (
                             <div className="rounded-2xl border border-[#0A0A0A]/10 bg-[#0A0A0A] p-4 text-white">
                               <p className="font-mono-code text-[9px] uppercase tracking-wider text-white/60">
-                                {tr('Cómo lo diría en la llamada', 'How I would say it on the call')}
+                                {tr('Cómo abrir la conversación', 'How to open the conversation')}
                               </p>
                               <p className="text-sm leading-relaxed mt-2">
                                 {leadBriefs[selectedLead.id].callPositioning}

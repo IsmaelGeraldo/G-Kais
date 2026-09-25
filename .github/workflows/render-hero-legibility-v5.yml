@@ -29,23 +29,23 @@ jobs:
 
           changes = {
             Path('motion/src/Scene01ToIntelligenceFlow.tsx'): [
-              ("const muted = '#66706B';", "const muted = '#4F5954';"),
-              ("<div style={{fontSize: 8.5, color: '#8A938E', lineHeight: 1.15}}>{label}</div>", "<div style={{fontSize: 8.5, fontWeight: 700, color: '#5F6964', lineHeight: 1.15}}>{label}</div>"),
+              ("const muted = '#66706B';", "const muted = '#4F5954';", 1),
+              ("<div style={{fontSize: 8.5, color: '#8A938E', lineHeight: 1.15}}>{label}</div>", "<div style={{fontSize: 8.5, fontWeight: 700, color: '#5F6964', lineHeight: 1.15}}>{label}</div>", 1),
             ],
             Path('motion/src/UnifiedCRMScene.tsx'): [
-              ("const muted = '#777777';", "const muted = '#5F5F5F';"),
-              ("color:teal?accent:'#6B6B6B'", "color:teal?accent:'#555555'"),
-              ("{border:softBorder,background:'#FFFFFF',color:'#676767'}", "{border:softBorder,background:'#FFFFFF',color:'#565656'}"),
-              ("fontSize:9,color:'#8A8A8A'", "fontSize:9,fontWeight:600,color:'#606060'"),
+              ("const muted = '#777777';", "const muted = '#5F5F5F';", 1),
+              ("color:teal?accent:'#6B6B6B'", "color:teal?accent:'#555555'", 1),
+              ("{border:softBorder,background:'#FFFFFF',color:'#676767'}", "{border:softBorder,background:'#FFFFFF',color:'#565656'}", 1),
+              ("fontSize:9,color:'#8A8A8A'", "fontSize:9,fontWeight:600,color:'#606060'", 2),
             ],
           }
 
           for path, replacements in changes.items():
             text = path.read_text()
-            for old, new in replacements:
+            for old, new, expected in replacements:
               count = text.count(old)
-              if count != 1:
-                raise SystemExit(f'{path}: expected exactly 1 match for {old!r}, found {count}')
+              if count != expected:
+                raise SystemExit(f'{path}: expected exactly {expected} matches for {old!r}, found {count}')
               text = text.replace(old, new)
             path.write_text(text)
           PY

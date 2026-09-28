@@ -39,6 +39,35 @@ export type SessionCopilotResult = {
   callOpening: string;
 };
 
+function buildSessionOpening(
+  existing: SessionCopilotClient['copilot'],
+  risks: string[],
+  language: 'es' | 'en'
+): string {
+  if (existing?.callOpening) return existing.callOpening;
+
+  const gap = existing?.gap?.trim();
+  const firstRisk = risks[0]?.trim();
+
+  if (language === 'es') {
+    if (gap && firstRisk) {
+      return `Quiero partir revisando dónde estamos respecto a este punto: ${gap} Antes de cambiar el plan, me interesa entender mejor ${firstRisk.toLowerCase()} y salir de esta sesión con una próxima acción concreta.`;
+    }
+    if (gap) {
+      return `Quiero partir revisando dónde estamos respecto a este punto: ${gap} Veamos qué cambió desde la última sesión y cerremos con una próxima acción concreta.`;
+    }
+    return 'Quiero partir conectando lo que acordamos en la última sesión con lo que realmente ocurrió. Revisemos avances, bloqueadores y cerremos con una próxima acción concreta.';
+  }
+
+  if (gap && firstRisk) {
+    return `I want to start by reviewing where we are on this point: ${gap} Before changing the plan, I want to understand ${firstRisk.toLowerCase()} more clearly and leave this session with one concrete next action.`;
+  }
+  if (gap) {
+    return `I want to start by reviewing where we are on this point: ${gap} Let's see what changed since the last session and close with one concrete next action.`;
+  }
+  return 'I want to connect what we agreed in the last session with what actually happened. Let’s review progress, blockers and close with one concrete next action.';
+}
+
 export async function requestSessionCopilot(
   client: SessionCopilotClient,
   journal: SessionJournalEntry[],
@@ -91,14 +120,28 @@ export async function requestSessionCopilot(
   }
 
   const brief = payload.brief;
+  const known = Array.isArray(brief.signals) && brief.signals.length
+    ? brief.signals
+    : (existing.known || []);
+  const risks = Array.isArray(brief.risks) && brief.risks.length
+    ? brief.risks
+    : (existing.risks || []);
+  const questions = Array.isArray(brief.qualificationQuestions) && brief.qualificationQuestions.length
+    ? brief.qualificationQuestions
+    : (existing.questions || []);
+
+  // The current authenticated endpoint is the Admin sales-copilot endpoint.
+  // For the pilot we reuse only its evidence analysis, risks and questions.
+  // Client-success solutions and spoken positioning stay grounded in the
+  // client's existing Outcome Memory until a tenant-aware session endpoint exists.
   return {
-    summary: brief.summary || existing.summary || '',
-    gap: existing.gap || brief.recommendedAction || '',
-    known: Array.isArray(brief.signals) && brief.signals.length ? brief.signals : (existing.known || []),
-    risks: Array.isArray(brief.risks) && brief.risks.length ? brief.risks : (existing.risks || []),
-    questions: Array.isArray(brief.qualificationQuestions) && brief.qualificationQuestions.length ? brief.qualificationQuestions : (existing.questions || []),
-    howHelp: Array.isArray(brief.howGkaisCanHelp) && brief.howGkaisCanHelp.length ? brief.howGkaisCanHelp : (existing.howHelp || []),
-    plan: Array.isArray(brief.solutionPlan) && brief.solutionPlan.length ? brief.solutionPlan : (existing.plan || []),
-    callOpening: brief.callPositioning || existing.callOpening || ''
+    summary: existing.summary || brief.summary || '',
+    gap: existing.gap || '',
+    known,
+    risks,
+    questions,
+    howHelp: existing.howHelp || [],
+    plan: existing.plan || [],
+    callOpening: buildSessionOpening(existing, risks, language)
   };
 }

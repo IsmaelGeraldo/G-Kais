@@ -50,6 +50,7 @@ export const SESSION_CLIENT_STORAGE_KEY = 'gkais-experts-session-clients-v2';
 export const JOURNAL_STORAGE_KEY = 'gkais-experts-client-journal-v1';
 export const TASK_STORAGE_KEY = 'gkais-experts-work-tasks-v1';
 export const WORKSPACE_STATE_EVENT = 'gkais:workspace-state-changed';
+const CLIENT_RECORD_STORAGE_KEY = 'gkais-experts-client-records-v2';
 
 const INITIAL_TASKS: WorkTask[] = [
   {
@@ -121,10 +122,43 @@ export function loadSessionClients(): SharedSessionClient[] {
   return safeParseArray<SharedSessionClient>(SESSION_CLIENT_STORAGE_KEY, []);
 }
 
+function syncClientRecordsFromSession(clients: SharedSessionClient[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const raw = window.localStorage.getItem(CLIENT_RECORD_STORAGE_KEY);
+    if (!raw) return;
+    const records = JSON.parse(raw);
+    if (!Array.isArray(records)) return;
+
+    const nextRecords = records.map((record) => {
+      if (!record || typeof record !== 'object') return record;
+      const typed = record as Record<string, unknown>;
+      const id = typeof typed.id === 'string' ? typed.id : '';
+      const live = clients.find((client) => client.id === id);
+      if (!live) return record;
+
+      return {
+        ...typed,
+        company: live.company ?? typed.company,
+        program: live.program ?? typed.program,
+        progress: live.week ?? typed.progress,
+        expectedOutcome: live.goal ?? typed.expectedOutcome,
+        nextAction: live.nextAction ?? typed.nextAction,
+        nextSession: typeof live.nextSession === 'string' ? live.nextSession : typed.nextSession,
+        blockers: live.blockers ?? typed.blockers,
+        commitments: live.commitments?.map((item) => ({ label: item.label, status: item.status })) ?? typed.commitments
+      };
+    });
+
+    window.localStorage.setItem(CLIENT_RECORD_STORAGE_KEY, JSON.stringify(nextRecords));
+  } catch {}
+}
+
 export function saveSessionClients(clients: SharedSessionClient[]): void {
   if (typeof window === 'undefined') return;
   try {
     window.localStorage.setItem(SESSION_CLIENT_STORAGE_KEY, JSON.stringify(clients));
+    syncClientRecordsFromSession(clients);
     emitWorkspaceStateChanged();
   } catch {}
 }

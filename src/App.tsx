@@ -21,7 +21,7 @@ import { LeadFlowModal } from './components/LeadFlowModal.tsx';
 import { ContactModal } from './components/ContactModal.tsx';
 import { AdminPage } from './components/AdminPage.tsx';
 import { ExpertsCommercialDemo } from './components/ExpertsCommercialDemo.tsx';
-import { ExpertsWorkspace } from './components/ExpertsWorkspace.tsx';
+import { ExpertsWorkspaceV2 } from './components/workspace/ExpertsWorkspaceV2.tsx';
 import { SessionMemoryWorkspace } from './components/SessionMemoryWorkspace.tsx';
 import { LanguageProvider } from './i18n/LanguageContext.tsx';
 
@@ -30,127 +30,54 @@ function PublicApp({ onOpenAdmin }: { onOpenAdmin: () => void }) {
   const [isLeadFlowModalOpen, setIsLeadFlowModalOpen] = useState(false);
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
 
-  const handleOpenAudit = () => {
-    setIsAuditModalOpen(true);
-  };
-
-  const handleCloseAudit = () => {
-    setIsAuditModalOpen(false);
-  };
-
-  const handleOpenLeadFlow = () => {
-    setIsLeadFlowModalOpen(true);
-  };
-
-  const handleCloseLeadFlow = () => {
-    setIsLeadFlowModalOpen(false);
-  };
-
-  const handleOpenContact = () => {
-    setIsContactModalOpen(true);
-  };
-
-  const handleCloseContact = () => {
-    setIsContactModalOpen(false);
-  };
+  const handleOpenAudit = () => setIsAuditModalOpen(true);
+  const handleCloseAudit = () => setIsAuditModalOpen(false);
+  const handleOpenLeadFlow = () => setIsLeadFlowModalOpen(true);
+  const handleCloseLeadFlow = () => setIsLeadFlowModalOpen(false);
+  const handleOpenContact = () => setIsContactModalOpen(true);
+  const handleCloseContact = () => setIsContactModalOpen(false);
 
   return (
     <div className="min-h-screen bg-[#F7F7F5] text-[#0A0A0A] selection:bg-[#0A3F4D] selection:text-[#F7F7F5] font-sans">
-      {/* 1. Header */}
       <Header onOpenAudit={handleOpenAudit} onOpenAdmin={onOpenAdmin} />
-
-      {/* Main Content Sections */}
       <main>
-        {/* 2. Hero & Hero System Visual */}
         <Hero onOpenAudit={handleOpenAudit} />
-
-        {/* 3. Problem Section */}
         <ProblemSection />
-
-        {/* 4. Opportunity recovery example */}
         <OpportunityRecoverySection />
-
-        {/* 5. The System ("One system. Every opportunity.") */}
         <TheSystemSection />
-
-        {/* 6. LeadFlow Section (SaaS Clean Dark Interface) */}
         <LeadFlowSection onExplore={handleOpenLeadFlow} onOpenAudit={handleOpenAudit} />
-
-        {/* 7. Works with your existing tools */}
         <ExistingToolsSection />
-
-        {/* 8. Product Ecosystem ("One architecture. Multiple systems.") */}
         <ProductsSection />
-
-        {/* 9. Process ("From opportunity to operating system.") */}
         <ProcessSection />
-
-        {/* 10. Pilot with real opportunities */}
         <PilotSection onOpenAudit={handleOpenAudit} />
-
-        {/* 11. Free Audit CTA & Form Section */}
         <AuditCtaSection onOpenAudit={handleOpenAudit} />
       </main>
-
-      {/* Footer */}
       <Footer onOpenAudit={handleOpenAudit} onOpenContact={handleOpenContact} />
-
-      {/* Interactive Modals */}
       <AuditModal isOpen={isAuditModalOpen} onClose={handleCloseAudit} />
-      <LeadFlowModal
-        isOpen={isLeadFlowModalOpen}
-        onClose={handleCloseLeadFlow}
-        onOpenAudit={handleOpenAudit}
-      />
-      <ContactModal
-        isOpen={isContactModalOpen}
-        onClose={handleCloseContact}
-        onOpenAudit={handleOpenAudit}
-      />
+      <LeadFlowModal isOpen={isLeadFlowModalOpen} onClose={handleCloseLeadFlow} onOpenAudit={handleOpenAudit} />
+      <ContactModal isOpen={isContactModalOpen} onClose={handleCloseContact} onOpenAudit={handleOpenAudit} />
     </div>
   );
 }
 
 function isHqRoute(): boolean {
-  return window.location.pathname === '/hq' ||
-    window.location.pathname.startsWith('/hq/') ||
-    window.location.pathname === '/admin' ||
-    window.location.pathname.startsWith('/admin/');
+  return window.location.pathname === '/hq' || window.location.pathname.startsWith('/hq/') || window.location.pathname === '/admin' || window.location.pathname.startsWith('/admin/');
 }
-
 function isExpertsDemoRoute(): boolean {
-  return window.location.pathname === '/demo/experts' ||
-    window.location.pathname.startsWith('/demo/experts/');
+  return window.location.pathname === '/demo/experts' || window.location.pathname.startsWith('/demo/experts/');
 }
-
 function isExpertsWorkspaceRoute(): boolean {
-  return window.location.pathname === '/workspace' ||
-    window.location.pathname === '/workspace/experts' ||
-    window.location.pathname.startsWith('/workspace/experts/');
+  return window.location.pathname === '/workspace' || window.location.pathname === '/workspace/experts' || window.location.pathname.startsWith('/workspace/experts/');
 }
-
 function isSessionMemoryRoute(): boolean {
-  return window.location.pathname === '/workspace/experts/sessions' ||
-    window.location.pathname.startsWith('/workspace/experts/sessions/');
+  return window.location.pathname === '/workspace/experts/sessions' || window.location.pathname.startsWith('/workspace/experts/sessions/');
 }
 
 function AppContent() {
-  const [showAdmin, setShowAdmin] = useState<boolean>(() => {
-    return (
-      isHqRoute() ||
-      (import.meta.env.DEV &&
-        window.sessionStorage.getItem('gkais-dev-admin') === '1')
-    );
-  });
-  const [showExpertsDemo, setShowExpertsDemo] = useState<boolean>(() =>
-    isExpertsDemoRoute()
-  );
-  const [showExpertsWorkspace, setShowExpertsWorkspace] = useState<boolean>(() =>
-    isExpertsWorkspaceRoute()
-  );
-  const [showSessionMemory, setShowSessionMemory] = useState<boolean>(() =>
-    isSessionMemoryRoute()
-  );
+  const [showAdmin, setShowAdmin] = useState<boolean>(() => isHqRoute() || (import.meta.env.DEV && window.sessionStorage.getItem('gkais-dev-admin') === '1'));
+  const [showExpertsDemo, setShowExpertsDemo] = useState<boolean>(() => isExpertsDemoRoute());
+  const [showExpertsWorkspace, setShowExpertsWorkspace] = useState<boolean>(() => isExpertsWorkspaceRoute());
+  const [showSessionMemory, setShowSessionMemory] = useState<boolean>(() => isSessionMemoryRoute());
 
   useEffect(() => {
     const handlePopState = () => {
@@ -164,88 +91,40 @@ function AppContent() {
   }, []);
 
   const openAdmin = () => {
-    if (import.meta.env.DEV) {
-      window.sessionStorage.setItem('gkais-dev-admin', '1');
-    }
+    if (import.meta.env.DEV) window.sessionStorage.setItem('gkais-dev-admin', '1');
     window.history.pushState({}, '', '/hq');
-    setShowExpertsDemo(false);
-    setShowExpertsWorkspace(false);
-    setShowSessionMemory(false);
-    setShowAdmin(true);
+    setShowExpertsDemo(false); setShowExpertsWorkspace(false); setShowSessionMemory(false); setShowAdmin(true);
   };
-
   const openExpertsWorkspace = () => {
     window.history.pushState({}, '', '/workspace/experts');
-    setShowAdmin(false);
-    setShowExpertsDemo(false);
-    setShowSessionMemory(false);
-    setShowExpertsWorkspace(true);
+    setShowAdmin(false); setShowExpertsDemo(false); setShowSessionMemory(false); setShowExpertsWorkspace(true);
   };
-
   const exitAdmin = () => {
-    if (import.meta.env.DEV) {
-      window.sessionStorage.removeItem('gkais-dev-admin');
-    }
-    window.history.pushState({}, '', '/');
-    setShowAdmin(false);
+    if (import.meta.env.DEV) window.sessionStorage.removeItem('gkais-dev-admin');
+    window.history.pushState({}, '', '/'); setShowAdmin(false);
   };
-
   const exitExpertsDemo = () => {
-    window.history.pushState({}, '', '/');
-    setShowExpertsDemo(false);
-    setShowExpertsWorkspace(false);
-    setShowSessionMemory(false);
-    setShowAdmin(false);
+    window.history.pushState({}, '', '/'); setShowExpertsDemo(false); setShowExpertsWorkspace(false); setShowSessionMemory(false); setShowAdmin(false);
   };
-
   const exitExpertsWorkspace = () => {
-    window.history.pushState({}, '', '/');
-    setShowExpertsWorkspace(false);
-    setShowSessionMemory(false);
-    setShowExpertsDemo(false);
-    setShowAdmin(false);
+    window.history.pushState({}, '', '/'); setShowExpertsWorkspace(false); setShowSessionMemory(false); setShowExpertsDemo(false); setShowAdmin(false);
   };
-
   const backFromSessionMemory = () => {
-    window.history.pushState({}, '', '/workspace/experts');
-    setShowSessionMemory(false);
-    setShowExpertsWorkspace(true);
-    setShowExpertsDemo(false);
-    setShowAdmin(false);
+    window.history.pushState({}, '', '/workspace/experts'); setShowSessionMemory(false); setShowExpertsWorkspace(true); setShowExpertsDemo(false); setShowAdmin(false);
   };
 
-  if (showSessionMemory) {
-    return <SessionMemoryWorkspace onBack={backFromSessionMemory} />;
-  }
+  if (showSessionMemory) return <SessionMemoryWorkspace onBack={backFromSessionMemory} />;
+  if (showExpertsWorkspace) return <ExpertsWorkspaceV2 onExit={exitExpertsWorkspace} />;
+  if (showExpertsDemo) return <ExpertsCommercialDemo onExit={exitExpertsDemo} />;
 
-  if (showExpertsWorkspace) {
-    return <ExpertsWorkspace onExit={exitExpertsWorkspace} />;
-  }
-
-  if (showExpertsDemo) {
-    return <ExpertsCommercialDemo onExit={exitExpertsDemo} />;
-  }
-
-  return showAdmin
-    ? (
-      <div className="relative">
-        <AdminPage onExitAdmin={exitAdmin} />
-        <button
-          type="button"
-          onClick={openExpertsWorkspace}
-          className="fixed bottom-5 right-5 z-[80] rounded-full border border-[#0A3F4D]/20 bg-[#0A3F4D] px-4 py-3 text-xs font-semibold text-white shadow-[0_12px_30px_rgba(10,63,77,0.25)] transition hover:bg-[#083540]"
-        >
-          Open Experts Workspace
-        </button>
-      </div>
-    )
-    : <PublicApp onOpenAdmin={openAdmin} />;
+  return showAdmin ? (
+    <div className="relative">
+      <AdminPage onExitAdmin={exitAdmin} />
+      <button type="button" onClick={openExpertsWorkspace} className="fixed bottom-5 right-5 z-[80] rounded-full border border-[#0A3F4D]/20 bg-[#0A3F4D] px-4 py-3 text-xs font-semibold text-white shadow-[0_12px_30px_rgba(10,63,77,0.25)] transition hover:bg-[#083540]">Open Experts Workspace</button>
+    </div>
+  ) : <PublicApp onOpenAdmin={openAdmin} />;
 }
 
 export default function App() {
-  return (
-    <LanguageProvider>
-      <AppContent />
-    </LanguageProvider>
-  );
+  return <LanguageProvider><AppContent /></LanguageProvider>;
 }

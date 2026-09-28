@@ -21,6 +21,7 @@ import { LeadFlowModal } from './components/LeadFlowModal.tsx';
 import { ContactModal } from './components/ContactModal.tsx';
 import { AdminPage } from './components/AdminPage.tsx';
 import { ExpertsCommercialDemo } from './components/ExpertsCommercialDemo.tsx';
+import { ExpertsWorkspace } from './components/ExpertsWorkspace.tsx';
 import { LanguageProvider } from './i18n/LanguageContext.tsx';
 
 function PublicApp({ onOpenAdmin }: { onOpenAdmin: () => void }) {
@@ -109,8 +110,10 @@ function PublicApp({ onOpenAdmin }: { onOpenAdmin: () => void }) {
   );
 }
 
-function isAdminRoute(): boolean {
-  return window.location.pathname === '/admin' ||
+function isHqRoute(): boolean {
+  return window.location.pathname === '/hq' ||
+    window.location.pathname.startsWith('/hq/') ||
+    window.location.pathname === '/admin' ||
     window.location.pathname.startsWith('/admin/');
 }
 
@@ -119,10 +122,16 @@ function isExpertsDemoRoute(): boolean {
     window.location.pathname.startsWith('/demo/experts/');
 }
 
+function isExpertsWorkspaceRoute(): boolean {
+  return window.location.pathname === '/workspace' ||
+    window.location.pathname === '/workspace/experts' ||
+    window.location.pathname.startsWith('/workspace/experts/');
+}
+
 function AppContent() {
   const [showAdmin, setShowAdmin] = useState<boolean>(() => {
     return (
-      isAdminRoute() ||
+      isHqRoute() ||
       (import.meta.env.DEV &&
         window.sessionStorage.getItem('gkais-dev-admin') === '1')
     );
@@ -130,11 +139,15 @@ function AppContent() {
   const [showExpertsDemo, setShowExpertsDemo] = useState<boolean>(() =>
     isExpertsDemoRoute()
   );
+  const [showExpertsWorkspace, setShowExpertsWorkspace] = useState<boolean>(() =>
+    isExpertsWorkspaceRoute()
+  );
 
   useEffect(() => {
     const handlePopState = () => {
-      setShowAdmin(isAdminRoute());
+      setShowAdmin(isHqRoute());
       setShowExpertsDemo(isExpertsDemoRoute());
+      setShowExpertsWorkspace(isExpertsWorkspaceRoute());
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
@@ -144,8 +157,9 @@ function AppContent() {
     if (import.meta.env.DEV) {
       window.sessionStorage.setItem('gkais-dev-admin', '1');
     }
-    window.history.pushState({}, '', '/admin');
+    window.history.pushState({}, '', '/hq');
     setShowExpertsDemo(false);
+    setShowExpertsWorkspace(false);
     setShowAdmin(true);
   };
 
@@ -160,8 +174,20 @@ function AppContent() {
   const exitExpertsDemo = () => {
     window.history.pushState({}, '', '/');
     setShowExpertsDemo(false);
+    setShowExpertsWorkspace(false);
     setShowAdmin(false);
   };
+
+  const exitExpertsWorkspace = () => {
+    window.history.pushState({}, '', '/');
+    setShowExpertsWorkspace(false);
+    setShowExpertsDemo(false);
+    setShowAdmin(false);
+  };
+
+  if (showExpertsWorkspace) {
+    return <ExpertsWorkspace onExit={exitExpertsWorkspace} />;
+  }
 
   if (showExpertsDemo) {
     return <ExpertsCommercialDemo onExit={exitExpertsDemo} />;

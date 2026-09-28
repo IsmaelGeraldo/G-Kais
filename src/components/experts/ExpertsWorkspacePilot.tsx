@@ -6,7 +6,6 @@ import {
   CircleGauge,
   LayoutDashboard,
   ListTodo,
-  MessageSquareText,
   Settings,
   Sparkles,
   UserCheck,
@@ -39,7 +38,6 @@ const NAV: NavItem[] = [
   { id: 'priority', label: { es: 'Trabajo prioritario', en: 'Priority Work' }, icon: CircleGauge, section: 'attention' },
   { id: 'leads', label: { es: 'Leads', en: 'Leads' }, icon: UserCheck, section: 'people' },
   { id: 'clients', label: { es: 'Clientes', en: 'Clients' }, icon: Users, section: 'people' },
-  { id: 'sessions', label: { es: 'Sesiones', en: 'Sessions' }, icon: MessageSquareText, section: 'work' },
   { id: 'tasks', label: { es: 'Tareas', en: 'Tasks' }, icon: ListTodo, section: 'work' },
   { id: 'calendar', label: { es: 'Calendario', en: 'Calendar' }, icon: CalendarDays, section: 'work' },
   { id: 'copilot', label: { es: 'G-KAIS Copilot', en: 'G-KAIS Copilot' }, icon: Sparkles, section: 'intelligence' },
@@ -67,10 +65,21 @@ function loadAppearance(): WorkspaceAppearance {
   }
 }
 
+function initialView(): string {
+  if (typeof window === 'undefined') return 'overview';
+  const view = new URLSearchParams(window.location.search).get('view');
+  return NAV.some((item) => item.id === view) || view === 'settings' ? view as string : 'overview';
+}
+
+function initialClientId(): string {
+  if (typeof window === 'undefined') return 'sofia';
+  return new URLSearchParams(window.location.search).get('client') || 'sofia';
+}
+
 function Placeholder({ active, language }: { active: string; language: Language }) {
   const item = NAV.find((nav) => nav.id === active);
   return (
-    <section className="rounded-2xl border border-black/10 bg-white p-8 shadow-[0_12px_35px_rgba(10,10,10,0.04)]">
+    <section className="rounded-2xl border border-black/10 bg-white p-8 shadow-[0_10px_30px_rgba(10,10,10,0.035)]">
       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#0A3F4D]">G-KAIS WORKSPACE</p>
       <h3 className="mt-2 text-2xl font-semibold">{item?.label[language] ?? (language === 'es' ? 'Área de trabajo' : 'Workspace')}</h3>
       <p className="mt-3 max-w-xl text-sm leading-6 text-black/50">{language === 'es' ? 'Esta sección se conectará progresivamente según lo que aprendamos del piloto real.' : 'This section will be connected progressively based on what we learn from the real pilot.'}</p>
@@ -80,8 +89,8 @@ function Placeholder({ active, language }: { active: string; language: Language 
 
 export function ExpertsWorkspace({ onExit }: ExpertsWorkspaceProps) {
   const { language, setLanguage } = useLanguage();
-  const [active, setActive] = useState('overview');
-  const [selectedClientId, setSelectedClientId] = useState('sofia');
+  const [active, setActive] = useState(initialView);
+  const [selectedClientId, setSelectedClientId] = useState(initialClientId);
   const [profile, setProfile] = useState<WorkspaceProfile>(loadProfile);
   const [appearance, setAppearance] = useState<WorkspaceAppearance>(loadAppearance);
 
@@ -93,13 +102,11 @@ export function ExpertsWorkspace({ onExit }: ExpertsWorkspaceProps) {
     try { localStorage.setItem(APPEARANCE_KEY, JSON.stringify(appearance)); } catch {}
   }, [appearance]);
 
-  const navigate = (id: string) => {
-    if (id === 'sessions') {
-      window.history.pushState({}, '', '/workspace/experts/sessions');
-      window.dispatchEvent(new PopStateEvent('popstate'));
-      return;
-    }
-    setActive(id);
+  const navigate = (id: string) => setActive(id);
+
+  const startSession = (clientId: string) => {
+    window.history.pushState({}, '', `/workspace/experts/sessions?client=${encodeURIComponent(clientId)}`);
+    window.dispatchEvent(new PopStateEvent('popstate'));
   };
 
   const openRadarPerson = (id: string) => {
@@ -123,11 +130,11 @@ export function ExpertsWorkspace({ onExit }: ExpertsWorkspaceProps) {
 
   let content: React.ReactNode;
   if (active === 'overview') {
-    content = <DashboardHistory language={language} onNavigate={navigate} />;
+    content = <DashboardHistory language={language} onNavigate={navigate} onOpenClient={openRadarPerson} />;
   } else if (active === 'priority') {
     content = <PriorityRadarWorkspace language={language} onOpenClient={openRadarPerson} />;
   } else if (active === 'clients') {
-    content = <ClientWorkspaceEnhanced language={language} selectedId={selectedClientId} onSelectedId={setSelectedClientId} onStartSession={() => navigate('sessions')} />;
+    content = <ClientWorkspaceEnhanced language={language} selectedId={selectedClientId} onSelectedId={setSelectedClientId} onStartSession={startSession} />;
   } else if (active === 'settings') {
     content = <WorkspaceSettingsProfile language={language} profile={profile} setProfile={setProfile} appearance={appearance} setAppearance={setAppearance} />;
   } else {
@@ -165,7 +172,7 @@ export function ExpertsWorkspace({ onExit }: ExpertsWorkspaceProps) {
                       <button key={item.id} type="button" onClick={() => navigate(item.id)} className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${selected ? '' : 'text-white/65 hover:bg-white/[0.06] hover:text-white'}`} style={selected ? { background: selectedBackground, color: selectedText } : undefined}>
                         <Icon className="h-4 w-4 shrink-0" />
                         <span className="flex-1 text-left">{item.label[language]}</span>
-                        {item.id === 'priority' && <span className={`text-[10px] font-semibold ${selected ? '' : 'text-white/30'}`}>7</span>}
+                        {item.id === 'priority' && <span className={`text-[10px] font-semibold ${selected ? '' : 'text-white/30'}`}>•</span>}
                       </button>
                     );
                   })}
@@ -215,7 +222,7 @@ export function ExpertsWorkspace({ onExit }: ExpertsWorkspaceProps) {
             <div className="mb-7">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#0A3F4D]">{active === 'overview' ? (language === 'es' ? 'VISTA OPERATIVA DIARIA' : 'DAILY OPERATING VIEW') : active === 'settings' ? (language === 'es' ? 'PREFERENCIAS DEL WORKSPACE' : 'WORKSPACE PREFERENCES') : 'G-KAIS WORKSPACE'}</p>
               <h2 className="mt-2 text-3xl font-semibold tracking-[-0.035em] md:text-4xl">{active === 'overview' ? (language === 'es' ? '¿Qué necesita tu atención?' : 'What needs your attention?') : activeLabel}</h2>
-              {active === 'overview' && <p className="mt-2 max-w-2xl text-sm leading-6 text-black/50">{language === 'es' ? 'Entiende el negocio, revisa el histórico y entra a cada conversación sabiendo qué requiere atención.' : 'Understand the business, review history and enter every conversation knowing what needs attention.'}</p>}
+              {active === 'overview' && <p className="mt-2 max-w-2xl text-sm leading-6 text-black/50">{language === 'es' ? 'Entiende el negocio, revisa el histórico y entra a cada relación sabiendo qué necesita atención y qué debe ejecutarse.' : 'Understand the business, review history and enter each relationship knowing what needs attention and what must be executed.'}</p>}
             </div>
 
             {content}

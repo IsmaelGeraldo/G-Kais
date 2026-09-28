@@ -22,7 +22,7 @@ import { ContactModal } from './components/ContactModal.tsx';
 import { AdminPage } from './components/AdminPage.tsx';
 import { ExpertsCommercialDemo } from './components/ExpertsCommercialDemo.tsx';
 import { ExpertsWorkspace } from './components/ExpertsWorkspace.tsx';
-import { SessionMemoryWorkspace } from './components/SessionMemoryWorkspace.tsx';
+import { SessionMemoryWorkspaceAI } from './components/SessionMemoryWorkspaceAI.tsx';
 import { LanguageProvider } from './i18n/LanguageContext.tsx';
 
 function PublicApp({ onOpenAdmin }: { onOpenAdmin: () => void }) {
@@ -215,7 +215,7 @@ function AppContent() {
   };
 
   if (showSessionMemory) {
-    return <SessionMemoryWorkspace onBack={backFromSessionMemory} />;
+    return <SessionMemoryWorkspaceAI onBack={backFromSessionMemory} />;
   }
 
   if (showExpertsWorkspace) {

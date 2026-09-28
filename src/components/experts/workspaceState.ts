@@ -32,8 +32,19 @@ export type SharedSessionClient = {
   week?: string;
   goal?: string;
   nextAction?: string;
+  nextSession?: string;
   blockers?: string[];
   commitments?: SharedCommitment[];
+  copilot?: {
+    summary: string;
+    gap: string;
+    known: string[];
+    risks: string[];
+    questions: string[];
+    howHelp: string[];
+    plan: string[];
+    callOpening: string;
+  };
   [key: string]: unknown;
 };
 
@@ -113,6 +124,23 @@ function safeParseArray<T>(key: string, fallback: T[]): T[] {
   }
 }
 
+function fallbackCopilot() {
+  return {
+    summary: 'Revisa el contexto del cliente, los compromisos y la última bitácora antes de la sesión.',
+    gap: 'Confirmar qué cambió desde la última conversación y cuál es la brecha actual.',
+    known: ['Existe una relación activa en G-KAIS.'],
+    risks: ['La preparación puede estar incompleta hasta revisar la información más reciente.'],
+    questions: [
+      '¿Qué cambió desde la última conversación?',
+      '¿Qué bloqueó el avance?',
+      '¿Cuál debería ser la próxima acción concreta?'
+    ],
+    howHelp: ['Convertir la conversación en una decisión y una próxima acción visible.'],
+    plan: ['Revisar contexto.', 'Aclarar bloqueadores.', 'Cerrar con próxima acción.'],
+    callOpening: 'Quiero partir conectando lo que acordamos con lo que realmente ocurrió desde la última conversación.'
+  };
+}
+
 export function emitWorkspaceStateChanged(): void {
   if (typeof window === 'undefined') return;
   window.dispatchEvent(new CustomEvent(WORKSPACE_STATE_EVENT));
@@ -137,6 +165,15 @@ function syncClientRecordsFromSession(clients: SharedSessionClient[]): void {
       const live = clients.find((client) => client.id === id);
       if (!live) return record;
 
+      const overdueCount = live.commitments?.filter((commitment) => commitment.status === 'overdue').length ?? 0;
+      const currentStatus = typeof typed.status === 'string' ? typed.status : 'active';
+      const derivedStatus = currentStatus === 'attention' && live.commitments && overdueCount === 0
+        ? 'active'
+        : currentStatus;
+      const derivedAttentionReason = currentStatus === 'attention' && overdueCount > 0
+        ? `${overdueCount} compromiso${overdueCount === 1 ? '' : 's'} vencido${overdueCount === 1 ? '' : 's'} pendiente${overdueCount === 1 ? '' : 's'} de resolver.`
+        : typed.attentionReason;
+
       return {
         ...typed,
         company: live.company ?? typed.company,
@@ -144,9 +181,11 @@ function syncClientRecordsFromSession(clients: SharedSessionClient[]): void {
         progress: live.week ?? typed.progress,
         expectedOutcome: live.goal ?? typed.expectedOutcome,
         nextAction: live.nextAction ?? typed.nextAction,
-        nextSession: typeof live.nextSession === 'string' ? live.nextSession : typed.nextSession,
+        nextSession: live.nextSession ?? typed.nextSession,
         blockers: live.blockers ?? typed.blockers,
-        commitments: live.commitments?.map((item) => ({ label: item.label, status: item.status })) ?? typed.commitments
+        commitments: live.commitments?.map((item) => ({ label: item.label, status: item.status })) ?? typed.commitments,
+        status: derivedStatus,
+        attentionReason: derivedAttentionReason
       };
     });
 
@@ -168,9 +207,27 @@ export function updateSessionClient(
   updater: (client: SharedSessionClient) => SharedSessionClient
 ): void {
   const clients = loadSessionClients();
-  if (!clients.length) return;
-  const next = clients.map((client) => client.id === clientId ? updater(client) : client);
-  saveSessionClients(next);
+  const existing = clients.find((client) => client.id === clientId);
+
+  if (existing) {
+    saveSessionClients(clients.map((client) => client.id === clientId ? updater(client) : client));
+    return;
+  }
+
+  const seed: SharedSessionClient = {
+    id: clientId,
+    name: clientId,
+    company: '',
+    program: '',
+    week: '',
+    goal: '',
+    nextAction: '',
+    nextSession: '',
+    blockers: [],
+    commitments: [],
+    copilot: fallbackCopilot()
+  };
+  saveSessionClients([...clients, updater(seed)]);
 }
 
 export function loadJournal(): JournalEntry[] {

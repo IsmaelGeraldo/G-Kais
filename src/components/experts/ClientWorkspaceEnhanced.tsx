@@ -146,22 +146,26 @@ export function ClientWorkspaceEnhanced({ language, selectedId, onSelectedId, on
   };
 
   const toggleCommitment = (index: number) => {
-    updateClient((current) => {
-      const commitments = current.commitments.map((item, itemIndex) => itemIndex === index ? { ...item, status: item.status === 'done' ? 'pending' : 'done' as CommitmentStatus } : item);
-      const changed = commitments[index];
-      recordEvent('commitment', changed.status === 'done' ? (language === 'es' ? 'Compromiso completado' : 'Commitment completed') : (language === 'es' ? 'Compromiso reabierto' : 'Commitment reopened'), changed.label);
-      return { ...current, commitments };
-    });
+    const currentCommitment = client.commitments[index];
+    if (!currentCommitment) return;
+    const nextStatus: CommitmentStatus = currentCommitment.status === 'done' ? 'pending' : 'done';
+    updateClient((current) => ({
+      ...current,
+      commitments: current.commitments.map((item, itemIndex) => itemIndex === index ? { ...item, status: nextStatus } : item)
+    }));
+    recordEvent('commitment', nextStatus === 'done' ? (language === 'es' ? 'Compromiso completado' : 'Commitment completed') : (language === 'es' ? 'Compromiso reabierto' : 'Commitment reopened'), currentCommitment.label);
   };
 
   const cycleMilestone = (index: number) => {
-    updateClient((current) => {
-      const order: MilestoneStatus[] = ['pending', 'current', 'done'];
-      const milestones = current.milestones.map((item, itemIndex) => itemIndex === index ? { ...item, status: order[(order.indexOf(item.status) + 1) % order.length] } : item);
-      const changed = milestones[index];
-      recordEvent('milestone', language === 'es' ? 'Hito actualizado' : 'Milestone updated', `${changed.label} → ${changed.status}`);
-      return { ...current, milestones };
-    });
+    const currentMilestone = client.milestones[index];
+    if (!currentMilestone) return;
+    const order: MilestoneStatus[] = ['pending', 'current', 'done'];
+    const nextStatus = order[(order.indexOf(currentMilestone.status) + 1) % order.length];
+    updateClient((current) => ({
+      ...current,
+      milestones: current.milestones.map((item, itemIndex) => itemIndex === index ? { ...item, status: nextStatus } : item)
+    }));
+    recordEvent('milestone', language === 'es' ? 'Hito actualizado' : 'Milestone updated', `${currentMilestone.label} → ${nextStatus}`);
   };
 
   const saveRecord = () => {
@@ -242,7 +246,7 @@ export function ClientWorkspaceEnhanced({ language, selectedId, onSelectedId, on
 
         <section className="rounded-2xl border border-black/10 bg-white p-5 md:p-6">
           <div className="flex items-center justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#0A3F4D]">{language === 'es' ? 'BITÁCORA' : 'JOURNAL'}</p><h3 className="mt-2 text-lg font-semibold">{language === 'es' ? 'Historial de relación' : 'Relationship history'}</h3><p className="mt-1 text-sm text-black/45">{language === 'es' ? 'Sesiones, notas, decisiones, compromisos, bloqueadores y cambios quedan en un mismo historial.' : 'Sessions, notes, decisions, commitments, blockers and changes stay in one history.'}</p></div><History className="h-5 w-5 text-[#0A3F4D]" /></div>
-          <div className="mt-4 flex gap-2"><input value={note} onChange={(event) => setNote(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && addNote()} placeholder={language === 'es' ? 'Añadir nota rápida…' : 'Add quick note…'} className="flex-1 rounded-xl border border-black/10 px-3.5 py-2.5 text-sm outline-none focus:border-[#0A3F4D]/40" /><button type="button" onClick={addNote} className="rounded-xl bg-[#111413] px-4 text-xs font-semibold text-white">{language === 'es' ? 'Añadir' : 'Add'}</button></div>
+          <div className="mt-4 flex gap-2"><input value={note} onChange={(event) => setNote(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') addNote(); }} placeholder={language === 'es' ? 'Añadir nota rápida…' : 'Add quick note…'} className="flex-1 rounded-xl border border-black/10 px-3.5 py-2.5 text-sm outline-none focus:border-[#0A3F4D]/40" /><button type="button" onClick={addNote} className="rounded-xl bg-[#111413] px-4 text-xs font-semibold text-white">{language === 'es' ? 'Añadir' : 'Add'}</button></div>
           <div className="mt-5 space-y-4">
             {journal.length === 0 && <div className="rounded-xl bg-[#F7F7F5] p-4 text-sm text-black/45">{language === 'es' ? 'La bitácora se irá construyendo con las acciones y sesiones del cliente.' : 'The journal will build itself from client actions and sessions.'}</div>}
             {journal.map((entry) => <div key={entry.id} className="flex gap-3"><div className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-[#0A3F4D]" /><div className="min-w-0 flex-1 border-b border-black/5 pb-4"><div className="flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-semibold">{entry.title}</p><span className="text-[10px] text-black/35">{displayDate(entry.createdAt)}</span></div><p className="mt-1 text-sm leading-6 text-black/55">{entry.body}</p></div></div>)}

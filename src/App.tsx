@@ -163,6 +163,13 @@ function AppContent() {
     setShowAdmin(true);
   };
 
+  const openExpertsWorkspace = () => {
+    window.history.pushState({}, '', '/workspace/experts');
+    setShowAdmin(false);
+    setShowExpertsDemo(false);
+    setShowExpertsWorkspace(true);
+  };
+
   const exitAdmin = () => {
     if (import.meta.env.DEV) {
       window.sessionStorage.removeItem('gkais-dev-admin');
@@ -194,7 +201,18 @@ function AppContent() {
   }
 
   return showAdmin
-    ? <AdminPage onExitAdmin={exitAdmin} />
+    ? (
+      <div className="relative">
+        <AdminPage onExitAdmin={exitAdmin} />
+        <button
+          type="button"
+          onClick={openExpertsWorkspace}
+          className="fixed bottom-5 right-5 z-[80] rounded-full border border-[#0A3F4D]/20 bg-[#0A3F4D] px-4 py-3 text-xs font-semibold text-white shadow-[0_12px_30px_rgba(10,63,77,0.25)] transition hover:bg-[#083540]"
+        >
+          Open Experts Workspace
+        </button>
+      </div>
+    )
     : <PublicApp onOpenAdmin={openAdmin} />;
 }
 

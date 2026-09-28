@@ -1,3 +1,4 @@
+import { onAuthStateChanged, type User } from 'firebase/auth';
 import { firebaseAuth } from '../lib/firebase';
 
 export type SessionCopilotClient = {
@@ -39,6 +40,28 @@ export type SessionCopilotResult = {
   callOpening: string;
 };
 
+async function getRestoredUser(): Promise<User | null> {
+  if (firebaseAuth.currentUser) return firebaseAuth.currentUser;
+
+  return new Promise((resolve) => {
+    let finished = false;
+    let unsubscribe = () => {};
+    const finish = (user: User | null) => {
+      if (finished) return;
+      finished = true;
+      window.clearTimeout(timer);
+      unsubscribe();
+      resolve(user);
+    };
+    const timer = window.setTimeout(() => finish(firebaseAuth.currentUser), 1800);
+    unsubscribe = onAuthStateChanged(
+      firebaseAuth,
+      (user) => finish(user),
+      () => finish(null)
+    );
+  });
+}
+
 function buildSessionOpening(
   existing: SessionCopilotClient['copilot'],
   risks: string[],
@@ -73,7 +96,7 @@ export async function requestSessionCopilot(
   journal: SessionJournalEntry[],
   language: 'es' | 'en'
 ): Promise<SessionCopilotResult> {
-  const user = firebaseAuth.currentUser;
+  const user = await getRestoredUser();
   if (!user) throw new Error('AUTH_REQUIRED');
 
   const idToken = await user.getIdToken(true);

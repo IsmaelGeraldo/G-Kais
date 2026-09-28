@@ -30,83 +30,32 @@ function PublicApp({ onOpenAdmin }: { onOpenAdmin: () => void }) {
   const [isLeadFlowModalOpen, setIsLeadFlowModalOpen] = useState(false);
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
 
-  const handleOpenAudit = () => {
-    setIsAuditModalOpen(true);
-  };
-
-  const handleCloseAudit = () => {
-    setIsAuditModalOpen(false);
-  };
-
-  const handleOpenLeadFlow = () => {
-    setIsLeadFlowModalOpen(true);
-  };
-
-  const handleCloseLeadFlow = () => {
-    setIsLeadFlowModalOpen(false);
-  };
-
-  const handleOpenContact = () => {
-    setIsContactModalOpen(true);
-  };
-
-  const handleCloseContact = () => {
-    setIsContactModalOpen(false);
-  };
+  const handleOpenAudit = () => setIsAuditModalOpen(true);
+  const handleCloseAudit = () => setIsAuditModalOpen(false);
+  const handleOpenLeadFlow = () => setIsLeadFlowModalOpen(true);
+  const handleCloseLeadFlow = () => setIsLeadFlowModalOpen(false);
+  const handleOpenContact = () => setIsContactModalOpen(true);
+  const handleCloseContact = () => setIsContactModalOpen(false);
 
   return (
     <div className="min-h-screen bg-[#F7F7F5] text-[#0A0A0A] selection:bg-[#0A3F4D] selection:text-[#F7F7F5] font-sans">
-      {/* 1. Header */}
       <Header onOpenAudit={handleOpenAudit} onOpenAdmin={onOpenAdmin} />
-
-      {/* Main Content Sections */}
       <main>
-        {/* 2. Hero & Hero System Visual */}
         <Hero onOpenAudit={handleOpenAudit} />
-
-        {/* 3. Problem Section */}
         <ProblemSection />
-
-        {/* 4. Opportunity recovery example */}
         <OpportunityRecoverySection />
-
-        {/* 5. The System ("One system. Every opportunity.") */}
         <TheSystemSection />
-
-        {/* 6. LeadFlow Section (SaaS Clean Dark Interface) */}
         <LeadFlowSection onExplore={handleOpenLeadFlow} onOpenAudit={handleOpenAudit} />
-
-        {/* 7. Works with your existing tools */}
         <ExistingToolsSection />
-
-        {/* 8. Product Ecosystem ("One architecture. Multiple systems.") */}
         <ProductsSection />
-
-        {/* 9. Process ("From opportunity to operating system.") */}
         <ProcessSection />
-
-        {/* 10. Pilot with real opportunities */}
         <PilotSection onOpenAudit={handleOpenAudit} />
-
-        {/* 11. Free Audit CTA & Form Section */}
         <AuditCtaSection onOpenAudit={handleOpenAudit} />
       </main>
-
-      {/* Footer */}
       <Footer onOpenAudit={handleOpenAudit} onOpenContact={handleOpenContact} />
-
-      {/* Interactive Modals */}
       <AuditModal isOpen={isAuditModalOpen} onClose={handleCloseAudit} />
-      <LeadFlowModal
-        isOpen={isLeadFlowModalOpen}
-        onClose={handleCloseLeadFlow}
-        onOpenAudit={handleOpenAudit}
-      />
-      <ContactModal
-        isOpen={isContactModalOpen}
-        onClose={handleCloseContact}
-        onOpenAudit={handleOpenAudit}
-      />
+      <LeadFlowModal isOpen={isLeadFlowModalOpen} onClose={handleCloseLeadFlow} onOpenAudit={handleOpenAudit} />
+      <ContactModal isOpen={isContactModalOpen} onClose={handleCloseContact} onOpenAudit={handleOpenAudit} />
     </div>
   );
 }
@@ -138,19 +87,12 @@ function AppContent() {
   const [showAdmin, setShowAdmin] = useState<boolean>(() => {
     return (
       isHqRoute() ||
-      (import.meta.env.DEV &&
-        window.sessionStorage.getItem('gkais-dev-admin') === '1')
+      (import.meta.env.DEV && window.sessionStorage.getItem('gkais-dev-admin') === '1')
     );
   });
-  const [showExpertsDemo, setShowExpertsDemo] = useState<boolean>(() =>
-    isExpertsDemoRoute()
-  );
-  const [showExpertsWorkspace, setShowExpertsWorkspace] = useState<boolean>(() =>
-    isExpertsWorkspaceRoute()
-  );
-  const [showSessionMemory, setShowSessionMemory] = useState<boolean>(() =>
-    isSessionMemoryRoute()
-  );
+  const [showExpertsDemo, setShowExpertsDemo] = useState<boolean>(() => isExpertsDemoRoute());
+  const [showExpertsWorkspace, setShowExpertsWorkspace] = useState<boolean>(() => isExpertsWorkspaceRoute());
+  const [showSessionMemory, setShowSessionMemory] = useState<boolean>(() => isSessionMemoryRoute());
 
   useEffect(() => {
     const handlePopState = () => {
@@ -164,9 +106,7 @@ function AppContent() {
   }, []);
 
   const openAdmin = () => {
-    if (import.meta.env.DEV) {
-      window.sessionStorage.setItem('gkais-dev-admin', '1');
-    }
+    if (import.meta.env.DEV) window.sessionStorage.setItem('gkais-dev-admin', '1');
     window.history.pushState({}, '', '/hq');
     setShowExpertsDemo(false);
     setShowExpertsWorkspace(false);
@@ -183,9 +123,7 @@ function AppContent() {
   };
 
   const exitAdmin = () => {
-    if (import.meta.env.DEV) {
-      window.sessionStorage.removeItem('gkais-dev-admin');
-    }
+    if (import.meta.env.DEV) window.sessionStorage.removeItem('gkais-dev-admin');
     window.history.pushState({}, '', '/');
     setShowAdmin(false);
   };
@@ -207,24 +145,17 @@ function AppContent() {
   };
 
   const backFromSessionMemory = () => {
-    window.history.pushState({}, '', '/workspace/experts');
+    const clientId = new URLSearchParams(window.location.search).get('client') || 'sofia';
+    window.history.pushState({}, '', `/workspace/experts?view=clients&client=${encodeURIComponent(clientId)}`);
     setShowSessionMemory(false);
     setShowExpertsWorkspace(true);
     setShowExpertsDemo(false);
     setShowAdmin(false);
   };
 
-  if (showSessionMemory) {
-    return <SessionMemoryWorkspaceAI onBack={backFromSessionMemory} />;
-  }
-
-  if (showExpertsWorkspace) {
-    return <ExpertsWorkspace onExit={exitExpertsWorkspace} />;
-  }
-
-  if (showExpertsDemo) {
-    return <ExpertsCommercialDemo onExit={exitExpertsDemo} />;
-  }
+  if (showSessionMemory) return <SessionMemoryWorkspaceAI onBack={backFromSessionMemory} />;
+  if (showExpertsWorkspace) return <ExpertsWorkspace onExit={exitExpertsWorkspace} />;
+  if (showExpertsDemo) return <ExpertsCommercialDemo onExit={exitExpertsDemo} />;
 
   return showAdmin
     ? (

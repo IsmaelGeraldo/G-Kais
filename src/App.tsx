@@ -22,6 +22,7 @@ import { ContactModal } from './components/ContactModal.tsx';
 import { AdminPage } from './components/AdminPage.tsx';
 import { ExpertsCommercialDemo } from './components/ExpertsCommercialDemo.tsx';
 import { ExpertsWorkspace } from './components/ExpertsWorkspace.tsx';
+import { SessionMemoryWorkspace } from './components/SessionMemoryWorkspace.tsx';
 import { LanguageProvider } from './i18n/LanguageContext.tsx';
 
 function PublicApp({ onOpenAdmin }: { onOpenAdmin: () => void }) {
@@ -128,6 +129,11 @@ function isExpertsWorkspaceRoute(): boolean {
     window.location.pathname.startsWith('/workspace/experts/');
 }
 
+function isSessionMemoryRoute(): boolean {
+  return window.location.pathname === '/workspace/experts/sessions' ||
+    window.location.pathname.startsWith('/workspace/experts/sessions/');
+}
+
 function AppContent() {
   const [showAdmin, setShowAdmin] = useState<boolean>(() => {
     return (
@@ -142,12 +148,16 @@ function AppContent() {
   const [showExpertsWorkspace, setShowExpertsWorkspace] = useState<boolean>(() =>
     isExpertsWorkspaceRoute()
   );
+  const [showSessionMemory, setShowSessionMemory] = useState<boolean>(() =>
+    isSessionMemoryRoute()
+  );
 
   useEffect(() => {
     const handlePopState = () => {
       setShowAdmin(isHqRoute());
       setShowExpertsDemo(isExpertsDemoRoute());
       setShowExpertsWorkspace(isExpertsWorkspaceRoute());
+      setShowSessionMemory(isSessionMemoryRoute());
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
@@ -160,6 +170,7 @@ function AppContent() {
     window.history.pushState({}, '', '/hq');
     setShowExpertsDemo(false);
     setShowExpertsWorkspace(false);
+    setShowSessionMemory(false);
     setShowAdmin(true);
   };
 
@@ -167,6 +178,7 @@ function AppContent() {
     window.history.pushState({}, '', '/workspace/experts');
     setShowAdmin(false);
     setShowExpertsDemo(false);
+    setShowSessionMemory(false);
     setShowExpertsWorkspace(true);
   };
 
@@ -182,15 +194,29 @@ function AppContent() {
     window.history.pushState({}, '', '/');
     setShowExpertsDemo(false);
     setShowExpertsWorkspace(false);
+    setShowSessionMemory(false);
     setShowAdmin(false);
   };
 
   const exitExpertsWorkspace = () => {
     window.history.pushState({}, '', '/');
     setShowExpertsWorkspace(false);
+    setShowSessionMemory(false);
     setShowExpertsDemo(false);
     setShowAdmin(false);
   };
+
+  const backFromSessionMemory = () => {
+    window.history.pushState({}, '', '/workspace/experts');
+    setShowSessionMemory(false);
+    setShowExpertsWorkspace(true);
+    setShowExpertsDemo(false);
+    setShowAdmin(false);
+  };
+
+  if (showSessionMemory) {
+    return <SessionMemoryWorkspace onBack={backFromSessionMemory} />;
+  }
 
   if (showExpertsWorkspace) {
     return <ExpertsWorkspace onExit={exitExpertsWorkspace} />;

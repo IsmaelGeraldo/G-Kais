@@ -53,6 +53,7 @@ function extractLine(body: string | undefined, labels: string[]): string {
 function cleanGeneratedText(value: unknown, language: 'es' | 'en'): string {
   if (typeof value !== 'string') return '';
   let text = value
+    .replace(/^[\s•*-]+/, '')
     .replace(/\s+/g, ' ')
     .replace(/\s+([,.;:!?])/g, '$1')
     .replace(/([¿¡])\s+/g, '$1')
@@ -68,11 +69,25 @@ function cleanGeneratedText(value: unknown, language: 'es' | 'en'): string {
       .replace(/\bdelivery\b/gi, 'entrega')
       .replace(/\bperformance\b/gi, 'rendimiento');
   }
+  if (/^[¿¡]/.test(text) && text.length > 1) return text.charAt(0) + text.charAt(1).toUpperCase() + text.slice(2);
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 function cleanGeneratedList(value: unknown, language: 'es' | 'en'): string[] {
   if (!Array.isArray(value)) return [];
   return Array.from(new Set(value.map((item) => cleanGeneratedText(item, language)).filter(Boolean)));
+}
+function cleanGeneratedQuestions(value: unknown, language: 'es' | 'en'): string[] {
+  if (!Array.isArray(value)) return [];
+  return Array.from(new Set(value.map((item) => {
+    let text = cleanGeneratedText(item, language).replace(/[.!]+$/, '').trim();
+    if (!text) return '';
+    if (language === 'es') {
+      text = text.replace(/^\?+/, '').replace(/\?+$/, '').trim();
+      if (!text.startsWith('¿')) text = `¿${text}`;
+      if (!text.endsWith('?')) text = `${text}?`;
+    } else if (!text.endsWith('?')) text = `${text}?`;
+    return text;
+  }).filter(Boolean)));
 }
 function sessionTone(language: 'es' | 'en'): string {
   if (language === 'es') {
@@ -144,7 +159,7 @@ export async function requestSessionCopilot(client: SessionCopilotClient, journa
   const brief = payload.brief;
   const known = cleanGeneratedList(Array.isArray(brief.signals) && brief.signals.length ? brief.signals : (existing.known || []), language);
   const risks = cleanGeneratedList(Array.isArray(brief.risks) && brief.risks.length ? brief.risks : (existing.risks || []), language);
-  const questions = cleanGeneratedList(Array.isArray(brief.qualificationQuestions) && brief.qualificationQuestions.length ? brief.qualificationQuestions : (existing.questions || []), language);
+  const questions = cleanGeneratedQuestions(Array.isArray(brief.qualificationQuestions) && brief.qualificationQuestions.length ? brief.qualificationQuestions : (existing.questions || []), language);
   const howHelp = cleanGeneratedList(Array.isArray(brief.howGkaisCanHelp) && brief.howGkaisCanHelp.length ? brief.howGkaisCanHelp : (existing.howHelp || []), language);
   const solutionPlan = cleanGeneratedList(Array.isArray(brief.solutionPlan) && brief.solutionPlan.length ? brief.solutionPlan : [], language);
   const plan = solutionPlan.length ? solutionPlan : brief.recommendedAction ? [cleanGeneratedText(String(brief.recommendedAction), language)].filter(Boolean) : cleanGeneratedList(existing.plan || [], language);

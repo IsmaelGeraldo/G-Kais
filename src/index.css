@@ -18,3 +18,9 @@
 .font-mono-code {
   font-family: 'JetBrains Mono', ui-monospace, monospace;
 }
+
+.gkais-black-surface section.bg-white,
+.gkais-black-surface article.bg-white,
+.gkais-black-surface aside.bg-white {
+  background-color: var(--gkais-card-surface, #ffffff) !important;
+}

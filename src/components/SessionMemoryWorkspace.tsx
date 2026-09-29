@@ -121,7 +121,7 @@ export function SessionMemoryWorkspace({ onBack }: Props) {
         : ['What proves this is the problem?', 'What is under the client’s control?', 'What could make it worse?', 'How will we know it is resolved?'];
     return questions;
   }, [language, reviewLooksPositive]);
-  const noActiveBlocker = reviewLooksPositive && /avanza según plan|todo va bien|progressing as planned|everything is going well/i.test(diagnosisStatus);
+  const noActiveBlocker = reviewLooksPositive && /avanza según (?:el )?plan|todo va bien|progressing as planned|everything is going well/i.test(diagnosisStatus);
   const generatedBlocker = useMemo(() => {
     if (!currentProblem.trim() || !rootCause.trim() || !attemptedSolutions.trim()) return '';
     if (noActiveBlocker) return language === 'es' ? 'Sin bloqueos críticos nuevos. Mantener el avance.' : 'No critical new blocker. Maintain progress.';

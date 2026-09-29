@@ -13,7 +13,8 @@ export const THEME_COLORS = [
   { id: 'terracotta', label: 'Terracota', hex: '#9A5449' }, { id: 'orange', label: 'Naranja', hex: '#B46A32' },
   { id: 'amber', label: 'Ámbar', hex: '#9A7629' }, { id: 'sand', label: 'Arena', hex: '#A58A65' },
   { id: 'graphite', label: 'Grafito', hex: '#3B3E3D' }, { id: 'charcoal', label: 'Carbón', hex: '#292C2B' },
-  { id: 'smoke-black', label: 'Negro humo', hex: '#181A19' }, { id: 'dark-slate', label: 'Pizarra oscura', hex: '#303736' }
+  { id: 'smoke-black', label: 'Negro humo', hex: '#181A19' }, { id: 'dark-slate', label: 'Pizarra oscura', hex: '#303736' },
+  { id: 'black', label: 'Negro', hex: '#000000' }
 ];
 
 export function themeColor(id: string): string {
@@ -21,6 +22,10 @@ export function themeColor(id: string): string {
 }
 
 export function workspaceBackground(color: string, intensity: number): string {
+  if (color.toUpperCase() === '#000000') {
+    const amount = Math.max(10, Math.min(100, intensity * 10));
+    return `linear-gradient(135deg, color-mix(in srgb, #000000 ${Math.max(8, amount - 8)}%, #FAFAF7) 0%, color-mix(in srgb, #000000 ${amount}%, #F2F2ED) 100%)`;
+  }
   const amount = 4 + intensity * 4;
   return `linear-gradient(135deg, color-mix(in srgb, ${color} ${Math.max(3, amount - 8)}%, #FAFAF7) 0%, color-mix(in srgb, ${color} ${amount}%, #F2F2ED) 100%)`;
 }

@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   CalendarDays,
   CheckCircle2,
+  ChevronRight,
   Circle,
   History,
   ListTodo,
@@ -19,9 +20,11 @@ import {
   addWorkTask,
   appendJournal,
   loadJournal,
+  loadSessionSummaries,
   loadTasks,
   updateSessionClient,
   WORKSPACE_STATE_EVENT,
+  type SessionSummary,
   type WorkActionType,
   type WorkTask
 } from './workspaceState';
@@ -125,7 +128,31 @@ function ActionIcon({ type }: { type: WorkActionType }) {
   return <ListTodo className="h-3.5 w-3.5" />;
 }
 
-export function ClientWorkspaceEnhanced({ language, selectedId, onSelectedId, onStartSession }: { language: Language; selectedId: string; onSelectedId: (id: string) => void; onStartSession: (id: string) => void }) {
+function phaseDisplay(value: string, language: Language): string {
+  const normalized = value.trim().toLowerCase();
+  if (language === 'en') {
+    if (normalized.includes('adquis')) return 'Implement plan';
+    if (normalized.includes('convers')) return 'Solve and adjust';
+    if (normalized.includes('renov')) return 'Close and continue';
+    if (normalized.includes('diagn')) return 'Understand situation';
+    if (normalized.includes('deleg')) return 'Consolidate progress';
+    return value || 'Not defined';
+  }
+  if (normalized.includes('adquis')) return 'Implementar plan';
+  if (normalized.includes('convers')) return 'Resolver y ajustar';
+  if (normalized.includes('renov')) return 'Cierre y continuidad';
+  if (normalized.includes('diagn')) return 'Entender situación';
+  if (normalized.includes('deleg')) return 'Consolidar avances';
+  return value || 'Sin definir';
+}
+
+function summaryLine(label: string, value: string | string[]) {
+  const text = Array.isArray(value) ? value.filter(Boolean).join(' · ') : value;
+  if (!text) return null;
+  return <p className="text-sm leading-6 text-black/58"><strong className="text-black/75">{label}:</strong> {text}</p>;
+}
+
+export function ClientWorkspaceEnhanced({ language, selectedId, onSelectedId, onStartSession, onOpenPriority }: { language: Language; selectedId: string; onSelectedId: (id: string) => void; onStartSession: (id: string) => void; onOpenPriority: () => void }) {
   const [clients, setClients] = useState<ClientRecord[]>(loadClients);
   const [tasks, setTasks] = useState<WorkTask[]>(loadTasks);
   const [editing, setEditing] = useState(false);
@@ -136,6 +163,7 @@ export function ClientWorkspaceEnhanced({ language, selectedId, onSelectedId, on
   const [actionTime, setActionTime] = useState('');
   const [assignee, setAssignee] = useState('Mentor');
   const [journalTick, setJournalTick] = useState(0);
+  const [selectedSessionId, setSelectedSessionId] = useState('');
 
   useEffect(() => {
     const refresh = () => {
@@ -153,13 +181,19 @@ export function ClientWorkspaceEnhanced({ language, selectedId, onSelectedId, on
 
   const client = useMemo(() => clients.find((item) => item.id === selectedId) ?? clients[0], [clients, selectedId]);
   const journal = useMemo(() => loadJournal().filter((entry) => entry.clientId === client.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt)), [client.id, journalTick]);
-  const sessionNotes = useMemo(() => journal.filter((entry) => entry.type === 'session' || entry.type === 'decision'), [journal]);
+  const legacySessionNotes = useMemo(() => journal.filter((entry) => entry.type === 'session' || entry.type === 'decision'), [journal]);
+  const sessionSummaries = useMemo(() => loadSessionSummaries().filter((entry) => entry.clientId === client.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt)), [client.id, journalTick]);
   const completedCommitments = useMemo(() => client.commitments.filter((item) => item.status === 'done'), [client.commitments]);
   const clientTasks = useMemo(() => tasks
     .filter((task) => task.clientId === client.id && task.status !== 'done')
-    .sort((a, b) => `${a.dueDate}${a.dueTime}`.localeCompare(`${b.dueDate}${b.dueTime}`)), [tasks, client.id]);
+    .sort((a, b) => `${a.dueDate || '9999-12-31'}${a.dueTime || '23:59'}`.localeCompare(`${b.dueDate || '9999-12-31'}${b.dueTime || '23:59'}`)), [tasks, client.id]);
   const attentionTask = clientTasks[0];
   const attentionOverdue = attentionTask ? new Date(`${attentionTask.dueDate || '2999-12-31'}T${attentionTask.dueTime || '23:59'}:00`).getTime() < Date.now() : false;
+  const selectedSession: SessionSummary | undefined = sessionSummaries.find((entry) => entry.id === selectedSessionId) || sessionSummaries[0];
+
+  useEffect(() => {
+    setSelectedSessionId(sessionSummaries[0]?.id || '');
+  }, [client.id, sessionSummaries[0]?.id]);
 
   const persistRecord = (record: ClientRecord) => {
     const nextClients = clients.map((item) => item.id === record.id ? record : item);
@@ -260,7 +294,7 @@ export function ClientWorkspaceEnhanced({ language, selectedId, onSelectedId, on
             {[[language === 'es' ? 'Programa' : 'Program', client.program], [language === 'es' ? 'Fecha de inicio' : 'Start date', client.startDate], [language === 'es' ? 'Duración' : 'Duration', client.duration], [language === 'es' ? 'Progreso' : 'Progress', client.progress]].map(([label, value]) => <div key={label} className="rounded-xl bg-[#F7F7F5] p-4"><p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black/35">{label}</p><p className="mt-2 text-sm font-semibold">{value}</p></div>)}
           </div>
           <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {[[language === 'es' ? 'Tipo de negocio' : 'Business type', client.businessType], ['Email', client.email], [language === 'es' ? 'Teléfono' : 'Phone', client.phone], [language === 'es' ? 'Fase del plan' : 'Plan phase', client.currentPhase]].map(([label, value]) => <div key={label} className="rounded-xl border border-black/7 bg-[#FAFAF8] p-4"><p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black/35">{label}</p><p className="mt-2 break-words text-sm font-medium text-black/70">{value}</p></div>)}
+            {[[language === 'es' ? 'Tipo de negocio' : 'Business type', client.businessType], ['Email', client.email], [language === 'es' ? 'Teléfono' : 'Phone', client.phone], [language === 'es' ? 'Próxima sesión' : 'Next session', client.nextSession || (language === 'es' ? 'Sin fecha' : 'No date')]].map(([label, value]) => <div key={label} className="rounded-xl border border-black/7 bg-[#FAFAF8] p-4"><p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black/35">{label}</p><p className="mt-2 break-words text-sm font-medium text-black/70">{value}</p></div>)}
           </div>
 
           {editing && draft && (
@@ -275,6 +309,7 @@ export function ClientWorkspaceEnhanced({ language, selectedId, onSelectedId, on
         </section>
 
         <section className="rounded-2xl border border-black/10 bg-white p-5 shadow-[0_10px_30px_rgba(10,10,10,0.035)] md:p-6">
+          <div className="mb-4 flex justify-end"><button type="button" onClick={onOpenPriority} className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-4 py-2 text-xs font-semibold text-black/60"><ListTodo className="h-3.5 w-3.5" />{language === 'es' ? 'Trabajo prioritario' : 'Priority work'}<ChevronRight className="h-3.5 w-3.5" /></button></div>
           <div className="grid gap-4 lg:grid-cols-2">
             <div className={`rounded-xl border p-4 ${attentionTask ? (attentionOverdue ? 'border-[#A23A32]/15 bg-[#FFF8F7]' : 'border-[#A46F16]/15 bg-[#FFFBF3]') : 'border-[#2C766B]/15 bg-[#F5FAF8]'}`}>
               <p className={`text-[10px] font-semibold uppercase tracking-[0.15em] ${attentionTask ? (attentionOverdue ? 'text-[#8D332C]' : 'text-[#82570F]') : 'text-[#2C766B]'}`}>{attentionTask ? (attentionOverdue ? (language === 'es' ? 'REQUIERE ATENCIÓN' : 'NEEDS ATTENTION') : (language === 'es' ? 'ATENCIÓN PROGRAMADA' : 'SCHEDULED ATTENTION')) : (language === 'es' ? 'SIN ATENCIÓN PENDIENTE' : 'NO PENDING ATTENTION')}</p>
@@ -298,13 +333,18 @@ export function ClientWorkspaceEnhanced({ language, selectedId, onSelectedId, on
         </section>
 
         <div className="grid gap-6 xl:grid-cols-2">
-          <section className="rounded-2xl border border-black/10 bg-white p-5 md:p-6"><div className="flex items-center justify-between"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#0A3F4D]">OUTCOME MEMORY</p><h3 className="mt-2 text-lg font-semibold">{client.primaryGoal}</h3></div><Target className="h-5 w-5 text-[#0A3F4D]" /></div><div className="mt-4 space-y-3 text-sm leading-6 text-black/60"><p><strong className="text-black/75">{language === 'es' ? 'Situación inicial:' : 'Starting point:'}</strong> {client.startingPoint}</p><p><strong className="text-black/75">{language === 'es' ? 'Resultado esperado:' : 'Expected outcome:'}</strong> {client.expectedOutcome}</p><p><strong className="text-black/75">{language === 'es' ? 'Brecha:' : 'Gap:'}</strong> {client.currentGap}</p></div></section>
-          <section className="rounded-2xl border border-black/10 bg-white p-5 md:p-6"><p className="text-xs font-semibold uppercase tracking-[0.16em] text-black/40">{language === 'es' ? 'PLAN ACTUAL' : 'CURRENT PLAN'}</p><div className="mt-3 rounded-xl bg-[#F7F7F5] p-4"><p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black/35">{language === 'es' ? 'Fase del plan' : 'Plan phase'}</p><p className="mt-1 text-sm font-semibold">{client.currentPhase}</p></div><p className="mt-3 text-sm leading-6 text-black/60">{client.planSummary}</p></section>
+          <section className="rounded-2xl border border-black/10 bg-white p-5 md:p-6"><div className="flex items-center justify-between"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#0A3F4D]">{language === 'es' ? 'MEMORIA DE RESULTADO' : 'OUTCOME MEMORY'}</p><h3 className="mt-2 text-lg font-semibold">{client.primaryGoal}</h3><p className="mt-1 text-xs text-black/40">{language === 'es' ? 'Situación inicial, resultado esperado y brecha actual.' : 'Starting point, expected result and current gap.'}</p></div><Target className="h-5 w-5 text-[#0A3F4D]" /></div><div className="mt-4 space-y-3 text-sm leading-6 text-black/60"><p><strong className="text-black/75">{language === 'es' ? 'Situación inicial:' : 'Starting point:'}</strong> {client.startingPoint}</p><p><strong className="text-black/75">{language === 'es' ? 'Resultado esperado:' : 'Expected outcome:'}</strong> {client.expectedOutcome}</p><p><strong className="text-black/75">{language === 'es' ? 'Brecha:' : 'Gap:'}</strong> {client.currentGap}</p></div></section>
+          <section className="rounded-2xl border border-black/10 bg-white p-5 md:p-6"><p className="text-xs font-semibold uppercase tracking-[0.16em] text-black/40">{language === 'es' ? 'PLAN ACTUAL' : 'CURRENT PLAN'}</p><div className="mt-3 rounded-xl bg-[#F7F7F5] p-4"><p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black/35">{language === 'es' ? 'Etapa del plan' : 'Plan stage'}</p><p className="mt-1 text-sm font-semibold">{phaseDisplay(client.currentPhase, language)}</p></div><p className="mt-3 text-sm leading-6 text-black/60">{client.planSummary}</p></section>
         </div>
+
+        <section className="rounded-2xl border border-black/10 bg-white p-5 md:p-6">
+          <div className="flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-[#A46F16]" /><h3 className="font-semibold">{language === 'es' ? 'Bloqueos' : 'Blockers'}</h3></div>
+          <div className="mt-4 flex flex-wrap gap-2">{client.blockers.length ? client.blockers.map((blocker) => <span key={blocker} className="rounded-full bg-[#A46F16]/8 px-3 py-1.5 text-xs text-[#82570F]">{blocker}</span>) : <span className="text-sm text-black/45">{language === 'es' ? 'Sin bloqueos registrados.' : 'No blockers recorded.'}</span>}</div>
+        </section>
 
         <div className="grid gap-6 xl:grid-cols-2">
           <section className="rounded-2xl border border-black/10 bg-white p-5 md:p-6">
-            <div className="flex items-center justify-between"><div><h3 className="font-semibold">{language === 'es' ? 'Hitos' : 'Milestones'}</h3><p className="mt-1 text-xs text-black/40">{language === 'es' ? 'Compromisos que ya se cumplieron.' : 'Commitments already completed.'}</p></div><CheckCircle2 className="h-5 w-5 text-[#0A3F4D]" /></div>
+            <div className="flex items-center justify-between"><div><h3 className="font-semibold">{language === 'es' ? 'Hitos' : 'Milestones'}</h3><p className="mt-1 text-xs text-black/40">{language === 'es' ? 'Compromisos que ya se cumplieron.' : 'Commitments already completed.'}</p></div><div className="flex items-center gap-2"><span className="rounded-full bg-[#0A3F4D]/8 px-2.5 py-1 text-[10px] font-semibold text-[#0A3F4D]">{completedCommitments.length}/{client.commitments.length} {language === 'es' ? 'logrados' : 'achieved'}</span><CheckCircle2 className="h-5 w-5 text-[#0A3F4D]" /></div></div>
             <div className="mt-4 max-h-[240px] space-y-2 overflow-y-auto pr-2">
               {completedCommitments.length === 0 && <div className="rounded-xl bg-[#F7F7F5] p-3 text-sm text-black/45">{language === 'es' ? 'Aún no hay compromisos cumplidos.' : 'No completed commitments yet.'}</div>}
               {completedCommitments.map((item, index) => <div key={`${item.label}-${index}`} className="flex items-center gap-3 rounded-xl bg-[#F7F7F5] p-3"><CheckCircle2 className="h-4 w-4 shrink-0 text-[#0A3F4D]" /><span className="text-sm">{item.label}</span></div>)}
@@ -315,15 +355,35 @@ export function ClientWorkspaceEnhanced({ language, selectedId, onSelectedId, on
         </div>
 
         <section className="rounded-2xl border border-black/10 bg-white p-5 md:p-6">
-          <div className="flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-[#A46F16]" /><h3 className="font-semibold">{language === 'es' ? 'Bloqueos' : 'Blockers'}</h3></div>
-          <div className="mt-4 flex flex-wrap gap-2">{client.blockers.length ? client.blockers.map((blocker) => <span key={blocker} className="rounded-full bg-[#A46F16]/8 px-3 py-1.5 text-xs text-[#82570F]">{blocker}</span>) : <span className="text-sm text-black/45">{language === 'es' ? 'Sin bloqueos registrados.' : 'No blockers recorded.'}</span>}</div>
-        </section>
+          <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-black/40">{language === 'es' ? 'REGISTRO DE SESIONES' : 'SESSION RECORD'}</p><h3 className="mt-2 text-lg font-semibold">{language === 'es' ? 'Revisar una sesión completa' : 'Review a full session'}</h3><p className="mt-1 text-sm text-black/45">{language === 'es' ? 'Selecciona una sesión para revisar notas, decisiones, bloqueos, compromisos y cambios acordados.' : 'Select a session to review notes, decisions, blockers, commitments and agreed changes.'}</p></div>
+          <div className="mt-5 grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)]">
+            <div className="max-h-[380px] space-y-2 overflow-y-auto pr-2">
+              {sessionSummaries.map((entry) => <button key={entry.id} type="button" onClick={() => setSelectedSessionId(entry.id)} className={`w-full rounded-xl border p-3 text-left ${selectedSession?.id === entry.id ? 'border-[#0A3F4D]/25 bg-[#F5F9F8]' : 'border-black/7 bg-white'}`}><div className="flex items-center justify-between gap-2"><p className="text-xs font-semibold">{displayDate(entry.createdAt, language)}</p><ChevronRight className="h-3.5 w-3.5 text-black/30" /></div><p className="mt-1 text-[10px] text-black/45">{entry.reviewStatus || entry.mood || (language === 'es' ? 'Sesión registrada' : 'Recorded session')}</p></button>)}
+              {sessionSummaries.length === 0 && legacySessionNotes.map((entry) => <div key={entry.id} className="rounded-xl border border-black/7 p-3"><p className="text-xs font-semibold">{displayDate(entry.createdAt, language)}</p><p className="mt-1 text-[10px] text-black/45">{entry.title}</p></div>)}
+              {sessionSummaries.length === 0 && legacySessionNotes.length === 0 && <div className="rounded-xl bg-[#F7F7F5] p-4 text-sm text-black/45">{language === 'es' ? 'Todavía no hay sesiones registradas.' : 'No sessions recorded yet.'}</div>}
+            </div>
 
-        <section className="rounded-2xl border border-black/10 bg-white p-5 md:p-6">
-          <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-black/40">{language === 'es' ? 'REGISTRO DE SESIONES' : 'SESSION RECORD'}</p><h3 className="mt-2 text-lg font-semibold">{language === 'es' ? 'Notas y decisiones de las sesiones' : 'Session notes and decisions'}</h3><p className="mt-1 text-sm text-black/45">{language === 'es' ? 'Este registro también forma parte del contexto que revisa G-KAIS Copilot.' : 'This record is also part of the context reviewed by G-KAIS Copilot.'}</p></div>
-          <div className="mt-4 max-h-[300px] space-y-3 overflow-y-auto pr-2">
-            {sessionNotes.length === 0 && <div className="rounded-xl bg-[#F7F7F5] p-4 text-sm text-black/45">{language === 'es' ? 'Todavía no hay notas de sesión registradas.' : 'No session notes recorded yet.'}</div>}
-            {sessionNotes.map((entry) => <div key={entry.id} className="rounded-xl border border-black/7 p-4"><div className="flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-semibold">{entry.title}</p><span className="text-[10px] text-black/35">{displayDate(entry.createdAt, language)}</span></div><p className="mt-2 text-sm leading-6 text-black/55">{entry.body}</p></div>)}
+            <div className="max-h-[380px] overflow-y-auto rounded-xl bg-[#FAFAF8] p-4 md:p-5">
+              {selectedSession ? <div className="space-y-4">
+                <div><p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black/35">{language === 'es' ? 'SESIÓN' : 'SESSION'}</p><h4 className="mt-1 text-base font-semibold">{displayDate(selectedSession.createdAt, language)}</h4></div>
+                <div className="grid gap-3 md:grid-cols-2"><div className="rounded-xl bg-white p-3"><p className="text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'Estado de ánimo' : 'Mood'}</p><p className="mt-1 text-sm">{selectedSession.mood || '—'}</p></div><div className="rounded-xl bg-white p-3"><p className="text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'Revisión' : 'Review'}</p><p className="mt-1 text-sm">{selectedSession.reviewStatus || '—'}</p></div></div>
+                {summaryLine(language === 'es' ? 'Nota inicial' : 'Opening note', selectedSession.openingNotes)}
+                {summaryLine(language === 'es' ? 'Qué ocurrió' : 'What happened', selectedSession.reviewNotes)}
+                {summaryLine(language === 'es' ? 'Aprendizaje' : 'Learning', selectedSession.reviewLearning)}
+                {summaryLine(language === 'es' ? 'Problema actual' : 'Current problem', selectedSession.currentProblem)}
+                {summaryLine(language === 'es' ? 'Causa' : 'Cause', selectedSession.rootCause)}
+                {summaryLine(language === 'es' ? 'Decisión' : 'Decision', selectedSession.decision)}
+                {summaryLine(language === 'es' ? 'Solución acordada' : 'Agreed solution', selectedSession.solution)}
+                {summaryLine(language === 'es' ? 'Plan' : 'Plan', selectedSession.planSummary)}
+                {summaryLine(language === 'es' ? 'Nuevos bloqueos' : 'New blockers', selectedSession.blockers)}
+                {summaryLine(language === 'es' ? 'Compromisos del cliente' : 'Client commitments', selectedSession.clientCommitments)}
+                {summaryLine(language === 'es' ? 'Acciones del mentor/equipo' : 'Mentor/team actions', selectedSession.mentorActions)}
+                {summaryLine(language === 'es' ? 'Resultado esperado' : 'Expected result', selectedSession.expectedResult)}
+                {summaryLine(language === 'es' ? 'Cómo medirlo' : 'Success measure', selectedSession.successMeasure)}
+                {summaryLine(language === 'es' ? 'Próxima acción' : 'Next action', selectedSession.nextAction)}
+                {summaryLine(language === 'es' ? 'Próxima sesión' : 'Next session', selectedSession.nextSession)}
+              </div> : <div className="text-sm text-black/45">{legacySessionNotes[0]?.body || (language === 'es' ? 'Selecciona una sesión para ver su detalle.' : 'Select a session to view its details.')}</div>}
+            </div>
           </div>
         </section>
 

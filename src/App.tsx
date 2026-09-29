@@ -6,7 +6,7 @@
 import React, { useEffect, useState } from 'react';
 import { Header } from './components/Header.tsx';
 import { Hero } from './components/Hero.tsx';
-import { ProblemSection } from './components/ProblemSectionSection.tsx';
+import { ProblemSection } from './components/ProblemSection.tsx';
 import { OpportunityRecoverySection } from './components/OpportunityRecoverySection.tsx';
 import { TheSystemSection } from './components/TheSystemSection.tsx';
 import { LeadFlowSection } from './components/LeadFlowSection.tsx';

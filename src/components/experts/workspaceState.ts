@@ -1,4 +1,4 @@
-export type WorkActionType = 'email' | 'call' | 'meeting' | 'task';
+export type WorkActionType = 'email' | 'whatsapp' | 'call' | 'meeting' | 'task';
 export type WorkTaskStatus = 'pending' | 'in-progress' | 'done';
 export type WorkPriority = 'high' | 'medium' | 'normal';
 
@@ -14,6 +14,7 @@ export type WorkTask = {
   assignee: string;
   status: WorkTaskStatus;
   createdAt: string;
+  completedAt?: string;
   result?: string;
   source?: 'attention' | 'session' | 'manual';
   sourceCommitmentLabel?: string;
@@ -36,6 +37,7 @@ export type SharedSessionClient = {
   nextAction?: string;
   nextSession?: string;
   currentPhase?: string;
+  currentGap?: string;
   planSummary?: string;
   blockers?: string[];
   commitments?: SharedCommitment[];
@@ -66,6 +68,7 @@ export type SessionSummary = {
   clientId: string;
   clientName: string;
   createdAt: string;
+  durationMinutes?: number;
   mood: string;
   openingNotes: string;
   reviewStatus: string;
@@ -179,31 +182,30 @@ function dueTimestamp(task: WorkTask): number {
 
 function actionTypeLabel(type: WorkActionType): string {
   if (type === 'email') return 'Email';
+  if (type === 'whatsapp') return 'WhatsApp';
   if (type === 'call') return 'Llamada';
   if (type === 'meeting') return 'Reunión';
-  return 'Tarea';
+  return 'Tarea interna';
 }
 
 function taskAsNextAction(task?: WorkTask): string {
   if (!task) return '';
   const detail = task.note.trim() || task.title.trim();
-  return [
-    actionTypeLabel(task.type),
-    detail,
-    task.dueDate || '',
-    task.dueTime || ''
-  ].filter(Boolean).join(' · ');
+  return [actionTypeLabel(task.type), detail, task.dueDate || '', task.dueTime || ''].filter(Boolean).join(' · ');
+}
+
+function nextMeetingText(task?: WorkTask): string {
+  if (!task?.dueDate) return '';
+  return `${task.dueDate}${task.dueTime ? ` · ${task.dueTime}` : ''}`;
 }
 
 export function getWorkPriority(task: WorkTask, now = new Date()): WorkPriority {
   if (!task.dueDate) return 'normal';
   const due = new Date(`${task.dueDate}T${task.dueTime || '23:59'}:00`);
   if (!Number.isFinite(due.getTime())) return 'normal';
-
   const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   const startTomorrow = startToday + 24 * 60 * 60 * 1000;
   const dueTime = due.getTime();
-
   if (dueTime < now.getTime() || dueTime < startTomorrow) return 'high';
   if (dueTime < startTomorrow + 48 * 60 * 60 * 1000) return 'medium';
   return 'normal';
@@ -230,21 +232,18 @@ function syncClientRecordsFromSession(clients: SharedSessionClient[]): void {
     if (!raw) return;
     const records = JSON.parse(raw);
     if (!Array.isArray(records)) return;
-
     const nextRecords = records.map((record) => {
       if (!record || typeof record !== 'object') return record;
       const typed = record as Record<string, unknown>;
       const id = typeof typed.id === 'string' ? typed.id : '';
       const live = clients.find((client) => client.id === id);
       if (!live) return record;
-
       const overdueCount = live.commitments?.filter((commitment) => commitment.status === 'overdue').length ?? 0;
       const currentStatus = typeof typed.status === 'string' ? typed.status : 'active';
       const derivedStatus = currentStatus === 'attention' && live.commitments && overdueCount === 0 ? 'active' : currentStatus;
       const derivedAttentionReason = currentStatus === 'attention' && overdueCount > 0
         ? `${overdueCount} compromiso${overdueCount === 1 ? '' : 's'} vencido${overdueCount === 1 ? '' : 's'} pendiente${overdueCount === 1 ? '' : 's'} de resolver.`
         : typed.attentionReason;
-
       return {
         ...typed,
         company: live.company ?? typed.company,
@@ -254,6 +253,7 @@ function syncClientRecordsFromSession(clients: SharedSessionClient[]): void {
         nextAction: live.nextAction ?? typed.nextAction,
         nextSession: live.nextSession ?? typed.nextSession,
         currentPhase: live.currentPhase ?? typed.currentPhase,
+        currentGap: live.currentGap ?? typed.currentGap,
         planSummary: live.planSummary ?? typed.planSummary,
         blockers: live.blockers ?? typed.blockers,
         commitments: live.commitments?.map((item) => ({ label: item.label, status: item.status })) ?? typed.commitments,
@@ -261,7 +261,6 @@ function syncClientRecordsFromSession(clients: SharedSessionClient[]): void {
         attentionReason: derivedAttentionReason
       };
     });
-
     window.localStorage.setItem(CLIENT_RECORD_STORAGE_KEY, JSON.stringify(nextRecords));
   } catch {}
 }
@@ -282,21 +281,8 @@ export function updateSessionClient(clientId: string, updater: (client: SharedSe
     saveSessionClients(clients.map((client) => client.id === clientId ? updater(client) : client));
     return;
   }
-
   const seed: SharedSessionClient = {
-    id: clientId,
-    name: clientId,
-    company: '',
-    program: '',
-    week: '',
-    goal: '',
-    nextAction: '',
-    nextSession: '',
-    currentPhase: '',
-    planSummary: '',
-    blockers: [],
-    commitments: [],
-    copilot: fallbackCopilot()
+    id: clientId, name: clientId, company: '', program: '', week: '', goal: '', nextAction: '', nextSession: '', currentPhase: '', currentGap: '', planSummary: '', blockers: [], commitments: [], copilot: fallbackCopilot()
   };
   saveSessionClients([...clients, updater(seed)]);
 }
@@ -307,22 +293,13 @@ export function loadJournal(): JournalEntry[] {
 
 export function appendJournal(clientId: string, type: string, title: string, body: string): JournalEntry | null {
   if (typeof window === 'undefined' || !body.trim()) return null;
-  const entry: JournalEntry = {
-    id: `journal-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-    clientId,
-    type,
-    title,
-    body: body.trim(),
-    createdAt: new Date().toISOString()
-  };
+  const entry: JournalEntry = { id: `journal-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, clientId, type, title, body: body.trim(), createdAt: new Date().toISOString() };
   try {
     const entries = loadJournal();
     window.localStorage.setItem(JOURNAL_STORAGE_KEY, JSON.stringify([entry, ...entries]));
     emitWorkspaceStateChanged();
     return entry;
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
 
 export function loadSessionSummaries(): SessionSummary[] {
@@ -345,8 +322,8 @@ function reconcileTask(task: WorkTask, clients: SharedSessionClient[]): WorkTask
   const client = clients.find((item) => item.id === task.clientId);
   const commitment = client?.commitments?.find((item) => item.label === task.sourceCommitmentLabel);
   if (!commitment) return task;
-  if (commitment.status === 'done' && task.status !== 'done') return { ...task, status: 'done' };
-  if (commitment.status !== 'done' && task.status === 'done' && task.source === 'attention') return { ...task, status: 'pending' };
+  if (commitment.status === 'done' && task.status !== 'done') return { ...task, status: 'done', completedAt: task.completedAt || new Date().toISOString() };
+  if (commitment.status !== 'done' && task.status === 'done' && task.source === 'attention') return { ...task, status: 'pending', completedAt: undefined };
   return task;
 }
 
@@ -360,33 +337,30 @@ export function loadTasks(): WorkTask[] {
   return reconciled;
 }
 
-function syncClientNextAction(clientId: string, tasks: WorkTask[]): void {
+function syncClientOperationalState(clientId: string, tasks: WorkTask[]): void {
   if (typeof window === 'undefined' || !clientId) return;
-  const nextTask = tasks
-    .filter((task) => task.clientId === clientId && task.status !== 'done')
-    .sort((a, b) => dueTimestamp(a) - dueTimestamp(b))[0];
-  const nextAction = taskAsNextAction(nextTask);
-
+  const open = tasks.filter((task) => task.clientId === clientId && task.status !== 'done').sort((a, b) => dueTimestamp(a) - dueTimestamp(b));
+  const nextAction = taskAsNextAction(open[0]);
+  const nextMeeting = open.filter((task) => task.type === 'meeting').sort((a, b) => dueTimestamp(a) - dueTimestamp(b))[0];
+  const nextSession = nextMeetingText(nextMeeting);
   try {
     const rawRecords = window.localStorage.getItem(CLIENT_RECORD_STORAGE_KEY);
     if (rawRecords) {
       const records = JSON.parse(rawRecords);
       if (Array.isArray(records)) {
-        window.localStorage.setItem(CLIENT_RECORD_STORAGE_KEY, JSON.stringify(records.map((record) => record?.id === clientId ? { ...record, nextAction } : record)));
+        window.localStorage.setItem(CLIENT_RECORD_STORAGE_KEY, JSON.stringify(records.map((record) => record?.id === clientId ? { ...record, nextAction, ...(nextMeeting ? { nextSession } : {}) } : record)));
       }
     }
-
     const sessionClients = loadSessionClients();
     if (sessionClients.some((client) => client.id === clientId)) {
-      window.localStorage.setItem(SESSION_CLIENT_STORAGE_KEY, JSON.stringify(sessionClients.map((client) => client.id === clientId ? { ...client, nextAction } : client)));
+      window.localStorage.setItem(SESSION_CLIENT_STORAGE_KEY, JSON.stringify(sessionClients.map((client) => client.id === clientId ? { ...client, nextAction, ...(nextMeeting ? { nextSession } : {}) } : client)));
     }
   } catch {}
-
   emitWorkspaceStateChanged();
 }
 
 export function refreshClientNextAction(clientId: string): void {
-  syncClientNextAction(clientId, loadTasks());
+  syncClientOperationalState(clientId, loadTasks());
 }
 
 export function saveTasks(tasks: WorkTask[]): void {
@@ -398,23 +372,30 @@ export function saveTasks(tasks: WorkTask[]): void {
 }
 
 export function addWorkTask(input: Omit<WorkTask, 'id' | 'createdAt' | 'status'> & { status?: WorkTaskStatus }): WorkTask {
-  const task: WorkTask = {
-    ...input,
-    id: `task-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-    createdAt: new Date().toISOString(),
-    status: input.status ?? 'pending'
-  };
+  const task: WorkTask = { ...input, id: `task-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, createdAt: new Date().toISOString(), status: input.status ?? 'pending' };
   const tasks = [task, ...loadTasks()];
   saveTasks(tasks);
-  syncClientNextAction(task.clientId, tasks);
+  syncClientOperationalState(task.clientId, tasks);
   return task;
 }
 
 export function updateWorkTask(taskId: string, patch: Partial<WorkTask>): WorkTask[] {
   const before = loadTasks();
   const touched = before.find((task) => task.id === taskId);
-  const tasks = before.map((task) => task.id === taskId ? { ...task, ...patch } : task);
+  const normalizedPatch: Partial<WorkTask> = { ...patch };
+  if (patch.status === 'done' && touched?.status !== 'done' && !patch.completedAt) normalizedPatch.completedAt = new Date().toISOString();
+  if (patch.status && patch.status !== 'done') normalizedPatch.completedAt = undefined;
+  const tasks = before.map((task) => task.id === taskId ? { ...task, ...normalizedPatch } : task);
   saveTasks(tasks);
-  if (touched?.clientId) syncClientNextAction(touched.clientId, tasks);
+  if (touched?.clientId) syncClientOperationalState(touched.clientId, tasks);
+  return tasks;
+}
+
+export function deleteWorkTask(taskId: string): WorkTask[] {
+  const before = loadTasks();
+  const touched = before.find((task) => task.id === taskId);
+  const tasks = before.filter((task) => task.id !== taskId);
+  saveTasks(tasks);
+  if (touched?.clientId) syncClientOperationalState(touched.clientId, tasks);
   return tasks;
 }

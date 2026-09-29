@@ -1,5 +1,6 @@
 export type WorkActionType = 'email' | 'call' | 'meeting' | 'task';
 export type WorkTaskStatus = 'pending' | 'in-progress' | 'done';
+export type WorkPriority = 'high' | 'medium' | 'normal';
 
 export type WorkTask = {
   id: string;
@@ -13,6 +14,7 @@ export type WorkTask = {
   assignee: string;
   status: WorkTaskStatus;
   createdAt: string;
+  result?: string;
   source?: 'attention' | 'session' | 'manual';
   sourceCommitmentLabel?: string;
   confirmationEmail?: 'not-required' | 'queued' | 'sent';
@@ -59,10 +61,40 @@ export type JournalEntry = {
   createdAt: string;
 };
 
+export type SessionSummary = {
+  id: string;
+  clientId: string;
+  clientName: string;
+  createdAt: string;
+  mood: string;
+  openingNotes: string;
+  reviewStatus: string;
+  reviewReason: string;
+  reviewNotes: string;
+  reviewLearning: string;
+  diagnosisStatus: string;
+  currentProblem: string;
+  rootCause: string;
+  attemptedSolutions: string;
+  blockers: string[];
+  decision: string;
+  solution: string;
+  planPhase: string;
+  planSummary: string;
+  clientCommitments: string[];
+  mentorActions: string[];
+  expectedResult: string;
+  successMeasure: string;
+  nextAction: string;
+  nextSession: string;
+};
+
 export const SESSION_CLIENT_STORAGE_KEY = 'gkais-experts-session-clients-v2';
 export const JOURNAL_STORAGE_KEY = 'gkais-experts-client-journal-v1';
 export const TASK_STORAGE_KEY = 'gkais-experts-work-tasks-v1';
+export const SESSION_SUMMARY_STORAGE_KEY = 'gkais-experts-session-summaries-v1';
 export const WORKSPACE_STATE_EVENT = 'gkais:workspace-state-changed';
+export const SESSION_STAGE_EVENT = 'gkais:session-stage-completed';
 const CLIENT_RECORD_STORAGE_KEY = 'gkais-experts-client-records-v2';
 
 const INITIAL_TASKS: WorkTask[] = [
@@ -139,9 +171,52 @@ function fallbackCopilot() {
   };
 }
 
+function dueTimestamp(task: WorkTask): number {
+  if (!task.dueDate) return Number.MAX_SAFE_INTEGER;
+  const value = new Date(`${task.dueDate}T${task.dueTime || '23:59'}:00`).getTime();
+  return Number.isFinite(value) ? value : Number.MAX_SAFE_INTEGER;
+}
+
+function actionTypeLabel(type: WorkActionType): string {
+  if (type === 'email') return 'Email';
+  if (type === 'call') return 'Llamada';
+  if (type === 'meeting') return 'Reunión';
+  return 'Tarea';
+}
+
+function taskAsNextAction(task?: WorkTask): string {
+  if (!task) return '';
+  const detail = task.note.trim() || task.title.trim();
+  return [
+    actionTypeLabel(task.type),
+    detail,
+    task.dueDate || '',
+    task.dueTime || ''
+  ].filter(Boolean).join(' · ');
+}
+
+export function getWorkPriority(task: WorkTask, now = new Date()): WorkPriority {
+  if (!task.dueDate) return 'normal';
+  const due = new Date(`${task.dueDate}T${task.dueTime || '23:59'}:00`);
+  if (!Number.isFinite(due.getTime())) return 'normal';
+
+  const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const startTomorrow = startToday + 24 * 60 * 60 * 1000;
+  const dueTime = due.getTime();
+
+  if (dueTime < now.getTime() || dueTime < startTomorrow) return 'high';
+  if (dueTime < startTomorrow + 48 * 60 * 60 * 1000) return 'medium';
+  return 'normal';
+}
+
 export function emitWorkspaceStateChanged(): void {
   if (typeof window === 'undefined') return;
   window.dispatchEvent(new CustomEvent(WORKSPACE_STATE_EVENT));
+}
+
+export function emitSessionStageCompleted(clientId: string): void {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent(SESSION_STAGE_EVENT, { detail: { clientId } }));
 }
 
 export function loadSessionClients(): SharedSessionClient[] {
@@ -250,6 +325,21 @@ export function appendJournal(clientId: string, type: string, title: string, bod
   }
 }
 
+export function loadSessionSummaries(): SessionSummary[] {
+  return safeParseArray<SessionSummary>(SESSION_SUMMARY_STORAGE_KEY, []);
+}
+
+export function saveSessionSummary(summary: SessionSummary): SessionSummary[] {
+  if (typeof window === 'undefined') return [];
+  const current = loadSessionSummaries();
+  const next = [summary, ...current.filter((item) => item.id !== summary.id)];
+  try {
+    window.localStorage.setItem(SESSION_SUMMARY_STORAGE_KEY, JSON.stringify(next));
+    emitWorkspaceStateChanged();
+  } catch {}
+  return next;
+}
+
 function reconcileTask(task: WorkTask, clients: SharedSessionClient[]): WorkTask {
   if (!task.sourceCommitmentLabel) return task;
   const client = clients.find((item) => item.id === task.clientId);
@@ -270,6 +360,35 @@ export function loadTasks(): WorkTask[] {
   return reconciled;
 }
 
+function syncClientNextAction(clientId: string, tasks: WorkTask[]): void {
+  if (typeof window === 'undefined' || !clientId) return;
+  const nextTask = tasks
+    .filter((task) => task.clientId === clientId && task.status !== 'done')
+    .sort((a, b) => dueTimestamp(a) - dueTimestamp(b))[0];
+  const nextAction = taskAsNextAction(nextTask);
+
+  try {
+    const rawRecords = window.localStorage.getItem(CLIENT_RECORD_STORAGE_KEY);
+    if (rawRecords) {
+      const records = JSON.parse(rawRecords);
+      if (Array.isArray(records)) {
+        window.localStorage.setItem(CLIENT_RECORD_STORAGE_KEY, JSON.stringify(records.map((record) => record?.id === clientId ? { ...record, nextAction } : record)));
+      }
+    }
+
+    const sessionClients = loadSessionClients();
+    if (sessionClients.some((client) => client.id === clientId)) {
+      window.localStorage.setItem(SESSION_CLIENT_STORAGE_KEY, JSON.stringify(sessionClients.map((client) => client.id === clientId ? { ...client, nextAction } : client)));
+    }
+  } catch {}
+
+  emitWorkspaceStateChanged();
+}
+
+export function refreshClientNextAction(clientId: string): void {
+  syncClientNextAction(clientId, loadTasks());
+}
+
 export function saveTasks(tasks: WorkTask[]): void {
   if (typeof window === 'undefined') return;
   try {
@@ -285,12 +404,17 @@ export function addWorkTask(input: Omit<WorkTask, 'id' | 'createdAt' | 'status'>
     createdAt: new Date().toISOString(),
     status: input.status ?? 'pending'
   };
-  saveTasks([task, ...loadTasks()]);
+  const tasks = [task, ...loadTasks()];
+  saveTasks(tasks);
+  syncClientNextAction(task.clientId, tasks);
   return task;
 }
 
 export function updateWorkTask(taskId: string, patch: Partial<WorkTask>): WorkTask[] {
-  const tasks = loadTasks().map((task) => task.id === taskId ? { ...task, ...patch } : task);
+  const before = loadTasks();
+  const touched = before.find((task) => task.id === taskId);
+  const tasks = before.map((task) => task.id === taskId ? { ...task, ...patch } : task);
   saveTasks(tasks);
+  if (touched?.clientId) syncClientNextAction(touched.clientId, tasks);
   return tasks;
 }

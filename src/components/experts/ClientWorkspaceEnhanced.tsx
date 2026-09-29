@@ -4,7 +4,6 @@ import {
   CalendarDays,
   CheckCircle2,
   Circle,
-  Clock3,
   History,
   ListTodo,
   Mail,
@@ -84,7 +83,11 @@ const INITIAL_CLIENTS: ClientRecord[] = [
 function loadClients(): ClientRecord[] {
   try {
     const parsed = JSON.parse(localStorage.getItem(CLIENT_STORAGE_KEY) || 'null');
-    return Array.isArray(parsed) && parsed.length ? parsed : INITIAL_CLIENTS;
+    if (!Array.isArray(parsed) || !parsed.length) return INITIAL_CLIENTS;
+    return parsed.map((stored) => {
+      const fallback = INITIAL_CLIENTS.find((item) => item.id === stored.id);
+      return fallback ? { ...fallback, ...stored } : stored;
+    });
   } catch {
     return INITIAL_CLIENTS;
   }
@@ -135,10 +138,6 @@ export function ClientWorkspaceEnhanced({ language, selectedId, onSelectedId, on
   const [journalTick, setJournalTick] = useState(0);
 
   useEffect(() => {
-    try { localStorage.setItem(CLIENT_STORAGE_KEY, JSON.stringify(clients)); } catch {}
-  }, [clients]);
-
-  useEffect(() => {
     const refresh = () => {
       setClients(loadClients());
       setTasks(loadTasks());
@@ -154,14 +153,18 @@ export function ClientWorkspaceEnhanced({ language, selectedId, onSelectedId, on
 
   const client = useMemo(() => clients.find((item) => item.id === selectedId) ?? clients[0], [clients, selectedId]);
   const journal = useMemo(() => loadJournal().filter((entry) => entry.clientId === client.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt)), [client.id, journalTick]);
+  const sessionNotes = useMemo(() => journal.filter((entry) => entry.type === 'session' || entry.type === 'decision'), [journal]);
+  const completedCommitments = useMemo(() => client.commitments.filter((item) => item.status === 'done'), [client.commitments]);
   const clientTasks = useMemo(() => tasks
     .filter((task) => task.clientId === client.id && task.status !== 'done')
     .sort((a, b) => `${a.dueDate}${a.dueTime}`.localeCompare(`${b.dueDate}${b.dueTime}`)), [tasks, client.id]);
   const attentionTask = clientTasks[0];
   const attentionOverdue = attentionTask ? new Date(`${attentionTask.dueDate || '2999-12-31'}T${attentionTask.dueTime || '23:59'}:00`).getTime() < Date.now() : false;
 
-  const updateClient = (updater: (current: ClientRecord) => ClientRecord) => {
-    setClients((current) => current.map((item) => item.id === client.id ? updater(item) : item));
+  const persistRecord = (record: ClientRecord) => {
+    const nextClients = clients.map((item) => item.id === record.id ? record : item);
+    try { localStorage.setItem(CLIENT_STORAGE_KEY, JSON.stringify(nextClients)); } catch {}
+    setClients(nextClients);
   };
 
   const updateSharedFromRecord = (record: ClientRecord) => {
@@ -175,6 +178,8 @@ export function ClientWorkspaceEnhanced({ language, selectedId, onSelectedId, on
       goal: record.expectedOutcome,
       nextAction: record.nextAction,
       nextSession: record.nextSession,
+      currentPhase: record.currentPhase,
+      planSummary: record.planSummary,
       blockers: record.blockers,
       commitments: record.commitments.map((item, index) => ({
         id: current.commitments?.[index]?.id || `${record.id}-commitment-${index}`,
@@ -189,24 +194,14 @@ export function ClientWorkspaceEnhanced({ language, selectedId, onSelectedId, on
     if (!currentCommitment) return;
     const nextStatus: CommitmentStatus = currentCommitment.status === 'done' ? 'pending' : 'done';
     const nextRecord = { ...client, commitments: client.commitments.map((item, itemIndex) => itemIndex === index ? { ...item, status: nextStatus } : item) };
-    updateClient(() => nextRecord);
+    persistRecord(nextRecord);
     updateSharedFromRecord(nextRecord);
     appendJournal(client.id, 'commitment', nextStatus === 'done' ? (language === 'es' ? 'Compromiso completado' : 'Commitment completed') : (language === 'es' ? 'Compromiso reabierto' : 'Commitment reopened'), currentCommitment.label);
   };
 
-  const cycleMilestone = (index: number) => {
-    const currentMilestone = client.milestones[index];
-    if (!currentMilestone) return;
-    const order: MilestoneStatus[] = ['pending', 'current', 'done'];
-    const nextStatus = order[(order.indexOf(currentMilestone.status) + 1) % order.length];
-    updateClient((current) => ({ ...current, milestones: current.milestones.map((item, itemIndex) => itemIndex === index ? { ...item, status: nextStatus } : item) }));
-    appendJournal(client.id, 'milestone', language === 'es' ? 'Hito actualizado' : 'Milestone updated', `${currentMilestone.label} → ${nextStatus}`);
-    setJournalTick((value) => value + 1);
-  };
-
   const saveRecord = () => {
     if (!draft) return;
-    setClients((current) => current.map((item) => item.id === draft.id ? draft : item));
+    persistRecord(draft);
     updateSharedFromRecord(draft);
     appendJournal(draft.id, 'record', language === 'es' ? 'Ficha actualizada' : 'Record updated', language === 'es' ? 'Se actualizaron datos estructurales del cliente.' : 'Structural client data was updated.');
     setEditing(false);
@@ -214,25 +209,26 @@ export function ClientWorkspaceEnhanced({ language, selectedId, onSelectedId, on
 
   const createAction = () => {
     const label = actionName(actionType, language);
-    const title = actionNote.trim() || `${label} · ${client.name}`;
+    const cleanNote = actionNote.trim();
+    const title = cleanNote || `${label} · ${client.name}`;
     const task = addWorkTask({
       clientId: client.id,
       clientName: client.name,
       title,
       type: actionType,
-      note: actionNote.trim(),
+      note: cleanNote,
       dueDate: actionDate,
       dueTime: actionTime,
       assignee,
       source: 'manual',
       confirmationEmail: actionType === 'meeting' ? 'queued' : 'not-required'
     });
-    const nextAction = `${label}${actionDate ? ` · ${actionDate}` : ''}${actionTime ? ` ${actionTime}` : ''}`;
+    const nextAction = `${label}${cleanNote ? ` · ${cleanNote}` : ''}${actionDate ? ` · ${actionDate}` : ''}${actionTime ? ` ${actionTime}` : ''}`;
     const nextSession = actionType === 'meeting' && actionDate ? `${actionDate}${actionTime ? ` · ${actionTime}` : ''}` : client.nextSession;
     const nextRecord = { ...client, nextAction, nextSession };
-    updateClient(() => nextRecord);
+    persistRecord(nextRecord);
     updateSharedFromRecord(nextRecord);
-    appendJournal(client.id, 'task', language === 'es' ? 'Acción programada' : 'Action scheduled', `${title} · ${assignee}${actionDate ? ` · ${actionDate}` : ''}${actionTime ? ` ${actionTime}` : ''}`);
+    appendJournal(client.id, 'task', language === 'es' ? 'Acción programada' : 'Action scheduled', `${label}${cleanNote ? ` · ${cleanNote}` : ''} · ${assignee}${actionDate ? ` · ${actionDate}` : ''}${actionTime ? ` ${actionTime}` : ''}`);
     setTasks((current) => [task, ...current.filter((item) => item.id !== task.id)]);
     setActionNote('');
   };
@@ -256,7 +252,7 @@ export function ClientWorkspaceEnhanced({ language, selectedId, onSelectedId, on
             <div className="flex items-center gap-4"><div className="grid h-12 w-12 place-items-center rounded-full bg-[#111413] text-sm font-semibold text-white">{client.initials}</div><div><h2 className="text-2xl font-semibold tracking-tight">{client.name}</h2><p className="mt-1 text-sm text-black/45">{client.company}</p></div></div>
             <div className="flex flex-wrap gap-2">
               <button type="button" onClick={() => onStartSession(client.id)} className="inline-flex items-center gap-2 rounded-full bg-[#111413] px-4 py-2.5 text-xs font-semibold text-white"><Play className="h-3.5 w-3.5" />{language === 'es' ? 'Iniciar modo sesión' : 'Start session mode'}</button>
-              <button type="button" onClick={() => { setDraft({ ...client, blockers: [...client.blockers], milestones: client.milestones.map((item) => ({ ...item })), commitments: client.commitments.map((item) => ({ ...item })) }); setEditing((value) => !value); }} className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-3.5 py-2.5 text-xs font-semibold text-black/55 hover:border-[#0A3F4D]/30 hover:text-[#0A3F4D]"><Pencil className="h-3.5 w-3.5" />{language === 'es' ? 'Editar ficha' : 'Edit record'}</button>
+              <button type="button" onClick={() => { setDraft({ ...client, blockers: [...client.blockers], milestones: client.milestones.map((item) => ({ ...item })), commitments: client.commitments.map((item) => ({ ...item })) }); setEditing((value) => !value); }} className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-3.5 py-2.5 text-xs font-semibold text-black/55"><Pencil className="h-3.5 w-3.5" />{language === 'es' ? 'Editar ficha' : 'Edit record'}</button>
             </div>
           </div>
 
@@ -276,8 +272,10 @@ export function ClientWorkspaceEnhanced({ language, selectedId, onSelectedId, on
               <button type="button" onClick={saveRecord} className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#111413] px-4 py-2 text-xs font-semibold text-white"><Save className="h-3.5 w-3.5" />{language === 'es' ? 'Guardar ficha' : 'Save record'}</button>
             </div>
           )}
+        </section>
 
-          <div className="mt-5 grid gap-4 lg:grid-cols-2">
+        <section className="rounded-2xl border border-black/10 bg-white p-5 shadow-[0_10px_30px_rgba(10,10,10,0.035)] md:p-6">
+          <div className="grid gap-4 lg:grid-cols-2">
             <div className={`rounded-xl border p-4 ${attentionTask ? (attentionOverdue ? 'border-[#A23A32]/15 bg-[#FFF8F7]' : 'border-[#A46F16]/15 bg-[#FFFBF3]') : 'border-[#2C766B]/15 bg-[#F5FAF8]'}`}>
               <p className={`text-[10px] font-semibold uppercase tracking-[0.15em] ${attentionTask ? (attentionOverdue ? 'text-[#8D332C]' : 'text-[#82570F]') : 'text-[#2C766B]'}`}>{attentionTask ? (attentionOverdue ? (language === 'es' ? 'REQUIERE ATENCIÓN' : 'NEEDS ATTENTION') : (language === 'es' ? 'ATENCIÓN PROGRAMADA' : 'SCHEDULED ATTENTION')) : (language === 'es' ? 'SIN ATENCIÓN PENDIENTE' : 'NO PENDING ATTENTION')}</p>
               {attentionTask ? <><p className="mt-2 text-sm font-semibold">{attentionTask.title}</p><p className="mt-1 text-xs text-black/48">{formatDateTime(attentionTask, language)} · {attentionTask.assignee}</p></> : <p className="mt-2 text-sm text-black/48">{language === 'es' ? 'No hay acciones abiertas para este cliente.' : 'There are no open actions for this client.'}</p>}
@@ -305,9 +303,29 @@ export function ClientWorkspaceEnhanced({ language, selectedId, onSelectedId, on
         </div>
 
         <div className="grid gap-6 xl:grid-cols-2">
-          <section className="rounded-2xl border border-black/10 bg-white p-5 md:p-6"><div className="flex items-center justify-between"><h3 className="font-semibold">{language === 'es' ? 'Hitos' : 'Milestones'}</h3><span className="text-[10px] text-black/35">{language === 'es' ? 'Clic para actualizar' : 'Click to update'}</span></div><div className="mt-4 space-y-2">{client.milestones.map((item, index) => <button key={item.label} type="button" onClick={() => cycleMilestone(index)} className="flex w-full items-center gap-3 rounded-xl bg-[#F7F7F5] p-3 text-left">{item.status === 'done' ? <CheckCircle2 className="h-4 w-4 text-[#0A3F4D]" /> : item.status === 'current' ? <Clock3 className="h-4 w-4 text-[#A46F16]" /> : <Circle className="h-4 w-4 text-black/25" />}<span className="text-sm">{item.label}</span></button>)}</div></section>
-          <section className="rounded-2xl border border-black/10 bg-white p-5 md:p-6"><div className="flex items-center justify-between"><h3 className="font-semibold">{language === 'es' ? 'Compromisos' : 'Commitments'}</h3><span className="text-[10px] text-black/35">{language === 'es' ? 'Clic para completar' : 'Click to complete'}</span></div><div className="mt-4 space-y-2">{client.commitments.map((item, index) => <button key={`${item.label}-${index}`} type="button" onClick={() => toggleCommitment(index)} className="flex w-full items-center gap-3 rounded-xl border border-black/7 p-3 text-left">{item.status === 'done' ? <CheckCircle2 className="h-4 w-4 text-[#0A3F4D]" /> : item.status === 'overdue' ? <AlertTriangle className="h-4 w-4 text-[#A23A32]" /> : <Circle className="h-4 w-4 text-black/25" />}<span className="text-sm">{item.label}</span></button>)}</div></section>
+          <section className="rounded-2xl border border-black/10 bg-white p-5 md:p-6">
+            <div className="flex items-center justify-between"><div><h3 className="font-semibold">{language === 'es' ? 'Hitos' : 'Milestones'}</h3><p className="mt-1 text-xs text-black/40">{language === 'es' ? 'Compromisos que ya se cumplieron.' : 'Commitments already completed.'}</p></div><CheckCircle2 className="h-5 w-5 text-[#0A3F4D]" /></div>
+            <div className="mt-4 max-h-[240px] space-y-2 overflow-y-auto pr-2">
+              {completedCommitments.length === 0 && <div className="rounded-xl bg-[#F7F7F5] p-3 text-sm text-black/45">{language === 'es' ? 'Aún no hay compromisos cumplidos.' : 'No completed commitments yet.'}</div>}
+              {completedCommitments.map((item, index) => <div key={`${item.label}-${index}`} className="flex items-center gap-3 rounded-xl bg-[#F7F7F5] p-3"><CheckCircle2 className="h-4 w-4 shrink-0 text-[#0A3F4D]" /><span className="text-sm">{item.label}</span></div>)}
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-black/10 bg-white p-5 md:p-6"><div className="flex items-center justify-between"><h3 className="font-semibold">{language === 'es' ? 'Compromisos' : 'Commitments'}</h3><span className="text-[10px] text-black/35">{language === 'es' ? 'Clic para completar' : 'Click to complete'}</span></div><div className="mt-4 max-h-[240px] space-y-2 overflow-y-auto pr-2">{client.commitments.map((item, index) => <button key={`${item.label}-${index}`} type="button" onClick={() => toggleCommitment(index)} className="flex w-full items-center gap-3 rounded-xl border border-black/7 p-3 text-left">{item.status === 'done' ? <CheckCircle2 className="h-4 w-4 text-[#0A3F4D]" /> : item.status === 'overdue' ? <AlertTriangle className="h-4 w-4 text-[#A23A32]" /> : <Circle className="h-4 w-4 text-black/25" />}<span className="text-sm">{item.label}</span></button>)}</div></section>
         </div>
+
+        <section className="rounded-2xl border border-black/10 bg-white p-5 md:p-6">
+          <div className="flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-[#A46F16]" /><h3 className="font-semibold">{language === 'es' ? 'Bloqueos' : 'Blockers'}</h3></div>
+          <div className="mt-4 flex flex-wrap gap-2">{client.blockers.length ? client.blockers.map((blocker) => <span key={blocker} className="rounded-full bg-[#A46F16]/8 px-3 py-1.5 text-xs text-[#82570F]">{blocker}</span>) : <span className="text-sm text-black/45">{language === 'es' ? 'Sin bloqueos registrados.' : 'No blockers recorded.'}</span>}</div>
+        </section>
+
+        <section className="rounded-2xl border border-black/10 bg-white p-5 md:p-6">
+          <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-black/40">{language === 'es' ? 'REGISTRO DE SESIONES' : 'SESSION RECORD'}</p><h3 className="mt-2 text-lg font-semibold">{language === 'es' ? 'Notas y decisiones de las sesiones' : 'Session notes and decisions'}</h3><p className="mt-1 text-sm text-black/45">{language === 'es' ? 'Este registro también forma parte del contexto que revisa G-KAIS Copilot.' : 'This record is also part of the context reviewed by G-KAIS Copilot.'}</p></div>
+          <div className="mt-4 max-h-[300px] space-y-3 overflow-y-auto pr-2">
+            {sessionNotes.length === 0 && <div className="rounded-xl bg-[#F7F7F5] p-4 text-sm text-black/45">{language === 'es' ? 'Todavía no hay notas de sesión registradas.' : 'No session notes recorded yet.'}</div>}
+            {sessionNotes.map((entry) => <div key={entry.id} className="rounded-xl border border-black/7 p-4"><div className="flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-semibold">{entry.title}</p><span className="text-[10px] text-black/35">{displayDate(entry.createdAt, language)}</span></div><p className="mt-2 text-sm leading-6 text-black/55">{entry.body}</p></div>)}
+          </div>
+        </section>
 
         <section className="rounded-2xl border border-black/10 bg-white p-5 md:p-6">
           <div className="flex items-center justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#0A3F4D]">{language === 'es' ? 'BITÁCORA' : 'JOURNAL'}</p><h3 className="mt-2 text-lg font-semibold">{language === 'es' ? 'Historial de relación' : 'Relationship history'}</h3><p className="mt-1 text-sm text-black/45">{language === 'es' ? 'Registro cronológico automático de sesiones, decisiones, acciones y cambios.' : 'Automatic chronological record of sessions, decisions, actions and changes.'}</p></div><History className="h-5 w-5 text-[#0A3F4D]" /></div>

@@ -90,6 +90,8 @@ export function ExpertsWorkspace({ onExit }: Props) {
   const selectedText = appearance.sidebarIntensity >= 6 ? '#FFFFFF' : '#111413';
   const workspaceAccent = themeColor(appearance.theme);
   const darkWorkspace = appearance.theme === 'black' && appearance.intensity > 7;
+  const blackSurfaceMix = appearance.theme === 'black' ? Math.max(0, (appearance.intensity - 4) * 2) : 0;
+  const cardSurface = `color-mix(in srgb, #000000 ${blackSurfaceMix}%, #FAFAF8)`;
   const activeLabel = active === 'settings'
     ? (language === 'es' ? 'Configuración' : 'Settings')
     : active === 'priority'
@@ -110,7 +112,7 @@ export function ExpertsWorkspace({ onExit }: Props) {
     intelligence: { es: 'INTELIGENCIA', en: 'INTELLIGENCE' }
   };
 
-  return <div className="min-h-screen text-[#0A0A0A]" style={{ background: workspaceBackground(workspaceAccent, appearance.intensity) }}>
+  return <div className={`min-h-screen text-[#0A0A0A] ${appearance.theme === 'black' ? 'gkais-black-surface' : ''}`} style={{ background: workspaceBackground(workspaceAccent, appearance.intensity), '--gkais-card-surface': cardSurface } as React.CSSProperties}>
     <aside className="fixed inset-y-0 left-0 z-30 hidden w-[245px] border-r border-black/10 bg-[#111413] text-white lg:flex lg:flex-col">
       <div className="border-b border-white/10 px-5 py-5"><p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/45">G-KAIS</p><p className="mt-1 text-sm font-semibold">for Experts</p></div>
       <nav className="flex-1 overflow-y-auto px-3 py-4">

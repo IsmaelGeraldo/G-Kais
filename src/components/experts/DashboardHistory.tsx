@@ -5,15 +5,13 @@ import {
   ChevronDown,
   ChevronRight,
   CircleGauge,
-  ListTodo,
-  Target,
-  Video
+  Target
 } from 'lucide-react';
 import type { Language } from '../../i18n/LanguageContext';
-import { loadTasks, WORKSPACE_STATE_EVENT, type WorkTask } from './workspaceState';
+import { getWorkPriority, loadTasks, WORKSPACE_STATE_EVENT, type WorkTask } from './workspaceState';
 
 type RangeKey = 'week' | 'month' | 'year';
-type MetricId = 'sessions' | 'clients' | 'leads';
+type MetricId = 'priority' | 'sessions' | 'clients' | 'leads';
 type LocalText = { es: string; en: string };
 type TrendPoint = { label: string; fullLabel: string; value: number };
 type ClientRecord = {
@@ -38,6 +36,7 @@ type Metric = {
 const CLIENT_RECORD_STORAGE_KEY = 'gkais-experts-client-records-v2';
 
 const BASE_METRICS: Metric[] = [
+  { id: 'priority', label: { es: 'Trabajo prioritario', en: 'Priority Work' }, value: '0', detail: { es: 'acciones abiertas', en: 'open actions' }, trend: { es: 'cola operativa', en: 'operating queue' }, ringValue: 0, ringTotal: 1, colors: ['#A23A32', '#D67A32'] },
   { id: 'sessions', label: { es: 'Sesiones de hoy', en: 'Sessions Today' }, value: '3', detail: { es: '2 clientes · 1 lead', en: '2 clients · 1 lead' }, trend: { es: 'agenda del día', en: 'today agenda' }, ringValue: 2, ringTotal: 3, colors: ['#4556A6', '#74A9CF'] },
   { id: 'clients', label: { es: 'Clientes activos', en: 'Active Clients' }, value: '46', detail: { es: '+4 este mes', en: '+4 this month' }, trend: { es: '+9% vs mes anterior', en: '+9% vs previous month' }, ringValue: 43, ringTotal: 46, colors: ['#0A3F4D', '#78A892'] },
   { id: 'leads', label: { es: 'Nuevos leads', en: 'New Leads' }, value: '18', detail: { es: 'este mes', en: 'this month' }, trend: { es: '+12% vs mes anterior', en: '+12% vs previous month' }, ringValue: 14, ringTotal: 18, colors: ['#5C4D8A', '#7A9FC8'] }
@@ -101,18 +100,31 @@ function smoothPath(points: Array<{ x: number; y: number }>): string {
   return path;
 }
 
+function priorityText(task: WorkTask, language: Language): { label: string; className: string } {
+  const priority = getWorkPriority(task);
+  if (priority === 'high') return { label: language === 'es' ? 'ALTA' : 'HIGH', className: 'bg-[#A23A32]/9 text-[#8D332C]' };
+  if (priority === 'medium') return { label: language === 'es' ? 'MEDIA' : 'MEDIUM', className: 'bg-[#A46F16]/10 text-[#82570F]' };
+  return { label: language === 'es' ? 'NORMAL' : 'NORMAL', className: 'bg-[#0A3F4D]/8 text-[#0A3F4D]' };
+}
+
 function HistoricalChart({ kind, range, setRange, language }: { kind: 'clients' | 'leads'; range: RangeKey; setRange: (range: RangeKey) => void; language: Language }) {
   const [hovered, setHovered] = useState<number | null>(null);
   const points = HISTORY[kind][range];
   const width = 760;
   const height = 150;
-  const padX = 28;
+  const padX = 46;
+  const padRight = 24;
   const padY = 20;
-  const max = Math.max(1, ...points.map((point) => point.value));
+  const rawMax = Math.max(1, ...points.map((point) => point.value));
+  const tickStep = Math.max(1, Math.ceil(rawMax / 4));
+  const yMax = tickStep * 4;
+  const chartWidth = width - padX - padRight;
+  const chartHeight = height - padY * 2;
   const plotted = points.map((point, index) => ({
-    x: padX + (index / Math.max(1, points.length - 1)) * (width - padX * 2),
-    y: height - padY - (point.value / max) * (height - padY * 2)
+    x: padX + (index / Math.max(1, points.length - 1)) * chartWidth,
+    y: height - padY - (point.value / yMax) * chartHeight
   }));
+  const yTicks = [0, 1, 2, 3, 4].map((index) => yMax - tickStep * index);
   const total = points.reduce((sum, point) => sum + point.value, 0);
   const average = total / points.length;
   const peak = Math.max(...points.map((point) => point.value));
@@ -125,7 +137,7 @@ function HistoricalChart({ kind, range, setRange, language }: { kind: 'clients' 
     : '';
   const tooltipWidth = 128;
   const tooltipHeight = 42;
-  const tooltipX = selectedPoint ? Math.min(width - padX - tooltipWidth, Math.max(padX, selectedPoint.x - tooltipWidth / 2)) : 0;
+  const tooltipX = selectedPoint ? Math.min(width - padRight - tooltipWidth, Math.max(padX, selectedPoint.x - tooltipWidth / 2)) : 0;
   const tooltipY = selectedPoint ? (selectedPoint.y < 58 ? selectedPoint.y + 10 : selectedPoint.y - tooltipHeight - 10) : 0;
 
   return (
@@ -157,7 +169,15 @@ function HistoricalChart({ kind, range, setRange, language }: { kind: 'clients' 
               <stop offset="100%" stopColor={lineColor} stopOpacity="0" />
             </linearGradient>
           </defs>
-          {[0.25, 0.5, 0.75, 1].map((fraction) => <line key={fraction} x1={padX} x2={width - padX} y1={height * fraction - 5} y2={height * fraction - 5} stroke="currentColor" strokeOpacity="0.055" />)}
+          {yTicks.map((value, index) => {
+            const y = padY + (index / 4) * chartHeight;
+            return (
+              <g key={`${kind}-${value}-${index}`}>
+                <line x1={padX} x2={width - padRight} y1={y} y2={y} stroke="currentColor" strokeOpacity="0.055" />
+                <text x={padX - 10} y={y + 3} textAnchor="end" fill="currentColor" fillOpacity="0.34" fontSize="9">{value}</text>
+              </g>
+            );
+          })}
           <path d={areaPath} fill={`url(#history-fill-${kind})`} />
           <path d={linePath} fill="none" stroke={lineColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           {selectedPoint && <line x1={selectedPoint.x} x2={selectedPoint.x} y1={padY} y2={height - padY} stroke={lineColor} strokeOpacity="0.16" strokeDasharray="3 4" />}
@@ -175,7 +195,7 @@ function HistoricalChart({ kind, range, setRange, language }: { kind: 'clients' 
             </g>
           )}
         </svg>
-        <div className="flex justify-between px-1 text-[9px] font-medium text-black/32">
+        <div className="flex justify-between text-[9px] font-medium text-black/32" style={{ paddingLeft: `${padX}px`, paddingRight: `${padRight}px` }}>
           {points.map((point, index) => <span key={point.fullLabel} className={points.length > 8 && index % 2 !== 0 ? 'hidden sm:block' : ''}>{point.label}</span>)}
         </div>
       </div>
@@ -221,7 +241,12 @@ export function DashboardHistory({
     };
   }, []);
 
-  const openTasks = tasks.filter((task) => task.status !== 'done');
+  const openTasks = useMemo(() => tasks
+    .filter((task) => task.status !== 'done')
+    .sort((a, b) => `${a.dueDate || '9999-12-31'}${a.dueTime || '23:59'}`.localeCompare(`${b.dueDate || '9999-12-31'}${b.dueTime || '23:59'}`)), [tasks]);
+  const metrics = useMemo(() => BASE_METRICS.map((metric) => metric.id === 'priority'
+    ? { ...metric, value: String(openTasks.length), ringValue: Math.min(openTasks.length, 7), ringTotal: Math.max(1, openTasks.length) }
+    : metric), [openTasks.length]);
 
   const signals = useMemo(() => {
     const result: Array<{ id: string; name: string; label: string; reason: string }> = [];
@@ -229,8 +254,8 @@ export function DashboardHistory({
       const phase = (client.currentPhase || '').toLowerCase();
       const nextSession = (client.nextSession || '').trim();
       const nextAction = (client.nextAction || '').trim();
-      if (phase.includes('renov')) {
-        result.push({ id: client.id, name: client.name, label: language === 'es' ? 'Renovación cercana' : 'Renewal approaching', reason: language === 'es' ? 'Conviene revisar resultados y continuidad antes del cierre del programa.' : 'Review results and continuity before the program ends.' });
+      if (phase.includes('cierre') || phase.includes('continuidad') || phase.includes('renov')) {
+        result.push({ id: client.id, name: client.name, label: language === 'es' ? 'Plan cerca de cierre' : 'Plan nearing close', reason: language === 'es' ? 'Conviene revisar resultados, continuidad y próxima etapa.' : 'Review results, continuity and the next stage.' });
       } else if (!nextSession || /coordinar|schedule|pendiente/i.test(nextSession)) {
         result.push({ id: client.id, name: client.name, label: language === 'es' ? 'Sin próxima sesión' : 'No next session', reason: language === 'es' ? 'La relación no tiene una próxima reunión confirmada.' : 'The relationship has no confirmed next meeting.' });
       } else if (!nextAction) {
@@ -246,10 +271,12 @@ export function DashboardHistory({
     { id: 'diego', time: '18:00', name: 'Diego Rojas' }
   ];
 
+  void onStartSession;
+
   return (
     <>
-      <div className="grid gap-4 sm:grid-cols-3">
-        {BASE_METRICS.map((metric) => {
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {metrics.map((metric) => {
           const expandable = metric.id === 'clients' || metric.id === 'leads';
           const isExpanded = expanded === metric.id;
           return (
@@ -276,30 +303,35 @@ export function DashboardHistory({
 
       <div className="mt-6 grid gap-6 xl:grid-cols-[1.45fr_0.8fr]">
         <section className="rounded-2xl border border-black/10 bg-white p-5 shadow-[0_10px_30px_rgba(10,10,10,0.03)] md:p-6">
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex flex-col justify-between gap-4 md:flex-row md:items-start">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#0A3F4D]">{language === 'es' ? 'EJECUCIÓN' : 'EXECUTION'}</p>
               <h2 className="mt-2 text-xl font-semibold">{language === 'es' ? 'Por hacer hoy' : 'Due today'}</h2>
-              <p className="mt-1 text-sm text-black/50">{language === 'es' ? 'Las acciones que requieren ejecución y seguimiento.' : 'Actions that require execution and follow-up.'}</p>
+              <p className="mt-1 text-sm text-black/50">{language === 'es' ? 'Prioridad y ejecución del trabajo que necesita atención.' : 'Priority and execution for work that needs attention.'}</p>
             </div>
-            <span className="rounded-full bg-[#0A3F4D]/8 px-3 py-1.5 text-xs font-semibold text-[#0A3F4D]">{openTasks.length}</span>
+            <div className="flex items-center gap-2">
+              <span className="rounded-full bg-[#0A3F4D]/8 px-3 py-2 text-xs font-semibold text-[#0A3F4D]">{openTasks.length}</span>
+              <button type="button" onClick={() => onNavigate('priority')} className="inline-flex items-center gap-2 rounded-full bg-[#111413] px-4 py-2.5 text-xs font-semibold text-white">{language === 'es' ? 'Trabajo prioritario' : 'Priority work'}<ChevronRight className="h-3.5 w-3.5" /></button>
+            </div>
           </div>
           <div className="mt-4 divide-y divide-black/5">
             {openTasks.length === 0 && <div className="py-5 text-sm text-black/45">{language === 'es' ? 'No hay tareas abiertas.' : 'No open tasks.'}</div>}
-            {openTasks.slice(0, 5).map((task) => (
-              <div key={task.id} className="grid gap-3 py-4 first:pt-1 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold">{task.title}</p>
-                  <p className="mt-1 text-xs text-black/45">{task.clientName} · {task.assignee}</p>
+            {openTasks.slice(0, 5).map((task) => {
+              const priority = priorityText(task, language);
+              return (
+                <div key={task.id} className="grid gap-3 py-4 first:pt-1 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2"><p className="text-sm font-semibold">{task.title}</p><span className={`rounded-full px-2 py-0.5 text-[9px] font-semibold ${priority.className}`}>{priority.label}</span></div>
+                    <p className="mt-1 text-xs text-black/45">{task.clientName} · {task.assignee}</p>
+                  </div>
+                  <div className="text-left md:text-right">
+                    <p className="text-xs font-semibold text-black/65">{task.dueTime || (language === 'es' ? 'Sin hora' : 'No time')}</p>
+                    <p className="mt-1 text-[10px] text-black/35">{task.dueDate || (language === 'es' ? 'Sin fecha' : 'No date')}</p>
+                  </div>
                 </div>
-                <div className="text-left md:text-right">
-                  <p className="text-xs font-semibold text-black/65">{task.dueTime || (language === 'es' ? 'Sin hora' : 'No time')}</p>
-                  <p className="mt-1 text-[10px] text-black/35">{task.dueDate || (language === 'es' ? 'Sin fecha' : 'No date')}</p>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
-          <button type="button" onClick={() => onNavigate('priority')} className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#111413] px-4 py-2.5 text-xs font-semibold text-white">{language === 'es' ? 'Abrir trabajo prioritario' : 'Open priority work'}<ChevronRight className="h-3.5 w-3.5" /></button>
         </section>
 
         <div className="grid content-start gap-6">
@@ -310,7 +342,7 @@ export function DashboardHistory({
                 <div key={item.id} className="flex items-center gap-3 rounded-xl border border-black/6 p-3">
                   <span className="w-11 text-sm font-semibold text-black/60">{item.time}</span>
                   <span className="min-w-0 flex-1 truncate text-sm">{item.name}</span>
-                  <button type="button" onClick={() => onStartSession(item.id)} className="inline-flex items-center gap-1.5 rounded-full bg-[#111413] px-3 py-1.5 text-[10px] font-semibold text-white"><Video className="h-3 w-3" />{language === 'es' ? 'Modo sesión' : 'Session'}</button>
+                  <button type="button" onClick={() => onOpenClient(item.id)} className="inline-flex items-center gap-1.5 rounded-full border border-black/10 bg-white px-3 py-1.5 text-[10px] font-semibold text-black/60">{language === 'es' ? 'Ver ficha' : 'Open record'}<ChevronRight className="h-3 w-3" /></button>
                 </div>
               ))}
             </div>

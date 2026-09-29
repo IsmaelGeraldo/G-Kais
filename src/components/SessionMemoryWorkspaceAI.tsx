@@ -3,7 +3,7 @@ import { Sparkles } from 'lucide-react';
 import { SessionMemoryWorkspace } from './SessionMemoryWorkspace';
 import { useLanguage } from '../i18n/LanguageContext';
 import { requestSessionCopilot, type SessionCopilotClient } from '../services/sessionCopilot';
-import { emitWorkspaceStateChanged } from './experts/workspaceState';
+import { emitWorkspaceStateChanged, SESSION_STAGE_EVENT } from './experts/workspaceState';
 
 type Props = { onBack: () => void };
 type JournalEntry = { clientId: string; title?: string; body?: string; createdAt?: string };
@@ -49,33 +49,45 @@ export function SessionMemoryWorkspaceAI({ onBack }: Props) {
 
   useEffect(() => {
     let cancelled = false;
+    let runId = 0;
     const clientId = new URLSearchParams(window.location.search).get('client') || 'sofia';
 
     const hydrate = async () => {
+      const thisRun = ++runId;
       const clients = loadClients();
       const client = clients.find((item) => item.id === clientId);
       if (!client) {
-        if (!cancelled) setAnalyzing(false);
+        if (!cancelled && thisRun === runId) setAnalyzing(false);
         return;
       }
 
+      setAnalyzing(true);
       try {
         const journal = loadJournal().filter((entry) => entry.clientId === clientId);
         const brief = await requestSessionCopilot(client, journal, language);
-        if (cancelled) return;
+        if (cancelled || thisRun !== runId) return;
         const current = loadClients();
         localStorage.setItem(CLIENT_STORAGE_KEY, JSON.stringify(current.map((item) => item.id === clientId ? { ...item, copilot: brief } : item)));
         emitWorkspaceStateChanged();
         setUsingAI(true);
       } catch {
-        if (!cancelled) setUsingAI(false);
+        if (!cancelled && thisRun === runId) setUsingAI(false);
       } finally {
-        if (!cancelled) setAnalyzing(false);
+        if (!cancelled && thisRun === runId) setAnalyzing(false);
       }
     };
 
+    const onStageCompleted = (event: Event) => {
+      const detail = (event as CustomEvent<{ clientId?: string }>).detail;
+      if (!detail?.clientId || detail.clientId === clientId) hydrate();
+    };
+
     hydrate();
-    return () => { cancelled = true; };
+    window.addEventListener(SESSION_STAGE_EVENT, onStageCompleted as EventListener);
+    return () => {
+      cancelled = true;
+      window.removeEventListener(SESSION_STAGE_EVENT, onStageCompleted as EventListener);
+    };
   }, [language]);
 
   return (
@@ -84,7 +96,7 @@ export function SessionMemoryWorkspaceAI({ onBack }: Props) {
       {analyzing && (
         <div className="fixed right-4 top-16 z-[95] inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/92 px-3 py-2 text-[10px] font-medium text-black/50 shadow-sm backdrop-blur">
           <Sparkles className="h-3.5 w-3.5 text-[#0A3F4D]" />
-          {language === 'es' ? 'Copilot actualizando contexto…' : 'Copilot updating context…'}
+          {language === 'es' ? 'Copilot actualizando esta etapa…' : 'Copilot updating this stage…'}
         </div>
       )}
       {!analyzing && !usingAI && (

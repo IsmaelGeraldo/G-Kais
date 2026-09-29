@@ -67,23 +67,21 @@ function buildSessionOpening(
   risks: string[],
   language: 'es' | 'en'
 ): string {
-  if (existing?.callOpening) return existing.callOpening;
-
   const gap = existing?.gap?.trim();
   const firstRisk = risks[0]?.trim();
 
   if (language === 'es') {
     if (gap && firstRisk) {
-      return `Quiero partir revisando dónde estamos respecto a este punto: ${gap} Antes de cambiar el plan, me interesa entender mejor ${firstRisk.toLowerCase()} y salir de esta sesión con una próxima acción concreta.`;
+      return `Quiero partir revisando dónde estamos respecto a este punto: ${gap} Antes de cambiar el plan, entendamos mejor ${firstRisk.toLowerCase()} y salgamos con una próxima acción concreta.`;
     }
     if (gap) {
       return `Quiero partir revisando dónde estamos respecto a este punto: ${gap} Veamos qué cambió desde la última sesión y cerremos con una próxima acción concreta.`;
     }
-    return 'Quiero partir conectando lo que acordamos en la última sesión con lo que realmente ocurrió. Revisemos avances, bloqueadores y cerremos con una próxima acción concreta.';
+    return 'Quiero partir conectando lo que acordamos en la última sesión con lo que realmente ocurrió. Revisemos avances, bloqueos y cerremos con una próxima acción concreta.';
   }
 
   if (gap && firstRisk) {
-    return `I want to start by reviewing where we are on this point: ${gap} Before changing the plan, I want to understand ${firstRisk.toLowerCase()} more clearly and leave this session with one concrete next action.`;
+    return `I want to start by reviewing where we are on this point: ${gap} Before changing the plan, let's understand ${firstRisk.toLowerCase()} and leave with one concrete next action.`;
   }
   if (gap) {
     return `I want to start by reviewing where we are on this point: ${gap} Let's see what changed since the last session and close with one concrete next action.`;
@@ -101,10 +99,7 @@ export async function requestSessionCopilot(
 
   const idToken = await user.getIdToken(true);
   const existing = client.copilot ?? {};
-  const currentProblem = [
-    existing.gap,
-    ...(client.blockers ?? [])
-  ].filter(Boolean).join(' · ');
+  const currentProblem = [existing.gap, ...(client.blockers ?? [])].filter(Boolean).join(' · ');
   const currentSolution = (existing.plan ?? []).join(' · ');
   const commitmentContext = (client.commitments ?? [])
     .map((item) => `${item.label} [${item.status}]`)
@@ -152,19 +147,33 @@ export async function requestSessionCopilot(
   const questions = Array.isArray(brief.qualificationQuestions) && brief.qualificationQuestions.length
     ? brief.qualificationQuestions
     : (existing.questions || []);
+  const howHelp = Array.isArray(brief.howGkaisCanHelp) && brief.howGkaisCanHelp.length
+    ? brief.howGkaisCanHelp
+    : (existing.howHelp || []);
+  const solutionPlan = Array.isArray(brief.solutionPlan) && brief.solutionPlan.length
+    ? brief.solutionPlan
+    : [];
+  const plan = solutionPlan.length
+    ? solutionPlan
+    : brief.recommendedAction
+      ? [String(brief.recommendedAction)]
+      : (existing.plan || []);
+  const summary = typeof brief.summary === 'string' && brief.summary.trim()
+    ? brief.summary.trim()
+    : (existing.summary || '');
+  const gap = risks[0] || existing.gap || summary;
+  const callOpening = typeof brief.callPositioning === 'string' && brief.callPositioning.trim()
+    ? brief.callPositioning.trim()
+    : buildSessionOpening({ ...existing, gap }, risks, language);
 
-  // The current authenticated endpoint is the Admin sales-copilot endpoint.
-  // For the pilot we reuse only its evidence analysis, risks and questions.
-  // Client-success solutions and spoken positioning stay grounded in the
-  // client's existing Outcome Memory until a tenant-aware session endpoint exists.
   return {
-    summary: existing.summary || brief.summary || '',
-    gap: existing.gap || '',
+    summary,
+    gap,
     known,
     risks,
     questions,
-    howHelp: existing.howHelp || [],
-    plan: existing.plan || [],
-    callOpening: buildSessionOpening(existing, risks, language)
+    howHelp,
+    plan,
+    callOpening
   };
 }

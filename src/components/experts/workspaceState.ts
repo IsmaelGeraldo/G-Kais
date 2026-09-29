@@ -15,6 +15,8 @@ export type WorkTask = {
   status: WorkTaskStatus;
   createdAt: string;
   completedAt?: string;
+  deletedAt?: string;
+  deletedFromStatus?: WorkTaskStatus;
   result?: string;
   source?: 'attention' | 'session' | 'manual';
   sourceCommitmentLabel?: string;
@@ -318,7 +320,7 @@ export function saveSessionSummary(summary: SessionSummary): SessionSummary[] {
 }
 
 function reconcileTask(task: WorkTask, clients: SharedSessionClient[]): WorkTask {
-  if (!task.sourceCommitmentLabel) return task;
+  if (task.deletedAt || !task.sourceCommitmentLabel) return task;
   const client = clients.find((item) => item.id === task.clientId);
   const commitment = client?.commitments?.find((item) => item.label === task.sourceCommitmentLabel);
   if (!commitment) return task;
@@ -339,7 +341,7 @@ export function loadTasks(): WorkTask[] {
 
 function syncClientOperationalState(clientId: string, tasks: WorkTask[]): void {
   if (typeof window === 'undefined' || !clientId) return;
-  const open = tasks.filter((task) => task.clientId === clientId && task.status !== 'done').sort((a, b) => dueTimestamp(a) - dueTimestamp(b));
+  const open = tasks.filter((task) => task.clientId === clientId && task.status !== 'done' && !task.deletedAt).sort((a, b) => dueTimestamp(a) - dueTimestamp(b));
   const nextAction = taskAsNextAction(open[0]);
   const nextMeeting = open.filter((task) => task.type === 'meeting').sort((a, b) => dueTimestamp(a) - dueTimestamp(b))[0];
   const nextSession = nextMeetingText(nextMeeting);
@@ -394,8 +396,21 @@ export function updateWorkTask(taskId: string, patch: Partial<WorkTask>): WorkTa
 export function deleteWorkTask(taskId: string): WorkTask[] {
   const before = loadTasks();
   const touched = before.find((task) => task.id === taskId);
-  const tasks = before.filter((task) => task.id !== taskId);
+  if (!touched) return before;
+  const deletedAt = new Date().toISOString();
+  const tasks = before.map((task) => task.id === taskId ? { ...task, deletedAt, deletedFromStatus: task.status } : task);
   saveTasks(tasks);
-  if (touched?.clientId) syncClientOperationalState(touched.clientId, tasks);
+  syncClientOperationalState(touched.clientId, tasks);
+  return tasks;
+}
+
+export function recoverWorkTask(taskId: string): WorkTask[] {
+  const before = loadTasks();
+  const touched = before.find((task) => task.id === taskId);
+  if (!touched) return before;
+  const restoredStatus = touched.deletedFromStatus || 'pending';
+  const tasks = before.map((task) => task.id === taskId ? { ...task, status: restoredStatus, deletedAt: undefined, deletedFromStatus: undefined } : task);
+  saveTasks(tasks);
+  syncClientOperationalState(touched.clientId, tasks);
   return tasks;
 }

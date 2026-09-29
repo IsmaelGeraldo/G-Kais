@@ -50,9 +50,48 @@ function extractLine(body: string | undefined, labels: string[]): string {
   const colon = line.indexOf(':');
   return colon >= 0 ? line.slice(colon + 1).trim() : line.trim();
 }
+function cleanGeneratedText(value: unknown, language: 'es' | 'en'): string {
+  if (typeof value !== 'string') return '';
+  let text = value
+    .replace(/\s+/g, ' ')
+    .replace(/\s+([,.;:!?])/g, '$1')
+    .replace(/([¿¡])\s+/g, '$1')
+    .trim();
+  if (!text) return '';
+  if (language === 'es') {
+    text = text
+      .replace(/\bfollow[- ]?up\b/gi, 'seguimiento')
+      .replace(/\bfeedback\b/gi, 'comentarios')
+      .replace(/\bcall\b/gi, 'llamada')
+      .replace(/\bpipeline\b/gi, 'proceso comercial')
+      .replace(/\bfunnel\b/gi, 'sistema de captación')
+      .replace(/\bdelivery\b/gi, 'entrega')
+      .replace(/\bperformance\b/gi, 'rendimiento');
+  }
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+function cleanGeneratedList(value: unknown, language: 'es' | 'en'): string[] {
+  if (!Array.isArray(value)) return [];
+  return Array.from(new Set(value.map((item) => cleanGeneratedText(item, language)).filter(Boolean)));
+}
+function sessionTone(language: 'es' | 'en'): string {
+  if (language === 'es') {
+    return [
+      'Contexto: el contacto es un cliente activo que ya está dentro de una mentoría, consultoría o servicio profesional; no es un lead por cerrar.',
+      'Redacta para ayudar al mentor durante una sesión real con el cliente.',
+      'Usa español natural, profesional y sencillo. Cuida tildes, concordancia, puntuación y signos de apertura en preguntas.',
+      'Evita traducciones literales del inglés, anglicismos innecesarios, frases corporativas y lenguaje de ventas.',
+      'Usa frases breves y directas. Una idea principal por oración.',
+      'No repitas información que ya aparece en otras secciones. Prioriza cambios recientes, problema actual, bloqueo, decisión y siguiente paso.',
+      'Las preguntas deben poder decirse en voz alta de forma natural y deben ir al grano.',
+      'Las soluciones y planes deben ser concretos, accionables y fáciles de entender para un mentor.'
+    ].join(' ');
+  }
+  return 'Context: this is an active client already receiving a mentoring, consulting or professional service. Write for a mentor during a live client session. Use concise, natural, professional language; avoid sales language, repetition and unnecessary jargon.';
+}
 function buildSessionOpening(existing: SessionCopilotClient['copilot'], risks: string[], language: 'es' | 'en'): string {
-  const gap = existing?.gap?.trim(); const firstRisk = risks[0]?.trim();
-  if (language === 'es') { if (gap && firstRisk) return `Quiero partir revisando dónde estamos respecto a este punto: ${gap} Antes de cambiar el plan, entendamos mejor ${firstRisk.toLowerCase()} y salgamos con una próxima acción concreta.`; if (gap) return `Quiero partir revisando dónde estamos respecto a este punto: ${gap} Veamos qué cambió desde la última sesión y cerremos con una próxima acción concreta.`; return 'Quiero partir conectando lo que acordamos en la última sesión con lo que realmente ocurrió. Revisemos avances, bloqueos y cerremos con una próxima acción concreta.'; }
+  const gap = cleanGeneratedText(existing?.gap, language); const firstRisk = cleanGeneratedText(risks[0], language);
+  if (language === 'es') { if (gap && firstRisk) return `Quiero partir revisando dónde estamos respecto de este punto: ${gap} Antes de cambiar el plan, entendamos mejor ${firstRisk.toLowerCase()} y cerremos con una próxima acción concreta.`; if (gap) return `Quiero partir revisando dónde estamos respecto de este punto: ${gap} Veamos qué cambió desde la última sesión y cerremos con una próxima acción concreta.`; return 'Quiero partir conectando lo que acordamos en la última sesión con lo que realmente ocurrió. Revisemos avances, bloqueos y cerremos con una próxima acción concreta.'; }
   if (gap && firstRisk) return `I want to start by reviewing where we are on this point: ${gap} Before changing the plan, let's understand ${firstRisk.toLowerCase()} and leave with one concrete next action.`;
   if (gap) return `I want to start by reviewing where we are on this point: ${gap} Let's see what changed since the last session and close with one concrete next action.`;
   return 'I want to connect what we agreed in the last session with what actually happened. Let’s review progress, blockers and close with one concrete next action.';
@@ -88,6 +127,12 @@ export async function requestSessionCopilot(client: SessionCopilotClient, journa
       businessGoal: client.goal || '',
       status: 'CLIENT',
       nextAction: client.nextAction || '',
+      businessKnowledge: {
+        businessDescription: language === 'es'
+          ? 'G-KAIS está preparando una sesión de seguimiento para un cliente activo. El objetivo es comprender su situación actual, revisar avances, detectar bloqueos y definir un plan claro para la siguiente etapa.'
+          : 'G-KAIS is preparing a follow-up session for an active client. The goal is to understand the current situation, review progress, detect blockers and define a clear next-stage plan.',
+        tone: sessionTone(language)
+      },
       intakeContext: [client.week, commitmentContext, review?.body].filter(Boolean).join(' · '),
       internalNotes: [existing.summary, diagnosis?.body].filter(Boolean).join(' · '),
       notes: journal.slice(0, 16).map((entry) => ({ title: entry.title || 'Client journal', body: entry.body || '', createdAt: entry.createdAt }))
@@ -97,15 +142,18 @@ export async function requestSessionCopilot(client: SessionCopilotClient, journa
   const payload = await response.json().catch(() => null);
   if (!response.ok || !payload?.brief) throw new Error(payload?.error || payload?.message || 'SESSION_COPILOT_FAILED');
   const brief = payload.brief;
-  const known = Array.isArray(brief.signals) && brief.signals.length ? brief.signals : (existing.known || []);
-  const risks = Array.isArray(brief.risks) && brief.risks.length ? brief.risks : (existing.risks || []);
-  const questions = Array.isArray(brief.qualificationQuestions) && brief.qualificationQuestions.length ? brief.qualificationQuestions : (existing.questions || []);
-  const howHelp = Array.isArray(brief.howGkaisCanHelp) && brief.howGkaisCanHelp.length ? brief.howGkaisCanHelp : (existing.howHelp || []);
-  const solutionPlan = Array.isArray(brief.solutionPlan) && brief.solutionPlan.length ? brief.solutionPlan : [];
-  const plan = solutionPlan.length ? solutionPlan : brief.recommendedAction ? [String(brief.recommendedAction)] : (existing.plan || []);
-  const summary = typeof brief.summary === 'string' && brief.summary.trim() ? brief.summary.trim() : (existing.summary || '');
+  const known = cleanGeneratedList(Array.isArray(brief.signals) && brief.signals.length ? brief.signals : (existing.known || []), language);
+  const risks = cleanGeneratedList(Array.isArray(brief.risks) && brief.risks.length ? brief.risks : (existing.risks || []), language);
+  const questions = cleanGeneratedList(Array.isArray(brief.qualificationQuestions) && brief.qualificationQuestions.length ? brief.qualificationQuestions : (existing.questions || []), language);
+  const howHelp = cleanGeneratedList(Array.isArray(brief.howGkaisCanHelp) && brief.howGkaisCanHelp.length ? brief.howGkaisCanHelp : (existing.howHelp || []), language);
+  const solutionPlan = cleanGeneratedList(Array.isArray(brief.solutionPlan) && brief.solutionPlan.length ? brief.solutionPlan : [], language);
+  const plan = solutionPlan.length ? solutionPlan : brief.recommendedAction ? [cleanGeneratedText(String(brief.recommendedAction), language)].filter(Boolean) : cleanGeneratedList(existing.plan || [], language);
+  const summary = cleanGeneratedText(typeof brief.summary === 'string' && brief.summary.trim() ? brief.summary : (existing.summary || ''), language);
   const freshSignal = risks[0] || summary;
-  const gap = diagnosedProblem || (reviewPositive ? freshSignal : (client.currentGap || freshSignal || existing.gap || ''));
-  const callOpening = typeof brief.callPositioning === 'string' && brief.callPositioning.trim() ? brief.callPositioning.trim() : buildSessionOpening({ ...existing, gap }, risks, language);
+  const gap = cleanGeneratedText(diagnosedProblem || (reviewPositive ? freshSignal : (client.currentGap || freshSignal || existing.gap || '')), language);
+  const aiOpening = cleanGeneratedText(typeof brief.callPositioning === 'string' ? brief.callPositioning : '', language);
+  const callOpening = aiOpening && !/agendar|te escribo|te envío|próxima llamada|next call|schedule/i.test(aiOpening)
+    ? aiOpening
+    : buildSessionOpening({ ...existing, gap }, risks, language);
   return { summary, gap, known, risks, questions, howHelp, plan, callOpening };
 }

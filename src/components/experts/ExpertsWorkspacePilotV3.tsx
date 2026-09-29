@@ -98,7 +98,7 @@ export function ExpertsWorkspace({ onExit }: Props) {
   let content: React.ReactNode;
   if (active === 'overview') content = <DashboardHistory language={language} onNavigate={navigate} onOpenClient={openPerson} onStartSession={startSession} />;
   else if (active === 'priority') content = <PriorityRadarWorkspace language={language} onOpenClient={openPerson} />;
-  else if (active === 'clients') content = <ClientWorkspaceEnhanced language={language} selectedId={selectedClientId} onSelectedId={(id) => navigate('clients', id)} onStartSession={startSession} />;
+  else if (active === 'clients') content = <ClientWorkspaceEnhanced language={language} selectedId={selectedClientId} onSelectedId={(id) => navigate('clients', id)} onStartSession={startSession} onOpenPriority={() => navigate('priority')} />;
   else if (active === 'settings') content = <WorkspaceSettingsProfile language={language} profile={profile} setProfile={setProfile} appearance={appearance} setAppearance={setAppearance} />;
   else content = <Placeholder active={active} language={language} />;
 

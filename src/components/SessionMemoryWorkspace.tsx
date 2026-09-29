@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Circle,
   Clock3,
+  Lightbulb,
   ListTodo,
   Mail,
   MessageSquareText,
@@ -47,28 +48,28 @@ const APPEARANCE_KEY = 'gkais-experts-appearance-v2';
 
 const FALLBACK_CLIENTS: SessionClient[] = [
   {
-    id: 'sofia', name: 'Sofía Martínez', company: 'Sofía Martínez Consulting', program: 'Mentoría Escala', week: 'Semana 7 / 24', goal: 'Crear adquisición predecible y llegar a US$15k/mes.', nextAction: 'Revisar compromisos antes de la próxima sesión.', nextSession: 'Martes · 15:30', blockers: ['Ejecución inconsistente'],
+    id: 'sofia', name: 'Sofía Martínez', company: 'Sofía Martínez Consulting', program: 'Mentoría Escala', week: 'Semana 7 / 24', goal: 'Crear adquisición predecible y llegar a US$15k/mes.', nextAction: 'Revisar compromisos antes de la próxima sesión.', nextSession: 'Martes · 15:30', currentPhase: 'Adquisición', planSummary: 'Validar el sistema de captación con suficiente actividad semanal antes de cambiar la estrategia.', blockers: ['Ejecución inconsistente'],
     commitments: [{ id: 'sofia-c1', label: 'Publicar 3 piezas de contenido', status: 'overdue' }, { id: 'sofia-c2', label: 'Contactar 25 prospectos', status: 'pending' }, { id: 'sofia-c3', label: 'Revisión comercial cada viernes', status: 'done' }],
     copilot: {
-      summary: 'Sofía tiene el funnel activo, pero el progreso depende ahora de sostener una ejecución semanal consistente.',
-      gap: 'Todavía falta suficiente volumen para separar con claridad un problema de estrategia de un problema de ejecución.',
-      known: ['El funnel está activo.', 'La ejecución semanal ha sido irregular.'],
-      risks: ['Cambiar la estrategia demasiado pronto puede ocultar el problema real.'],
+      summary: 'Sofía tiene el sistema de captación activo, pero necesita ser más constante con las acciones acordadas.',
+      gap: 'Todavía falta actividad suficiente para saber si el problema está en la estrategia o en la constancia.',
+      known: ['El sistema de captación está activo.', 'La actividad semanal ha sido irregular.'],
+      risks: ['Cambiar la estrategia demasiado pronto puede esconder el problema real.'],
       questions: ['¿Qué ocurrió concretamente desde la última sesión?', '¿Qué parte fue más difícil de ejecutar?', '¿Qué tendría que cambiar esta semana para cumplir el volumen acordado?'],
-      howHelp: ['Separar estrategia de ejecución.', 'Cerrar la sesión con compromisos medibles.'],
-      plan: ['Revisar evidencia.', 'Identificar el bloqueo.', 'Definir siguiente acción.'],
-      callOpening: 'Quiero partir conectando lo que acordamos con lo que realmente ocurrió desde la última sesión. Antes de cambiar la estrategia, revisemos qué te frenó y qué aprendimos con lo que sí se ejecutó.'
+      howHelp: ['Separar si el problema está en la estrategia o en la constancia.', 'Definir una semana simple con acciones medibles.'],
+      plan: ['Definir una acción semanal concreta y medible.'],
+      callOpening: 'Quiero partir revisando lo que acordamos y qué ocurrió en la práctica. Antes de cambiar la estrategia, entendamos qué te frenó.'
     }
   },
   {
-    id: 'andres', name: 'Andrés Silva', company: 'Silva Growth', program: 'Mentoría Escala', week: 'Semana 11 / 24', goal: 'Aumentar la tasa de cierre y estabilizar ingresos.', nextAction: 'Revisar llamadas y estandarizar follow-up.', nextSession: 'Hoy · 10:00', blockers: ['Seguimiento irregular'],
+    id: 'andres', name: 'Andrés Silva', company: 'Silva Growth', program: 'Mentoría Escala', week: 'Semana 11 / 24', goal: 'Aumentar la tasa de cierre y estabilizar ingresos.', nextAction: 'Revisar llamadas y estandarizar follow-up.', nextSession: 'Hoy · 10:00', currentPhase: 'Conversión', planSummary: 'Ordenar el seguimiento y mejorar el cierre antes de aumentar el volumen de reuniones.', blockers: ['Seguimiento irregular'],
     commitments: [{ id: 'andres-c1', label: 'Revisar 5 llamadas grabadas', status: 'done' }, { id: 'andres-c2', label: 'Enviar follow-up dentro de 24h', status: 'pending' }],
-    copilot: { summary: 'El volumen comercial existe; la brecha principal está en seguimiento y conversión.', gap: 'La conversión todavía depende demasiado de cómo se gestiona cada oportunidad después de la llamada.', known: ['Existe volumen suficiente de reuniones.'], risks: ['Escalar adquisición antes de estabilizar conversión.'], questions: ['¿Dónde se enfrían más oportunidades?', '¿Qué objeciones se repiten?'], howHelp: ['Estandarizar seguimiento.'], plan: ['Revisar llamadas.', 'Definir follow-up.', 'Medir cambio.'], callOpening: 'Hoy quiero concentrarnos menos en conseguir más reuniones y más en qué está pasando con las que ya tenemos.' }
+    copilot: { summary: 'Andrés consigue reuniones, pero pierde oportunidades por un seguimiento irregular.', gap: 'El problema principal está entre la reunión y el cierre de la venta.', known: ['Existe un buen volumen de reuniones.'], risks: ['Aumentar reuniones antes de ordenar el seguimiento.'], questions: ['¿Dónde se enfrían más oportunidades?', '¿Qué objeciones se repiten?'], howHelp: ['Crear un seguimiento simple que el equipo pueda repetir.'], plan: ['Definir un seguimiento estándar para las próximas oportunidades.'], callOpening: 'Hoy quiero revisar qué está pasando después de las reuniones y dónde se están perdiendo oportunidades.' }
   },
   {
-    id: 'diego', name: 'Diego Rojas', company: 'Rojas Advisory', program: 'Mentoría Escala', week: 'Semana 22 / 24', goal: 'Delegar operación y mantener crecimiento.', nextAction: 'Preparar conversación de renovación.', nextSession: 'Jueves · 12:00', blockers: ['Decisiones centralizadas'],
+    id: 'diego', name: 'Diego Rojas', company: 'Rojas Advisory', program: 'Mentoría Escala', week: 'Semana 22 / 24', goal: 'Delegar operación y mantener crecimiento.', nextAction: 'Preparar conversación de renovación.', nextSession: 'Jueves · 12:00', currentPhase: 'Renovación', planSummary: 'Medir lo logrado, identificar lo que todavía depende del fundador y definir si existe una siguiente etapa.', blockers: ['Decisiones centralizadas'],
     commitments: [{ id: 'diego-c1', label: 'Documentar SOP de onboarding', status: 'pending' }, { id: 'diego-c2', label: 'Preparar métricas de cierre del programa', status: 'done' }],
-    copilot: { summary: 'Diego está cerca del cierre del programa y conviene conectar resultados, brechas abiertas y continuidad.', gap: 'Aún existen decisiones críticas que dependen del fundador.', known: ['El programa está cerca de finalizar.'], risks: ['Renovar sin una nueva brecha clara.'], questions: ['¿Qué cambió realmente en tu carga operativa?', '¿Qué sigue dependiendo de ti?'], howHelp: ['Convertir el cierre en una revisión de resultados.'], plan: ['Cuantificar resultados.', 'Identificar nueva brecha.', 'Definir continuidad.'], callOpening: 'Quiero revisar qué cambió, qué sigue dependiendo de ti y qué problema queda realmente por resolver.' }
+    copilot: { summary: 'Diego está cerca de terminar el programa y necesita revisar qué mejoró y qué sigue dependiendo de él.', gap: 'Todavía hay decisiones importantes que dependen del fundador.', known: ['El programa está cerca de finalizar.'], risks: ['Renovar sin tener claro qué problema se resolverá después.'], questions: ['¿Qué cambió realmente en tu carga operativa?', '¿Qué sigue dependiendo de ti?'], howHelp: ['Revisar resultados y definir el siguiente problema que vale la pena resolver.'], plan: ['Definir el siguiente problema concreto antes de hablar de continuidad.'], callOpening: 'Quiero revisar qué cambió, qué sigue dependiendo de ti y qué problema queda realmente por resolver.' }
   }
 ];
 
@@ -109,6 +110,17 @@ function ActionIcon({ type }: { type: WorkActionType }) {
   return <ListTodo className="h-3.5 w-3.5" />;
 }
 
+function simpleLanguage(text: string, language: 'es' | 'en'): string {
+  if (language !== 'es') return text;
+  return text
+    .replace(/funnel/gi, 'sistema de captación')
+    .replace(/adquisición/gi, 'captación de clientes')
+    .replace(/conversión/gi, 'cierre de ventas')
+    .replace(/ejecución/gi, 'acciones realizadas')
+    .replace(/escalar/gi, 'crecer')
+    .replace(/pipeline/gi, 'proceso comercial');
+}
+
 export function SessionMemoryWorkspace({ onBack }: Props) {
   const { language } = useLanguage();
   const [clients, setClients] = useState<SessionClient[]>(normalizeClients);
@@ -126,6 +138,8 @@ export function SessionMemoryWorkspace({ onBack }: Props) {
   const [assignee, setAssignee] = useState('Mentor');
   const [editingCommitmentId, setEditingCommitmentId] = useState<string | null>(null);
   const [commitmentDraft, setCommitmentDraft] = useState('');
+  const [planPhase, setPlanPhase] = useState('');
+  const [planSummary, setPlanSummary] = useState('');
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
@@ -141,6 +155,11 @@ export function SessionMemoryWorkspace({ onBack }: Props) {
   const selectedClient = useMemo(() => clients.find((client) => client.id === clientId) ?? clients[0], [clients, clientId]);
   const brief = selectedClient.copilot;
   const accent = themeColor(appearance.theme);
+
+  useEffect(() => {
+    setPlanPhase(String(selectedClient.currentPhase || ''));
+    setPlanSummary(String(selectedClient.planSummary || ''));
+  }, [selectedClient.id]);
 
   const persistCommitments = (commitments: Commitment[], journalTitle?: string, journalBody?: string) => {
     setClients((current) => current.map((client) => client.id === clientId ? { ...client, commitments } : client));
@@ -181,19 +200,26 @@ export function SessionMemoryWorkspace({ onBack }: Props) {
     const nextBlockers = blockers.trim() ? [...(selectedClient.blockers ?? []), blockers.trim()] : (selectedClient.blockers ?? []);
     const nextActionText = nextAction.trim() || selectedClient.nextAction || '';
     const nextSession = actionType === 'meeting' && actionDate ? `${actionDate}${actionTime ? ` · ${actionTime}` : ''}` : selectedClient.nextSession;
+    const nextPhase = planPhase.trim() || String(selectedClient.currentPhase || '');
+    const nextPlanSummary = planSummary.trim() || String(selectedClient.planSummary || '');
 
     updateSessionClient(clientId, (client) => ({
       ...client,
       commitments,
       blockers: nextBlockers,
       nextAction: nextActionText,
-      nextSession
+      nextSession,
+      currentPhase: nextPhase,
+      planSummary: nextPlanSummary
     }));
 
-    if (notes.trim()) appendJournal(clientId, 'session', language === 'es' ? 'Sesión completada' : 'Session completed', notes.trim());
+    if (notes.trim()) appendJournal(clientId, 'session', language === 'es' ? 'Notas de sesión' : 'Session notes', notes.trim());
     else appendJournal(clientId, 'session', language === 'es' ? 'Sesión completada' : 'Session completed', language === 'es' ? 'Sesión registrada en G-KAIS.' : 'Session recorded in G-KAIS.');
     if (decisions.trim()) appendJournal(clientId, 'decision', language === 'es' ? 'Decisión de sesión' : 'Session decision', decisions.trim());
     if (blockers.trim()) appendJournal(clientId, 'blocker', language === 'es' ? 'Bloqueador detectado' : 'Blocker detected', blockers.trim());
+    if (nextPhase !== String(selectedClient.currentPhase || '') || nextPlanSummary !== String(selectedClient.planSummary || '')) {
+      appendJournal(clientId, 'plan', language === 'es' ? 'Plan actual actualizado' : 'Current plan updated', `${nextPhase}${nextPlanSummary ? ` · ${nextPlanSummary}` : ''}`);
+    }
 
     if (nextAction.trim() || actionDate || actionTime) {
       const label = actionLabel(actionType, language);
@@ -210,7 +236,7 @@ export function SessionMemoryWorkspace({ onBack }: Props) {
         source: 'session',
         confirmationEmail: actionType === 'meeting' ? 'queued' : 'not-required'
       });
-      appendJournal(clientId, 'next-action', language === 'es' ? 'Próxima acción acordada' : 'Next action agreed', `${title}${actionDate ? ` · ${actionDate}` : ''}${actionTime ? ` ${actionTime}` : ''} · ${assignee}`);
+      appendJournal(clientId, 'next-action', language === 'es' ? 'Próxima acción acordada' : 'Next action agreed', `${label}${nextAction.trim() ? ` · ${nextAction.trim()}` : ''}${actionDate ? ` · ${actionDate}` : ''}${actionTime ? ` ${actionTime}` : ''} · ${assignee}`);
     }
 
     setSaved(true);
@@ -224,6 +250,7 @@ export function SessionMemoryWorkspace({ onBack }: Props) {
 
   const accentSoft = `color-mix(in srgb, ${accent} 10%, white)`;
   const accentBorder = `color-mix(in srgb, ${accent} 28%, white)`;
+  const recommendedCommitment = brief.plan?.[0] || (language === 'es' ? 'Definir una acción concreta para la próxima semana.' : 'Define one concrete action for next week.');
 
   return (
     <div className="min-h-screen text-[#0A0A0A]" style={{ background: workspaceBackground(accent, appearance.intensity) }}>
@@ -242,18 +269,23 @@ export function SessionMemoryWorkspace({ onBack }: Props) {
 
         <section className="rounded-2xl border bg-white p-5 shadow-[0_10px_30px_rgba(10,10,10,0.03)]" style={{ borderColor: accentBorder }}>
           <div className="grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
-            <div><div className="flex items-center gap-2"><Sparkles className="h-4 w-4" style={{ color: accent }} /><p className="text-[10px] font-semibold uppercase tracking-[0.15em]" style={{ color: accent }}>G-KAIS COPILOT · {language === 'es' ? 'SITUACIÓN' : 'SITUATION'}</p></div><p className="mt-2 text-sm leading-6 text-black/65">{brief.summary}</p></div>
-            <div className="rounded-xl p-3.5" style={{ background: accentSoft }}><p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-black/38">{language === 'es' ? 'BRECHA PRINCIPAL' : 'PRIMARY GAP'}</p><p className="mt-1.5 text-sm leading-6 text-black/62">{brief.gap}</p></div>
+            <div><div className="flex items-center gap-2"><Sparkles className="h-4 w-4" style={{ color: accent }} /><p className="text-[10px] font-semibold uppercase tracking-[0.15em]" style={{ color: accent }}>G-KAIS COPILOT · {language === 'es' ? 'SITUACIÓN' : 'SITUATION'}</p></div><p className="mt-2 text-sm leading-6 text-black/65">{simpleLanguage(brief.summary, language)}</p></div>
+            <div className="rounded-xl p-3.5" style={{ background: accentSoft }}><p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-black/38">{language === 'es' ? 'BRECHA PRINCIPAL' : 'PRIMARY GAP'}</p><p className="mt-1.5 text-sm leading-6 text-black/62">{simpleLanguage(brief.gap, language)}</p></div>
           </div>
-          {brief.risks?.length > 0 && <div className="mt-4 flex flex-wrap gap-2">{brief.risks.slice(0, 3).map((risk) => <span key={risk} className="inline-flex items-center gap-1.5 rounded-full bg-[#A46F16]/8 px-3 py-1.5 text-[10px] font-medium text-[#82570F]"><AlertTriangle className="h-3 w-3" />{risk}</span>)}</div>}
+          {brief.risks?.length > 0 && <div className="mt-4 flex flex-wrap gap-2">{brief.risks.slice(0, 3).map((risk) => <span key={risk} className="inline-flex items-center gap-1.5 rounded-full bg-[#A46F16]/8 px-3 py-1.5 text-[10px] font-medium text-[#82570F]"><AlertTriangle className="h-3 w-3" />{simpleLanguage(risk, language)}</span>)}</div>}
         </section>
 
-        <div className="mt-4 grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
-          <section className="rounded-2xl p-5 text-white shadow-[0_12px_35px_rgba(10,10,10,0.08)]" style={{ background: accent }}><p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-white/55">{language === 'es' ? 'CÓMO ABRIR LA CONVERSACIÓN' : 'HOW TO OPEN THE CONVERSATION'}</p><p className="mt-2 text-sm leading-6 text-white/88">“{brief.callOpening}”</p></section>
-          <section className="rounded-2xl border border-black/10 bg-white p-5"><div className="flex items-center gap-2"><MessageSquareText className="h-4 w-4" style={{ color: accent }} /><p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-black/42">{language === 'es' ? 'PREGUNTAS PARA LA LLAMADA' : 'QUESTIONS FOR THE CALL'}</p></div><div className="mt-3 grid gap-2 md:grid-cols-2">{brief.questions.slice(0, 4).map((question, index) => <div key={question} className="flex gap-2 rounded-xl bg-[#F7F7F5] p-3"><span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-white text-[10px] font-semibold text-black/42">{index + 1}</span><p className="text-xs leading-5 text-black/62">{question}</p></div>)}</div></section>
+        <div className="mt-4 grid gap-4 xl:grid-cols-[0.8fr_1.2fr]">
+          <section className="rounded-2xl p-5 text-white shadow-[0_12px_35px_rgba(10,10,10,0.08)]" style={{ background: accent }}><p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-white/55">{language === 'es' ? 'CÓMO ABRIR LA CONVERSACIÓN' : 'HOW TO OPEN THE CONVERSATION'}</p><p className="mt-2 text-sm leading-6 text-white/88">“{simpleLanguage(brief.callOpening, language)}”</p></section>
+          <section className="rounded-2xl border border-black/10 bg-white p-5"><div className="flex items-center gap-2"><MessageSquareText className="h-4 w-4" style={{ color: accent }} /><p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-black/42">{language === 'es' ? 'PREGUNTAS PARA LA LLAMADA' : 'QUESTIONS FOR THE CALL'}</p></div><div className="mt-3 grid gap-2 md:grid-cols-2">{brief.questions.slice(0, 4).map((question, index) => <div key={question} className="flex gap-2 rounded-xl bg-[#F7F7F5] p-3"><span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-white text-[10px] font-semibold text-black/42">{index + 1}</span><p className="text-xs leading-5 text-black/62">{simpleLanguage(question, language)}</p></div>)}</div></section>
         </div>
 
-        <div className="my-7 flex items-center gap-4"><div className="h-px flex-1 bg-black/8" /><span className="text-[10px] font-semibold uppercase tracking-[0.2em]" style={{ color: accent }}>{language === 'es' ? 'EN LLAMADA' : 'LIVE SESSION'}</span><div className="h-px flex-1 bg-black/8" /></div>
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <section className="rounded-2xl border border-black/10 bg-white p-5"><div className="flex items-center gap-2"><Lightbulb className="h-4 w-4" style={{ color: accent }} /><p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-black/42">{language === 'es' ? 'CÓMO PODEMOS AYUDAR' : 'HOW WE CAN HELP'}</p></div><div className="mt-3 space-y-2">{(brief.howHelp?.length ? brief.howHelp : [language === 'es' ? 'Aclarar el problema y convertirlo en una acción concreta.' : 'Clarify the problem and turn it into one concrete action.']).slice(0, 3).map((item) => <div key={item} className="rounded-xl bg-[#F7F7F5] p-3 text-xs leading-5 text-black/60">{simpleLanguage(item, language)}</div>)}</div></section>
+          <section className="rounded-2xl border border-black/10 bg-white p-5"><p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-black/42">{language === 'es' ? 'TAREA O COMPROMISO RECOMENDADO' : 'RECOMMENDED TASK OR COMMITMENT'}</p><div className="mt-3 rounded-xl p-4" style={{ background: accentSoft }}><p className="text-sm font-semibold leading-6 text-black/70">{simpleLanguage(recommendedCommitment, language)}</p></div></section>
+        </div>
+
+        <div className="my-7 flex items-center gap-4"><div className="h-px flex-1 bg-black/8" /><span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-black">{language === 'es' ? 'EN LLAMADA' : 'LIVE SESSION'}</span><div className="h-px flex-1 bg-black/8" /></div>
 
         <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
           <div className="space-y-4">
@@ -272,7 +304,13 @@ export function SessionMemoryWorkspace({ onBack }: Props) {
               </div>
             </section>
 
-            <section className="rounded-2xl border bg-white p-5" style={{ borderColor: accentBorder }}><p className="text-[10px] font-semibold uppercase tracking-[0.15em]" style={{ color: accent }}>{language === 'es' ? 'PRÓXIMA ACCIÓN RECORDADA' : 'REMEMBERED NEXT ACTION'}</p><p className="mt-2 text-sm font-semibold leading-6">{selectedClient.nextAction || (language === 'es' ? 'Sin próxima acción definida' : 'No next action defined')}</p>{selectedClient.nextSession && <p className="mt-1 text-xs text-black/40">{language === 'es' ? 'Próxima sesión:' : 'Next session:'} {String(selectedClient.nextSession)}</p>}</section>
+            <section className="rounded-2xl border bg-white p-5" style={{ borderColor: accentBorder }}>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.15em]" style={{ color: accent }}>{language === 'es' ? 'PLAN ACTUAL' : 'CURRENT PLAN'}</p>
+              <div className="mt-3 grid gap-3">
+                <label><span className="mb-1 block text-[9px] font-semibold uppercase tracking-[0.12em] text-black/35">{language === 'es' ? 'FASE DEL PLAN' : 'PLAN PHASE'}</span><select value={planPhase} onChange={(event) => setPlanPhase(event.target.value)} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2.5 text-sm"><option value="">{language === 'es' ? 'Seleccionar' : 'Select'}</option><option>Diagnóstico</option><option>Adquisición</option><option>Conversión</option><option>Implementación</option><option>Delegación</option><option>Renovación</option></select></label>
+                <label><span className="mb-1 block text-[9px] font-semibold uppercase tracking-[0.12em] text-black/35">{language === 'es' ? 'DETALLE DEL PLAN' : 'PLAN DETAIL'}</span><textarea value={planSummary} onChange={(event) => setPlanSummary(event.target.value)} rows={3} className="w-full resize-y rounded-lg border border-black/10 px-3 py-2.5 text-sm leading-5 outline-none" placeholder={language === 'es' ? 'Escribe qué se está trabajando en esta fase…' : 'Write what is being worked on in this phase…'} /></label>
+              </div>
+            </section>
           </div>
 
           <section className="rounded-2xl border border-black/10 bg-white p-5 md:p-6">
@@ -296,7 +334,7 @@ export function SessionMemoryWorkspace({ onBack }: Props) {
             <label><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'RESPONSABLE' : 'ASSIGNEE'}</span><select value={assignee} onChange={(event) => setAssignee(event.target.value)} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2.5 text-sm"><option>Mentor</option><option>Equipo</option><option>Asistente</option><option>Ventas</option></select></label>
           </div>
           {actionType === 'meeting' && <p className="mt-3 text-[10px] text-black/38">{language === 'es' ? 'La reunión actualizará la próxima sesión y dejará la confirmación de email en cola.' : 'The meeting updates the next session and queues the confirmation email.'}</p>}
-          <div className="mt-5 flex items-center justify-between gap-3 border-t border-black/7 pt-4"><p className="text-xs text-black/40">{language === 'es' ? 'Al finalizar, ficha, Trabajo prioritario y Bitácora se actualizan automáticamente.' : 'Finishing updates the record, Priority Work and Journal automatically.'}</p><button type="button" onClick={finishSession} className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-xs font-semibold text-white" style={{ background: accent }}>{saved ? <CheckCircle2 className="h-4 w-4" /> : <Save className="h-4 w-4" />}{saved ? (language === 'es' ? 'Sesión guardada' : 'Session saved') : (language === 'es' ? 'Finalizar sesión' : 'Finish session')}</button></div>
+          <div className="mt-5 flex items-center justify-between gap-3 border-t border-black/7 pt-4"><p className="text-xs text-black/40">{language === 'es' ? 'Al finalizar, ficha, Trabajo prioritario y Bitácora se actualizan automáticamente.' : 'Finishing updates the record, Priority Work and Journal automatically.'}</p><button type="button" onClick={finishSession} className="inline-flex items-center gap-2 rounded-full bg-[#111413] px-5 py-2.5 text-xs font-semibold text-white">{saved ? <CheckCircle2 className="h-4 w-4" /> : <Save className="h-4 w-4" />}{saved ? (language === 'es' ? 'Sesión guardada' : 'Session saved') : (language === 'es' ? 'Finalizar sesión' : 'Finish session')}</button></div>
         </section>
       </main>
     </div>

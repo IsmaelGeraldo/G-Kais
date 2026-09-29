@@ -6,7 +6,8 @@ import {
   ChevronRight,
   CircleGauge,
   ListTodo,
-  Target
+  Target,
+  Video
 } from 'lucide-react';
 import type { Language } from '../../i18n/LanguageContext';
 import { loadTasks, WORKSPACE_STATE_EVENT, type WorkTask } from './workspaceState';
@@ -15,6 +16,13 @@ type RangeKey = 'week' | 'month' | 'year';
 type MetricId = 'priority' | 'sessions' | 'clients' | 'leads';
 type LocalText = { es: string; en: string };
 type TrendPoint = { label: string; fullLabel: string; value: number };
+type ClientRecord = {
+  id: string;
+  name: string;
+  currentPhase?: string;
+  nextSession?: string;
+  nextAction?: string;
+};
 
 type Metric = {
   id: MetricId;
@@ -27,9 +35,11 @@ type Metric = {
   colors: [string, string];
 };
 
+const CLIENT_RECORD_STORAGE_KEY = 'gkais-experts-client-records-v2';
+
 const BASE_METRICS: Metric[] = [
-  { id: 'priority', label: { es: 'Por ejecutar', en: 'To execute' }, value: '0', detail: { es: 'tareas abiertas', en: 'open tasks' }, trend: { es: 'trabajo delegable y seguimiento', en: 'delegated work and follow-up' }, ringValue: 0, ringTotal: 1, colors: ['#A23A32', '#D67A32'] },
-  { id: 'sessions', label: { es: 'Sesiones de hoy', en: 'Sessions Today' }, value: '5', detail: { es: '2 por preparar', en: '2 to prepare' }, trend: { es: '3 briefs listos', en: '3 briefs ready' }, ringValue: 3, ringTotal: 5, colors: ['#4556A6', '#74A9CF'] },
+  { id: 'priority', label: { es: 'Trabajo prioritario', en: 'Priority Work' }, value: '0', detail: { es: 'acciones abiertas', en: 'open actions' }, trend: { es: 'abrir cola de ejecución', en: 'open execution queue' }, ringValue: 0, ringTotal: 1, colors: ['#A23A32', '#D67A32'] },
+  { id: 'sessions', label: { es: 'Sesiones de hoy', en: 'Sessions Today' }, value: '3', detail: { es: '2 clientes · 1 lead', en: '2 clients · 1 lead' }, trend: { es: 'agenda del día', en: 'today agenda' }, ringValue: 2, ringTotal: 3, colors: ['#4556A6', '#74A9CF'] },
   { id: 'clients', label: { es: 'Clientes activos', en: 'Active Clients' }, value: '46', detail: { es: '+4 este mes', en: '+4 this month' }, trend: { es: '+9% vs mes anterior', en: '+9% vs previous month' }, ringValue: 43, ringTotal: 46, colors: ['#0A3F4D', '#78A892'] },
   { id: 'leads', label: { es: 'Nuevos leads', en: 'New Leads' }, value: '18', detail: { es: 'este mes', en: 'this month' }, trend: { es: '+12% vs mes anterior', en: '+12% vs previous month' }, ringValue: 14, ringTotal: 18, colors: ['#5C4D8A', '#7A9FC8'] }
 ];
@@ -71,15 +81,23 @@ const HISTORY: Record<'clients' | 'leads', Record<RangeKey, TrendPoint[]>> = {
   }
 };
 
+function loadClientRecords(): ClientRecord[] {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(CLIENT_RECORD_STORAGE_KEY) || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 function smoothPath(points: Array<{ x: number; y: number }>): string {
   if (!points.length) return '';
-  if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
   let path = `M ${points[0].x} ${points[0].y}`;
   for (let index = 1; index < points.length; index += 1) {
     const previous = points[index - 1];
     const current = points[index];
-    const controlX = (previous.x + current.x) / 2;
-    path += ` C ${controlX} ${previous.y}, ${controlX} ${current.y}, ${current.x} ${current.y}`;
+    const control = (previous.x + current.x) / 2;
+    path += ` C ${control} ${previous.y}, ${control} ${current.y}, ${current.x} ${current.y}`;
   }
   return path;
 }
@@ -87,83 +105,65 @@ function smoothPath(points: Array<{ x: number; y: number }>): string {
 function HistoricalChart({ kind, range, setRange, language }: { kind: 'clients' | 'leads'; range: RangeKey; setRange: (range: RangeKey) => void; language: Language }) {
   const [hovered, setHovered] = useState<number | null>(null);
   const points = HISTORY[kind][range];
-  const width = 720;
-  const height = 132;
-  const padX = 20;
-  const padTop = 14;
-  const padBottom = 20;
+  const width = 760;
+  const height = 150;
+  const padX = 28;
+  const padY = 20;
   const max = Math.max(1, ...points.map((point) => point.value));
   const plotted = points.map((point, index) => ({
     x: padX + (index / Math.max(1, points.length - 1)) * (width - padX * 2),
-    y: padTop + (1 - point.value / max) * (height - padTop - padBottom)
+    y: height - padY - (point.value / max) * (height - padY * 2)
   }));
-  const path = smoothPath(plotted);
-  const baseline = height - padBottom;
-  const areaPath = plotted.length ? `${path} L ${plotted[plotted.length - 1].x} ${baseline} L ${plotted[0].x} ${baseline} Z` : '';
+  const total = points.reduce((sum, point) => sum + point.value, 0);
+  const average = total / points.length;
+  const peak = Math.max(...points.map((point) => point.value));
   const selected = hovered === null ? null : points[hovered];
   const selectedPoint = hovered === null ? null : plotted[hovered];
-  const total = points.reduce((sum, point) => sum + point.value, 0);
-  const peak = Math.max(...points.map((point) => point.value));
-  const average = points.length ? total / points.length : 0;
-  const unit = kind === 'clients' ? (language === 'es' ? 'clientes' : 'clients') : 'leads';
 
   return (
-    <section className="mt-4 rounded-2xl border border-black/8 bg-white p-4 shadow-[0_10px_28px_rgba(10,10,10,0.025)] md:p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <section className="mt-4 rounded-2xl border border-black/8 bg-white p-4 shadow-[0_8px_24px_rgba(10,10,10,0.025)] md:p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-sm font-semibold">{kind === 'clients' ? (language === 'es' ? 'Histórico de clientes' : 'Client history') : (language === 'es' ? 'Histórico de leads' : 'Lead history')}</p>
-          <p className="mt-1 text-xs text-black/40">{language === 'es' ? 'Volumen real por fecha del período seleccionado.' : 'Actual volume by date for the selected period.'}</p>
+          <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-black/42">
+            <span>{language === 'es' ? 'Total' : 'Total'} <strong className="text-black/65">{total}</strong></span>
+            <span>{language === 'es' ? 'Promedio' : 'Average'} <strong className="text-black/65">{average.toFixed(1)}</strong></span>
+            <span>{language === 'es' ? 'Pico' : 'Peak'} <strong className="text-black/65">{peak}</strong></span>
+          </div>
         </div>
         <div className="inline-flex rounded-full border border-black/8 bg-[#F7F7F5] p-1">
           {(['week', 'month', 'year'] as RangeKey[]).map((item) => (
-            <button key={item} type="button" onClick={() => setRange(item)} className={`rounded-full px-3 py-1.5 text-[10px] font-semibold transition ${range === item ? 'bg-[#111413] text-white shadow-sm' : 'text-black/40 hover:text-black'}`}>
+            <button key={item} type="button" onClick={() => setRange(item)} className={`rounded-full px-3 py-1.5 text-[10px] font-semibold ${range === item ? 'bg-[#111413] text-white' : 'text-black/40 hover:text-black'}`}>
               {item === 'week' ? (language === 'es' ? 'Semana' : 'Week') : item === 'month' ? (language === 'es' ? 'Mes' : 'Month') : (language === 'es' ? 'Año' : 'Year')}
             </button>
           ))}
         </div>
       </div>
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-3">
-        <div className="rounded-xl bg-[#F7F7F5] px-3.5 py-3"><p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-black/35">{language === 'es' ? 'TOTAL' : 'TOTAL'}</p><p className="mt-1 text-lg font-semibold">{total}</p></div>
-        <div className="rounded-xl bg-[#F7F7F5] px-3.5 py-3"><p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-black/35">{language === 'es' ? 'PROMEDIO' : 'AVERAGE'}</p><p className="mt-1 text-lg font-semibold">{average.toFixed(range === 'week' ? 1 : 0)}</p></div>
-        <div className="rounded-xl bg-[#F7F7F5] px-3.5 py-3"><p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-black/35">{language === 'es' ? 'PICO' : 'PEAK'}</p><p className="mt-1 text-lg font-semibold">{peak}</p></div>
-      </div>
+      <div className="relative mt-3 h-[176px]">
+        <svg viewBox={`0 0 ${width} ${height}`} className="h-[150px] w-full overflow-visible" role="img" onMouseLeave={() => setHovered(null)}>
+          {[0.25, 0.5, 0.75, 1].map((fraction) => <line key={fraction} x1={padX} x2={width - padX} y1={height * fraction - 5} y2={height * fraction - 5} stroke="currentColor" strokeOpacity="0.055" />)}
+          <path d={smoothPath(plotted)} fill="none" stroke="#0A3F4D" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          {plotted.map((point, index) => (
+            <g key={points[index].fullLabel} onMouseEnter={() => setHovered(index)} className="cursor-crosshair">
+              <circle cx={point.x} cy={point.y} r="12" fill="transparent" />
+              <circle cx={point.x} cy={point.y} r={hovered === index ? 4 : 2.75} fill="white" stroke="#0A3F4D" strokeWidth={hovered === index ? 2 : 1.5} />
+            </g>
+          ))}
+        </svg>
 
-      <div className="mt-3">
-        <div className="relative h-[150px] w-full">
-          {selected && selectedPoint && (
-            <div
-              className="pointer-events-none absolute z-20 min-w-[112px] -translate-x-1/2 -translate-y-[calc(100%+10px)] rounded-lg bg-[#111413] px-3 py-2 text-center text-[10px] text-white shadow-xl"
-              style={{ left: `${(selectedPoint.x / width) * 100}%`, top: `${(selectedPoint.y / height) * 132}px` }}
-            >
-              <p className="font-semibold">{selected.fullLabel}</p>
-              <p className="mt-0.5 text-white/65">{selected.value} {unit}</p>
-              <span className="absolute left-1/2 top-full h-2 w-2 -translate-x-1/2 -translate-y-1/2 rotate-45 bg-[#111413]" />
-            </div>
-          )}
-
-          <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="absolute inset-x-0 top-0 h-[132px] w-full overflow-visible" role="img">
-            <defs>
-              <linearGradient id={`history-fill-${kind}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#0A3F4D" stopOpacity="0.12" />
-                <stop offset="100%" stopColor="#0A3F4D" stopOpacity="0" />
-              </linearGradient>
-            </defs>
-            {[0.25, 0.5, 0.75, 1].map((fraction) => <line key={fraction} x1="0" x2={width} y1={padTop + (height - padTop - padBottom) * fraction} y2={padTop + (height - padTop - padBottom) * fraction} stroke="#111413" strokeOpacity="0.055" />)}
-            {areaPath && <path d={areaPath} fill={`url(#history-fill-${kind})`} />}
-            {selectedPoint && <line x1={selectedPoint.x} x2={selectedPoint.x} y1={padTop} y2={baseline} stroke="#0A3F4D" strokeOpacity="0.16" strokeDasharray="3 4" />}
-            <path d={path} fill="none" stroke="#0A3F4D" strokeWidth="2.15" vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" />
-            {plotted.map((point, index) => (
-              <g key={points[index].fullLabel} onMouseEnter={() => setHovered(index)} onMouseLeave={() => setHovered(null)} className="cursor-crosshair">
-                <circle cx={point.x} cy={point.y} r="13" fill="transparent" />
-                <circle cx={point.x} cy={point.y} r={hovered === index ? 4.2 : 2.6} fill="white" stroke="#0A3F4D" strokeWidth={hovered === index ? 2 : 1.5} vectorEffect="non-scaling-stroke" />
-              </g>
-            ))}
-          </svg>
-
-          <div className="absolute inset-x-0 bottom-0 flex justify-between gap-1 text-[9px] font-medium text-black/32">
-            {points.map((point, index) => <span key={point.fullLabel} className={points.length > 8 && index % 2 !== 0 ? 'hidden sm:block' : ''}>{point.label}</span>)}
+        {selected && selectedPoint && (
+          <div
+            className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full rounded-lg bg-[#111413] px-2.5 py-2 text-[10px] text-white shadow-xl"
+            style={{ left: `${(selectedPoint.x / width) * 100}%`, top: `${(selectedPoint.y / height) * 150 + 4}px` }}
+          >
+            <p className="font-semibold">{selected.fullLabel}</p>
+            <p className="mt-0.5 text-white/65">{selected.value} {kind === 'clients' ? (language === 'es' ? 'clientes' : 'clients') : 'leads'}</p>
           </div>
+        )}
+
+        <div className="absolute inset-x-0 bottom-0 flex justify-between px-1 text-[9px] font-medium text-black/32">
+          {points.map((point, index) => <span key={point.fullLabel} className={points.length > 8 && index % 2 !== 0 ? 'hidden sm:block' : ''}>{point.label}</span>)}
         </div>
       </div>
     </section>
@@ -179,13 +179,27 @@ function MetricRing({ metric }: { metric: Metric }) {
   );
 }
 
-export function DashboardHistory({ language, onNavigate, onOpenClient }: { language: Language; onNavigate: (id: string) => void; onOpenClient: (id: string) => void }) {
+export function DashboardHistory({
+  language,
+  onNavigate,
+  onOpenClient,
+  onStartSession
+}: {
+  language: Language;
+  onNavigate: (id: string) => void;
+  onOpenClient: (id: string) => void;
+  onStartSession: (id: string) => void;
+}) {
   const [expanded, setExpanded] = useState<'clients' | 'leads' | null>(null);
   const [ranges, setRanges] = useState<Record<'clients' | 'leads', RangeKey>>({ clients: 'month', leads: 'month' });
   const [tasks, setTasks] = useState<WorkTask[]>(loadTasks);
+  const [clients, setClients] = useState<ClientRecord[]>(loadClientRecords);
 
   useEffect(() => {
-    const refresh = () => setTasks(loadTasks());
+    const refresh = () => {
+      setTasks(loadTasks());
+      setClients(loadClientRecords());
+    };
     window.addEventListener(WORKSPACE_STATE_EVENT, refresh);
     window.addEventListener('storage', refresh);
     return () => {
@@ -199,10 +213,27 @@ export function DashboardHistory({ language, onNavigate, onOpenClient }: { langu
     ? { ...metric, value: String(openTasks.length), ringValue: Math.min(openTasks.length, 7), ringTotal: Math.max(1, openTasks.length) }
     : metric), [openTasks.length]);
 
-  const radar = [
-    { id: 'sofia', name: 'Sofía Martínez', type: language === 'es' ? 'Cliente activo' : 'Active client', action: language === 'es' ? 'Enviar email' : 'Send email', reason: language === 'es' ? '2 compromisos vencidos y 9 días sin actualización.' : '2 overdue commitments and 9 days without an update.', next: language === 'es' ? 'Revisar compromisos antes de la próxima sesión.' : 'Review commitments before the next session.', due: language === 'es' ? 'Hoy · 17:00' : 'Today · 17:00' },
-    { id: 'diego', name: 'Diego Rojas', type: language === 'es' ? 'Renovación' : 'Renewal', action: language === 'es' ? 'Confirmar reunión' : 'Confirm meeting', reason: language === 'es' ? 'El programa termina en 16 días y falta definir continuidad.' : 'Program ends in 16 days and continuity is still undefined.', next: language === 'es' ? 'Preparar conversación de renovación.' : 'Prepare renewal conversation.', due: language === 'es' ? 'Mié · 12:00' : 'Wed · 12:00' },
-    { id: 'valentina', name: 'Valentina Cruz', type: 'Lead', action: language === 'es' ? 'Llamar' : 'Call', reason: language === 'es' ? 'Alta intención y conversación sin siguiente paso.' : 'High intent and conversation without a next step.', next: language === 'es' ? 'Confirmar diagnóstico.' : 'Confirm diagnostic call.', due: language === 'es' ? 'Mañana · 11:00' : 'Tomorrow · 11:00' }
+  const signals = useMemo(() => {
+    const result: Array<{ id: string; name: string; label: string; reason: string }> = [];
+    clients.forEach((client) => {
+      const phase = (client.currentPhase || '').toLowerCase();
+      const nextSession = (client.nextSession || '').trim();
+      const nextAction = (client.nextAction || '').trim();
+      if (phase.includes('renov')) {
+        result.push({ id: client.id, name: client.name, label: language === 'es' ? 'Renovación cercana' : 'Renewal approaching', reason: language === 'es' ? 'Conviene revisar resultados, brecha actual y continuidad antes del cierre del programa.' : 'Review results, current gap and continuity before the program ends.' });
+      } else if (!nextSession || /coordinar|schedule|pendiente/i.test(nextSession)) {
+        result.push({ id: client.id, name: client.name, label: language === 'es' ? 'Sin próxima sesión' : 'No next session', reason: language === 'es' ? 'La relación no tiene una próxima reunión confirmada.' : 'The relationship has no confirmed next meeting.' });
+      } else if (!nextAction) {
+        result.push({ id: client.id, name: client.name, label: language === 'es' ? 'Sin próxima acción' : 'No next action', reason: language === 'es' ? 'El cliente no tiene un siguiente paso definido.' : 'The client has no defined next step.' });
+      }
+    });
+    return result.slice(0, 3);
+  }, [clients, language]);
+
+  const agenda = [
+    { id: 'andres', time: '10:00', name: 'Andrés Silva' },
+    { id: 'sofia', time: '15:30', name: 'Sofía Martínez' },
+    { id: 'diego', time: '18:00', name: 'Diego Rojas' }
   ];
 
   return (
@@ -223,10 +254,11 @@ export function DashboardHistory({ language, onNavigate, onOpenClient }: { langu
               </div>
               {expandable ? (
                 <button type="button" onClick={() => setExpanded(isExpanded ? null : metric.id as 'clients' | 'leads')} className="mt-4 flex w-full items-center justify-between border-t border-black/5 pt-3 text-left text-xs text-black/55 transition hover:text-black/80">
-                  <span>{metric.trend[language]}</span>
-                  <ChevronDown className={`h-3.5 w-3.5 transition ${isExpanded ? 'rotate-180' : ''}`} />
+                  <span>{metric.trend[language]}</span><ChevronDown className={`h-3.5 w-3.5 transition ${isExpanded ? 'rotate-180' : ''}`} />
                 </button>
-              ) : <button type="button" onClick={() => metric.id === 'priority' && onNavigate('priority')} className="mt-4 w-full border-t border-black/5 pt-3 text-left text-xs text-black/55">{metric.trend[language]}</button>}
+              ) : (
+                <button type="button" onClick={() => metric.id === 'priority' && onNavigate('priority')} className="mt-4 w-full border-t border-black/5 pt-3 text-left text-xs text-black/55">{metric.trend[language]}</button>
+              )}
             </article>
           );
         })}
@@ -234,26 +266,26 @@ export function DashboardHistory({ language, onNavigate, onOpenClient }: { langu
 
       {expanded && <HistoricalChart kind={expanded} range={ranges[expanded]} setRange={(range) => setRanges((current) => ({ ...current, [expanded]: range }))} language={language} />}
 
-      <div className="mt-6 grid gap-6 xl:grid-cols-[1.5fr_0.75fr]">
+      <div className="mt-6 grid gap-6 xl:grid-cols-[1.45fr_0.8fr]">
         <section className="rounded-2xl border border-black/10 bg-white p-5 shadow-[0_10px_30px_rgba(10,10,10,0.03)] md:p-6">
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#0A3F4D]">THE RADAR</p>
-              <h2 className="mt-2 text-xl font-semibold">{language === 'es' ? 'Atención requerida' : 'Attention required'}</h2>
-              <p className="mt-1 text-sm text-black/50">{language === 'es' ? 'Quién necesita intervención, por qué y cuál es el siguiente paso.' : 'Who needs intervention, why, and what happens next.'}</p>
+              <h2 className="mt-2 text-xl font-semibold">{language === 'es' ? 'Señales de relación' : 'Relationship signals'}</h2>
+              <p className="mt-1 text-sm text-black/50">{language === 'es' ? 'Situaciones que pueden transformarse en un problema si no se atienden a tiempo. Las tareas concretas viven en Trabajo prioritario.' : 'Situations that can become a problem if left unattended. Concrete tasks live in Priority Work.'}</p>
             </div>
-            <span className="rounded-full bg-[#A23A32]/8 px-3 py-1.5 text-xs font-semibold text-[#8D332C]">{radar.length} {language === 'es' ? 'personas' : 'people'}</span>
+            <span className="rounded-full bg-[#A46F16]/10 px-3 py-1.5 text-xs font-semibold text-[#82570F]">{signals.length}</span>
           </div>
 
           <div className="mt-4 divide-y divide-black/5">
-            {radar.map((item) => (
-              <div key={item.id} className="grid gap-3 py-4 first:pt-1 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+            {signals.length === 0 && <div className="py-5 text-sm text-black/45">{language === 'es' ? 'No hay señales críticas activas.' : 'No critical signals are active.'}</div>}
+            {signals.map((item) => (
+              <div key={`${item.id}-${item.label}`} className="grid gap-3 py-4 first:pt-1 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
                 <div className="flex min-w-0 gap-3">
-                  <span className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-[#A23A32]" />
+                  <span className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-[#A46F16]" />
                   <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2"><p className="text-sm font-semibold">{item.name}</p><span className="rounded-full bg-black/[0.04] px-2 py-0.5 text-[9px] font-semibold text-black/45">{item.type}</span><span className="rounded-full bg-[#A23A32]/8 px-2 py-0.5 text-[9px] font-semibold text-[#8D332C]">{item.action}</span></div>
+                    <div className="flex flex-wrap items-center gap-2"><p className="text-sm font-semibold">{item.name}</p><span className="rounded-full bg-[#A46F16]/10 px-2 py-0.5 text-[9px] font-semibold text-[#82570F]">{item.label}</span></div>
                     <p className="mt-1.5 text-xs leading-5 text-black/50">{item.reason}</p>
-                    <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-[10px] text-black/38"><span><strong className="text-black/55">{language === 'es' ? 'Próximo:' : 'Next:'}</strong> {item.next}</span><span><strong className="text-black/55">{language === 'es' ? 'Cuándo:' : 'When:'}</strong> {item.due}</span></div>
                   </div>
                 </div>
                 <button type="button" onClick={() => onOpenClient(item.id)} className="inline-flex items-center justify-center gap-1.5 rounded-full border border-black/10 px-3.5 py-2 text-[11px] font-semibold text-black/55 transition hover:border-[#0A3F4D]/30 hover:text-[#0A3F4D]">{language === 'es' ? 'Ver ficha' : 'Open record'}<ChevronRight className="h-3.5 w-3.5" /></button>
@@ -265,7 +297,15 @@ export function DashboardHistory({ language, onNavigate, onOpenClient }: { langu
         <div className="grid content-start gap-6">
           <section className="rounded-2xl border border-black/10 bg-white p-5">
             <div className="flex items-center justify-between"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-black/40">{language === 'es' ? 'AGENDA' : 'AGENDA'}</p><h2 className="mt-2 text-lg font-semibold">{language === 'es' ? 'Próximas sesiones' : 'Upcoming sessions'}</h2></div><CalendarDays className="h-5 w-5 text-[#0A3F4D]" /></div>
-            <div className="mt-4 space-y-3">{[['10:00','Andrés Silva'],['15:30','Sofía Martínez'],['18:00','Tomás León']].map(([time,name]) => <div key={`${time}-${name}`} className="flex gap-4 border-b border-black/5 pb-3 last:border-0 last:pb-0"><span className="w-12 text-sm font-semibold text-black/60">{time}</span><span className="text-sm">{name}</span></div>)}</div>
+            <div className="mt-4 space-y-2">
+              {agenda.map((item) => (
+                <div key={item.id} className="flex items-center gap-3 rounded-xl border border-black/6 p-3">
+                  <span className="w-11 text-sm font-semibold text-black/60">{item.time}</span>
+                  <span className="min-w-0 flex-1 truncate text-sm">{item.name}</span>
+                  <button type="button" onClick={() => onStartSession(item.id)} className="inline-flex items-center gap-1.5 rounded-full bg-[#111413] px-3 py-1.5 text-[10px] font-semibold text-white"><Video className="h-3 w-3" />{language === 'es' ? 'Modo sesión' : 'Session'}</button>
+                </div>
+              ))}
+            </div>
           </section>
 
           <section className="rounded-2xl border border-black/10 bg-white p-5">
@@ -277,7 +317,7 @@ export function DashboardHistory({ language, onNavigate, onOpenClient }: { langu
       </div>
 
       <section className="mt-6 grid gap-4 md:grid-cols-3">
-        {[[language === 'es' ? 'Renovaciones <30 días' : 'Renewals <30 days','6',Target],[language === 'es' ? 'Sin próxima acción' : 'No next action','3',AlertTriangle],[language === 'es' ? 'Tareas abiertas' : 'Open tasks',String(openTasks.length),CircleGauge]].map(([label,value,Icon]) => {
+        {[[language === 'es' ? 'Renovaciones <30 días' : 'Renewals <30 days','6',Target],[language === 'es' ? 'Sin próxima acción' : 'No next action',String(clients.filter((client) => !(client.nextAction || '').trim()).length),AlertTriangle],[language === 'es' ? 'Tareas abiertas' : 'Open tasks',String(openTasks.length),CircleGauge]].map(([label,value,Icon]) => {
           const IconComponent = Icon as React.ComponentType<{ className?: string }>;
           return <div key={String(label)} className="rounded-2xl border border-black/10 bg-white p-5"><div className="flex items-center gap-3"><div className="grid h-9 w-9 place-items-center rounded-xl bg-[#0A3F4D]/8"><IconComponent className="h-4.5 w-4.5 text-[#0A3F4D]" /></div><div><p className="text-sm font-semibold">{label}</p><p className="text-xs text-black/45">{value}</p></div></div></div>;
         })}

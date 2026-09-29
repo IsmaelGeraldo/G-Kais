@@ -1,1 +1,1 @@
-export { ExpertsWorkspace } from './experts/ExpertsWorkspacePilot.tsx';
+export { ExpertsWorkspace } from './experts/ExpertsWorkspacePilotV3.tsx';

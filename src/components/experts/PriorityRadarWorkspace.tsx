@@ -4,12 +4,12 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
-  Circle,
   Clock3,
   ListTodo,
   Mail,
   MessageCircle,
   Phone,
+  RotateCcw,
   Trash2,
   UserRoundCheck
 } from 'lucide-react';
@@ -20,6 +20,7 @@ import {
   deleteWorkTask,
   getWorkPriority,
   loadTasks,
+  recoverWorkTask,
   updateWorkTask,
   WORKSPACE_STATE_EVENT,
   type WorkActionType,
@@ -42,7 +43,13 @@ function actionLabel(type: WorkActionType, language: Language): string {
 }
 function formatDue(task: WorkTask, language: Language): string {
   if (!task.dueDate) return language === 'es' ? 'Sin fecha' : 'No date';
-  try { const date = new Date(`${task.dueDate}T${task.dueTime || '12:00'}:00`); const formatted = new Intl.DateTimeFormat(language === 'es' ? 'es-CL' : 'en-US', { day: '2-digit', month: 'short' }).format(date); return `${formatted}${task.dueTime ? ` · ${task.dueTime}` : ''}`; } catch { return `${task.dueDate}${task.dueTime ? ` · ${task.dueTime}` : ''}`; }
+  try {
+    const date = new Date(`${task.dueDate}T${task.dueTime || '12:00'}:00`);
+    const formatted = new Intl.DateTimeFormat(language === 'es' ? 'es-CL' : 'en-US', { day: '2-digit', month: 'short' }).format(date);
+    return `${formatted}${task.dueTime ? ` · ${task.dueTime}` : ''}`;
+  } catch {
+    return `${task.dueDate}${task.dueTime ? ` · ${task.dueTime}` : ''}`;
+  }
 }
 function priorityMeta(task: WorkTask, language: Language) {
   const priority = getWorkPriority(task);
@@ -64,33 +71,159 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
   const [newTime, setNewTime] = useState('');
   const [newAssignee, setNewAssignee] = useState('Equipo');
 
-  useEffect(() => { const refresh = () => setTasks(loadTasks()); window.addEventListener(WORKSPACE_STATE_EVENT, refresh); window.addEventListener('storage', refresh); return () => { window.removeEventListener(WORKSPACE_STATE_EVENT, refresh); window.removeEventListener('storage', refresh); }; }, []);
+  useEffect(() => {
+    const refresh = () => setTasks(loadTasks());
+    window.addEventListener(WORKSPACE_STATE_EVENT, refresh);
+    window.addEventListener('storage', refresh);
+    return () => {
+      window.removeEventListener(WORKSPACE_STATE_EVENT, refresh);
+      window.removeEventListener('storage', refresh);
+    };
+  }, []);
 
-  const openTasks = useMemo(() => tasks.filter((task) => task.status !== 'done').sort((a, b) => `${a.dueDate || '9999-12-31'}${a.dueTime || '23:59'}`.localeCompare(`${b.dueDate || '9999-12-31'}${b.dueTime || '23:59'}`)), [tasks]);
-  const completedTasks = useMemo(() => tasks.filter((task) => task.status === 'done').sort((a, b) => (b.completedAt || b.createdAt).localeCompare(a.completedAt || a.createdAt)), [tasks]);
+  const openTasks = useMemo(() => tasks
+    .filter((task) => task.status !== 'done' && !task.deletedAt)
+    .sort((a, b) => `${a.dueDate || '9999-12-31'}${a.dueTime || '23:59'}`.localeCompare(`${b.dueDate || '9999-12-31'}${b.dueTime || '23:59'}`)), [tasks]);
+  const historyTasks = useMemo(() => tasks
+    .filter((task) => task.status === 'done' || Boolean(task.deletedAt))
+    .sort((a, b) => (b.deletedAt || b.completedAt || b.createdAt).localeCompare(a.deletedAt || a.completedAt || a.createdAt)), [tasks]);
   const pendingCount = openTasks.length;
   const delegatedCount = openTasks.filter((task) => task.assignee !== 'Mentor').length;
 
-  const setAssignee = (task: WorkTask, assignee: string) => { setTasks(updateWorkTask(task.id, { assignee })); if (task.clientId) appendJournal(task.clientId, 'task', language === 'es' ? 'Tarea reasignada' : 'Task reassigned', `${task.title} → ${assignee}`); };
-  const toggleWork = (task: WorkTask) => { if (activeTaskId === task.id) { setActiveTaskId(null); return; } setActiveTaskId(task.id); setResultDraft(task.result || ''); setRescheduleDate(task.dueDate || ''); setRescheduleTime(task.dueTime || ''); setNewAssignee(task.assignee || 'Equipo'); };
-  const completeTask = (task: WorkTask) => { const result = resultDraft.trim(); setTasks(updateWorkTask(task.id, { status: 'done', result })); appendJournal(task.clientId, 'task-result', language === 'es' ? 'Trabajo completado' : 'Work completed', result || task.title); setActiveTaskId(null); setResultDraft(''); };
-  const rescheduleTask = (task: WorkTask) => { setTasks(updateWorkTask(task.id, { status: 'pending', dueDate: rescheduleDate, dueTime: rescheduleTime })); appendJournal(task.clientId, 'task', language === 'es' ? 'Trabajo reprogramado' : 'Work rescheduled', `${task.title}${rescheduleDate ? ` · ${rescheduleDate}` : ''}${rescheduleTime ? ` ${rescheduleTime}` : ''}`); setActiveTaskId(null); };
-  const removeTask = (task: WorkTask) => { setTasks(deleteWorkTask(task.id)); appendJournal(task.clientId, 'task', language === 'es' ? 'Tarea eliminada' : 'Task deleted', task.title); if (activeTaskId === task.id) setActiveTaskId(null); };
+  const setAssignee = (task: WorkTask, assignee: string) => {
+    setTasks(updateWorkTask(task.id, { assignee }));
+    if (task.clientId) appendJournal(task.clientId, 'task', language === 'es' ? 'Tarea reasignada' : 'Task reassigned', `${task.title} → ${assignee}`);
+  };
+  const toggleWork = (task: WorkTask) => {
+    if (activeTaskId === task.id) {
+      setActiveTaskId(null);
+      return;
+    }
+    setActiveTaskId(task.id);
+    setResultDraft(task.result || '');
+    setRescheduleDate(task.dueDate || '');
+    setRescheduleTime(task.dueTime || '');
+    setNewAssignee(task.assignee || 'Equipo');
+  };
+  const completeTask = (task: WorkTask) => {
+    const result = resultDraft.trim();
+    setTasks(updateWorkTask(task.id, { status: 'done', result }));
+    appendJournal(task.clientId, 'task-result', language === 'es' ? 'Trabajo completado' : 'Work completed', result || task.title);
+    setActiveTaskId(null);
+    setResultDraft('');
+  };
+  const rescheduleTask = (task: WorkTask) => {
+    setTasks(updateWorkTask(task.id, { status: 'pending', dueDate: rescheduleDate, dueTime: rescheduleTime }));
+    appendJournal(task.clientId, 'task', language === 'es' ? 'Trabajo reprogramado' : 'Work rescheduled', `${task.title}${rescheduleDate ? ` · ${rescheduleDate}` : ''}${rescheduleTime ? ` ${rescheduleTime}` : ''}`);
+    setActiveTaskId(null);
+  };
+  const removeTask = (task: WorkTask) => {
+    setTasks(deleteWorkTask(task.id));
+    appendJournal(task.clientId, 'task', language === 'es' ? 'Tarea enviada al historial' : 'Task moved to history', task.title);
+    if (activeTaskId === task.id) setActiveTaskId(null);
+  };
+  const recoverTask = (task: WorkTask) => {
+    setTasks(recoverWorkTask(task.id));
+    appendJournal(task.clientId, 'task', language === 'es' ? 'Tarea recuperada' : 'Task recovered', task.title);
+  };
   const createFollowUp = (task: WorkTask) => {
-    const clean = newNote.trim(); if (!clean) return;
-    addWorkTask({ clientId: task.clientId, clientName: task.clientName, title: clean, type: newType, note: clean, dueDate: newDate, dueTime: newTime, assignee: newAssignee, source: 'manual', confirmationEmail: newType === 'meeting' ? 'queued' : 'not-required' });
+    const clean = newNote.trim();
+    if (!clean) return;
+    addWorkTask({
+      clientId: task.clientId,
+      clientName: task.clientName,
+      title: clean,
+      type: newType,
+      note: clean,
+      dueDate: newDate,
+      dueTime: newTime,
+      assignee: newAssignee,
+      source: 'manual',
+      confirmationEmail: newType === 'meeting' ? 'queued' : 'not-required'
+    });
     appendJournal(task.clientId, 'task', language === 'es' ? 'Nueva acción desde Trabajo prioritario' : 'New action from Priority Work', `${actionLabel(newType, language)} · ${clean} · ${newAssignee}`);
-    setNewNote(''); setNewDate(''); setNewTime(''); setTasks(loadTasks());
+    setNewNote('');
+    setNewDate('');
+    setNewTime('');
+    setTasks(loadTasks());
   };
 
   return <div className="space-y-5">
-    <section className="rounded-2xl border border-black/10 bg-white p-5 md:p-6"><div className="flex flex-col justify-between gap-4 md:flex-row md:items-center"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#0A3F4D]">{language === 'es' ? 'COLA DE EJECUCIÓN' : 'EXECUTION QUEUE'}</p><h3 className="mt-2 text-xl font-semibold">{language === 'es' ? 'Trabajo prioritario y delegación' : 'Priority work and delegation'}</h3><p className="mt-2 max-w-2xl text-sm leading-6 text-black/50">{language === 'es' ? 'Ejecuta, registra resultados, crea seguimientos, reasigna o reprograma sin salir de esta página.' : 'Execute, record results, create follow-ups, reassign or reschedule without leaving this page.'}</p></div><div className="flex gap-2"><div className="rounded-xl bg-[#F7F7F5] px-3.5 py-2.5"><p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-black/35">{language === 'es' ? 'ABIERTAS' : 'OPEN'}</p><p className="mt-1 text-lg font-semibold">{pendingCount}</p></div><div className="rounded-xl bg-[#F7F7F5] px-3.5 py-2.5"><p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-black/35">{language === 'es' ? 'DELEGADAS' : 'DELEGATED'}</p><p className="mt-1 text-lg font-semibold">{delegatedCount}</p></div></div></div><div className="mt-4 flex items-center justify-between border-t border-black/5 pt-4"><p className="text-xs text-black/40">{language === 'es' ? 'La cola solo muestra trabajo pendiente.' : 'The queue only shows pending work.'}</p><label className="flex items-center gap-2 text-xs text-black/45"><input type="checkbox" checked={showDone} onChange={(event) => setShowDone(event.target.checked)} />{language === 'es' ? 'Mostrar historial' : 'Show history'}</label></div></section>
+    <section className="rounded-2xl border border-black/10 bg-white p-5 md:p-6">
+      <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#0A3F4D]">{language === 'es' ? 'COLA DE EJECUCIÓN' : 'EXECUTION QUEUE'}</p>
+          <h3 className="mt-2 text-xl font-semibold">{language === 'es' ? 'Trabajo prioritario y delegación' : 'Priority work and delegation'}</h3>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-black/50">{language === 'es' ? 'Ejecuta, registra resultados, crea seguimientos, reasigna o reprograma sin salir de esta página.' : 'Execute, record results, create follow-ups, reassign or reschedule without leaving this page.'}</p>
+        </div>
+        <div className="flex gap-2">
+          <div className="rounded-xl bg-[#F7F7F5] px-3.5 py-2.5"><p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-black/35">{language === 'es' ? 'ABIERTAS' : 'OPEN'}</p><p className="mt-1 text-lg font-semibold">{pendingCount}</p></div>
+          <div className="rounded-xl bg-[#F7F7F5] px-3.5 py-2.5"><p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-black/35">{language === 'es' ? 'DELEGADAS' : 'DELEGATED'}</p><p className="mt-1 text-lg font-semibold">{delegatedCount}</p></div>
+        </div>
+      </div>
+      <div className="mt-4 flex items-center justify-between border-t border-black/5 pt-4">
+        <p className="text-xs text-black/40">{language === 'es' ? 'La cola solo muestra trabajo pendiente.' : 'The queue only shows pending work.'}</p>
+        <label className="flex items-center gap-2 text-xs text-black/45"><input type="checkbox" checked={showDone} onChange={(event) => setShowDone(event.target.checked)} />{language === 'es' ? 'Mostrar historial' : 'Show history'}</label>
+      </div>
+    </section>
 
-    <section className="overflow-hidden rounded-2xl border border-black/10 bg-white shadow-[0_10px_30px_rgba(10,10,10,0.025)]"><div className="hidden grid-cols-[minmax(240px,1.25fr)_90px_105px_145px_145px_100px] gap-3 border-b border-black/7 bg-[#FAFAF8] px-4 py-3 text-[9px] font-semibold uppercase tracking-[0.13em] text-black/35 lg:grid"><span>{language === 'es' ? 'Trabajo' : 'Work'}</span><span>{language === 'es' ? 'Prioridad' : 'Priority'}</span><span>{language === 'es' ? 'Tipo' : 'Type'}</span><span>{language === 'es' ? 'Cuándo' : 'When'}</span><span>{language === 'es' ? 'Responsable' : 'Assignee'}</span><span /></div><div className="divide-y divide-black/5">{openTasks.map((task) => { const priority = priorityMeta(task, language); const opened = activeTaskId === task.id; return <div key={task.id} className="grid gap-3 px-4 py-4 lg:grid-cols-[minmax(240px,1.25fr)_90px_105px_145px_145px_100px] lg:items-center"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="text-sm font-semibold">{task.title}</p>{task.source === 'session' && <span className="rounded-full bg-[#4556A6]/8 px-2 py-0.5 text-[9px] font-semibold text-[#4556A6]">{language === 'es' ? 'DESDE SESIÓN' : 'FROM SESSION'}</span>}</div><button type="button" onClick={() => onOpenClient(task.clientId)} className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-[#0A3F4D] hover:underline">{task.clientName}<ChevronRight className="h-3 w-3" /></button>{task.note && <p className="mt-1 line-clamp-2 text-xs leading-5 text-black/45">{task.note}</p>}</div><span className={`w-fit rounded-full px-2.5 py-1 text-[9px] font-semibold ${priority.className}`}>{priority.label}</span><div className="flex items-center gap-2 text-xs text-black/55"><ActionIcon kind={task.type} /><span>{actionLabel(task.type, language)}</span></div><div className="flex items-center gap-2 text-xs text-black/55"><Clock3 className="h-3.5 w-3.5" /><span>{formatDue(task, language)}</span></div><label className="relative"><UserRoundCheck className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-black/30" /><select value={task.assignee} onChange={(event) => setAssignee(task, event.target.value)} className="w-full rounded-lg border border-black/8 bg-white py-2 pl-8 pr-2 text-xs"><option>Mentor</option><option>Equipo</option><option>Asistente</option><option>Ventas</option></select></label><button type="button" onClick={() => toggleWork(task)} className="inline-flex items-center justify-center gap-1.5 rounded-full bg-[#111413] px-3 py-2 text-[10px] font-semibold text-white">{opened ? (language === 'es' ? 'Cerrar' : 'Close') : (language === 'es' ? 'Trabajar' : 'Work')}<ChevronDown className={`h-3 w-3 transition ${opened ? 'rotate-180' : ''}`} /></button>
-      {opened && <div className="rounded-xl border border-black/8 bg-[#FAFAF8] p-4 lg:col-span-6"><div className="grid gap-5 xl:grid-cols-2"><div><p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black/38">{language === 'es' ? 'EJECUTAR TAREA' : 'EXECUTE TASK'}</p><label className="mt-3 block"><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'RESULTADO / NOTA' : 'RESULT / NOTE'}</span><textarea value={resultDraft} onChange={(event) => setResultDraft(event.target.value)} rows={4} className="w-full rounded-xl border border-black/10 bg-white px-3.5 py-3 text-sm" /></label><div className="mt-3 grid grid-cols-2 gap-3"><input type="date" value={rescheduleDate} onChange={(event) => setRescheduleDate(event.target.value)} className="rounded-lg border border-black/10 bg-white px-3 py-2.5 text-sm" /><input type="time" value={rescheduleTime} onChange={(event) => setRescheduleTime(event.target.value)} className="rounded-lg border border-black/10 bg-white px-3 py-2.5 text-sm" /></div><div className="mt-3 flex flex-wrap gap-2"><button type="button" onClick={() => rescheduleTask(task)} className="rounded-full border border-black/10 bg-white px-4 py-2.5 text-xs font-semibold text-black/60">{language === 'es' ? 'Reprogramar' : 'Reschedule'}</button><button type="button" onClick={() => completeTask(task)} className="rounded-full bg-[#111413] px-4 py-2.5 text-xs font-semibold text-white">{language === 'es' ? 'Guardar y completar' : 'Save & complete'}</button><button type="button" onClick={() => removeTask(task)} className="inline-flex items-center gap-1.5 rounded-full border border-[#A23A32]/15 bg-white px-4 py-2.5 text-xs font-semibold text-[#8D332C]"><Trash2 className="h-3.5 w-3.5" />{language === 'es' ? 'Eliminar tarea' : 'Delete task'}</button></div></div>
-      <div><p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#0A3F4D]">{language === 'es' ? 'NUEVA ACCIÓN SI SE REQUIERE' : 'NEW ACTION IF NEEDED'}</p><div className="mt-3 grid gap-3"><select value={newType} onChange={(event) => setNewType(event.target.value as WorkActionType)} className="rounded-lg border border-black/10 bg-white px-3 py-2.5 text-sm"><option value="whatsapp">WhatsApp</option><option value="email">Email</option><option value="call">{language === 'es' ? 'Llamada' : 'Call'}</option><option value="meeting">{language === 'es' ? 'Reunión' : 'Meeting'}</option><option value="task">{language === 'es' ? 'Tarea interna' : 'Internal task'}</option></select><input value={newNote} onChange={(event) => setNewNote(event.target.value)} placeholder={language === 'es' ? 'Qué debe hacerse' : 'What needs to be done'} className="rounded-lg border border-black/10 bg-white px-3 py-2.5 text-sm" /><div className="grid grid-cols-2 gap-3"><input type="date" value={newDate} onChange={(event) => setNewDate(event.target.value)} className="rounded-lg border border-black/10 bg-white px-3 py-2.5 text-sm" /><input type="time" value={newTime} onChange={(event) => setNewTime(event.target.value)} className="rounded-lg border border-black/10 bg-white px-3 py-2.5 text-sm" /></div><select value={newAssignee} onChange={(event) => setNewAssignee(event.target.value)} className="rounded-lg border border-black/10 bg-white px-3 py-2.5 text-sm"><option>Mentor</option><option>Equipo</option><option>Asistente</option><option>Ventas</option></select><button type="button" onClick={() => createFollowUp(task)} className="rounded-full bg-[#0A3F4D] px-4 py-2.5 text-xs font-semibold text-white">{language === 'es' ? 'Agregar próxima acción' : 'Add next action'}</button></div></div></div></div>}
-      </div>; })}{openTasks.length === 0 && <div className="p-8 text-center text-sm text-black/40">{language === 'es' ? 'No hay trabajo pendiente.' : 'No pending work.'}</div>}</div></section>
+    <section className="overflow-hidden rounded-2xl border border-black/10 bg-white shadow-[0_10px_30px_rgba(10,10,10,0.025)]">
+      <div className="hidden grid-cols-[minmax(240px,1.25fr)_90px_105px_145px_145px_100px] gap-3 border-b border-black/7 bg-[#FAFAF8] px-4 py-3 text-[9px] font-semibold uppercase tracking-[0.13em] text-black/35 lg:grid"><span>{language === 'es' ? 'Trabajo' : 'Work'}</span><span>{language === 'es' ? 'Prioridad' : 'Priority'}</span><span>{language === 'es' ? 'Tipo' : 'Type'}</span><span>{language === 'es' ? 'Cuándo' : 'When'}</span><span>{language === 'es' ? 'Responsable' : 'Assignee'}</span><span /></div>
+      <div className="divide-y divide-black/5">
+        {openTasks.map((task) => {
+          const priority = priorityMeta(task, language);
+          const opened = activeTaskId === task.id;
+          return <div key={task.id} className="grid gap-3 px-4 py-4 lg:grid-cols-[minmax(240px,1.25fr)_90px_105px_145px_145px_100px] lg:items-center">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2"><p className="text-sm font-semibold">{task.title}</p>{task.source === 'session' && <span className="rounded-full bg-[#4556A6]/8 px-2 py-0.5 text-[9px] font-semibold text-[#4556A6]">{language === 'es' ? 'DESDE SESIÓN' : 'FROM SESSION'}</span>}</div>
+              <button type="button" onClick={() => onOpenClient(task.clientId)} className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-[#0A3F4D] hover:underline">{task.clientName}<ChevronRight className="h-3 w-3" /></button>
+              {task.note && <p className="mt-1 line-clamp-2 text-xs leading-5 text-black/45">{task.note}</p>}
+            </div>
+            <span className={`w-fit rounded-full px-2.5 py-1 text-[9px] font-semibold ${priority.className}`}>{priority.label}</span>
+            <div className="flex items-center gap-2 text-xs text-black/55"><ActionIcon kind={task.type} /><span>{actionLabel(task.type, language)}</span></div>
+            <div className="flex items-center gap-2 text-xs text-black/55"><Clock3 className="h-3.5 w-3.5" /><span>{formatDue(task, language)}</span></div>
+            <label className="relative"><UserRoundCheck className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-black/30" /><select value={task.assignee} onChange={(event) => setAssignee(task, event.target.value)} className="w-full rounded-lg border border-black/8 bg-white py-2 pl-8 pr-2 text-xs"><option>Mentor</option><option>Equipo</option><option>Asistente</option><option>Ventas</option></select></label>
+            <button type="button" onClick={() => toggleWork(task)} className="inline-flex items-center justify-center gap-1.5 rounded-full bg-[#111413] px-3 py-2 text-[10px] font-semibold text-white">{opened ? (language === 'es' ? 'Cerrar' : 'Close') : (language === 'es' ? 'Trabajar' : 'Work')}<ChevronDown className={`h-3 w-3 transition ${opened ? 'rotate-180' : ''}`} /></button>
 
-    {showDone && <section className="rounded-2xl border border-black/10 bg-white p-5 md:p-6"><div className="flex items-center justify-between"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-black/40">{language === 'es' ? 'HISTORIAL DE TAREAS' : 'TASK HISTORY'}</p><h3 className="mt-2 text-lg font-semibold">{language === 'es' ? 'Completadas recientemente' : 'Recently completed'}</h3><p className="mt-1 text-xs text-black/45">{language === 'es' ? 'Las más recientes aparecen primero.' : 'Most recent first.'}</p></div><span className="rounded-full bg-[#0A3F4D]/8 px-3 py-1.5 text-xs font-semibold text-[#0A3F4D]">{completedTasks.length}</span></div><div className="mt-4 max-h-[430px] overflow-y-auto rounded-xl border border-black/7"><div className="divide-y divide-black/5">{completedTasks.map((task) => <div key={task.id} className="grid gap-3 p-4 md:grid-cols-[minmax(0,1fr)_110px_140px_auto] md:items-center"><div><p className="text-sm font-semibold">{task.title}</p><p className="mt-1 text-xs text-black/45">{task.clientName}{task.result ? ` · ${task.result}` : ''}</p></div><span className="text-xs text-black/50">{actionLabel(task.type, language)}</span><span className="text-xs text-black/45">{formatDue(task, language)}</span><button type="button" onClick={() => removeTask(task)} className="grid h-8 w-8 place-items-center rounded-full border border-black/8 text-black/35 hover:text-[#A23A32]" aria-label={language === 'es' ? 'Eliminar' : 'Delete'}><Trash2 className="h-3.5 w-3.5" /></button></div>)}{completedTasks.length === 0 && <div className="p-6 text-center text-sm text-black/40">{language === 'es' ? 'Aún no hay tareas completadas.' : 'No completed tasks yet.'}</div>}</div></div></section>}
+            {opened && <div className="rounded-xl border border-black/8 bg-[#FAFAF8] p-4 lg:col-span-6">
+              <div className="grid gap-5 xl:grid-cols-2">
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black/38">{language === 'es' ? 'EJECUTAR TAREA' : 'EXECUTE TASK'}</p>
+                  <label className="mt-3 block"><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'RESULTADO / NOTA' : 'RESULT / NOTE'}</span><textarea value={resultDraft} onChange={(event) => setResultDraft(event.target.value)} rows={4} className="w-full rounded-xl border border-black/10 bg-white px-3.5 py-3 text-sm" /></label>
+                  <div className="mt-3 grid grid-cols-2 gap-3"><input type="date" value={rescheduleDate} onChange={(event) => setRescheduleDate(event.target.value)} className="rounded-lg border border-black/10 bg-white px-3 py-2.5 text-sm" /><input type="time" value={rescheduleTime} onChange={(event) => setRescheduleTime(event.target.value)} className="rounded-lg border border-black/10 bg-white px-3 py-2.5 text-sm" /></div>
+                  <div className="mt-3 flex flex-wrap gap-2"><button type="button" onClick={() => rescheduleTask(task)} className="rounded-full border border-black/10 bg-white px-4 py-2.5 text-xs font-semibold text-black/60">{language === 'es' ? 'Reprogramar' : 'Reschedule'}</button><button type="button" onClick={() => completeTask(task)} className="rounded-full bg-[#111413] px-4 py-2.5 text-xs font-semibold text-white">{language === 'es' ? 'Guardar y completar' : 'Save & complete'}</button><button type="button" onClick={() => removeTask(task)} className="inline-flex items-center gap-1.5 rounded-full border border-[#A23A32]/15 bg-white px-4 py-2.5 text-xs font-semibold text-[#8D332C]"><Trash2 className="h-3.5 w-3.5" />{language === 'es' ? 'Enviar al historial' : 'Move to history'}</button></div>
+                </div>
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#0A3F4D]">{language === 'es' ? 'NUEVA ACCIÓN SI SE REQUIERE' : 'NEW ACTION IF NEEDED'}</p>
+                  <div className="mt-3 grid gap-3"><select value={newType} onChange={(event) => setNewType(event.target.value as WorkActionType)} className="rounded-lg border border-black/10 bg-white px-3 py-2.5 text-sm"><option value="whatsapp">WhatsApp</option><option value="email">Email</option><option value="call">{language === 'es' ? 'Llamada' : 'Call'}</option><option value="meeting">{language === 'es' ? 'Reunión' : 'Meeting'}</option><option value="task">{language === 'es' ? 'Tarea interna' : 'Internal task'}</option></select><input value={newNote} onChange={(event) => setNewNote(event.target.value)} placeholder={language === 'es' ? 'Qué debe hacerse' : 'What needs to be done'} className="rounded-lg border border-black/10 bg-white px-3 py-2.5 text-sm" /><div className="grid grid-cols-2 gap-3"><input type="date" value={newDate} onChange={(event) => setNewDate(event.target.value)} className="rounded-lg border border-black/10 bg-white px-3 py-2.5 text-sm" /><input type="time" value={newTime} onChange={(event) => setNewTime(event.target.value)} className="rounded-lg border border-black/10 bg-white px-3 py-2.5 text-sm" /></div><select value={newAssignee} onChange={(event) => setNewAssignee(event.target.value)} className="rounded-lg border border-black/10 bg-white px-3 py-2.5 text-sm"><option>Mentor</option><option>Equipo</option><option>Asistente</option><option>Ventas</option></select><button type="button" onClick={() => createFollowUp(task)} className="rounded-full bg-[#0A3F4D] px-4 py-2.5 text-xs font-semibold text-white">{language === 'es' ? 'Agregar próxima acción' : 'Add next action'}</button></div>
+                </div>
+              </div>
+            </div>}
+          </div>;
+        })}
+        {openTasks.length === 0 && <div className="p-8 text-center text-sm text-black/40">{language === 'es' ? 'No hay trabajo pendiente.' : 'No pending work.'}</div>}
+      </div>
+    </section>
+
+    {showDone && <section className="rounded-2xl border border-black/10 bg-white p-5 md:p-6">
+      <div className="flex items-center justify-between">
+        <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-black/40">{language === 'es' ? 'HISTORIAL DE TAREAS' : 'TASK HISTORY'}</p><h3 className="mt-2 text-lg font-semibold">{language === 'es' ? 'Completadas y eliminadas' : 'Completed and removed'}</h3><p className="mt-1 text-xs text-black/45">{language === 'es' ? 'Las más recientes aparecen primero. Las eliminadas se pueden recuperar.' : 'Most recent first. Removed tasks can be recovered.'}</p></div>
+        <span className="rounded-full bg-[#0A3F4D]/8 px-3 py-1.5 text-xs font-semibold text-[#0A3F4D]">{historyTasks.length}</span>
+      </div>
+      <div className="mt-4 max-h-[430px] overflow-y-auto rounded-xl border border-black/7">
+        <div className="divide-y divide-black/5">
+          {historyTasks.map((task) => <div key={task.id} className="grid gap-3 p-4 md:grid-cols-[minmax(0,1fr)_110px_140px_auto] md:items-center">
+            <div>
+              <div className="flex flex-wrap items-center gap-2"><p className="text-sm font-semibold">{task.title}</p><span className={`rounded-full px-2 py-0.5 text-[9px] font-semibold ${task.deletedAt ? 'bg-[#A23A32]/9 text-[#8D332C]' : 'bg-[#0A3F4D]/8 text-[#0A3F4D]'}`}>{task.deletedAt ? (language === 'es' ? 'ELIMINADA' : 'REMOVED') : (language === 'es' ? 'COMPLETADA' : 'COMPLETED')}</span></div>
+              <p className="mt-1 text-xs text-black/45">{task.clientName}{task.result ? ` · ${task.result}` : ''}</p>
+            </div>
+            <span className="text-xs text-black/50">{actionLabel(task.type, language)}</span>
+            <span className="text-xs text-black/45">{formatDue(task, language)}</span>
+            {task.deletedAt ? <button type="button" onClick={() => recoverTask(task)} className="inline-flex items-center gap-1.5 rounded-full border border-[#0A3F4D]/15 bg-white px-3 py-2 text-[10px] font-semibold text-[#0A3F4D]"><RotateCcw className="h-3.5 w-3.5" />{language === 'es' ? 'Recuperar' : 'Recover'}</button> : <button type="button" onClick={() => removeTask(task)} className="grid h-8 w-8 place-items-center rounded-full border border-black/8 text-black/35 hover:text-[#A23A32]" aria-label={language === 'es' ? 'Eliminar' : 'Delete'}><Trash2 className="h-3.5 w-3.5" /></button>}
+          </div>)}
+          {historyTasks.length === 0 && <div className="p-6 text-center text-sm text-black/40">{language === 'es' ? 'Aún no hay tareas en el historial.' : 'No task history yet.'}</div>}
+        </div>
+      </div>
+    </section>}
   </div>;
 }

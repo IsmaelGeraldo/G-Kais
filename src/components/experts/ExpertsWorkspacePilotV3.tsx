@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, BookOpenCheck, CalendarDays, CircleGauge, LayoutDashboard, ListTodo, Settings, Sparkles, UserCheck, Users } from 'lucide-react';
+import { ArrowLeft, BookOpenCheck, CalendarDays, LayoutDashboard, ListTodo, Settings, Sparkles, UserCheck, Users } from 'lucide-react';
 import { useLanguage, type Language } from '../../i18n/LanguageContext';
 import { DashboardHistory } from './DashboardHistory';
 import { PriorityRadarWorkspace } from './PriorityRadarWorkspace';
@@ -8,12 +8,11 @@ import { WorkspaceSettingsProfile, type WorkspaceProfile, type WorkspaceAppearan
 
 type Props = { onExit: () => void };
 type LocalText = { es: string; en: string };
-type Section = 'overview' | 'attention' | 'people' | 'work' | 'intelligence';
+type Section = 'overview' | 'people' | 'work' | 'intelligence';
 type NavItem = { id: string; label: LocalText; icon: React.ComponentType<{ className?: string }>; section: Section };
 
 const NAV: NavItem[] = [
   { id: 'overview', label: { es: 'Dashboard', en: 'Dashboard' }, icon: LayoutDashboard, section: 'overview' },
-  { id: 'priority', label: { es: 'Trabajo prioritario', en: 'Priority Work' }, icon: CircleGauge, section: 'attention' },
   { id: 'leads', label: { es: 'Leads', en: 'Leads' }, icon: UserCheck, section: 'people' },
   { id: 'clients', label: { es: 'Clientes', en: 'Clients' }, icon: Users, section: 'people' },
   { id: 'tasks', label: { es: 'Tareas', en: 'Tasks' }, icon: ListTodo, section: 'work' },
@@ -28,10 +27,8 @@ const APPEARANCE_KEY = 'gkais-experts-appearance-v2';
 function readLocation() {
   const params = new URLSearchParams(window.location.search);
   const view = params.get('view') || 'overview';
-  return {
-    active: NAV.some((item) => item.id === view) || view === 'settings' ? view : 'overview',
-    clientId: params.get('client') || 'sofia'
-  };
+  const validView = NAV.some((item) => item.id === view) || view === 'settings' || view === 'priority';
+  return { active: validView ? view : 'overview', clientId: params.get('client') || 'sofia' };
 }
 
 function loadProfile(): WorkspaceProfile {
@@ -92,7 +89,11 @@ export function ExpertsWorkspace({ onExit }: Props) {
   const selectedBackground = `color-mix(in srgb, ${accent} ${Math.min(94, 40 + appearance.sidebarIntensity * 5)}%, white)`;
   const selectedText = appearance.sidebarIntensity >= 6 ? '#FFFFFF' : '#111413';
   const workspaceAccent = themeColor(appearance.theme);
-  const activeLabel = active === 'settings' ? (language === 'es' ? 'Configuración' : 'Settings') : NAV.find((item) => item.id === active)?.label[language] ?? 'Dashboard';
+  const activeLabel = active === 'settings'
+    ? (language === 'es' ? 'Configuración' : 'Settings')
+    : active === 'priority'
+      ? (language === 'es' ? 'Trabajo prioritario' : 'Priority Work')
+      : NAV.find((item) => item.id === active)?.label[language] ?? 'Dashboard';
 
   let content: React.ReactNode;
   if (active === 'overview') content = <DashboardHistory language={language} onNavigate={navigate} onOpenClient={openPerson} onStartSession={startSession} />;
@@ -103,7 +104,6 @@ export function ExpertsWorkspace({ onExit }: Props) {
 
   const sectionLabels: Record<Section, LocalText | null> = {
     overview: null,
-    attention: { es: 'ATENCIÓN', en: 'ATTENTION' },
     people: { es: 'PERSONAS', en: 'PEOPLE' },
     work: { es: 'TRABAJO', en: 'WORK' },
     intelligence: { es: 'INTELIGENCIA', en: 'INTELLIGENCE' }
@@ -113,7 +113,7 @@ export function ExpertsWorkspace({ onExit }: Props) {
     <aside className="fixed inset-y-0 left-0 z-30 hidden w-[245px] border-r border-black/10 bg-[#111413] text-white lg:flex lg:flex-col">
       <div className="border-b border-white/10 px-5 py-5"><p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/45">G-KAIS</p><p className="mt-1 text-sm font-semibold">for Experts</p></div>
       <nav className="flex-1 overflow-y-auto px-3 py-4">
-        {(['overview','attention','people','work','intelligence'] as Section[]).map((section) => <div key={section} className={section === 'overview' ? '' : 'mt-5'}>
+        {(['overview','people','work','intelligence'] as Section[]).map((section) => <div key={section} className={section === 'overview' ? '' : 'mt-5'}>
           {sectionLabels[section] && <p className="mb-2 px-3 text-[9px] font-semibold tracking-[0.18em] text-white/30">{sectionLabels[section]![language]}</p>}
           <div className="space-y-1">{NAV.filter((item) => item.section === section).map((item) => { const Icon = item.icon; const selected = active === item.id; return <button key={item.id} type="button" onClick={() => navigate(item.id)} className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${selected ? '' : 'text-white/65 hover:bg-white/[0.06] hover:text-white'}`} style={selected ? { background: selectedBackground, color: selectedText } : undefined}><Icon className="h-4 w-4" /><span className="flex-1 text-left">{item.label[language]}</span></button>; })}</div>
         </div>)}

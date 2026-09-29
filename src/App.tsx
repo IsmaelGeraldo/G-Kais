@@ -6,7 +6,7 @@
 import React, { useEffect, useState } from 'react';
 import { Header } from './components/Header.tsx';
 import { Hero } from './components/Hero.tsx';
-import { ProblemSection } from './components/ProblemSection.tsx';
+import { ProblemSection } from './components/ProblemSectionSection.tsx';
 import { OpportunityRecoverySection } from './components/OpportunityRecoverySection.tsx';
 import { TheSystemSection } from './components/TheSystemSection.tsx';
 import { LeadFlowSection } from './components/LeadFlowSection.tsx';
@@ -61,35 +61,23 @@ function PublicApp({ onOpenAdmin }: { onOpenAdmin: () => void }) {
 }
 
 function isHqRoute(): boolean {
-  return window.location.pathname === '/hq' ||
-    window.location.pathname.startsWith('/hq/') ||
-    window.location.pathname === '/admin' ||
-    window.location.pathname.startsWith('/admin/');
+  return window.location.pathname === '/hq' || window.location.pathname.startsWith('/hq/') || window.location.pathname === '/admin' || window.location.pathname.startsWith('/admin/');
 }
 
 function isExpertsDemoRoute(): boolean {
-  return window.location.pathname === '/demo/experts' ||
-    window.location.pathname.startsWith('/demo/experts/');
+  return window.location.pathname === '/demo/experts' || window.location.pathname.startsWith('/demo/experts/');
 }
 
 function isExpertsWorkspaceRoute(): boolean {
-  return window.location.pathname === '/workspace' ||
-    window.location.pathname === '/workspace/experts' ||
-    window.location.pathname.startsWith('/workspace/experts/');
+  return window.location.pathname === '/workspace' || window.location.pathname === '/workspace/experts' || window.location.pathname.startsWith('/workspace/experts/');
 }
 
 function isSessionMemoryRoute(): boolean {
-  return window.location.pathname === '/workspace/experts/sessions' ||
-    window.location.pathname.startsWith('/workspace/experts/sessions/');
+  return window.location.pathname === '/workspace/experts/sessions' || window.location.pathname.startsWith('/workspace/experts/sessions/');
 }
 
 function AppContent() {
-  const [showAdmin, setShowAdmin] = useState<boolean>(() => {
-    return (
-      isHqRoute() ||
-      (import.meta.env.DEV && window.sessionStorage.getItem('gkais-dev-admin') === '1')
-    );
-  });
+  const [showAdmin, setShowAdmin] = useState<boolean>(() => isHqRoute() || (import.meta.env.DEV && window.sessionStorage.getItem('gkais-dev-admin') === '1'));
   const [showExpertsDemo, setShowExpertsDemo] = useState<boolean>(() => isExpertsDemoRoute());
   const [showExpertsWorkspace, setShowExpertsWorkspace] = useState<boolean>(() => isExpertsWorkspaceRoute());
   const [showSessionMemory, setShowSessionMemory] = useState<boolean>(() => isSessionMemoryRoute());
@@ -108,18 +96,12 @@ function AppContent() {
   const openAdmin = () => {
     if (import.meta.env.DEV) window.sessionStorage.setItem('gkais-dev-admin', '1');
     window.history.pushState({}, '', '/hq');
-    setShowExpertsDemo(false);
-    setShowExpertsWorkspace(false);
-    setShowSessionMemory(false);
-    setShowAdmin(true);
+    setShowExpertsDemo(false); setShowExpertsWorkspace(false); setShowSessionMemory(false); setShowAdmin(true);
   };
 
   const openExpertsWorkspace = () => {
     window.history.pushState({}, '', '/workspace/experts');
-    setShowAdmin(false);
-    setShowExpertsDemo(false);
-    setShowSessionMemory(false);
-    setShowExpertsWorkspace(true);
+    setShowAdmin(false); setShowExpertsDemo(false); setShowSessionMemory(false); setShowExpertsWorkspace(true);
   };
 
   const exitAdmin = () => {
@@ -130,27 +112,16 @@ function AppContent() {
 
   const exitExpertsDemo = () => {
     window.history.pushState({}, '', '/');
-    setShowExpertsDemo(false);
-    setShowExpertsWorkspace(false);
-    setShowSessionMemory(false);
-    setShowAdmin(false);
+    setShowExpertsDemo(false); setShowExpertsWorkspace(false); setShowSessionMemory(false); setShowAdmin(false);
   };
 
   const exitExpertsWorkspace = () => {
     window.history.pushState({}, '', '/');
-    setShowExpertsWorkspace(false);
-    setShowSessionMemory(false);
-    setShowExpertsDemo(false);
-    setShowAdmin(false);
+    setShowExpertsWorkspace(false); setShowSessionMemory(false); setShowExpertsDemo(false); setShowAdmin(false);
   };
 
   const backFromSessionMemory = () => {
-    const clientId = new URLSearchParams(window.location.search).get('client') || 'sofia';
-    window.history.pushState({}, '', `/workspace/experts?view=clients&client=${encodeURIComponent(clientId)}`);
-    setShowSessionMemory(false);
-    setShowExpertsWorkspace(true);
-    setShowExpertsDemo(false);
-    setShowAdmin(false);
+    window.history.back();
   };
 
   if (showSessionMemory) return <SessionMemoryWorkspaceAI onBack={backFromSessionMemory} />;
@@ -158,25 +129,10 @@ function AppContent() {
   if (showExpertsDemo) return <ExpertsCommercialDemo onExit={exitExpertsDemo} />;
 
   return showAdmin
-    ? (
-      <div className="relative">
-        <AdminPage onExitAdmin={exitAdmin} />
-        <button
-          type="button"
-          onClick={openExpertsWorkspace}
-          className="fixed bottom-5 right-5 z-[80] rounded-full border border-[#0A3F4D]/20 bg-[#0A3F4D] px-4 py-3 text-xs font-semibold text-white shadow-[0_12px_30px_rgba(10,63,77,0.25)] transition hover:bg-[#083540]"
-        >
-          Open Experts Workspace
-        </button>
-      </div>
-    )
+    ? <div className="relative"><AdminPage onExitAdmin={exitAdmin} /><button type="button" onClick={openExpertsWorkspace} className="fixed bottom-5 right-5 z-[80] rounded-full border border-[#0A3F4D]/20 bg-[#0A3F4D] px-4 py-3 text-xs font-semibold text-white shadow-[0_12px_30px_rgba(10,63,77,0.25)] transition hover:bg-[#083540]">Open Experts Workspace</button></div>
     : <PublicApp onOpenAdmin={openAdmin} />;
 }
 
 export default function App() {
-  return (
-    <LanguageProvider>
-      <AppContent />
-    </LanguageProvider>
-  );
+  return <LanguageProvider><AppContent /></LanguageProvider>;
 }

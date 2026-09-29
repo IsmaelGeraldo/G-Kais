@@ -68,7 +68,9 @@ export async function requestSessionCopilot(client: SessionCopilotClient, journa
   const planStage = latestStage(journal, ['plan / trabajo', 'plan / work']);
   const diagnosedProblem = extractLine(diagnosis?.body, ['problema actual:', 'current problem:']);
   const diagnosedCause = extractLine(diagnosis?.body, ['causa:', 'cause:']);
-  const currentProblem = [diagnosedProblem, diagnosedCause, client.currentGap, existing.gap, ...(client.blockers ?? [])].filter(Boolean).join(' · ');
+  const reviewOutcome = extractLine(review?.body, ['cumplimiento:', 'completion:']);
+  const reviewPositive = /^(sí|si|yes)$/i.test(reviewOutcome.trim());
+  const currentProblem = [diagnosedProblem, diagnosedCause, review?.body, client.currentGap, existing.gap, ...(client.blockers ?? [])].filter(Boolean).join(' · ');
   const currentSolution = [planStage?.body, client.planSummary, ...(existing.plan ?? [])].filter(Boolean).join(' · ');
   const commitmentContext = (client.commitments ?? []).map((item) => `${item.label} [${item.status}]`).join(' · ');
 
@@ -102,7 +104,8 @@ export async function requestSessionCopilot(client: SessionCopilotClient, journa
   const solutionPlan = Array.isArray(brief.solutionPlan) && brief.solutionPlan.length ? brief.solutionPlan : [];
   const plan = solutionPlan.length ? solutionPlan : brief.recommendedAction ? [String(brief.recommendedAction)] : (existing.plan || []);
   const summary = typeof brief.summary === 'string' && brief.summary.trim() ? brief.summary.trim() : (existing.summary || '');
-  const gap = diagnosedProblem || client.currentGap || (typeof brief.summary === 'string' ? brief.summary.trim() : '') || existing.gap || '';
+  const freshSignal = risks[0] || summary;
+  const gap = diagnosedProblem || (reviewPositive ? freshSignal : (client.currentGap || freshSignal || existing.gap || ''));
   const callOpening = typeof brief.callPositioning === 'string' && brief.callPositioning.trim() ? brief.callPositioning.trim() : buildSessionOpening({ ...existing, gap }, risks, language);
   return { summary, gap, known, risks, questions, howHelp, plan, callOpening };
 }

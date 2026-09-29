@@ -11,7 +11,9 @@ export const THEME_COLORS = [
   { id: 'sky', label: 'Celeste', hex: '#5B8EAD' }, { id: 'indigo', label: 'Índigo', hex: '#5357A6' },
   { id: 'violet', label: 'Violeta', hex: '#76589B' }, { id: 'rose', label: 'Rosa', hex: '#A15E78' },
   { id: 'terracotta', label: 'Terracota', hex: '#9A5449' }, { id: 'orange', label: 'Naranja', hex: '#B46A32' },
-  { id: 'amber', label: 'Ámbar', hex: '#9A7629' }, { id: 'sand', label: 'Arena', hex: '#A58A65' }
+  { id: 'amber', label: 'Ámbar', hex: '#9A7629' }, { id: 'sand', label: 'Arena', hex: '#A58A65' },
+  { id: 'graphite', label: 'Grafito', hex: '#3B3E3D' }, { id: 'charcoal', label: 'Carbón', hex: '#292C2B' },
+  { id: 'smoke-black', label: 'Negro humo', hex: '#181A19' }, { id: 'dark-slate', label: 'Pizarra oscura', hex: '#303736' }
 ];
 
 export function themeColor(id: string): string {

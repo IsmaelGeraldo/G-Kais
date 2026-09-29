@@ -13,7 +13,7 @@ import type { Language } from '../../i18n/LanguageContext';
 import { loadTasks, WORKSPACE_STATE_EVENT, type WorkTask } from './workspaceState';
 
 type RangeKey = 'week' | 'month' | 'year';
-type MetricId = 'priority' | 'sessions' | 'clients' | 'leads';
+type MetricId = 'sessions' | 'clients' | 'leads';
 type LocalText = { es: string; en: string };
 type TrendPoint = { label: string; fullLabel: string; value: number };
 type ClientRecord = {
@@ -38,7 +38,6 @@ type Metric = {
 const CLIENT_RECORD_STORAGE_KEY = 'gkais-experts-client-records-v2';
 
 const BASE_METRICS: Metric[] = [
-  { id: 'priority', label: { es: 'Trabajo prioritario', en: 'Priority Work' }, value: '0', detail: { es: 'acciones abiertas', en: 'open actions' }, trend: { es: 'abrir cola de ejecución', en: 'open execution queue' }, ringValue: 0, ringTotal: 1, colors: ['#A23A32', '#D67A32'] },
   { id: 'sessions', label: { es: 'Sesiones de hoy', en: 'Sessions Today' }, value: '3', detail: { es: '2 clientes · 1 lead', en: '2 clients · 1 lead' }, trend: { es: 'agenda del día', en: 'today agenda' }, ringValue: 2, ringTotal: 3, colors: ['#4556A6', '#74A9CF'] },
   { id: 'clients', label: { es: 'Clientes activos', en: 'Active Clients' }, value: '46', detail: { es: '+4 este mes', en: '+4 this month' }, trend: { es: '+9% vs mes anterior', en: '+9% vs previous month' }, ringValue: 43, ringTotal: 46, colors: ['#0A3F4D', '#78A892'] },
   { id: 'leads', label: { es: 'Nuevos leads', en: 'New Leads' }, value: '18', detail: { es: 'este mes', en: 'this month' }, trend: { es: '+12% vs mes anterior', en: '+12% vs previous month' }, ringValue: 14, ringTotal: 18, colors: ['#5C4D8A', '#7A9FC8'] }
@@ -119,6 +118,15 @@ function HistoricalChart({ kind, range, setRange, language }: { kind: 'clients' 
   const peak = Math.max(...points.map((point) => point.value));
   const selected = hovered === null ? null : points[hovered];
   const selectedPoint = hovered === null ? null : plotted[hovered];
+  const lineColor = kind === 'clients' ? '#0A6B66' : '#5357A6';
+  const linePath = smoothPath(plotted);
+  const areaPath = plotted.length
+    ? `${linePath} L ${plotted[plotted.length - 1].x} ${height - padY} L ${plotted[0].x} ${height - padY} Z`
+    : '';
+  const tooltipWidth = 128;
+  const tooltipHeight = 42;
+  const tooltipX = selectedPoint ? Math.min(width - padX - tooltipWidth, Math.max(padX, selectedPoint.x - tooltipWidth / 2)) : 0;
+  const tooltipY = selectedPoint ? (selectedPoint.y < 58 ? selectedPoint.y + 10 : selectedPoint.y - tooltipHeight - 10) : 0;
 
   return (
     <section className="mt-4 rounded-2xl border border-black/8 bg-white p-4 shadow-[0_8px_24px_rgba(10,10,10,0.025)] md:p-5">
@@ -126,7 +134,7 @@ function HistoricalChart({ kind, range, setRange, language }: { kind: 'clients' 
         <div>
           <p className="text-sm font-semibold">{kind === 'clients' ? (language === 'es' ? 'Histórico de clientes' : 'Client history') : (language === 'es' ? 'Histórico de leads' : 'Lead history')}</p>
           <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-black/42">
-            <span>{language === 'es' ? 'Total' : 'Total'} <strong className="text-black/65">{total}</strong></span>
+            <span>Total <strong className="text-black/65">{total}</strong></span>
             <span>{language === 'es' ? 'Promedio' : 'Average'} <strong className="text-black/65">{average.toFixed(1)}</strong></span>
             <span>{language === 'es' ? 'Pico' : 'Peak'} <strong className="text-black/65">{peak}</strong></span>
           </div>
@@ -140,29 +148,34 @@ function HistoricalChart({ kind, range, setRange, language }: { kind: 'clients' 
         </div>
       </div>
 
-      <div className="relative mt-3 h-[176px]">
-        <svg viewBox={`0 0 ${width} ${height}`} className="h-[150px] w-full overflow-visible" role="img" onMouseLeave={() => setHovered(null)}>
+      <div className="mt-3 h-[176px]">
+        <svg viewBox={`0 0 ${width} ${height}`} className="h-[150px] w-full" role="img" onMouseLeave={() => setHovered(null)}>
+          <defs>
+            <linearGradient id={`history-fill-${kind}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={lineColor} stopOpacity="0.26" />
+              <stop offset="65%" stopColor={lineColor} stopOpacity="0.08" />
+              <stop offset="100%" stopColor={lineColor} stopOpacity="0" />
+            </linearGradient>
+          </defs>
           {[0.25, 0.5, 0.75, 1].map((fraction) => <line key={fraction} x1={padX} x2={width - padX} y1={height * fraction - 5} y2={height * fraction - 5} stroke="currentColor" strokeOpacity="0.055" />)}
-          <path d={smoothPath(plotted)} fill="none" stroke="#0A3F4D" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <path d={areaPath} fill={`url(#history-fill-${kind})`} />
+          <path d={linePath} fill="none" stroke={lineColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          {selectedPoint && <line x1={selectedPoint.x} x2={selectedPoint.x} y1={padY} y2={height - padY} stroke={lineColor} strokeOpacity="0.16" strokeDasharray="3 4" />}
           {plotted.map((point, index) => (
             <g key={points[index].fullLabel} onMouseEnter={() => setHovered(index)} className="cursor-crosshair">
-              <circle cx={point.x} cy={point.y} r="12" fill="transparent" />
-              <circle cx={point.x} cy={point.y} r={hovered === index ? 4 : 2.75} fill="white" stroke="#0A3F4D" strokeWidth={hovered === index ? 2 : 1.5} />
+              <circle cx={point.x} cy={point.y} r="13" fill="transparent" />
+              <circle cx={point.x} cy={point.y} r={hovered === index ? 4 : 2.75} fill="white" stroke={lineColor} strokeWidth={hovered === index ? 2 : 1.5} />
             </g>
           ))}
+          {selected && selectedPoint && (
+            <g pointerEvents="none">
+              <rect x={tooltipX} y={tooltipY} width={tooltipWidth} height={tooltipHeight} rx="8" fill="#111413" />
+              <text x={tooltipX + 10} y={tooltipY + 16} fill="white" fontSize="10" fontWeight="600">{selected.fullLabel}</text>
+              <text x={tooltipX + 10} y={tooltipY + 31} fill="rgba(255,255,255,.68)" fontSize="9">{selected.value} {kind === 'clients' ? (language === 'es' ? 'clientes' : 'clients') : 'leads'}</text>
+            </g>
+          )}
         </svg>
-
-        {selected && selectedPoint && (
-          <div
-            className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full rounded-lg bg-[#111413] px-2.5 py-2 text-[10px] text-white shadow-xl"
-            style={{ left: `${(selectedPoint.x / width) * 100}%`, top: `${(selectedPoint.y / height) * 150 + 4}px` }}
-          >
-            <p className="font-semibold">{selected.fullLabel}</p>
-            <p className="mt-0.5 text-white/65">{selected.value} {kind === 'clients' ? (language === 'es' ? 'clientes' : 'clients') : 'leads'}</p>
-          </div>
-        )}
-
-        <div className="absolute inset-x-0 bottom-0 flex justify-between px-1 text-[9px] font-medium text-black/32">
+        <div className="flex justify-between px-1 text-[9px] font-medium text-black/32">
           {points.map((point, index) => <span key={point.fullLabel} className={points.length > 8 && index % 2 !== 0 ? 'hidden sm:block' : ''}>{point.label}</span>)}
         </div>
       </div>
@@ -209,9 +222,6 @@ export function DashboardHistory({
   }, []);
 
   const openTasks = tasks.filter((task) => task.status !== 'done');
-  const metrics = useMemo(() => BASE_METRICS.map((metric) => metric.id === 'priority'
-    ? { ...metric, value: String(openTasks.length), ringValue: Math.min(openTasks.length, 7), ringTotal: Math.max(1, openTasks.length) }
-    : metric), [openTasks.length]);
 
   const signals = useMemo(() => {
     const result: Array<{ id: string; name: string; label: string; reason: string }> = [];
@@ -220,7 +230,7 @@ export function DashboardHistory({
       const nextSession = (client.nextSession || '').trim();
       const nextAction = (client.nextAction || '').trim();
       if (phase.includes('renov')) {
-        result.push({ id: client.id, name: client.name, label: language === 'es' ? 'Renovación cercana' : 'Renewal approaching', reason: language === 'es' ? 'Conviene revisar resultados, brecha actual y continuidad antes del cierre del programa.' : 'Review results, current gap and continuity before the program ends.' });
+        result.push({ id: client.id, name: client.name, label: language === 'es' ? 'Renovación cercana' : 'Renewal approaching', reason: language === 'es' ? 'Conviene revisar resultados y continuidad antes del cierre del programa.' : 'Review results and continuity before the program ends.' });
       } else if (!nextSession || /coordinar|schedule|pendiente/i.test(nextSession)) {
         result.push({ id: client.id, name: client.name, label: language === 'es' ? 'Sin próxima sesión' : 'No next session', reason: language === 'es' ? 'La relación no tiene una próxima reunión confirmada.' : 'The relationship has no confirmed next meeting.' });
       } else if (!nextAction) {
@@ -238,8 +248,8 @@ export function DashboardHistory({
 
   return (
     <>
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {metrics.map((metric) => {
+      <div className="grid gap-4 sm:grid-cols-3">
+        {BASE_METRICS.map((metric) => {
           const expandable = metric.id === 'clients' || metric.id === 'leads';
           const isExpanded = expanded === metric.id;
           return (
@@ -256,9 +266,7 @@ export function DashboardHistory({
                 <button type="button" onClick={() => setExpanded(isExpanded ? null : metric.id as 'clients' | 'leads')} className="mt-4 flex w-full items-center justify-between border-t border-black/5 pt-3 text-left text-xs text-black/55 transition hover:text-black/80">
                   <span>{metric.trend[language]}</span><ChevronDown className={`h-3.5 w-3.5 transition ${isExpanded ? 'rotate-180' : ''}`} />
                 </button>
-              ) : (
-                <button type="button" onClick={() => metric.id === 'priority' && onNavigate('priority')} className="mt-4 w-full border-t border-black/5 pt-3 text-left text-xs text-black/55">{metric.trend[language]}</button>
-              )}
+              ) : <div className="mt-4 border-t border-black/5 pt-3 text-xs text-black/55">{metric.trend[language]}</div>}
             </article>
           );
         })}
@@ -270,28 +278,28 @@ export function DashboardHistory({
         <section className="rounded-2xl border border-black/10 bg-white p-5 shadow-[0_10px_30px_rgba(10,10,10,0.03)] md:p-6">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#0A3F4D]">THE RADAR</p>
-              <h2 className="mt-2 text-xl font-semibold">{language === 'es' ? 'Señales de relación' : 'Relationship signals'}</h2>
-              <p className="mt-1 text-sm text-black/50">{language === 'es' ? 'Situaciones que pueden transformarse en un problema si no se atienden a tiempo. Las tareas concretas viven en Trabajo prioritario.' : 'Situations that can become a problem if left unattended. Concrete tasks live in Priority Work.'}</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#0A3F4D]">{language === 'es' ? 'EJECUCIÓN' : 'EXECUTION'}</p>
+              <h2 className="mt-2 text-xl font-semibold">{language === 'es' ? 'Por hacer hoy' : 'Due today'}</h2>
+              <p className="mt-1 text-sm text-black/50">{language === 'es' ? 'Las acciones que requieren ejecución y seguimiento.' : 'Actions that require execution and follow-up.'}</p>
             </div>
-            <span className="rounded-full bg-[#A46F16]/10 px-3 py-1.5 text-xs font-semibold text-[#82570F]">{signals.length}</span>
+            <span className="rounded-full bg-[#0A3F4D]/8 px-3 py-1.5 text-xs font-semibold text-[#0A3F4D]">{openTasks.length}</span>
           </div>
-
           <div className="mt-4 divide-y divide-black/5">
-            {signals.length === 0 && <div className="py-5 text-sm text-black/45">{language === 'es' ? 'No hay señales críticas activas.' : 'No critical signals are active.'}</div>}
-            {signals.map((item) => (
-              <div key={`${item.id}-${item.label}`} className="grid gap-3 py-4 first:pt-1 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
-                <div className="flex min-w-0 gap-3">
-                  <span className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-[#A46F16]" />
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2"><p className="text-sm font-semibold">{item.name}</p><span className="rounded-full bg-[#A46F16]/10 px-2 py-0.5 text-[9px] font-semibold text-[#82570F]">{item.label}</span></div>
-                    <p className="mt-1.5 text-xs leading-5 text-black/50">{item.reason}</p>
-                  </div>
+            {openTasks.length === 0 && <div className="py-5 text-sm text-black/45">{language === 'es' ? 'No hay tareas abiertas.' : 'No open tasks.'}</div>}
+            {openTasks.slice(0, 5).map((task) => (
+              <div key={task.id} className="grid gap-3 py-4 first:pt-1 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold">{task.title}</p>
+                  <p className="mt-1 text-xs text-black/45">{task.clientName} · {task.assignee}</p>
                 </div>
-                <button type="button" onClick={() => onOpenClient(item.id)} className="inline-flex items-center justify-center gap-1.5 rounded-full border border-black/10 px-3.5 py-2 text-[11px] font-semibold text-black/55 transition hover:border-[#0A3F4D]/30 hover:text-[#0A3F4D]">{language === 'es' ? 'Ver ficha' : 'Open record'}<ChevronRight className="h-3.5 w-3.5" /></button>
+                <div className="text-left md:text-right">
+                  <p className="text-xs font-semibold text-black/65">{task.dueTime || (language === 'es' ? 'Sin hora' : 'No time')}</p>
+                  <p className="mt-1 text-[10px] text-black/35">{task.dueDate || (language === 'es' ? 'Sin fecha' : 'No date')}</p>
+                </div>
               </div>
             ))}
           </div>
+          <button type="button" onClick={() => onNavigate('priority')} className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#111413] px-4 py-2.5 text-xs font-semibold text-white">{language === 'es' ? 'Abrir trabajo prioritario' : 'Open priority work'}<ChevronRight className="h-3.5 w-3.5" /></button>
         </section>
 
         <div className="grid content-start gap-6">
@@ -309,9 +317,17 @@ export function DashboardHistory({
           </section>
 
           <section className="rounded-2xl border border-black/10 bg-white p-5">
-            <div className="flex items-center justify-between"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-black/40">{language === 'es' ? 'EJECUCIÓN' : 'EXECUTION'}</p><h2 className="mt-2 text-lg font-semibold">{language === 'es' ? 'Por hacer hoy' : 'Due today'}</h2></div><ListTodo className="h-5 w-5 text-[#0A3F4D]" /></div>
-            <div className="mt-4 space-y-3">{openTasks.slice(0, 3).map((task) => <div key={task.id} className="rounded-xl bg-[#F7F7F5] p-3"><div className="flex items-center justify-between gap-2"><p className="text-xs font-semibold">{task.title}</p><span className="text-[9px] text-black/35">{task.dueTime}</span></div><p className="mt-1 text-[10px] text-black/45">{task.clientName} · {task.assignee}</p></div>)}</div>
-            <button type="button" onClick={() => onNavigate('priority')} className="mt-4 inline-flex items-center gap-2 text-xs font-semibold text-[#0A3F4D]">{language === 'es' ? 'Abrir trabajo prioritario' : 'Open priority work'}<ChevronRight className="h-3.5 w-3.5" /></button>
+            <div className="flex items-center justify-between"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#A46F16]">THE RADAR</p><h2 className="mt-2 text-lg font-semibold">{language === 'es' ? 'Señales de relación' : 'Relationship signals'}</h2></div><span className="rounded-full bg-[#A46F16]/10 px-2.5 py-1 text-[10px] font-semibold text-[#82570F]">{signals.length}</span></div>
+            <div className="mt-4 space-y-3">
+              {signals.length === 0 && <p className="text-sm text-black/45">{language === 'es' ? 'No hay señales críticas activas.' : 'No critical signals are active.'}</p>}
+              {signals.map((item) => (
+                <button key={`${item.id}-${item.label}`} type="button" onClick={() => onOpenClient(item.id)} className="w-full rounded-xl border border-black/6 p-3 text-left transition hover:border-black/12">
+                  <div className="flex items-center justify-between gap-2"><p className="text-xs font-semibold">{item.name}</p><ChevronRight className="h-3.5 w-3.5 text-black/30" /></div>
+                  <p className="mt-1 text-[10px] font-semibold text-[#82570F]">{item.label}</p>
+                  <p className="mt-1 text-[10px] leading-4 text-black/45">{item.reason}</p>
+                </button>
+              ))}
+            </div>
           </section>
         </div>
       </div>

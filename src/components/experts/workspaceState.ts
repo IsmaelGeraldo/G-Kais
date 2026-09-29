@@ -33,6 +33,8 @@ export type SharedSessionClient = {
   goal?: string;
   nextAction?: string;
   nextSession?: string;
+  currentPhase?: string;
+  planSummary?: string;
   blockers?: string[];
   commitments?: SharedCommitment[];
   copilot?: {
@@ -130,11 +132,7 @@ function fallbackCopilot() {
     gap: 'Confirmar qué cambió desde la última conversación y cuál es la brecha actual.',
     known: ['Existe una relación activa en G-KAIS.'],
     risks: ['La preparación puede estar incompleta hasta revisar la información más reciente.'],
-    questions: [
-      '¿Qué cambió desde la última conversación?',
-      '¿Qué bloqueó el avance?',
-      '¿Cuál debería ser la próxima acción concreta?'
-    ],
+    questions: ['¿Qué cambió desde la última conversación?', '¿Qué bloqueó el avance?', '¿Cuál debería ser la próxima acción concreta?'],
     howHelp: ['Convertir la conversación en una decisión y una próxima acción visible.'],
     plan: ['Revisar contexto.', 'Aclarar bloqueadores.', 'Cerrar con próxima acción.'],
     callOpening: 'Quiero partir conectando lo que acordamos con lo que realmente ocurrió desde la última conversación.'
@@ -167,9 +165,7 @@ function syncClientRecordsFromSession(clients: SharedSessionClient[]): void {
 
       const overdueCount = live.commitments?.filter((commitment) => commitment.status === 'overdue').length ?? 0;
       const currentStatus = typeof typed.status === 'string' ? typed.status : 'active';
-      const derivedStatus = currentStatus === 'attention' && live.commitments && overdueCount === 0
-        ? 'active'
-        : currentStatus;
+      const derivedStatus = currentStatus === 'attention' && live.commitments && overdueCount === 0 ? 'active' : currentStatus;
       const derivedAttentionReason = currentStatus === 'attention' && overdueCount > 0
         ? `${overdueCount} compromiso${overdueCount === 1 ? '' : 's'} vencido${overdueCount === 1 ? '' : 's'} pendiente${overdueCount === 1 ? '' : 's'} de resolver.`
         : typed.attentionReason;
@@ -182,6 +178,8 @@ function syncClientRecordsFromSession(clients: SharedSessionClient[]): void {
         expectedOutcome: live.goal ?? typed.expectedOutcome,
         nextAction: live.nextAction ?? typed.nextAction,
         nextSession: live.nextSession ?? typed.nextSession,
+        currentPhase: live.currentPhase ?? typed.currentPhase,
+        planSummary: live.planSummary ?? typed.planSummary,
         blockers: live.blockers ?? typed.blockers,
         commitments: live.commitments?.map((item) => ({ label: item.label, status: item.status })) ?? typed.commitments,
         status: derivedStatus,
@@ -202,13 +200,9 @@ export function saveSessionClients(clients: SharedSessionClient[]): void {
   } catch {}
 }
 
-export function updateSessionClient(
-  clientId: string,
-  updater: (client: SharedSessionClient) => SharedSessionClient
-): void {
+export function updateSessionClient(clientId: string, updater: (client: SharedSessionClient) => SharedSessionClient): void {
   const clients = loadSessionClients();
   const existing = clients.find((client) => client.id === clientId);
-
   if (existing) {
     saveSessionClients(clients.map((client) => client.id === clientId ? updater(client) : client));
     return;
@@ -223,6 +217,8 @@ export function updateSessionClient(
     goal: '',
     nextAction: '',
     nextSession: '',
+    currentPhase: '',
+    planSummary: '',
     blockers: [],
     commitments: [],
     copilot: fallbackCopilot()
@@ -234,12 +230,7 @@ export function loadJournal(): JournalEntry[] {
   return safeParseArray<JournalEntry>(JOURNAL_STORAGE_KEY, []);
 }
 
-export function appendJournal(
-  clientId: string,
-  type: string,
-  title: string,
-  body: string
-): JournalEntry | null {
+export function appendJournal(clientId: string, type: string, title: string, body: string): JournalEntry | null {
   if (typeof window === 'undefined' || !body.trim()) return null;
   const entry: JournalEntry = {
     id: `journal-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,

@@ -56,6 +56,21 @@ service cloud.firestore {
         data.summary.createdAt is string;
     }
 
+    function validExpertWorkTask(data, taskId) {
+      return data.keys().hasAll(['schemaVersion', 'task', 'updatedAt']) &&
+        data.keys().hasOnly(['schemaVersion', 'task', 'migratedAt', 'updatedAt']) &&
+        data.schemaVersion == 1 &&
+        data.updatedAt is timestamp &&
+        (!('migratedAt' in data) || data.migratedAt is timestamp) &&
+        data.task is map &&
+        data.task.id is string &&
+        data.task.id == taskId &&
+        data.task.clientId is string &&
+        data.task.createdAt is string &&
+        data.task.type in ['email', 'whatsapp', 'call', 'meeting', 'task'] &&
+        data.task.status in ['pending', 'in-progress', 'done'];
+    }
+
     function validAudit(data, auditId) {
       return data.keys().hasAll([
           'id', 'name', 'company', 'email', 'contactChannel',
@@ -271,6 +286,13 @@ service cloud.firestore {
       allow read: if ownsExpertWorkspace(workspaceId);
       allow create, update: if ownsExpertWorkspace(workspaceId) &&
         validExpertSessionSummary(request.resource.data, summaryId);
+      allow delete: if ownsExpertWorkspace(workspaceId);
+    }
+
+    match /expert_workspaces/{workspaceId}/work_tasks/{taskId} {
+      allow read: if ownsExpertWorkspace(workspaceId);
+      allow create, update: if ownsExpertWorkspace(workspaceId) &&
+        validExpertWorkTask(request.resource.data, taskId);
       allow delete: if ownsExpertWorkspace(workspaceId);
     }
 

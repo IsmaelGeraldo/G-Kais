@@ -3,7 +3,7 @@ import { Sparkles } from 'lucide-react';
 import { SessionMemoryWorkspace } from './SessionMemoryWorkspace';
 import { useLanguage } from '../i18n/LanguageContext';
 import { requestSessionCopilot, type SessionCopilotClient } from '../services/sessionCopilot';
-import { emitWorkspaceStateChanged, SESSION_STAGE_EVENT } from './experts/workspaceState';
+import { emitWorkspaceStateChanged, SESSION_STAGE_EVENT, updateSessionClient } from './experts/workspaceState';
 
 type Props = { onBack: () => void };
 type JournalEntry = { clientId: string; title?: string; body?: string; createdAt?: string };
@@ -150,9 +150,11 @@ export function SessionMemoryWorkspaceAI({ onBack }: Props) {
         const journal = loadJournal().filter((entry) => entry.clientId === clientId);
         const brief = await requestSessionCopilot(client, journal, language);
         if (cancelled || thisRun !== runId) return;
-        const current = loadClients();
-        localStorage.setItem(CLIENT_STORAGE_KEY, JSON.stringify(current.map((item) => item.id === clientId ? { ...item, copilot: brief } : item)));
-        emitWorkspaceStateChanged();
+        updateSessionClient(clientId, (item) => ({
+          ...item,
+          copilot: brief,
+          currentGap: brief.gap || item.currentGap
+        }));
         setUsingAI(true);
       } catch {
         if (!cancelled && thisRun === runId) setUsingAI(false);

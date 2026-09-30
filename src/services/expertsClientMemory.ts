@@ -55,16 +55,11 @@ function sanitizeForFirestore<T>(value: T): T {
 async function restoredUser(): Promise<User | null> {
   if (firebaseAuth.currentUser) return firebaseAuth.currentUser;
   return new Promise((resolve) => {
-    let settled = false;
     let unsubscribe = () => {};
     const finish = (user: User | null) => {
-      if (settled) return;
-      settled = true;
-      window.clearTimeout(timer);
       unsubscribe();
       resolve(user);
     };
-    const timer = window.setTimeout(() => finish(firebaseAuth.currentUser), 1800);
     unsubscribe = onAuthStateChanged(firebaseAuth, (user) => finish(user), () => finish(null));
   });
 }

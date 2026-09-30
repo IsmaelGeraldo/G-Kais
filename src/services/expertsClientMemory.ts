@@ -107,13 +107,13 @@ export async function hydrateExpertsClientMemory(): Promise<HydrationResult> {
       ids.forEach((clientId) => {
         const record = localRecords.find((item) => item.id === clientId);
         const session = localSessions.find((item) => item.id === clientId);
-        batch.set(clientDocument(user.uid, clientId), sanitizeForFirestore({
+        batch.set(clientDocument(user.uid, clientId), {
           schemaVersion: SCHEMA_VERSION,
-          ...(record ? { record } : {}),
-          ...(session ? { session } : {}),
+          ...(record ? { record: sanitizeForFirestore(record) } : {}),
+          ...(session ? { session: sanitizeForFirestore(session) } : {}),
           migratedAt: serverTimestamp(),
           updatedAt: serverTimestamp()
-        }));
+        });
       });
       await batch.commit();
       return 'migrated';
@@ -141,11 +141,11 @@ export async function persistExpertClientRecord(record: ClientLike): Promise<voi
   const user = await restoredUser();
   if (!user) return;
   try {
-    await setDoc(clientDocument(user.uid, record.id), sanitizeForFirestore({
+    await setDoc(clientDocument(user.uid, record.id), {
       schemaVersion: SCHEMA_VERSION,
-      record,
+      record: sanitizeForFirestore(record),
       updatedAt: serverTimestamp()
-    }), { merge: true });
+    }, { merge: true });
   } catch {}
 }
 
@@ -157,11 +157,11 @@ export async function persistExpertClientRecords(records: ClientLike[]): Promise
   try {
     const batch = writeBatch(firestoreDb);
     valid.forEach((record) => {
-      batch.set(clientDocument(user.uid, record.id), sanitizeForFirestore({
+      batch.set(clientDocument(user.uid, record.id), {
         schemaVersion: SCHEMA_VERSION,
-        record,
+        record: sanitizeForFirestore(record),
         updatedAt: serverTimestamp()
-      }), { merge: true });
+      }, { merge: true });
     });
     await batch.commit();
   } catch {}
@@ -172,11 +172,11 @@ export async function persistExpertSessionClient(session: ClientLike): Promise<v
   const user = await restoredUser();
   if (!user) return;
   try {
-    await setDoc(clientDocument(user.uid, session.id), sanitizeForFirestore({
+    await setDoc(clientDocument(user.uid, session.id), {
       schemaVersion: SCHEMA_VERSION,
-      session,
+      session: sanitizeForFirestore(session),
       updatedAt: serverTimestamp()
-    }), { merge: true });
+    }, { merge: true });
   } catch {}
 }
 
@@ -188,11 +188,11 @@ export async function persistExpertSessionClients(sessions: ClientLike[]): Promi
   try {
     const batch = writeBatch(firestoreDb);
     valid.forEach((session) => {
-      batch.set(clientDocument(user.uid, session.id), sanitizeForFirestore({
+      batch.set(clientDocument(user.uid, session.id), {
         schemaVersion: SCHEMA_VERSION,
-        session,
+        session: sanitizeForFirestore(session),
         updatedAt: serverTimestamp()
-      }), { merge: true });
+      }, { merge: true });
     });
     await batch.commit();
   } catch {}

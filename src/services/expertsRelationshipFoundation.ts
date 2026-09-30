@@ -15,6 +15,7 @@ import {
 import { firebaseAuth, firestoreDb } from '../lib/firebase';
 
 const SCHEMA_VERSION = 1;
+const WORKSPACE_STATE_EVENT = 'gkais:workspace-state-changed';
 
 export type RelationshipStage = 'lead' | 'webinar' | 'student' | 'alumni' | 'mentoring';
 export type PersonIdentityInput = {
@@ -50,10 +51,7 @@ function normalizeEmail(value?: string): string {
 }
 
 function normalizePhone(value?: string): string {
-  const raw = (value || '').trim();
-  if (!raw) return '';
-  const leadingPlus = raw.startsWith('+') ? '+' : '';
-  return `${leadingPlus}${raw.replace(/\D/g, '')}`;
+  return (value || '').replace(/\D/g, '');
 }
 
 function sanitize<T>(value: T): T {
@@ -97,16 +95,20 @@ function strongerStage(current: unknown, next: RelationshipStage): RelationshipS
   return STAGE_RANK[next] >= STAGE_RANK[currentStage] ? next : currentStage;
 }
 
+async function singleIdentityMatch(uid: string, field: 'normalizedEmail' | 'normalizedPhone', value: string) {
+  if (!value) return null;
+  const snapshot = await getDocs(query(workspaceCollection(uid, 'people'), where(field, '==', value), limit(2)));
+  if (snapshot.size > 1) throw new Error('IDENTITY_CONFLICT');
+  return snapshot.empty ? null : snapshot.docs[0];
+}
+
 async function resolveExistingPerson(uid: string, email: string, phone: string) {
-  if (email) {
-    const emailMatch = await getDocs(query(workspaceCollection(uid, 'people'), where('normalizedEmail', '==', email), limit(2)));
-    if (!emailMatch.empty) return emailMatch.docs[0];
-  }
-  if (phone) {
-    const phoneMatch = await getDocs(query(workspaceCollection(uid, 'people'), where('normalizedPhone', '==', phone), limit(2)));
-    if (!phoneMatch.empty) return phoneMatch.docs[0];
-  }
-  return null;
+  const [emailMatch, phoneMatch] = await Promise.all([
+    singleIdentityMatch(uid, 'normalizedEmail', email),
+    singleIdentityMatch(uid, 'normalizedPhone', phone)
+  ]);
+  if (emailMatch && phoneMatch && emailMatch.id !== phoneMatch.id) throw new Error('IDENTITY_CONFLICT');
+  return emailMatch || phoneMatch;
 }
 
 export async function upsertExpertPerson(input: PersonIdentityInput): Promise<PersonResolution> {
@@ -182,32 +184,38 @@ export async function linkMentoringClientToPerson(clientId: string, personId: st
   });
 }
 
+let backfillRunning = false;
 export async function backfillExpertClientsIntoPeople(): Promise<void> {
+  if (backfillRunning) return;
   const user = await restoredUser();
   if (!user) return;
-  const snapshot = await getDocs(workspaceCollection(user.uid, 'clients'));
+  backfillRunning = true;
+  try {
+    const snapshot = await getDocs(workspaceCollection(user.uid, 'clients'));
+    for (const clientDoc of snapshot.docs) {
+      const envelope = clientDoc.data() as ClientEnvelope;
+      const record = envelope.record;
+      if (!record?.id || typeof record.name !== 'string') continue;
 
-  for (const clientDoc of snapshot.docs) {
-    const envelope = clientDoc.data() as ClientEnvelope;
-    const record = envelope.record;
-    if (!record?.id || typeof record.name !== 'string') continue;
-
-    let personId = typeof record.personId === 'string' ? record.personId : '';
-    if (!personId) {
-      const email = typeof record.email === 'string' ? record.email : '';
-      const phone = typeof record.phone === 'string' ? record.phone : '';
-      if (!email && !phone) continue;
-      const resolved = await upsertExpertPerson({
-        name: record.name,
-        email,
-        phone,
-        source: 'mentoring-client',
-        stage: 'mentoring',
-        outcomeMemory: sanitize(envelope.outcomeMemory || {})
-      });
-      personId = resolved.personId;
+      let personId = typeof record.personId === 'string' ? record.personId : '';
+      if (!personId) {
+        const email = typeof record.email === 'string' ? record.email : '';
+        const phone = typeof record.phone === 'string' ? record.phone : '';
+        if (!email && !phone) continue;
+        const resolved = await upsertExpertPerson({
+          name: record.name,
+          email,
+          phone,
+          source: 'mentoring-client',
+          stage: 'mentoring',
+          outcomeMemory: sanitize(envelope.outcomeMemory || {})
+        });
+        personId = resolved.personId;
+      }
+      await linkMentoringClientToPerson(clientDoc.id, personId);
     }
-    await linkMentoringClientToPerson(clientDoc.id, personId);
+  } finally {
+    backfillRunning = false;
   }
 }
 
@@ -322,6 +330,15 @@ export async function createExpertEnrollment(input: {
 
 let backfilledUid = '';
 if (typeof window !== 'undefined') {
+  let syncTimer: number | undefined;
+  const scheduleBackfill = () => {
+    if (syncTimer !== undefined) window.clearTimeout(syncTimer);
+    syncTimer = window.setTimeout(() => {
+      syncTimer = undefined;
+      void backfillExpertClientsIntoPeople().catch(() => {});
+    }, 200);
+  };
+
   onAuthStateChanged(firebaseAuth, (user) => {
     if (!user) {
       backfilledUid = '';
@@ -329,6 +346,7 @@ if (typeof window !== 'undefined') {
     }
     if (backfilledUid === user.uid) return;
     backfilledUid = user.uid;
-    void backfillExpertClientsIntoPeople().catch(() => {});
+    scheduleBackfill();
   });
+  window.addEventListener(WORKSPACE_STATE_EVENT, scheduleBackfill);
 }

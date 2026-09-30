@@ -67,7 +67,8 @@ function cleanGeneratedText(value: unknown, language: 'es' | 'en'): string {
       .replace(/\bpipeline\b/gi, 'proceso comercial')
       .replace(/\bfunnel\b/gi, 'sistema de captación')
       .replace(/\bdelivery\b/gi, 'entrega')
-      .replace(/\bperformance\b/gi, 'rendimiento');
+      .replace(/\bperformance\b/gi, 'rendimiento')
+      .replace(/\bejecución\b/gi, 'implementación');
   }
   if (/^[¿¡]/.test(text) && text.length > 1) return text.charAt(0) + text.charAt(1).toUpperCase() + text.slice(2);
   return text.charAt(0).toUpperCase() + text.slice(1);

@@ -30,6 +30,7 @@ service cloud.firestore {
     function authEmailMatches(email) {
       return request.auth != null &&
         request.auth.token.email is string &&
+        request.auth.token.email_verified == true &&
         request.auth.token.email == email;
     }
 
@@ -86,7 +87,7 @@ service cloud.firestore {
     function validWorkspaceMember(data, memberId) {
       return data.keys().hasAll([
           'schemaVersion', 'uid', 'email', 'displayName', 'roleId', 'permissions',
-          'status', 'inviteId', 'joinedAt', 'updatedAt'
+          'status', 'joinedAt', 'updatedAt'
         ]) &&
         data.keys().hasOnly([
           'schemaVersion', 'uid', 'email', 'displayName', 'roleId', 'permissions',
@@ -99,7 +100,7 @@ service cloud.firestore {
         data.roleId is string && data.roleId.size() > 0 && data.roleId.size() <= 120 &&
         data.permissions is list && data.permissions.size() <= 100 &&
         data.status in ['active', 'invited', 'suspended'] &&
-        data.inviteId is string && data.inviteId.size() <= 200 &&
+        (!('inviteId' in data) || (data.inviteId is string && data.inviteId.size() <= 200)) &&
         data.joinedAt is timestamp && data.updatedAt is timestamp;
     }
 
@@ -515,7 +516,7 @@ service cloud.firestore {
       allow create, update: if request.auth != null && request.auth.uid == uid &&
         validWorkspaceUser(request.resource.data, uid) &&
         (request.resource.data.activeWorkspaceId == uid ||
-          existsAfter(/databases/$(database)/documents/expert_workspaces/$(request.resource.data.activeWorkspaceId)/members/$(uid)));
+          getAfter(/databases/$(database)/documents/expert_workspaces/$(request.resource.data.activeWorkspaceId)/members/$(uid)).data.uid == uid);
       allow delete: if false;
     }
 
@@ -608,9 +609,11 @@ service cloud.firestore {
           request.auth != null && request.auth.uid == memberId &&
           validWorkspaceMember(request.resource.data, memberId) &&
           request.resource.data.status == 'active' &&
+          ('inviteId' in request.resource.data) &&
           request.resource.data.inviteId.size() > 0 &&
           exists(/databases/$(database)/documents/expert_workspaces/$(workspaceId)/invites/$(request.resource.data.inviteId)) &&
           get(/databases/$(database)/documents/expert_workspaces/$(workspaceId)/invites/$(request.resource.data.inviteId)).data.status == 'pending' &&
+          request.time < get(/databases/$(database)/documents/expert_workspaces/$(workspaceId)/invites/$(request.resource.data.inviteId)).data.expiresAt &&
           authEmailMatches(get(/databases/$(database)/documents/expert_workspaces/$(workspaceId)/invites/$(request.resource.data.inviteId)).data.normalizedEmail) &&
           request.resource.data.roleId == get(/databases/$(database)/documents/expert_workspaces/$(workspaceId)/invites/$(request.resource.data.inviteId)).data.roleId &&
           request.resource.data.permissions == get(/databases/$(database)/documents/expert_workspaces/$(workspaceId)/invites/$(request.resource.data.inviteId)).data.permissions
@@ -644,6 +647,7 @@ service cloud.firestore {
             ))
         ) || (
           authEmailMatches(resource.data.normalizedEmail) &&
+          request.time < resource.data.expiresAt &&
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt']) &&
           resource.data.status == 'pending' &&
           request.resource.data.status == 'accepted' &&

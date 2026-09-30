@@ -121,7 +121,12 @@ function AppContent() {
   };
 
   const backFromSessionMemory = () => {
-    window.history.back();
+    const clientId = new URLSearchParams(window.location.search).get('client') || 'sofia';
+    window.history.replaceState({}, '', `/workspace/experts?view=clients&client=${encodeURIComponent(clientId)}`);
+    setShowSessionMemory(false);
+    setShowExpertsWorkspace(true);
+    setShowExpertsDemo(false);
+    setShowAdmin(false);
   };
 
   if (showSessionMemory) return <SessionMemoryWorkspaceAI onBack={backFromSessionMemory} />;

@@ -16,6 +16,7 @@ const SCHEMA_VERSION = 1;
 
 type ClientLike = Record<string, unknown> & { id: string };
 type HydrationResult = 'firestore' | 'migrated' | 'local';
+type OutcomeMemory = Record<string, unknown>;
 
 function readLocalArray<T>(key: string): T[] {
   if (typeof window === 'undefined') return [];
@@ -50,6 +51,28 @@ function sanitizeForFirestore<T>(value: T): T {
     return Object.fromEntries(entries) as T;
   }
   return value;
+}
+
+function defined(value: unknown): boolean {
+  return value !== undefined && value !== null && value !== '';
+}
+
+function buildOutcomeMemory(record?: ClientLike, session?: ClientLike): OutcomeMemory {
+  const memory: OutcomeMemory = {
+    startingPoint: record?.startingPoint,
+    expectedOutcome: session?.goal ?? record?.expectedOutcome,
+    primaryGoal: record?.primaryGoal,
+    currentPhase: session?.currentPhase ?? record?.currentPhase,
+    currentGap: session?.currentGap ?? record?.currentGap,
+    planSummary: session?.planSummary ?? record?.planSummary,
+    blockers: session?.blockers ?? record?.blockers,
+    milestones: record?.milestones,
+    commitments: session?.commitments ?? record?.commitments,
+    nextAction: session?.nextAction ?? record?.nextAction,
+    nextSession: session?.nextSession ?? record?.nextSession,
+    progress: session?.week ?? record?.progress
+  };
+  return sanitizeForFirestore(Object.fromEntries(Object.entries(memory).filter(([, value]) => defined(value))));
 }
 
 async function restoredUser(): Promise<User | null> {
@@ -106,6 +129,7 @@ export async function hydrateExpertsClientMemory(): Promise<HydrationResult> {
           schemaVersion: SCHEMA_VERSION,
           ...(record ? { record: sanitizeForFirestore(record) } : {}),
           ...(session ? { session: sanitizeForFirestore(session) } : {}),
+          outcomeMemory: buildOutcomeMemory(record, session),
           migratedAt: serverTimestamp(),
           updatedAt: serverTimestamp()
         });
@@ -135,10 +159,12 @@ export async function persistExpertClientRecord(record: ClientLike): Promise<voi
   if (!record?.id) return;
   const user = await restoredUser();
   if (!user) return;
+  const session = localSessionClient(record.id);
   try {
     await setDoc(clientDocument(user.uid, record.id), {
       schemaVersion: SCHEMA_VERSION,
       record: sanitizeForFirestore(record),
+      outcomeMemory: buildOutcomeMemory(record, session),
       updatedAt: serverTimestamp()
     }, { merge: true });
   } catch {}
@@ -149,12 +175,15 @@ export async function persistExpertClientRecords(records: ClientLike[]): Promise
   if (!valid.length) return;
   const user = await restoredUser();
   if (!user) return;
+  const sessions = readLocalArray<ClientLike>(SESSION_CLIENT_STORAGE_KEY);
   try {
     const batch = writeBatch(firestoreDb);
     valid.forEach((record) => {
+      const session = sessions.find((item) => item.id === record.id);
       batch.set(clientDocument(user.uid, record.id), {
         schemaVersion: SCHEMA_VERSION,
         record: sanitizeForFirestore(record),
+        outcomeMemory: buildOutcomeMemory(record, session),
         updatedAt: serverTimestamp()
       }, { merge: true });
     });
@@ -166,10 +195,12 @@ export async function persistExpertSessionClient(session: ClientLike): Promise<v
   if (!session?.id) return;
   const user = await restoredUser();
   if (!user) return;
+  const record = localClientRecord(session.id);
   try {
     await setDoc(clientDocument(user.uid, session.id), {
       schemaVersion: SCHEMA_VERSION,
       session: sanitizeForFirestore(session),
+      outcomeMemory: buildOutcomeMemory(record, session),
       updatedAt: serverTimestamp()
     }, { merge: true });
   } catch {}
@@ -180,12 +211,15 @@ export async function persistExpertSessionClients(sessions: ClientLike[]): Promi
   if (!valid.length) return;
   const user = await restoredUser();
   if (!user) return;
+  const records = readLocalArray<ClientLike>(CLIENT_RECORD_STORAGE_KEY);
   try {
     const batch = writeBatch(firestoreDb);
     valid.forEach((session) => {
+      const record = records.find((item) => item.id === session.id);
       batch.set(clientDocument(user.uid, session.id), {
         schemaVersion: SCHEMA_VERSION,
         session: sanitizeForFirestore(session),
+        outcomeMemory: buildOutcomeMemory(record, session),
         updatedAt: serverTimestamp()
       }, { merge: true });
     });
@@ -197,6 +231,16 @@ export async function persistExpertClientMemory(clientId: string): Promise<void>
   if (!clientId) return;
   const record = localClientRecord(clientId);
   const session = localSessionClient(clientId);
-  if (record) await persistExpertClientRecord(record);
-  if (session) await persistExpertSessionClient(session);
+  if (!record && !session) return;
+  const user = await restoredUser();
+  if (!user) return;
+  try {
+    await setDoc(clientDocument(user.uid, clientId), {
+      schemaVersion: SCHEMA_VERSION,
+      ...(record ? { record: sanitizeForFirestore(record) } : {}),
+      ...(session ? { session: sanitizeForFirestore(session) } : {}),
+      outcomeMemory: buildOutcomeMemory(record, session),
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+  } catch {}
 }

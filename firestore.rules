@@ -6,8 +6,151 @@ service cloud.firestore {
         exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
 
+    // Legacy owner-only access used by the current Experts data paths.
+    // Team access is introduced collection-by-collection so membership never
+    // accidentally grants access to private mentoring data.
     function ownsExpertWorkspace(workspaceId) {
       return request.auth != null && request.auth.uid == workspaceId;
+    }
+
+    function isExpertWorkspaceMember(workspaceId) {
+      return request.auth != null &&
+        exists(/databases/$(database)/documents/expert_workspaces/$(workspaceId)/members/$(request.auth.uid));
+    }
+
+    function hasWorkspacePermission(workspaceId, permission) {
+      return request.auth != null && (
+        request.auth.uid == workspaceId ||
+        (isExpertWorkspaceMember(workspaceId) &&
+          ('*' in get(/databases/$(database)/documents/expert_workspaces/$(workspaceId)/members/$(request.auth.uid)).data.permissions ||
+           permission in get(/databases/$(database)/documents/expert_workspaces/$(workspaceId)/members/$(request.auth.uid)).data.permissions))
+      );
+    }
+
+    function validWorkspaceCore(data) {
+      return data.keys().hasAll([
+          'schemaVersion', 'name', 'ownerUid', 'status', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'schemaVersion', 'name', 'ownerUid', 'status', 'createdAt', 'updatedAt'
+        ]) &&
+        data.schemaVersion == 1 &&
+        data.name is string && data.name.size() > 0 && data.name.size() <= 160 &&
+        data.ownerUid is string && data.ownerUid.size() > 0 && data.ownerUid.size() <= 128 &&
+        data.status in ['active', 'suspended', 'archived'] &&
+        data.createdAt is timestamp && data.updatedAt is timestamp;
+    }
+
+    function validWorkspaceUser(data, uid) {
+      return data.keys().hasAll([
+          'schemaVersion', 'email', 'displayName', 'photoURL', 'activeWorkspaceId',
+          'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'schemaVersion', 'email', 'displayName', 'photoURL', 'activeWorkspaceId',
+          'createdAt', 'updatedAt'
+        ]) &&
+        data.schemaVersion == 1 &&
+        uid == request.auth.uid &&
+        data.email is string && data.email.size() <= 254 &&
+        data.displayName is string && data.displayName.size() <= 160 &&
+        data.photoURL is string && data.photoURL.size() <= 1000 &&
+        data.activeWorkspaceId is string && data.activeWorkspaceId.size() > 0 && data.activeWorkspaceId.size() <= 128 &&
+        data.createdAt is timestamp && data.updatedAt is timestamp;
+    }
+
+    function validWorkspaceRole(data) {
+      return data.keys().hasAll([
+          'schemaVersion', 'name', 'description', 'permissions', 'isSystem',
+          'createdByUid', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'schemaVersion', 'name', 'description', 'permissions', 'isSystem',
+          'createdByUid', 'createdAt', 'updatedAt'
+        ]) &&
+        data.schemaVersion == 1 &&
+        data.name is string && data.name.size() > 0 && data.name.size() <= 120 &&
+        data.description is string && data.description.size() <= 500 &&
+        data.permissions is list && data.permissions.size() <= 100 &&
+        data.isSystem is bool &&
+        data.createdByUid is string && data.createdByUid.size() > 0 && data.createdByUid.size() <= 128 &&
+        data.createdAt is timestamp && data.updatedAt is timestamp;
+    }
+
+    function validWorkspaceMember(data, memberId) {
+      return data.keys().hasAll([
+          'schemaVersion', 'uid', 'email', 'displayName', 'roleId', 'permissions',
+          'status', 'joinedAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'schemaVersion', 'uid', 'email', 'displayName', 'roleId', 'permissions',
+          'status', 'joinedAt', 'updatedAt'
+        ]) &&
+        data.schemaVersion == 1 &&
+        data.uid is string && data.uid == memberId &&
+        data.email is string && data.email.size() <= 254 &&
+        data.displayName is string && data.displayName.size() <= 160 &&
+        data.roleId is string && data.roleId.size() > 0 && data.roleId.size() <= 120 &&
+        data.permissions is list && data.permissions.size() <= 100 &&
+        data.status in ['active', 'invited', 'suspended'] &&
+        data.joinedAt is timestamp && data.updatedAt is timestamp;
+    }
+
+    function validWorkspaceInvite(data) {
+      return data.keys().hasAll([
+          'schemaVersion', 'email', 'normalizedEmail', 'roleId', 'permissions',
+          'status', 'invitedByUid', 'expiresAt', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'schemaVersion', 'email', 'normalizedEmail', 'roleId', 'permissions',
+          'status', 'invitedByUid', 'expiresAt', 'createdAt', 'updatedAt'
+        ]) &&
+        data.schemaVersion == 1 &&
+        data.email is string && data.email.size() >= 5 && data.email.size() <= 254 &&
+        data.normalizedEmail is string && data.normalizedEmail.size() >= 5 && data.normalizedEmail.size() <= 254 &&
+        data.roleId is string && data.roleId.size() > 0 && data.roleId.size() <= 120 &&
+        data.permissions is list && data.permissions.size() <= 100 &&
+        data.status in ['pending', 'accepted', 'revoked', 'expired'] &&
+        data.invitedByUid is string && data.invitedByUid.size() > 0 && data.invitedByUid.size() <= 128 &&
+        data.expiresAt is timestamp && data.createdAt is timestamp && data.updatedAt is timestamp;
+    }
+
+    function validRelationshipEvent(data) {
+      return data.keys().hasAll([
+          'schemaVersion', 'personId', 'type', 'sourceType', 'sourceId', 'actorUid',
+          'idempotencyKey', 'metadata', 'occurredAt', 'createdAt'
+        ]) &&
+        data.keys().hasOnly([
+          'schemaVersion', 'personId', 'type', 'sourceType', 'sourceId', 'actorUid',
+          'idempotencyKey', 'metadata', 'occurredAt', 'createdAt'
+        ]) &&
+        data.schemaVersion == 1 &&
+        data.personId is string && data.personId.size() > 0 && data.personId.size() <= 160 &&
+        data.type is string && data.type.size() > 0 && data.type.size() <= 160 &&
+        data.sourceType is string && data.sourceType.size() <= 120 &&
+        data.sourceId is string && data.sourceId.size() <= 200 &&
+        data.actorUid is string && data.actorUid == request.auth.uid &&
+        data.idempotencyKey is string && data.idempotencyKey.size() <= 240 &&
+        data.metadata is map &&
+        data.occurredAt is timestamp && data.createdAt is timestamp;
+    }
+
+    function validWorkspaceAuditLog(data) {
+      return data.keys().hasAll([
+          'schemaVersion', 'entityType', 'entityId', 'action', 'actorUid',
+          'changes', 'occurredAt', 'createdAt'
+        ]) &&
+        data.keys().hasOnly([
+          'schemaVersion', 'entityType', 'entityId', 'action', 'actorUid',
+          'changes', 'occurredAt', 'createdAt'
+        ]) &&
+        data.schemaVersion == 1 &&
+        data.entityType is string && data.entityType.size() > 0 && data.entityType.size() <= 120 &&
+        data.entityId is string && data.entityId.size() <= 200 &&
+        data.action is string && data.action.size() > 0 && data.action.size() <= 160 &&
+        data.actorUid is string && data.actorUid == request.auth.uid &&
+        data.changes is map &&
+        data.occurredAt is timestamp && data.createdAt is timestamp;
     }
 
     function validExpertClientMemory(data, clientId) {
@@ -356,6 +499,13 @@ service cloud.firestore {
         request.resource.data.updatedAt is timestamp;
     }
 
+    match /users/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow create, update: if request.auth != null && request.auth.uid == uid &&
+        validWorkspaceUser(request.resource.data, uid);
+      allow delete: if false;
+    }
+
     match /audit_submissions/{auditId} {
       allow create: if validAudit(request.resource.data, auditId);
       allow read: if isAdmin();
@@ -400,6 +550,70 @@ service cloud.firestore {
         request.resource.data.tone.size() <= 2000 &&
         request.resource.data.updatedAt is timestamp;
       allow delete: if false;
+    }
+
+    match /expert_workspaces/{workspaceId} {
+      allow read: if request.auth != null &&
+        (request.auth.uid == workspaceId || isExpertWorkspaceMember(workspaceId));
+      allow create: if request.auth != null &&
+        request.resource.data.ownerUid == request.auth.uid &&
+        validWorkspaceCore(request.resource.data);
+      allow update: if hasWorkspacePermission(workspaceId, 'settings.manage') &&
+        validWorkspaceCore(request.resource.data) &&
+        request.resource.data.ownerUid == resource.data.ownerUid;
+      allow delete: if request.auth != null && request.auth.uid == resource.data.ownerUid;
+    }
+
+    match /expert_workspaces/{workspaceId}/roles/{roleId} {
+      allow read: if request.auth != null &&
+        (request.auth.uid == workspaceId || isExpertWorkspaceMember(workspaceId));
+      allow create, update: if hasWorkspacePermission(workspaceId, 'roles.manage') &&
+        validWorkspaceRole(request.resource.data) &&
+        (request.auth.uid == workspaceId ||
+          request.resource.data.permissions.hasOnly(
+            get(/databases/$(database)/documents/expert_workspaces/$(workspaceId)/members/$(request.auth.uid)).data.permissions
+          ));
+      allow delete: if hasWorkspacePermission(workspaceId, 'roles.manage') &&
+        roleId != 'owner';
+    }
+
+    match /expert_workspaces/{workspaceId}/members/{memberId} {
+      allow read: if request.auth != null &&
+        (request.auth.uid == workspaceId || isExpertWorkspaceMember(workspaceId));
+      allow create, update: if hasWorkspacePermission(workspaceId, 'members.manage') &&
+        validWorkspaceMember(request.resource.data, memberId) &&
+        (request.auth.uid == workspaceId ||
+          request.resource.data.permissions.hasOnly(
+            get(/databases/$(database)/documents/expert_workspaces/$(workspaceId)/members/$(request.auth.uid)).data.permissions
+          ));
+      allow delete: if hasWorkspacePermission(workspaceId, 'members.manage') &&
+        memberId != workspaceId;
+    }
+
+    match /expert_workspaces/{workspaceId}/invites/{inviteId} {
+      allow read: if hasWorkspacePermission(workspaceId, 'members.manage');
+      allow create, update: if hasWorkspacePermission(workspaceId, 'members.manage') &&
+        validWorkspaceInvite(request.resource.data) &&
+        (request.auth.uid == workspaceId ||
+          request.resource.data.permissions.hasOnly(
+            get(/databases/$(database)/documents/expert_workspaces/$(workspaceId)/members/$(request.auth.uid)).data.permissions
+          ));
+      allow delete: if hasWorkspacePermission(workspaceId, 'members.manage');
+    }
+
+    match /expert_workspaces/{workspaceId}/relationship_events/{eventId} {
+      allow read: if hasWorkspacePermission(workspaceId, 'events.read');
+      allow create: if hasWorkspacePermission(workspaceId, 'events.create') &&
+        validRelationshipEvent(request.resource.data);
+      allow update, delete: if false;
+    }
+
+    match /expert_workspaces/{workspaceId}/audit_logs/{logId} {
+      allow read: if hasWorkspacePermission(workspaceId, 'audit.read');
+      allow create: if request.auth != null &&
+        (request.auth.uid == workspaceId || isExpertWorkspaceMember(workspaceId)) &&
+        validWorkspaceAuditLog(request.resource.data);
+      allow update, delete: if false;
     }
 
     match /expert_workspaces/{workspaceId}/clients/{clientId} {

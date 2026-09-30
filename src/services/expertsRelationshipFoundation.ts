@@ -70,6 +70,10 @@ function createId(prefix: string): string {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function relationshipId(prefix: string, left: string, right: string): string {
+  return `${prefix}-${left}-${right}`.slice(0, 420);
+}
+
 async function restoredUser(): Promise<User | null> {
   if (firebaseAuth.currentUser) return firebaseAuth.currentUser;
   return new Promise((resolve) => {
@@ -116,8 +120,10 @@ export async function upsertExpertPerson(input: PersonIdentityInput): Promise<Pe
   if (!user) throw new Error('AUTH_REQUIRED');
 
   const name = input.name.trim();
-  const email = normalizeEmail(input.email);
-  const phone = normalizePhone(input.phone);
+  const displayEmail = (input.email || '').trim();
+  const displayPhone = (input.phone || '').trim();
+  const email = normalizeEmail(displayEmail);
+  const phone = normalizePhone(displayPhone);
   if (!name) throw new Error('PERSON_NAME_REQUIRED');
   if (!email && !phone) throw new Error('PERSON_IDENTITY_REQUIRED');
 
@@ -133,8 +139,8 @@ export async function upsertExpertPerson(input: PersonIdentityInput): Promise<Pe
     await setDoc(existing.ref, {
       schemaVersion: SCHEMA_VERSION,
       name,
-      email: email || current.email || '',
-      phone: phone || current.phone || '',
+      email: displayEmail || current.email || '',
+      phone: displayPhone || current.phone || '',
       normalizedEmail: email || current.normalizedEmail || '',
       normalizedPhone: phone || current.normalizedPhone || '',
       currentStage: strongerStage(current.currentStage, stage),
@@ -149,8 +155,8 @@ export async function upsertExpertPerson(input: PersonIdentityInput): Promise<Pe
   await setDoc(workspaceDocument(user.uid, 'people', personId), {
     schemaVersion: SCHEMA_VERSION,
     name,
-    email,
-    phone,
+    email: displayEmail,
+    phone: displayPhone,
     normalizedEmail: email,
     normalizedPhone: phone,
     firstSource: source,
@@ -245,7 +251,7 @@ export async function recordExpertWebinarRegistration(input: PersonIdentityInput
   const user = await restoredUser();
   if (!user) throw new Error('AUTH_REQUIRED');
   const person = await upsertExpertPerson({ ...input, stage: 'webinar' });
-  const registrationId = createId('webreg');
+  const registrationId = relationshipId('webreg', input.webinarId, person.personId);
   await setDoc(workspaceDocument(user.uid, 'webinar_registrations', registrationId), {
     schemaVersion: SCHEMA_VERSION,
     personId: person.personId,
@@ -256,7 +262,7 @@ export async function recordExpertWebinarRegistration(input: PersonIdentityInput
     interest: input.interest || 'unknown',
     registeredAt: serverTimestamp(),
     updatedAt: serverTimestamp()
-  });
+  }, { merge: true });
   await updateDoc(workspaceDocument(user.uid, 'people', person.personId), {
     'sourceRefs.webinarIds': arrayUnion(input.webinarId),
     'outcomeMemory.lastWebinarId': input.webinarId,
@@ -305,7 +311,7 @@ export async function createExpertEnrollment(input: {
 }): Promise<string> {
   const user = await restoredUser();
   if (!user) throw new Error('AUTH_REQUIRED');
-  const id = createId('enrollment');
+  const id = relationshipId('enrollment', input.cohortId, input.personId);
   const progress = Math.max(0, Math.min(100, Math.round(input.progress || 0)));
   await setDoc(workspaceDocument(user.uid, 'enrollments', id), {
     schemaVersion: SCHEMA_VERSION,
@@ -316,7 +322,7 @@ export async function createExpertEnrollment(input: {
     progress,
     joinedAt: serverTimestamp(),
     updatedAt: serverTimestamp()
-  });
+  }, { merge: true });
   await updateDoc(workspaceDocument(user.uid, 'people', input.personId), {
     currentStage: input.status === 'completed' ? 'alumni' : 'student',
     'sourceRefs.formationIds': arrayUnion(input.formationId),

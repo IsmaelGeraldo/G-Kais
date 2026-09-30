@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, BookOpenCheck, CalendarDays, LayoutDashboard, ListTodo, Settings, Sparkles, UserCheck, Users } from 'lucide-react';
+import { ArrowLeft, BookOpenCheck, CalendarDays, LayoutDashboard, ListTodo, Settings, Sparkles, UserCheck, Users, UsersRound } from 'lucide-react';
 import { useLanguage, type Language } from '../../i18n/LanguageContext';
 import { DashboardHistory } from './DashboardHistory';
 import { PriorityRadarWorkspace } from './PriorityRadarWorkspace';
 import { ClientOnboardingWorkspace } from './ClientOnboardingWorkspace';
+import { TeamWorkspace } from './TeamWorkspace';
+import { WorkspaceInviteGate } from './WorkspaceInviteGate';
 import { WorkspaceSettingsProfile, type WorkspaceProfile, type WorkspaceAppearance, themeColor, workspaceBackground } from './WorkspaceSettingsProfile';
 
 type Props = { onExit: () => void };
@@ -16,6 +18,7 @@ const NAV: NavItem[] = [
   { id: 'leads', label: { es: 'Leads', en: 'Leads' }, icon: UserCheck, section: 'people' },
   { id: 'clients', label: { es: 'Clientes', en: 'Clients' }, icon: Users, section: 'people' },
   { id: 'tasks', label: { es: 'Tareas', en: 'Tasks' }, icon: ListTodo, section: 'work' },
+  { id: 'team', label: { es: 'Equipo', en: 'Team' }, icon: UsersRound, section: 'work' },
   { id: 'calendar', label: { es: 'Calendario', en: 'Calendar' }, icon: CalendarDays, section: 'work' },
   { id: 'copilot', label: { es: 'G-KAIS Copilot', en: 'G-KAIS Copilot' }, icon: Sparkles, section: 'intelligence' },
   { id: 'knowledge', label: { es: 'Conocimiento', en: 'Knowledge' }, icon: BookOpenCheck, section: 'intelligence' }
@@ -47,6 +50,12 @@ function Placeholder({ active, language }: { active: string; language: Language 
 }
 
 export function ExpertsWorkspace({ onExit }: Props) {
+  const inviteToken = new URLSearchParams(window.location.search).get('invite');
+  if (inviteToken) return <WorkspaceInviteGate token={inviteToken} />;
+  return <ExpertsWorkspaceShell onExit={onExit} />;
+}
+
+function ExpertsWorkspaceShell({ onExit }: Props) {
   const { language, setLanguage } = useLanguage();
   const initial = readLocation();
   const [active, setActive] = useState(initial.active);
@@ -102,6 +111,7 @@ export function ExpertsWorkspace({ onExit }: Props) {
   if (active === 'overview') content = <DashboardHistory language={language} onNavigate={navigate} onOpenClient={openPerson} onStartSession={startSession} />;
   else if (active === 'priority') content = <PriorityRadarWorkspace language={language} onOpenClient={openPerson} />;
   else if (active === 'clients') content = <ClientOnboardingWorkspace language={language} selectedId={selectedClientId} onSelectedId={(id) => navigate('clients', id)} onStartSession={startSession} onOpenPriority={() => navigate('priority')} />;
+  else if (active === 'team') content = <TeamWorkspace language={language} />;
   else if (active === 'settings') content = <WorkspaceSettingsProfile language={language} profile={profile} setProfile={setProfile} appearance={appearance} setAppearance={setAppearance} />;
   else content = <Placeholder active={active} language={language} />;
 
@@ -130,8 +140,8 @@ export function ExpertsWorkspace({ onExit }: Props) {
     <div className="lg:pl-[245px]">
       <header className="sticky top-0 z-20 border-b border-black/8 bg-white/75 px-4 py-3 backdrop-blur md:px-8 lg:px-10"><div className="flex items-center justify-between gap-4"><div className="flex items-center gap-3"><button type="button" onClick={goBack} className="grid h-9 w-9 place-items-center rounded-full border border-black/10 bg-white text-black/60"><ArrowLeft className="h-4 w-4" /></button><div><p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-black/35">{profile.business}</p><h1 className="text-sm font-semibold">{activeLabel}</h1></div></div><div className="flex items-center gap-3"><div className="inline-flex rounded-full border border-black/10 bg-white p-0.5">{(['es','en'] as Language[]).map((option) => <button key={option} type="button" onClick={() => setLanguage(option)} className={`rounded-full px-2.5 py-1.5 text-[10px] font-semibold uppercase ${language === option ? 'bg-[#111413] text-white' : 'text-black/40'}`}>{option}</button>)}</div>{profile.avatar ? <img src={profile.avatar} alt="" className="h-9 w-9 rounded-full object-cover" /> : <div className="grid h-9 w-9 place-items-center rounded-full bg-[#111413] text-xs font-semibold text-white">{profile.name.split(' ').map((part) => part[0]).slice(0,2).join('')}</div>}</div></div></header>
       <main className="px-4 py-6 md:px-8 md:py-8 lg:px-10 lg:py-10"><div className="mx-auto max-w-[1500px]">
-        <div className="mb-5 lg:hidden"><div className="flex gap-2 overflow-x-auto pb-2">{NAV.slice(0,6).map((item) => <button key={item.id} onClick={() => navigate(item.id)} className={`whitespace-nowrap rounded-full px-3 py-2 text-xs font-semibold ${active === item.id ? 'bg-[#111413] text-white' : 'border border-black/10 bg-white text-black/55'}`}>{item.label[language]}</button>)}</div></div>
-        <div className="mb-7"><p className={`text-xs font-semibold uppercase tracking-[0.18em] ${darkWorkspace ? 'text-white/70' : 'text-[#0A3F4D]'}`}>{active === 'overview' ? (language === 'es' ? 'VISTA OPERATIVA DIARIA' : 'DAILY OPERATING VIEW') : active === 'settings' ? (language === 'es' ? 'PREFERENCIAS DEL WORKSPACE' : 'WORKSPACE PREFERENCES') : 'G-KAIS WORKSPACE'}</p><h2 className={`mt-2 text-3xl font-semibold tracking-[-0.035em] md:text-4xl ${darkWorkspace ? 'text-white' : 'text-[#0A0A0A]'}`}>{active === 'overview' ? (language === 'es' ? '¿Qué necesita tu atención?' : 'What needs your attention?') : activeLabel}</h2>{active === 'overview' && <p className={`mt-2 max-w-2xl text-sm leading-6 ${darkWorkspace ? 'text-white/65' : 'text-black/50'}`}>{language === 'es' ? 'Entiende el negocio, detecta señales y ejecuta el trabajo sin perder el contexto de cada relación.' : 'Understand the business, detect signals and execute work without losing relationship context.'}</p>}</div>
+        <div className="mb-5 lg:hidden"><div className="flex gap-2 overflow-x-auto pb-2">{NAV.slice(0,7).map((item) => <button key={item.id} onClick={() => navigate(item.id)} className={`whitespace-nowrap rounded-full px-3 py-2 text-xs font-semibold ${active === item.id ? 'bg-[#111413] text-white' : 'border border-black/10 bg-white text-black/55'}`}>{item.label[language]}</button>)}</div></div>
+        <div className="mb-7"><p className={`text-xs font-semibold uppercase tracking-[0.18em] ${darkWorkspace ? 'text-white/70' : 'text-[#0A3F4D]'}`}>{active === 'overview' ? (language === 'es' ? 'VISTA OPERATIVA DIARIA' : 'DAILY OPERATING VIEW') : active === 'settings' ? (language === 'es' ? 'PREFERENCIAS DEL WORKSPACE' : 'WORKSPACE PREFERENCES') : active === 'team' ? (language === 'es' ? 'OPERACIÓN DEL EQUIPO' : 'TEAM OPERATIONS') : 'G-KAIS WORKSPACE'}</p><h2 className={`mt-2 text-3xl font-semibold tracking-[-0.035em] md:text-4xl ${darkWorkspace ? 'text-white' : 'text-[#0A0A0A]'}`}>{active === 'overview' ? (language === 'es' ? '¿Qué necesita tu atención?' : 'What needs your attention?') : activeLabel}</h2>{active === 'overview' && <p className={`mt-2 max-w-2xl text-sm leading-6 ${darkWorkspace ? 'text-white/65' : 'text-black/50'}`}>{language === 'es' ? 'Entiende el negocio, detecta señales y ejecuta el trabajo sin perder el contexto de cada relación.' : 'Understand the business, detect signals and execute work without losing relationship context.'}</p>}</div>
         {content}
       </div></main>
     </div>

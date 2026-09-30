@@ -58,6 +58,8 @@ function cleanStoredText(value: unknown, language: 'es' | 'en'): string {
       .replace(/\bfeedback\b/gi, 'comentarios')
       .replace(/\bpipeline\b/gi, 'proceso comercial')
       .replace(/\bfunnel\b/gi, 'sistema de captación')
+      .replace(/\bdelivery\b/gi, 'entrega')
+      .replace(/\bperformance\b/gi, 'rendimiento')
       .replace(/\bejecuci[oó]n\b/gi, 'implementación')
       .replace(/\badquisici[oó]n\b/gi, 'captación de clientes')
       .replace(/\btasa de conversi[oó]n\b/gi, 'tasa de cierre')
@@ -94,21 +96,27 @@ function normalizeStoredCopilot(clientId: string, language: 'es' | 'en'): void {
     ? Array.from(new Set(items.map((item) => questions ? cleanStoredQuestion(item, language) : cleanStoredText(item, language)).filter(Boolean)))
     : [];
 
-  const copilot = {
-    ...client.copilot,
-    summary: cleanStoredText(client.copilot.summary, language),
-    gap: cleanStoredText(client.copilot.gap, language),
-    known: cleanList(client.copilot.known),
-    risks: cleanList(client.copilot.risks),
-    questions: cleanList(client.copilot.questions, true),
-    howHelp: cleanList(client.copilot.howHelp),
-    plan: cleanList(client.copilot.plan),
-    callOpening: cleanStoredText(client.copilot.callOpening, language)
+  const normalizedClient: StoredClient = {
+    ...client,
+    currentGap: cleanStoredText(client.currentGap, language),
+    planSummary: cleanStoredText(client.planSummary, language),
+    blockers: cleanList(client.blockers),
+    copilot: {
+      ...client.copilot,
+      summary: cleanStoredText(client.copilot.summary, language),
+      gap: cleanStoredText(client.copilot.gap, language),
+      known: cleanList(client.copilot.known),
+      risks: cleanList(client.copilot.risks),
+      questions: cleanList(client.copilot.questions, true),
+      howHelp: cleanList(client.copilot.howHelp),
+      plan: cleanList(client.copilot.plan),
+      callOpening: cleanStoredText(client.copilot.callOpening, language)
+    }
   };
 
-  if (JSON.stringify(copilot) === JSON.stringify(client.copilot)) return;
+  if (JSON.stringify(normalizedClient) === JSON.stringify(client)) return;
   try {
-    localStorage.setItem(CLIENT_STORAGE_KEY, JSON.stringify(clients.map((item) => item.id === clientId ? { ...item, copilot } : item)));
+    localStorage.setItem(CLIENT_STORAGE_KEY, JSON.stringify(clients.map((item) => item.id === clientId ? normalizedClient : item)));
     emitWorkspaceStateChanged();
   } catch {}
 }

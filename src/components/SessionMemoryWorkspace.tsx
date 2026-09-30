@@ -162,8 +162,8 @@ export function SessionMemoryWorkspace({ onBack }: Props) {
   };
 
   const selectDiagnosisOption = (option: string) => { setCurrentProblem(option); setNewBlocker(''); };
-  const selectDecision = (option: string) => { setDecision(option); if (!planPhase) setPlanPhase(language === 'es' ? 'Definir plan' : 'Define plan'); setPlanSummary([option, solution].filter(Boolean).join(' ')); };
-  const selectSolution = (option: string) => { setSolution(option); if (!planPhase) setPlanPhase(language === 'es' ? 'Definir plan' : 'Define plan'); setPlanSummary([decision, option].filter(Boolean).join(' ')); };
+  const selectDecision = (option: string) => { setDecision(option); if (!planPhase) setPlanPhase(language === 'es' ? 'Definir plan' : 'Define plan'); };
+  const selectSolution = (option: string) => { setSolution(option); if (!planPhase) setPlanPhase(language === 'es' ? 'Definir plan' : 'Define plan'); };
   const addMentorAction = () => { const clean = mentorActionDraft.trim(); if (!clean) return; const line = `${actionLabel(mentorChannel, language)}: ${clean}`; setMentorActions((current) => [current.trim(), line].filter(Boolean).join('\n')); setMentorActionDraft(''); };
   const removeMentorAction = (line: string) => setMentorActions(splitLines(mentorActions).filter((item) => item !== line).join('\n'));
 

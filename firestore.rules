@@ -6,6 +6,29 @@ service cloud.firestore {
         exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
 
+    function ownsExpertWorkspace(workspaceId) {
+      return request.auth != null && request.auth.uid == workspaceId;
+    }
+
+    function validExpertClientMemory(data, clientId) {
+      return data.keys().hasAll(['schemaVersion', 'updatedAt']) &&
+        data.keys().hasOnly([
+          'schemaVersion', 'record', 'session', 'migratedAt', 'updatedAt'
+        ]) &&
+        data.schemaVersion == 1 &&
+        data.updatedAt is timestamp &&
+        (!('migratedAt' in data) || data.migratedAt is timestamp) &&
+        ('record' in data || 'session' in data) &&
+        (!('record' in data) ||
+          (data.record is map &&
+           data.record.id is string &&
+           data.record.id == clientId)) &&
+        (!('session' in data) ||
+          (data.session is map &&
+           data.session.id is string &&
+           data.session.id == clientId));
+    }
+
     function validAudit(data, auditId) {
       return data.keys().hasAll([
           'id', 'name', 'company', 'email', 'contactChannel',
@@ -201,6 +224,13 @@ service cloud.firestore {
         request.resource.data.tone.size() <= 2000 &&
         request.resource.data.updatedAt is timestamp;
       allow delete: if false;
+    }
+
+    match /expert_workspaces/{workspaceId}/clients/{clientId} {
+      allow read: if ownsExpertWorkspace(workspaceId);
+      allow create, update: if ownsExpertWorkspace(workspaceId) &&
+        validExpertClientMemory(request.resource.data, clientId);
+      allow delete: if ownsExpertWorkspace(workspaceId);
     }
 
     match /admins/{adminId} {

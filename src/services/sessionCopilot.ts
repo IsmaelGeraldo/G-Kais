@@ -43,6 +43,7 @@ async function getRestoredUser(): Promise<User | null> {
 function latestStage(journal: SessionJournalEntry[], words: string[]): SessionJournalEntry | undefined {
   return journal.find((entry) => words.some((word) => (entry.title || '').toLowerCase().includes(word.toLowerCase())));
 }
+
 function extractLine(body: string | undefined, labels: string[]): string {
   if (!body) return '';
   const line = body.split('\n').find((item) => labels.some((label) => item.toLowerCase().startsWith(label.toLowerCase())));
@@ -50,6 +51,27 @@ function extractLine(body: string | undefined, labels: string[]): string {
   const colon = line.indexOf(':');
   return colon >= 0 ? line.slice(colon + 1).trim() : line.trim();
 }
+
+function normalizeSpanishTerms(text: string): string {
+  return text
+    .replace(/\buna acciones realizadas\b/gi, 'una implementación')
+    .replace(/\bacciones realizadas inconsistente(s?)\b/gi, 'implementación inconsistente$1')
+    .replace(/\bfollow[- ]?up\b/gi, 'seguimiento')
+    .replace(/\bfeedback\b/gi, 'comentarios')
+    .replace(/\bcall\b/gi, 'llamada')
+    .replace(/\bpipeline\b/gi, 'proceso comercial')
+    .replace(/\bfunnel\b/gi, 'sistema de captación')
+    .replace(/\bdelivery\b/gi, 'entrega')
+    .replace(/\bperformance\b/gi, 'rendimiento')
+    .replace(/\bejecuci[oó]n\b/gi, 'implementación')
+    .replace(/\badquisici[oó]n\b/gi, 'captación de clientes')
+    .replace(/\btasa de conversi[oó]n\b/gi, 'tasa de cierre')
+    .replace(/\bla conversi[oó]n\b/gi, 'el cierre')
+    .replace(/\buna conversi[oó]n\b/gi, 'un cierre')
+    .replace(/\bconversi[oó]n\b/gi, 'cierre')
+    .replace(/\bescalar\b/gi, 'crecer');
+}
+
 function cleanGeneratedText(value: unknown, language: 'es' | 'en'): string {
   if (typeof value !== 'string') return '';
   let text = value
@@ -59,24 +81,16 @@ function cleanGeneratedText(value: unknown, language: 'es' | 'en'): string {
     .replace(/([¿¡])\s+/g, '$1')
     .trim();
   if (!text) return '';
-  if (language === 'es') {
-    text = text
-      .replace(/\bfollow[- ]?up\b/gi, 'seguimiento')
-      .replace(/\bfeedback\b/gi, 'comentarios')
-      .replace(/\bcall\b/gi, 'llamada')
-      .replace(/\bpipeline\b/gi, 'proceso comercial')
-      .replace(/\bfunnel\b/gi, 'sistema de captación')
-      .replace(/\bdelivery\b/gi, 'entrega')
-      .replace(/\bperformance\b/gi, 'rendimiento')
-      .replace(/\bejecución\b/gi, 'implementación');
-  }
+  if (language === 'es') text = normalizeSpanishTerms(text);
   if (/^[¿¡]/.test(text) && text.length > 1) return text.charAt(0) + text.charAt(1).toUpperCase() + text.slice(2);
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
+
 function cleanGeneratedList(value: unknown, language: 'es' | 'en'): string[] {
   if (!Array.isArray(value)) return [];
   return Array.from(new Set(value.map((item) => cleanGeneratedText(item, language)).filter(Boolean)));
 }
+
 function cleanGeneratedQuestions(value: unknown, language: 'es' | 'en'): string[] {
   if (!Array.isArray(value)) return [];
   return Array.from(new Set(value.map((item) => {
@@ -90,27 +104,36 @@ function cleanGeneratedQuestions(value: unknown, language: 'es' | 'en'): string[
     return text;
   }).filter(Boolean)));
 }
+
 function sessionTone(language: 'es' | 'en'): string {
   if (language === 'es') {
     return [
-      'Contexto: el contacto es un cliente activo que ya está dentro de una mentoría, consultoría o servicio profesional; no es un lead por cerrar.',
+      'Contexto: el contacto es un cliente activo dentro de una mentoría, consultoría o servicio profesional; no es un lead por cerrar.',
       'Redacta para ayudar al mentor durante una sesión real con el cliente.',
       'Usa español natural, profesional y sencillo. Cuida tildes, concordancia, puntuación y signos de apertura en preguntas.',
+      'Prioriza la información más reciente. Si la revisión actual contradice una brecha histórica, trata la brecha antigua como algo por validar, no como un hecho vigente.',
+      'Reconoce avances cuando existan. No inventes un problema nuevo para llenar una sección.',
       'Evita traducciones literales del inglés, anglicismos innecesarios, frases corporativas y lenguaje de ventas.',
       'Usa frases breves y directas. Una idea principal por oración.',
-      'No repitas información que ya aparece en otras secciones. Prioriza cambios recientes, problema actual, bloqueo, decisión y siguiente paso.',
+      'No repitas información entre resumen, riesgos, preguntas, soluciones y plan.',
       'Las preguntas deben poder decirse en voz alta de forma natural y deben ir al grano.',
       'Las soluciones y planes deben ser concretos, accionables y fáciles de entender para un mentor.'
     ].join(' ');
   }
-  return 'Context: this is an active client already receiving a mentoring, consulting or professional service. Write for a mentor during a live client session. Use concise, natural, professional language; avoid sales language, repetition and unnecessary jargon.';
+  return 'Context: this is an active client already receiving a mentoring, consulting or professional service. Prioritize the newest evidence, recognize progress, distinguish historical gaps from current problems, and use concise natural professional language.';
 }
+
 function buildSessionOpening(existing: SessionCopilotClient['copilot'], risks: string[], language: 'es' | 'en'): string {
-  const gap = cleanGeneratedText(existing?.gap, language); const firstRisk = cleanGeneratedText(risks[0], language);
-  if (language === 'es') { if (gap && firstRisk) return `Quiero partir revisando dónde estamos respecto de este punto: ${gap} Antes de cambiar el plan, entendamos mejor ${firstRisk.toLowerCase()} y cerremos con una próxima acción concreta.`; if (gap) return `Quiero partir revisando dónde estamos respecto de este punto: ${gap} Veamos qué cambió desde la última sesión y cerremos con una próxima acción concreta.`; return 'Quiero partir conectando lo que acordamos en la última sesión con lo que realmente ocurrió. Revisemos avances, bloqueos y cerremos con una próxima acción concreta.'; }
-  if (gap && firstRisk) return `I want to start by reviewing where we are on this point: ${gap} Before changing the plan, let's understand ${firstRisk.toLowerCase()} and leave with one concrete next action.`;
-  if (gap) return `I want to start by reviewing where we are on this point: ${gap} Let's see what changed since the last session and close with one concrete next action.`;
-  return 'I want to connect what we agreed in the last session with what actually happened. Let’s review progress, blockers and close with one concrete next action.';
+  const gap = cleanGeneratedText(existing?.gap, language);
+  const firstRisk = cleanGeneratedText(risks[0], language);
+  if (language === 'es') {
+    if (gap && firstRisk) return `Quiero partir revisando dónde estamos respecto de este punto: ${gap} Después validemos ${firstRisk.toLowerCase()} y cerremos con una próxima acción concreta.`;
+    if (gap) return `Quiero partir revisando dónde estamos respecto de este punto: ${gap} Veamos qué cambió desde la última sesión y cerremos con una próxima acción concreta.`;
+    return 'Quiero partir conectando lo que acordamos con lo que realmente ocurrió desde la última sesión. Revisemos avances, lo que todavía necesita atención y cerremos con una próxima acción concreta.';
+  }
+  if (gap && firstRisk) return `I want to start by reviewing where we are on this point: ${gap} Then let’s validate ${firstRisk.toLowerCase()} and leave with one concrete next action.`;
+  if (gap) return `I want to start by reviewing where we are on this point: ${gap} Let’s see what changed since the last session and close with one concrete next action.`;
+  return 'I want to connect what we agreed with what actually happened since the last session. Let’s review progress, what still needs attention and close with one concrete next action.';
 }
 
 export async function requestSessionCopilot(client: SessionCopilotClient, journal: SessionJournalEntry[], language: 'es' | 'en'): Promise<SessionCopilotResult> {
@@ -125,9 +148,24 @@ export async function requestSessionCopilot(client: SessionCopilotClient, journa
   const diagnosedCause = extractLine(diagnosis?.body, ['causa:', 'cause:']);
   const reviewOutcome = extractLine(review?.body, ['cumplimiento:', 'completion:']);
   const reviewPositive = /^(sí|si|yes)$/i.test(reviewOutcome.trim());
-  const currentProblem = [diagnosedProblem, diagnosedCause, review?.body, client.currentGap, existing.gap, ...(client.blockers ?? [])].filter(Boolean).join(' · ');
+  const blockers = (client.blockers ?? []).map((item) => cleanGeneratedText(item, language)).filter(Boolean);
+
+  const currentProblem = diagnosedProblem
+    ? [diagnosedProblem, diagnosedCause].filter(Boolean).join(' · ')
+    : reviewPositive
+      ? blockers.length
+        ? (language === 'es'
+            ? `La revisión reciente muestra avances. Solo falta validar si estos bloqueos históricos siguen activos: ${blockers.join(' · ')}`
+            : `The latest review shows progress. Only validate whether these historical blockers are still active: ${blockers.join(' · ')}`)
+        : ''
+      : [client.currentGap, existing.gap, ...blockers].filter(Boolean).join(' · ');
+
   const currentSolution = [planStage?.body, client.planSummary, ...(existing.plan ?? [])].filter(Boolean).join(' · ');
   const commitmentContext = (client.commitments ?? []).map((item) => `${item.label} [${item.status}]`).join(' · ');
+  const historicalContext = [existing.summary, existing.gap, client.currentGap]
+    .map((item) => cleanGeneratedText(item, language))
+    .filter(Boolean)
+    .join(' · ');
 
   const response = await fetch('/api/admin/ai/lead-brief', {
     method: 'POST',
@@ -145,13 +183,24 @@ export async function requestSessionCopilot(client: SessionCopilotClient, journa
       nextAction: client.nextAction || '',
       businessKnowledge: {
         businessDescription: language === 'es'
-          ? 'G-KAIS está preparando una sesión de seguimiento para un cliente activo. El objetivo es comprender su situación actual, revisar avances, detectar bloqueos y definir un plan claro para la siguiente etapa.'
-          : 'G-KAIS is preparing a follow-up session for an active client. The goal is to understand the current situation, review progress, detect blockers and define a clear next-stage plan.',
+          ? 'G-KAIS prepara y acompaña una sesión de seguimiento para un cliente activo. El objetivo es entender qué cambió, reconocer avances, validar problemas o bloqueos todavía vigentes y definir el siguiente plan sin arrastrar supuestos antiguos.'
+          : 'G-KAIS prepares and supports a follow-up session for an active client. The goal is to understand what changed, recognize progress, validate only still-active problems or blockers and define the next plan without carrying old assumptions forward.',
         tone: sessionTone(language)
       },
-      intakeContext: [client.week, commitmentContext, review?.body].filter(Boolean).join(' · '),
-      internalNotes: [existing.summary, diagnosis?.body].filter(Boolean).join(' · '),
-      notes: journal.slice(0, 16).map((entry) => ({ title: entry.title || 'Client journal', body: entry.body || '', createdAt: entry.createdAt }))
+      intakeContext: [
+        client.week && `${language === 'es' ? 'Momento del programa' : 'Program stage'}: ${client.week}`,
+        review?.body && `${language === 'es' ? 'Revisión más reciente' : 'Latest review'}: ${review.body}`,
+        commitmentContext && `${language === 'es' ? 'Compromisos' : 'Commitments'}: ${commitmentContext}`
+      ].filter(Boolean).join(' · '),
+      internalNotes: [
+        historicalContext && `${language === 'es' ? 'Contexto histórico, no asumir vigente' : 'Historical context, do not assume current'}: ${historicalContext}`,
+        diagnosis?.body && `${language === 'es' ? 'Diagnóstico más reciente' : 'Latest diagnosis'}: ${diagnosis.body}`
+      ].filter(Boolean).join(' · '),
+      notes: journal.slice(0, 16).map((entry) => ({
+        title: entry.title || (language === 'es' ? 'Bitácora del cliente' : 'Client journal'),
+        body: entry.body || '',
+        createdAt: entry.createdAt
+      }))
     })
   });
 
@@ -163,13 +212,33 @@ export async function requestSessionCopilot(client: SessionCopilotClient, journa
   const questions = cleanGeneratedQuestions(Array.isArray(brief.qualificationQuestions) && brief.qualificationQuestions.length ? brief.qualificationQuestions : (existing.questions || []), language);
   const howHelp = cleanGeneratedList(Array.isArray(brief.howGkaisCanHelp) && brief.howGkaisCanHelp.length ? brief.howGkaisCanHelp : (existing.howHelp || []), language);
   const solutionPlan = cleanGeneratedList(Array.isArray(brief.solutionPlan) && brief.solutionPlan.length ? brief.solutionPlan : [], language);
-  const plan = solutionPlan.length ? solutionPlan : brief.recommendedAction ? [cleanGeneratedText(String(brief.recommendedAction), language)].filter(Boolean) : cleanGeneratedList(existing.plan || [], language);
+  const plan = solutionPlan.length
+    ? solutionPlan
+    : brief.recommendedAction
+      ? [cleanGeneratedText(String(brief.recommendedAction), language)].filter(Boolean)
+      : cleanGeneratedList(existing.plan || [], language);
   const summary = cleanGeneratedText(typeof brief.summary === 'string' && brief.summary.trim() ? brief.summary : (existing.summary || ''), language);
   const freshSignal = risks[0] || summary;
-  const gap = cleanGeneratedText(diagnosedProblem || (reviewPositive ? freshSignal : (client.currentGap || freshSignal || existing.gap || '')), language);
+
+  let gap = '';
+  if (diagnosedProblem) {
+    gap = cleanGeneratedText(diagnosedProblem, language);
+  } else if (reviewPositive) {
+    gap = blockers.length
+      ? (language === 'es'
+          ? `El avance es positivo; falta confirmar si ${blockers[0].toLowerCase()} sigue siendo un bloqueo.`
+          : `Progress is positive; confirm whether ${blockers[0].toLowerCase()} is still a blocker.`)
+      : (language === 'es'
+          ? 'No hay una brecha crítica confirmada. El foco es consolidar los avances.'
+          : 'No critical gap is confirmed. The focus is to consolidate progress.');
+  } else {
+    gap = cleanGeneratedText(client.currentGap || freshSignal || existing.gap || '', language);
+  }
+
   const aiOpening = cleanGeneratedText(typeof brief.callPositioning === 'string' ? brief.callPositioning : '', language);
   const callOpening = aiOpening && !/agendar|te escribo|te envío|próxima llamada|next call|schedule/i.test(aiOpening)
     ? aiOpening
     : buildSessionOpening({ ...existing, gap }, risks, language);
+
   return { summary, gap, known, risks, questions, howHelp, plan, callOpening };
 }

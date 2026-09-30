@@ -18,6 +18,100 @@ type ClientLike = Record<string, unknown> & { id: string };
 type HydrationResult = 'firestore' | 'migrated' | 'local';
 type OutcomeMemory = Record<string, unknown>;
 
+// Pilot seed: these are the same three client records currently rendered by
+// ClientWorkspaceEnhanced when no browser cache exists. They are used only
+// for the first Firestore migration when both Firestore and localStorage are empty.
+const PILOT_CLIENT_RECORDS: ClientLike[] = [
+  {
+    id: 'sofia',
+    name: 'Sofía Martínez',
+    initials: 'SM',
+    company: 'Sofía Martínez Consulting',
+    businessType: 'Mentoría de negocio',
+    email: 'sofia@example.com',
+    phone: '+56 9 5555 0101',
+    program: 'Mentoría Escala',
+    startDate: '12 ago 2026',
+    duration: '24 semanas',
+    progress: 'Semana 7 / 24',
+    status: 'attention',
+    nextAction: 'Revisar compromisos antes de la próxima sesión',
+    primaryGoal: 'US$15k mensuales',
+    currentPhase: 'Adquisición',
+    nextSession: 'Martes · 15:30',
+    startingPoint: 'Dependencia de referidos y seguimiento comercial irregular.',
+    expectedOutcome: 'Crear adquisición predecible y llegar a US$15k/mes.',
+    currentGap: 'Funnel activo, pero ejecución inconsistente y volumen insuficiente.',
+    planSummary: 'Validar el funnel con suficiente volumen, estabilizar la rutina comercial y aumentar la ejecución semanal antes de cambiar la estrategia.',
+    blockers: ['Ejecución inconsistente', 'Dificultad delegando'],
+    milestones: [
+      { label: 'Oferta redefinida', status: 'done' },
+      { label: 'Landing publicada', status: 'done' }
+    ],
+    commitments: [
+      { label: 'Publicar 3 piezas de contenido', status: 'overdue' },
+      { label: 'Contactar 25 prospectos', status: 'pending' },
+      { label: 'Revisión comercial cada viernes', status: 'done' }
+    ]
+  },
+  {
+    id: 'andres',
+    name: 'Andrés Silva',
+    initials: 'AS',
+    company: 'Silva Growth',
+    businessType: 'Consultoría comercial',
+    email: 'andres@example.com',
+    phone: '+56 9 5555 0102',
+    program: 'Mentoría Escala',
+    startDate: '15 jul 2026',
+    duration: '24 semanas',
+    progress: 'Semana 11 / 24',
+    status: 'active',
+    nextAction: 'Sesión hoy 10:00',
+    primaryGoal: 'US$20k mensuales',
+    currentPhase: 'Conversión',
+    nextSession: 'Hoy · 10:00',
+    startingPoint: 'Buen volumen de oportunidades, pero cierre comercial inconsistente.',
+    expectedOutcome: 'Aumentar la tasa de cierre y estabilizar ingresos mensuales.',
+    currentGap: 'El equipo genera reuniones, pero no existe un proceso de venta consistente.',
+    planSummary: 'Estandarizar diagnóstico, propuesta y seguimiento antes de aumentar inversión en adquisición.',
+    blockers: ['Seguimiento irregular'],
+    milestones: [{ label: 'Guion de diagnóstico definido', status: 'done' }],
+    commitments: [
+      { label: 'Revisar 5 llamadas grabadas', status: 'done' },
+      { label: 'Enviar follow-up dentro de 24h', status: 'pending' }
+    ]
+  },
+  {
+    id: 'diego',
+    name: 'Diego Rojas',
+    initials: 'DR',
+    company: 'Rojas Advisory',
+    businessType: 'Asesoría estratégica',
+    email: 'diego@example.com',
+    phone: '+56 9 5555 0103',
+    program: 'Mentoría Escala',
+    startDate: '20 abr 2026',
+    duration: '24 semanas',
+    progress: 'Semana 22 / 24',
+    status: 'renewal',
+    nextAction: 'Preparar conversación de renovación',
+    primaryGoal: 'Consolidar equipo y delegar delivery',
+    currentPhase: 'Renovación',
+    nextSession: 'Jueves · 12:00',
+    startingPoint: 'El fundador concentraba ventas, delivery y operación.',
+    expectedOutcome: 'Delegar operación y mantener crecimiento sin aumentar carga personal.',
+    currentGap: 'La delegación mejoró, pero aún existen decisiones críticas concentradas en el fundador.',
+    planSummary: 'Cerrar el ciclo actual midiendo avances, identificar el siguiente cuello de botella y decidir si una segunda etapa tiene valor claro.',
+    blockers: ['Decisiones centralizadas'],
+    milestones: [{ label: 'Responsabilidades del equipo definidas', status: 'done' }],
+    commitments: [
+      { label: 'Documentar SOP de onboarding', status: 'pending' },
+      { label: 'Preparar métricas de cierre del programa', status: 'done' }
+    ]
+  }
+];
+
 function readLocalArray<T>(key: string): T[] {
   if (typeof window === 'undefined') return [];
   try {
@@ -110,10 +204,13 @@ export async function hydrateExpertsClientMemory(): Promise<HydrationResult> {
 
   try {
     const snapshot = await getDocs(clientsCollection(user.uid));
-    const localRecords = readLocalArray<ClientLike>(CLIENT_RECORD_STORAGE_KEY);
+    const storedRecords = readLocalArray<ClientLike>(CLIENT_RECORD_STORAGE_KEY);
     const localSessions = readLocalArray<ClientLike>(SESSION_CLIENT_STORAGE_KEY);
 
     if (snapshot.empty) {
+      const localRecords = storedRecords.length ? storedRecords : PILOT_CLIENT_RECORDS;
+      if (!storedRecords.length) writeLocalArray(CLIENT_RECORD_STORAGE_KEY, localRecords);
+
       const ids = Array.from(new Set([
         ...localRecords.map((item) => item.id),
         ...localSessions.map((item) => item.id)
@@ -135,6 +232,7 @@ export async function hydrateExpertsClientMemory(): Promise<HydrationResult> {
         });
       });
       await batch.commit();
+      emitWorkspaceRefresh();
       return 'migrated';
     }
 

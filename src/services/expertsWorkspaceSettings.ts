@@ -1,6 +1,7 @@
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { firebaseAuth, firestoreDb } from '../lib/firebase';
+import { resolveActiveExpertWorkspaceId } from './expertsWorkspaceCore';
 
 const PROFILE_KEY = 'gkais-experts-profile-v1';
 const APPEARANCE_KEY = 'gkais-experts-appearance-v2';
@@ -84,9 +85,7 @@ function normalizeAppearance(value: Partial<ExpertsWorkspaceAppearance> | undefi
 }
 
 export function readLocalExpertsWorkspaceSettings(): ExpertsWorkspaceSettings {
-  if (typeof window === 'undefined') {
-    return { profile: DEFAULT_PROFILE, appearance: DEFAULT_APPEARANCE, language: 'es' };
-  }
+  if (typeof window === 'undefined') return { profile: DEFAULT_PROFILE, appearance: DEFAULT_APPEARANCE, language: 'es' };
   const storedProfile = safeParse<Partial<ExpertsWorkspaceProfile>>(window.localStorage.getItem(PROFILE_KEY), {});
   const storedAppearance = safeParse<Partial<ExpertsWorkspaceAppearance>>(window.localStorage.getItem(APPEARANCE_KEY), {});
   const storedLanguage = window.localStorage.getItem(LANGUAGE_KEY);
@@ -123,8 +122,14 @@ async function restoredUser(): Promise<User | null> {
   });
 }
 
-function settingsDocument(uid: string) {
-  return doc(firestoreDb, 'expert_workspaces', uid, 'settings', 'workspace');
+async function ownerWorkspaceId(user: User): Promise<string | null> {
+  if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('invite')) return null;
+  const workspaceId = await resolveActiveExpertWorkspaceId(user);
+  return workspaceId === user.uid ? workspaceId : null;
+}
+
+function settingsDocument(workspaceId: string) {
+  return doc(firestoreDb, 'expert_workspaces', workspaceId, 'settings', 'workspace');
 }
 
 function persistedPayload(settings: ExpertsWorkspaceSettings): Omit<PersistedSettings, 'schemaVersion'> {
@@ -148,11 +153,13 @@ export async function hydrateExpertsWorkspaceSettings(): Promise<ExpertsWorkspac
   if (typeof window === 'undefined') return local;
   const user = await restoredUser();
   if (!user) return local;
+  const workspaceId = await ownerWorkspaceId(user);
+  if (!workspaceId) return local;
 
   try {
-    const snapshot = await getDoc(settingsDocument(user.uid));
+    const snapshot = await getDoc(settingsDocument(workspaceId));
     if (!snapshot.exists()) {
-      await setDoc(settingsDocument(user.uid), {
+      await setDoc(settingsDocument(workspaceId), {
         schemaVersion: SCHEMA_VERSION,
         ...persistedPayload(local),
         migratedAt: serverTimestamp(),
@@ -193,8 +200,10 @@ export async function hydrateExpertsWorkspaceSettings(): Promise<ExpertsWorkspac
 export async function persistExpertsWorkspaceSettings(settings: ExpertsWorkspaceSettings): Promise<void> {
   const user = await restoredUser();
   if (!user) return;
+  const workspaceId = await ownerWorkspaceId(user);
+  if (!workspaceId) return;
   try {
-    await setDoc(settingsDocument(user.uid), {
+    await setDoc(settingsDocument(workspaceId), {
       schemaVersion: SCHEMA_VERSION,
       ...persistedPayload(settings),
       updatedAt: serverTimestamp()
@@ -229,6 +238,7 @@ if (typeof window !== 'undefined') {
     }
     if (hydratedUid === user.uid) return;
     hydratedUid = user.uid;
+    if (new URLSearchParams(window.location.search).get('invite')) return;
     void hydrateExpertsWorkspaceSettings();
   });
 

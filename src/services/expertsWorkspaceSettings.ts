@@ -5,6 +5,7 @@ import { firebaseAuth, firestoreDb } from '../lib/firebase';
 const PROFILE_KEY = 'gkais-experts-profile-v1';
 const APPEARANCE_KEY = 'gkais-experts-appearance-v2';
 const LANGUAGE_KEY = 'gkais-language';
+const RELOAD_GUARD_KEY = 'gkais-experts-settings-reload-v1';
 const SCHEMA_VERSION = 1;
 
 export const WORKSPACE_SETTINGS_EVENT = 'gkais:workspace-settings-hydrated';
@@ -49,6 +50,8 @@ const DEFAULT_APPEARANCE: ExpertsWorkspaceAppearance = {
   sidebar: 'same',
   sidebarIntensity: 7
 };
+
+let lastPersistedFingerprint = '';
 
 function safeParse<T>(value: string | null, fallback: T): T {
   if (!value) return fallback;
@@ -136,6 +139,10 @@ function persistedPayload(settings: ExpertsWorkspaceSettings): Omit<PersistedSet
   };
 }
 
+function settingsFingerprint(settings: ExpertsWorkspaceSettings): string {
+  return JSON.stringify(persistedPayload(settings));
+}
+
 export async function hydrateExpertsWorkspaceSettings(): Promise<ExpertsWorkspaceSettings> {
   const local = readLocalExpertsWorkspaceSettings();
   if (typeof window === 'undefined') return local;
@@ -151,6 +158,7 @@ export async function hydrateExpertsWorkspaceSettings(): Promise<ExpertsWorkspac
         migratedAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
+      lastPersistedFingerprint = settingsFingerprint(local);
       emitSettingsHydrated();
       return local;
     }
@@ -161,8 +169,21 @@ export async function hydrateExpertsWorkspaceSettings(): Promise<ExpertsWorkspac
       appearance: normalizeAppearance(remote.appearance, local.appearance),
       language: remote.language === 'en' ? 'en' : remote.language === 'es' ? 'es' : local.language
     };
+    const beforeFingerprint = settingsFingerprint(local);
+    const remoteFingerprint = settingsFingerprint(next);
     writeLocalExpertsWorkspaceSettings(next);
+    lastPersistedFingerprint = remoteFingerprint;
     emitSettingsHydrated();
+
+    if (beforeFingerprint !== remoteFingerprint) {
+      try {
+        const previousReload = window.sessionStorage.getItem(RELOAD_GUARD_KEY);
+        if (previousReload !== remoteFingerprint) {
+          window.sessionStorage.setItem(RELOAD_GUARD_KEY, remoteFingerprint);
+          window.setTimeout(() => window.location.reload(), 0);
+        }
+      } catch {}
+    }
     return next;
   } catch {
     return local;
@@ -178,18 +199,46 @@ export async function persistExpertsWorkspaceSettings(settings: ExpertsWorkspace
       ...persistedPayload(settings),
       updatedAt: serverTimestamp()
     }, { merge: true });
+    lastPersistedFingerprint = settingsFingerprint(settings);
   } catch {}
+}
+
+async function syncLocalSettingsIfChanged(): Promise<void> {
+  const settings = readLocalExpertsWorkspaceSettings();
+  const fingerprint = settingsFingerprint(settings);
+  if (fingerprint === lastPersistedFingerprint) return;
+  await persistExpertsWorkspaceSettings(settings);
 }
 
 if (typeof window !== 'undefined') {
   let hydratedUid = '';
+  let syncTimer: number | undefined;
+  const scheduleSync = () => {
+    if (syncTimer !== undefined) window.clearTimeout(syncTimer);
+    syncTimer = window.setTimeout(() => {
+      syncTimer = undefined;
+      void syncLocalSettingsIfChanged();
+    }, 300);
+  };
+
   onAuthStateChanged(firebaseAuth, (user) => {
     if (!user) {
       hydratedUid = '';
+      lastPersistedFingerprint = '';
       return;
     }
     if (hydratedUid === user.uid) return;
     hydratedUid = user.uid;
     void hydrateExpertsWorkspaceSettings();
+  });
+
+  window.addEventListener('input', scheduleSync, true);
+  window.addEventListener('change', scheduleSync, true);
+  window.addEventListener('click', scheduleSync, true);
+  window.addEventListener('storage', (event) => {
+    if (event.key === PROFILE_KEY || event.key === APPEARANCE_KEY || event.key === LANGUAGE_KEY) scheduleSync();
+  });
+  window.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') void syncLocalSettingsIfChanged();
   });
 }

@@ -71,6 +71,34 @@ service cloud.firestore {
         data.task.status in ['pending', 'in-progress', 'done'];
     }
 
+    function validExpertWorkspaceSettings(data) {
+      return data.keys().hasAll([
+          'schemaVersion', 'profile', 'appearance', 'language', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'schemaVersion', 'profile', 'appearance', 'language', 'migratedAt', 'updatedAt'
+        ]) &&
+        data.schemaVersion == 1 &&
+        data.updatedAt is timestamp &&
+        (!('migratedAt' in data) || data.migratedAt is timestamp) &&
+        data.profile is map &&
+        data.profile.keys().hasAll(['name', 'business', 'role']) &&
+        data.profile.keys().hasOnly(['name', 'business', 'role']) &&
+        data.profile.name is string && data.profile.name.size() <= 120 &&
+        data.profile.business is string && data.profile.business.size() <= 160 &&
+        data.profile.role is string && data.profile.role.size() <= 120 &&
+        data.appearance is map &&
+        data.appearance.keys().hasAll(['theme', 'intensity', 'sidebar', 'sidebarIntensity']) &&
+        data.appearance.keys().hasOnly(['theme', 'intensity', 'sidebar', 'sidebarIntensity']) &&
+        data.appearance.theme is string && data.appearance.theme.size() <= 40 &&
+        data.appearance.intensity is int &&
+        data.appearance.intensity >= 1 && data.appearance.intensity <= 10 &&
+        data.appearance.sidebar is string && data.appearance.sidebar.size() <= 40 &&
+        data.appearance.sidebarIntensity is int &&
+        data.appearance.sidebarIntensity >= 1 && data.appearance.sidebarIntensity <= 10 &&
+        data.language in ['es', 'en'];
+    }
+
     function validAudit(data, auditId) {
       return data.keys().hasAll([
           'id', 'name', 'company', 'email', 'contactChannel',
@@ -294,6 +322,14 @@ service cloud.firestore {
       allow create, update: if ownsExpertWorkspace(workspaceId) &&
         validExpertWorkTask(request.resource.data, taskId);
       allow delete: if ownsExpertWorkspace(workspaceId);
+    }
+
+    match /expert_workspaces/{workspaceId}/settings/{settingsId} {
+      allow read: if ownsExpertWorkspace(workspaceId) && settingsId == 'workspace';
+      allow create, update: if ownsExpertWorkspace(workspaceId) &&
+        settingsId == 'workspace' &&
+        validExpertWorkspaceSettings(request.resource.data);
+      allow delete: if ownsExpertWorkspace(workspaceId) && settingsId == 'workspace';
     }
 
     match /admins/{adminId} {

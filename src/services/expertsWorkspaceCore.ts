@@ -262,7 +262,6 @@ export async function ensureExpertWorkspaceCore(user: User): Promise<string> {
     roleId: 'owner',
     permissions: ['*'],
     status: 'active',
-    inviteId: '',
     joinedAt: now,
     updatedAt: now
   }, { merge: true });
@@ -363,8 +362,8 @@ export async function createExpertWorkspaceInvite(input: {
   const workspaceId = await resolveActiveExpertWorkspaceId(user);
   if (!user || !workspaceId) throw new Error('AUTH_REQUIRED');
 
-  const email = input.email.trim();
-  const normalizedEmail = email.toLowerCase();
+  const normalizedEmail = input.email.trim().toLowerCase();
+  const email = normalizedEmail;
   const displayName = input.displayName.trim();
   if (!normalizedEmail) throw new Error('EMAIL_REQUIRED');
   if (!displayName) throw new Error('NAME_REQUIRED');
@@ -420,8 +419,13 @@ export async function acceptExpertWorkspaceInvite(token: string): Promise<string
   if (!parsed || !user) throw new Error('AUTH_REQUIRED');
 
   const inviteRef = workspaceSubDocument(parsed.workspaceId, 'invites', parsed.inviteId);
-  const inviteSnapshot = await getDoc(inviteRef);
+  const memberRef = workspaceSubDocument(parsed.workspaceId, 'members', user.uid);
+  const [inviteSnapshot, memberSnapshot] = await Promise.all([
+    getDoc(inviteRef),
+    getDoc(memberRef)
+  ]);
   if (!inviteSnapshot.exists()) throw new Error('INVITE_NOT_FOUND');
+
   const invite = inviteSnapshot.data() as Omit<WorkspaceInvite, 'id'>;
   const authEmail = (user.email || '').trim().toLowerCase();
   if (!authEmail || authEmail !== invite.normalizedEmail) throw new Error('INVITE_EMAIL_MISMATCH');
@@ -429,10 +433,30 @@ export async function acceptExpertWorkspaceInvite(token: string): Promise<string
 
   const userRef = userDocument(user.uid);
   const userSnapshot = await getDoc(userRef);
-  const batch = writeBatch(firestoreDb);
   const now = serverTimestamp();
 
-  batch.set(workspaceSubDocument(parsed.workspaceId, 'members', user.uid), {
+  if (invite.status === 'accepted' && memberSnapshot.exists()) {
+    const existingMember = memberSnapshot.data() as WorkspaceMember;
+    if (existingMember.roleId !== invite.roleId || existingMember.email.toLowerCase() !== authEmail) {
+      throw new Error('MEMBERSHIP_MISMATCH');
+    }
+    await setDoc(userRef, {
+      schemaVersion: SCHEMA_VERSION,
+      email: user.email || invite.email,
+      displayName: user.displayName || invite.displayName || '',
+      photoURL: user.photoURL || '',
+      activeWorkspaceId: parsed.workspaceId,
+      ...(!userSnapshot.exists() ? { createdAt: now } : {}),
+      updatedAt: now
+    }, { merge: true });
+    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('gkais:workspace-membership-changed'));
+    return parsed.workspaceId;
+  }
+
+  if (invite.status !== 'pending') throw new Error('INVITE_ALREADY_ACCEPTED');
+
+  const batch = writeBatch(firestoreDb);
+  batch.set(memberRef, {
     schemaVersion: SCHEMA_VERSION,
     uid: user.uid,
     email: user.email || invite.email,
@@ -443,7 +467,7 @@ export async function acceptExpertWorkspaceInvite(token: string): Promise<string
     inviteId: parsed.inviteId,
     joinedAt: now,
     updatedAt: now
-  }, { merge: true });
+  });
 
   batch.set(userRef, {
     schemaVersion: SCHEMA_VERSION,
@@ -455,11 +479,9 @@ export async function acceptExpertWorkspaceInvite(token: string): Promise<string
     updatedAt: now
   }, { merge: true });
 
-  if (invite.status === 'pending') {
-    batch.update(inviteRef, { status: 'accepted', updatedAt: now });
-  }
-
+  batch.update(inviteRef, { status: 'accepted', updatedAt: now });
   await batch.commit();
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('gkais:workspace-membership-changed'));
   return parsed.workspaceId;
 }
 

@@ -3,7 +3,7 @@ import { Sparkles } from 'lucide-react';
 import { SessionMemoryWorkspace } from './SessionMemoryWorkspace';
 import { useLanguage } from '../i18n/LanguageContext';
 import { requestSessionCopilot, type SessionCopilotClient } from '../services/sessionCopilot';
-import { emitWorkspaceStateChanged, SESSION_STAGE_EVENT } from './experts/workspaceState';
+import { emitWorkspaceStateChanged, SESSION_STAGE_EVENT, updateSessionClient } from './experts/workspaceState';
 
 type Props = { onBack: () => void };
 type JournalEntry = { clientId: string; title?: string; body?: string; createdAt?: string };
@@ -42,18 +42,102 @@ function loadJournal(): JournalEntry[] {
   }
 }
 
+function cleanStoredText(value: unknown, language: 'es' | 'en'): string {
+  if (typeof value !== 'string') return '';
+  let text = value
+    .replace(/^[\s•*-]+/, '')
+    .replace(/\s+/g, ' ')
+    .replace(/\s+([,.;:!?])/g, '$1')
+    .trim();
+
+  if (language === 'es') {
+    text = text
+      .replace(/\buna acciones realizadas\b/gi, 'una implementación')
+      .replace(/\bacciones realizadas inconsistente(s?)\b/gi, 'implementación inconsistente$1')
+      .replace(/\bfollow[- ]?up\b/gi, 'seguimiento')
+      .replace(/\bfeedback\b/gi, 'comentarios')
+      .replace(/\bpipeline\b/gi, 'proceso comercial')
+      .replace(/\bfunnel\b/gi, 'sistema de captación')
+      .replace(/\bdelivery\b/gi, 'entrega')
+      .replace(/\bperformance\b/gi, 'rendimiento')
+      .replace(/\bejecuci[oó]n\b/gi, 'implementación')
+      .replace(/\badquisici[oó]n\b/gi, 'captación de clientes')
+      .replace(/\btasa de conversi[oó]n\b/gi, 'tasa de cierre')
+      .replace(/\bla conversi[oó]n\b/gi, 'el cierre')
+      .replace(/\buna conversi[oó]n\b/gi, 'un cierre')
+      .replace(/\bconversi[oó]n\b/gi, 'cierre')
+      .replace(/\bescalar\b/gi, 'crecer');
+  }
+
+  if (!text) return '';
+  if (/^[¿¡]/.test(text) && text.length > 1) return text.charAt(0) + text.charAt(1).toUpperCase() + text.slice(2);
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function cleanStoredQuestion(value: unknown, language: 'es' | 'en'): string {
+  let text = cleanStoredText(value, language).replace(/[.!]+$/, '').trim();
+  if (!text) return '';
+  if (language === 'es') {
+    text = text.replace(/^\?+/, '').replace(/\?+$/, '').trim();
+    if (!text.startsWith('¿')) text = `¿${text}`;
+    if (!text.endsWith('?')) text = `${text}?`;
+  } else if (!text.endsWith('?')) {
+    text = `${text}?`;
+  }
+  return text;
+}
+
+function normalizeStoredCopilot(clientId: string, language: 'es' | 'en'): void {
+  const clients = loadClients();
+  const client = clients.find((item) => item.id === clientId);
+  if (!client?.copilot) return;
+
+  const cleanList = (items: unknown, questions = false) => Array.isArray(items)
+    ? Array.from(new Set(items.map((item) => questions ? cleanStoredQuestion(item, language) : cleanStoredText(item, language)).filter(Boolean)))
+    : [];
+
+  const normalizedClient: StoredClient = {
+    ...client,
+    currentGap: cleanStoredText(client.currentGap, language),
+    planSummary: cleanStoredText(client.planSummary, language),
+    blockers: cleanList(client.blockers),
+    copilot: {
+      ...client.copilot,
+      summary: cleanStoredText(client.copilot.summary, language),
+      gap: cleanStoredText(client.copilot.gap, language),
+      known: cleanList(client.copilot.known),
+      risks: cleanList(client.copilot.risks),
+      questions: cleanList(client.copilot.questions, true),
+      howHelp: cleanList(client.copilot.howHelp),
+      plan: cleanList(client.copilot.plan),
+      callOpening: cleanStoredText(client.copilot.callOpening, language)
+    }
+  };
+
+  if (JSON.stringify(normalizedClient) === JSON.stringify(client)) return;
+  try {
+    localStorage.setItem(CLIENT_STORAGE_KEY, JSON.stringify(clients.map((item) => item.id === clientId ? normalizedClient : item)));
+    emitWorkspaceStateChanged();
+  } catch {}
+}
+
 export function SessionMemoryWorkspaceAI({ onBack }: Props) {
   const { language } = useLanguage();
+  const [clientId] = useState(() => {
+    const id = new URLSearchParams(window.location.search).get('client') || 'sofia';
+    normalizeStoredCopilot(id, language);
+    return id;
+  });
   const [analyzing, setAnalyzing] = useState(true);
   const [usingAI, setUsingAI] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     let runId = 0;
-    const clientId = new URLSearchParams(window.location.search).get('client') || 'sofia';
 
     const hydrate = async () => {
       const thisRun = ++runId;
+      normalizeStoredCopilot(clientId, language);
       const clients = loadClients();
       const client = clients.find((item) => item.id === clientId);
       if (!client) {
@@ -66,9 +150,11 @@ export function SessionMemoryWorkspaceAI({ onBack }: Props) {
         const journal = loadJournal().filter((entry) => entry.clientId === clientId);
         const brief = await requestSessionCopilot(client, journal, language);
         if (cancelled || thisRun !== runId) return;
-        const current = loadClients();
-        localStorage.setItem(CLIENT_STORAGE_KEY, JSON.stringify(current.map((item) => item.id === clientId ? { ...item, copilot: brief } : item)));
-        emitWorkspaceStateChanged();
+        updateSessionClient(clientId, (item) => ({
+          ...item,
+          copilot: brief,
+          currentGap: brief.gap || item.currentGap
+        }));
         setUsingAI(true);
       } catch {
         if (!cancelled && thisRun === runId) setUsingAI(false);
@@ -88,7 +174,7 @@ export function SessionMemoryWorkspaceAI({ onBack }: Props) {
       cancelled = true;
       window.removeEventListener(SESSION_STAGE_EVENT, onStageCompleted as EventListener);
     };
-  }, [language]);
+  }, [clientId, language]);
 
   return (
     <div className="relative">

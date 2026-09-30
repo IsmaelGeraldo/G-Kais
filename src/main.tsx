@@ -2,6 +2,7 @@ import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
+import './services/expertsClientReconstruction';
 import './services/expertsRelationshipAuthBridge';
 import './services/expertsTaskMemory';
 import './services/expertsWorkspaceSettings';

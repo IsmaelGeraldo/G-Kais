@@ -13,6 +13,7 @@ import {
   where
 } from 'firebase/firestore';
 import { firebaseAuth, firestoreDb } from '../lib/firebase';
+import { resolveActiveExpertWorkspaceId } from './expertsWorkspaceCore';
 
 const SCHEMA_VERSION = 1;
 const WORKSPACE_STATE_EVENT = 'gkais:workspace-state-changed';
@@ -86,12 +87,18 @@ async function restoredUser(): Promise<User | null> {
   });
 }
 
-function workspaceCollection(uid: string, name: string) {
-  return collection(firestoreDb, 'expert_workspaces', uid, name);
+async function activeWorkspaceId(user: User): Promise<string> {
+  const workspaceId = await resolveActiveExpertWorkspaceId(user);
+  if (!workspaceId) throw new Error('WORKSPACE_REQUIRED');
+  return workspaceId;
 }
 
-function workspaceDocument(uid: string, collectionName: string, id: string) {
-  return doc(firestoreDb, 'expert_workspaces', uid, collectionName, id);
+function workspaceCollection(workspaceId: string, name: string) {
+  return collection(firestoreDb, 'expert_workspaces', workspaceId, name);
+}
+
+function workspaceDocument(workspaceId: string, collectionName: string, id: string) {
+  return doc(firestoreDb, 'expert_workspaces', workspaceId, collectionName, id);
 }
 
 function strongerStage(current: unknown, next: RelationshipStage): RelationshipStage {
@@ -99,17 +106,17 @@ function strongerStage(current: unknown, next: RelationshipStage): RelationshipS
   return STAGE_RANK[next] >= STAGE_RANK[currentStage] ? next : currentStage;
 }
 
-async function singleIdentityMatch(uid: string, field: 'normalizedEmail' | 'normalizedPhone', value: string) {
+async function singleIdentityMatch(workspaceId: string, field: 'normalizedEmail' | 'normalizedPhone', value: string) {
   if (!value) return null;
-  const snapshot = await getDocs(query(workspaceCollection(uid, 'people'), where(field, '==', value), limit(2)));
+  const snapshot = await getDocs(query(workspaceCollection(workspaceId, 'people'), where(field, '==', value), limit(2)));
   if (snapshot.size > 1) throw new Error('IDENTITY_CONFLICT');
   return snapshot.empty ? null : snapshot.docs[0];
 }
 
-async function resolveExistingPerson(uid: string, email: string, phone: string) {
+async function resolveExistingPerson(workspaceId: string, email: string, phone: string) {
   const [emailMatch, phoneMatch] = await Promise.all([
-    singleIdentityMatch(uid, 'normalizedEmail', email),
-    singleIdentityMatch(uid, 'normalizedPhone', phone)
+    singleIdentityMatch(workspaceId, 'normalizedEmail', email),
+    singleIdentityMatch(workspaceId, 'normalizedPhone', phone)
   ]);
   if (emailMatch && phoneMatch && emailMatch.id !== phoneMatch.id) throw new Error('IDENTITY_CONFLICT');
   return emailMatch || phoneMatch;
@@ -118,6 +125,7 @@ async function resolveExistingPerson(uid: string, email: string, phone: string) 
 export async function upsertExpertPerson(input: PersonIdentityInput): Promise<PersonResolution> {
   const user = await restoredUser();
   if (!user) throw new Error('AUTH_REQUIRED');
+  const workspaceId = await activeWorkspaceId(user);
 
   const name = input.name.trim();
   const displayEmail = (input.email || '').trim();
@@ -127,7 +135,7 @@ export async function upsertExpertPerson(input: PersonIdentityInput): Promise<Pe
   if (!name) throw new Error('PERSON_NAME_REQUIRED');
   if (!email && !phone) throw new Error('PERSON_IDENTITY_REQUIRED');
 
-  const existing = await resolveExistingPerson(user.uid, email, phone);
+  const existing = await resolveExistingPerson(workspaceId, email, phone);
   const stage = input.stage || 'lead';
   const source = (input.source || '').trim();
 
@@ -152,7 +160,7 @@ export async function upsertExpertPerson(input: PersonIdentityInput): Promise<Pe
   }
 
   const personId = createId('person');
-  await setDoc(workspaceDocument(user.uid, 'people', personId), {
+  await setDoc(workspaceDocument(workspaceId, 'people', personId), {
     schemaVersion: SCHEMA_VERSION,
     name,
     email: displayEmail,
@@ -173,7 +181,8 @@ export async function upsertExpertPerson(input: PersonIdentityInput): Promise<Pe
 export async function linkMentoringClientToPerson(clientId: string, personId: string): Promise<void> {
   const user = await restoredUser();
   if (!user || !clientId || !personId) return;
-  const clientRef = workspaceDocument(user.uid, 'clients', clientId);
+  const workspaceId = await activeWorkspaceId(user);
+  const clientRef = workspaceDocument(workspaceId, 'clients', clientId);
   const clientSnapshot = await getDoc(clientRef);
   if (!clientSnapshot.exists()) return;
   const data = clientSnapshot.data() as ClientEnvelope;
@@ -183,7 +192,7 @@ export async function linkMentoringClientToPerson(clientId: string, personId: st
   };
   if (data.session?.id) update['session.personId'] = personId;
   await updateDoc(clientRef, update);
-  await updateDoc(workspaceDocument(user.uid, 'people', personId), {
+  await updateDoc(workspaceDocument(workspaceId, 'people', personId), {
     'sourceRefs.clientIds': arrayUnion(clientId),
     currentStage: 'mentoring',
     updatedAt: serverTimestamp()
@@ -195,9 +204,11 @@ export async function backfillExpertClientsIntoPeople(): Promise<void> {
   if (backfillRunning) return;
   const user = await restoredUser();
   if (!user) return;
+  if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('invite')) return;
+  const workspaceId = await activeWorkspaceId(user);
   backfillRunning = true;
   try {
-    const snapshot = await getDocs(workspaceCollection(user.uid, 'clients'));
+    const snapshot = await getDocs(workspaceCollection(workspaceId, 'clients'));
     for (const clientDoc of snapshot.docs) {
       const envelope = clientDoc.data() as ClientEnvelope;
       const record = envelope.record;
@@ -228,8 +239,9 @@ export async function backfillExpertClientsIntoPeople(): Promise<void> {
 export async function createExpertWebinar(input: { title: string; startsAt?: string; source?: string; status?: 'draft' | 'scheduled' | 'completed' | 'cancelled' }): Promise<string> {
   const user = await restoredUser();
   if (!user) throw new Error('AUTH_REQUIRED');
+  const workspaceId = await activeWorkspaceId(user);
   const id = createId('webinar');
-  await setDoc(workspaceDocument(user.uid, 'webinars', id), {
+  await setDoc(workspaceDocument(workspaceId, 'webinars', id), {
     schemaVersion: SCHEMA_VERSION,
     title: input.title.trim(),
     startsAt: input.startsAt || '',
@@ -250,9 +262,10 @@ export async function recordExpertWebinarRegistration(input: PersonIdentityInput
 }): Promise<{ registrationId: string; personId: string }> {
   const user = await restoredUser();
   if (!user) throw new Error('AUTH_REQUIRED');
+  const workspaceId = await activeWorkspaceId(user);
   const person = await upsertExpertPerson({ ...input, stage: 'webinar' });
   const registrationId = relationshipId('webreg', input.webinarId, person.personId);
-  const registrationRef = workspaceDocument(user.uid, 'webinar_registrations', registrationId);
+  const registrationRef = workspaceDocument(workspaceId, 'webinar_registrations', registrationId);
   const registrationSnapshot = await getDoc(registrationRef);
   const status = input.status || 'registered';
   const attendanceMinutes = Math.max(0, Math.round(input.attendanceMinutes || 0));
@@ -269,7 +282,7 @@ export async function recordExpertWebinarRegistration(input: PersonIdentityInput
     ...(!registrationSnapshot.exists() ? { registeredAt: serverTimestamp() } : {}),
     updatedAt: serverTimestamp()
   }, { merge: true });
-  await updateDoc(workspaceDocument(user.uid, 'people', person.personId), {
+  await updateDoc(workspaceDocument(workspaceId, 'people', person.personId), {
     'sourceRefs.webinarIds': arrayUnion(input.webinarId),
     'outcomeMemory.lastWebinarId': input.webinarId,
     'outcomeMemory.lastWebinarStatus': status,
@@ -284,8 +297,9 @@ export async function recordExpertWebinarRegistration(input: PersonIdentityInput
 export async function createExpertFormation(input: { title: string; status?: 'draft' | 'active' | 'archived' }): Promise<string> {
   const user = await restoredUser();
   if (!user) throw new Error('AUTH_REQUIRED');
+  const workspaceId = await activeWorkspaceId(user);
   const id = createId('formation');
-  await setDoc(workspaceDocument(user.uid, 'formations', id), {
+  await setDoc(workspaceDocument(workspaceId, 'formations', id), {
     schemaVersion: SCHEMA_VERSION,
     title: input.title.trim(),
     status: input.status || 'draft',
@@ -298,8 +312,9 @@ export async function createExpertFormation(input: { title: string; status?: 'dr
 export async function createExpertCohort(input: { formationId: string; title: string; startsAt?: string; endsAt?: string; status?: 'planned' | 'active' | 'completed' | 'cancelled' }): Promise<string> {
   const user = await restoredUser();
   if (!user) throw new Error('AUTH_REQUIRED');
+  const workspaceId = await activeWorkspaceId(user);
   const id = createId('cohort');
-  await setDoc(workspaceDocument(user.uid, 'cohorts', id), {
+  await setDoc(workspaceDocument(workspaceId, 'cohorts', id), {
     schemaVersion: SCHEMA_VERSION,
     formationId: input.formationId,
     title: input.title.trim(),
@@ -321,8 +336,9 @@ export async function createExpertEnrollment(input: {
 }): Promise<string> {
   const user = await restoredUser();
   if (!user) throw new Error('AUTH_REQUIRED');
+  const workspaceId = await activeWorkspaceId(user);
   const id = relationshipId('enrollment', input.cohortId, input.personId);
-  const enrollmentRef = workspaceDocument(user.uid, 'enrollments', id);
+  const enrollmentRef = workspaceDocument(workspaceId, 'enrollments', id);
   const enrollmentSnapshot = await getDoc(enrollmentRef);
   const status = input.status || 'active';
   const progress = Math.max(0, Math.min(100, Math.round(input.progress || 0)));
@@ -337,7 +353,7 @@ export async function createExpertEnrollment(input: {
     updatedAt: serverTimestamp()
   }, { merge: true });
 
-  const personRef = workspaceDocument(user.uid, 'people', input.personId);
+  const personRef = workspaceDocument(workspaceId, 'people', input.personId);
   const personSnapshot = await getDoc(personRef);
   if (!personSnapshot.exists()) throw new Error('PERSON_NOT_FOUND');
   const nextStage: RelationshipStage = status === 'completed' ? 'alumni' : 'student';
@@ -354,25 +370,37 @@ export async function createExpertEnrollment(input: {
   return id;
 }
 
-let backfilledUid = '';
+let backfilledKey = '';
 if (typeof window !== 'undefined') {
   let syncTimer: number | undefined;
   const scheduleBackfill = () => {
     if (syncTimer !== undefined) window.clearTimeout(syncTimer);
     syncTimer = window.setTimeout(() => {
       syncTimer = undefined;
-      void backfillExpertClientsIntoPeople().catch(() => {});
+      void (async () => {
+        const user = firebaseAuth.currentUser;
+        if (!user) return;
+        const workspaceId = await resolveActiveExpertWorkspaceId(user);
+        if (!workspaceId) return;
+        const key = `${user.uid}:${workspaceId}`;
+        if (backfilledKey === key) return;
+        await backfillExpertClientsIntoPeople();
+        backfilledKey = key;
+      })().catch(() => {});
     }, 200);
   };
 
   onAuthStateChanged(firebaseAuth, (user) => {
     if (!user) {
-      backfilledUid = '';
+      backfilledKey = '';
       return;
     }
-    if (backfilledUid === user.uid) return;
-    backfilledUid = user.uid;
+    if (new URLSearchParams(window.location.search).get('invite')) return;
     scheduleBackfill();
   });
   window.addEventListener(WORKSPACE_STATE_EVENT, scheduleBackfill);
+  window.addEventListener('gkais:workspace-membership-changed', () => {
+    backfilledKey = '';
+    scheduleBackfill();
+  });
 }

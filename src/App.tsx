@@ -23,6 +23,7 @@ import { AdminPage } from './components/AdminPage.tsx';
 import { ExpertsCommercialDemo } from './components/ExpertsCommercialDemo.tsx';
 import { ExpertsWorkspace } from './components/ExpertsWorkspace.tsx';
 import { SessionMemoryWorkspaceAI } from './components/SessionMemoryWorkspaceAI.tsx';
+import { ExpertsSessionRouteGate } from './components/experts/ExpertsSessionRouteGate.tsx';
 import { LanguageProvider } from './i18n/LanguageContext.tsx';
 
 function PublicApp({ onOpenAdmin }: { onOpenAdmin: () => void }) {
@@ -129,7 +130,7 @@ function AppContent() {
     setShowAdmin(false);
   };
 
-  if (showSessionMemory) return <SessionMemoryWorkspaceAI onBack={backFromSessionMemory} />;
+  if (showSessionMemory) return <ExpertsSessionRouteGate><SessionMemoryWorkspaceAI onBack={backFromSessionMemory} /></ExpertsSessionRouteGate>;
   if (showExpertsWorkspace) return <ExpertsWorkspace onExit={exitExpertsWorkspace} />;
   if (showExpertsDemo) return <ExpertsCommercialDemo onExit={exitExpertsDemo} />;
 

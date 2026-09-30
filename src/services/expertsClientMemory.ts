@@ -8,6 +8,7 @@ import {
   writeBatch
 } from 'firebase/firestore';
 import { firebaseAuth, firestoreDb } from '../lib/firebase';
+import { resolveActiveExpertWorkspaceId } from './expertsWorkspaceCore';
 
 const CLIENT_RECORD_STORAGE_KEY = 'gkais-experts-client-records-v2';
 const SESSION_CLIENT_STORAGE_KEY = 'gkais-experts-session-clients-v2';
@@ -18,9 +19,6 @@ type ClientLike = Record<string, unknown> & { id: string };
 type HydrationResult = 'firestore' | 'migrated' | 'local';
 type OutcomeMemory = Record<string, unknown>;
 
-// Pilot seed: these are the same three client records currently rendered by
-// ClientWorkspaceEnhanced when no browser cache exists. They are used only
-// for the first Firestore migration when both Firestore and localStorage are empty.
 const PILOT_CLIENT_RECORDS: ClientLike[] = [
   {
     id: 'sofia',
@@ -129,15 +127,18 @@ function writeLocalArray(key: string, value: unknown[]): void {
   } catch {}
 }
 
+function clearOwnerOnlyClientCache(): void {
+  writeLocalArray(CLIENT_RECORD_STORAGE_KEY, []);
+  writeLocalArray(SESSION_CLIENT_STORAGE_KEY, []);
+}
+
 function emitWorkspaceRefresh(): void {
   if (typeof window === 'undefined') return;
   window.dispatchEvent(new CustomEvent(WORKSPACE_STATE_EVENT));
 }
 
 function sanitizeForFirestore<T>(value: T): T {
-  if (Array.isArray(value)) {
-    return value.map((item) => sanitizeForFirestore(item)) as T;
-  }
+  if (Array.isArray(value)) return value.map((item) => sanitizeForFirestore(item)) as T;
   if (value && typeof value === 'object') {
     const entries = Object.entries(value as Record<string, unknown>)
       .filter(([, item]) => item !== undefined)
@@ -181,12 +182,22 @@ async function restoredUser(): Promise<User | null> {
   });
 }
 
-function clientsCollection(uid: string) {
-  return collection(firestoreDb, 'expert_workspaces', uid, 'clients');
+async function ownerWorkspaceId(user: User): Promise<string | null> {
+  if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('invite')) return null;
+  const workspaceId = await resolveActiveExpertWorkspaceId(user);
+  if (!workspaceId || workspaceId !== user.uid) {
+    clearOwnerOnlyClientCache();
+    return null;
+  }
+  return workspaceId;
 }
 
-function clientDocument(uid: string, clientId: string) {
-  return doc(firestoreDb, 'expert_workspaces', uid, 'clients', clientId);
+function clientsCollection(workspaceId: string) {
+  return collection(firestoreDb, 'expert_workspaces', workspaceId, 'clients');
+}
+
+function clientDocument(workspaceId: string, clientId: string) {
+  return doc(firestoreDb, 'expert_workspaces', workspaceId, 'clients', clientId);
 }
 
 function localClientRecord(clientId: string): ClientLike | undefined {
@@ -201,9 +212,14 @@ export async function hydrateExpertsClientMemory(): Promise<HydrationResult> {
   if (typeof window === 'undefined') return 'local';
   const user = await restoredUser();
   if (!user) return 'local';
+  const workspaceId = await ownerWorkspaceId(user);
+  if (!workspaceId) {
+    emitWorkspaceRefresh();
+    return 'local';
+  }
 
   try {
-    const snapshot = await getDocs(clientsCollection(user.uid));
+    const snapshot = await getDocs(clientsCollection(workspaceId));
     const storedRecords = readLocalArray<ClientLike>(CLIENT_RECORD_STORAGE_KEY);
     const localSessions = readLocalArray<ClientLike>(SESSION_CLIENT_STORAGE_KEY);
 
@@ -222,7 +238,7 @@ export async function hydrateExpertsClientMemory(): Promise<HydrationResult> {
       ids.forEach((clientId) => {
         const record = localRecords.find((item) => item.id === clientId);
         const session = localSessions.find((item) => item.id === clientId);
-        batch.set(clientDocument(user.uid, clientId), {
+        batch.set(clientDocument(workspaceId, clientId), {
           schemaVersion: SCHEMA_VERSION,
           ...(record ? { record: sanitizeForFirestore(record) } : {}),
           ...(session ? { session: sanitizeForFirestore(session) } : {}),
@@ -257,9 +273,11 @@ export async function persistExpertClientRecord(record: ClientLike): Promise<voi
   if (!record?.id) return;
   const user = await restoredUser();
   if (!user) return;
+  const workspaceId = await ownerWorkspaceId(user);
+  if (!workspaceId) return;
   const session = localSessionClient(record.id);
   try {
-    await setDoc(clientDocument(user.uid, record.id), {
+    await setDoc(clientDocument(workspaceId, record.id), {
       schemaVersion: SCHEMA_VERSION,
       record: sanitizeForFirestore(record),
       outcomeMemory: buildOutcomeMemory(record, session),
@@ -273,12 +291,14 @@ export async function persistExpertClientRecords(records: ClientLike[]): Promise
   if (!valid.length) return;
   const user = await restoredUser();
   if (!user) return;
+  const workspaceId = await ownerWorkspaceId(user);
+  if (!workspaceId) return;
   const sessions = readLocalArray<ClientLike>(SESSION_CLIENT_STORAGE_KEY);
   try {
     const batch = writeBatch(firestoreDb);
     valid.forEach((record) => {
       const session = sessions.find((item) => item.id === record.id);
-      batch.set(clientDocument(user.uid, record.id), {
+      batch.set(clientDocument(workspaceId, record.id), {
         schemaVersion: SCHEMA_VERSION,
         record: sanitizeForFirestore(record),
         outcomeMemory: buildOutcomeMemory(record, session),
@@ -293,9 +313,11 @@ export async function persistExpertSessionClient(session: ClientLike): Promise<v
   if (!session?.id) return;
   const user = await restoredUser();
   if (!user) return;
+  const workspaceId = await ownerWorkspaceId(user);
+  if (!workspaceId) return;
   const record = localClientRecord(session.id);
   try {
-    await setDoc(clientDocument(user.uid, session.id), {
+    await setDoc(clientDocument(workspaceId, session.id), {
       schemaVersion: SCHEMA_VERSION,
       session: sanitizeForFirestore(session),
       outcomeMemory: buildOutcomeMemory(record, session),
@@ -309,12 +331,14 @@ export async function persistExpertSessionClients(sessions: ClientLike[]): Promi
   if (!valid.length) return;
   const user = await restoredUser();
   if (!user) return;
+  const workspaceId = await ownerWorkspaceId(user);
+  if (!workspaceId) return;
   const records = readLocalArray<ClientLike>(CLIENT_RECORD_STORAGE_KEY);
   try {
     const batch = writeBatch(firestoreDb);
     valid.forEach((session) => {
       const record = records.find((item) => item.id === session.id);
-      batch.set(clientDocument(user.uid, session.id), {
+      batch.set(clientDocument(workspaceId, session.id), {
         schemaVersion: SCHEMA_VERSION,
         session: sanitizeForFirestore(session),
         outcomeMemory: buildOutcomeMemory(record, session),
@@ -332,8 +356,10 @@ export async function persistExpertClientMemory(clientId: string): Promise<void>
   if (!record && !session) return;
   const user = await restoredUser();
   if (!user) return;
+  const workspaceId = await ownerWorkspaceId(user);
+  if (!workspaceId) return;
   try {
-    await setDoc(clientDocument(user.uid, clientId), {
+    await setDoc(clientDocument(workspaceId, clientId), {
       schemaVersion: SCHEMA_VERSION,
       ...(record ? { record: sanitizeForFirestore(record) } : {}),
       ...(session ? { session: sanitizeForFirestore(session) } : {}),

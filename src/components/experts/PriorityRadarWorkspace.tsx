@@ -63,8 +63,6 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
   const [showDone, setShowDone] = useState(false);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [resultDraft, setResultDraft] = useState('');
-  const [rescheduleDate, setRescheduleDate] = useState('');
-  const [rescheduleTime, setRescheduleTime] = useState('');
   const [newType, setNewType] = useState<WorkActionType>('whatsapp');
   const [newNote, setNewNote] = useState('');
   const [newDate, setNewDate] = useState('');
@@ -109,8 +107,6 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
     }
     setActiveTaskId(task.id);
     setResultDraft(task.result || '');
-    setRescheduleDate(task.dueDate || '');
-    setRescheduleTime(task.dueTime || '');
     setNewAssignee(task.assignee || 'Equipo');
   };
   const completeTask = (task: WorkTask) => {
@@ -119,11 +115,6 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
     appendJournal(task.clientId, 'task-result', language === 'es' ? 'Trabajo completado' : 'Work completed', result || task.title);
     setActiveTaskId(null);
     setResultDraft('');
-  };
-  const rescheduleTask = (task: WorkTask) => {
-    setTasks(updateWorkTask(task.id, { status: 'pending', dueDate: rescheduleDate, dueTime: rescheduleTime }));
-    appendJournal(task.clientId, 'task', language === 'es' ? 'Trabajo reprogramado' : 'Work rescheduled', `${task.title}${rescheduleDate ? ` · ${rescheduleDate}` : ''}${rescheduleTime ? ` ${rescheduleTime}` : ''}`);
-    setActiveTaskId(null);
   };
   const removeTask = (task: WorkTask) => {
     setTasks(deleteWorkTask(task.id));
@@ -219,17 +210,22 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
             <label className="relative"><UserRoundCheck className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-black/30" /><select value={task.assignee} onChange={(event) => setAssignee(task, event.target.value)} className="w-full rounded-lg border border-black/8 bg-white py-2 pl-8 pr-2 text-xs"><option>Mentor</option><option>Equipo</option><option>Asistente</option><option>Ventas</option></select></label>
             <button type="button" onClick={() => toggleWork(task)} className="inline-flex items-center justify-center gap-1.5 rounded-full bg-[#111413] px-3 py-2 text-[10px] font-semibold text-white">{opened ? (language === 'es' ? 'Cerrar' : 'Close') : (language === 'es' ? 'Trabajar' : 'Work')}<ChevronDown className={`h-3 w-3 transition ${opened ? 'rotate-180' : ''}`} /></button>
 
-            {opened && <div className="rounded-xl border border-black/8 bg-[#FAFAF8] p-4 lg:col-span-6">
-              <div className="grid gap-5 xl:grid-cols-2">
+            {opened && <div className="rounded-xl border border-black/8 bg-[#FAFAF8] p-3 lg:col-span-6">
+              <div className="grid gap-4 xl:grid-cols-[0.85fr_1.15fr]">
                 <div>
                   <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black/38">{language === 'es' ? 'EJECUTAR TAREA' : 'EXECUTE TASK'}</p>
-                  <label className="mt-3 block"><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'RESULTADO / NOTA' : 'RESULT / NOTE'}</span><textarea value={resultDraft} onChange={(event) => setResultDraft(event.target.value)} rows={4} className="w-full rounded-xl border border-black/10 bg-white px-3.5 py-3 text-sm" /></label>
-                  <div className="mt-3 grid grid-cols-2 gap-3"><input type="date" value={rescheduleDate} onChange={(event) => setRescheduleDate(event.target.value)} className="rounded-lg border border-black/10 bg-white px-3 py-2.5 text-sm" /><input type="time" value={rescheduleTime} onChange={(event) => setRescheduleTime(event.target.value)} className="rounded-lg border border-black/10 bg-white px-3 py-2.5 text-sm" /></div>
-                  <div className="mt-3 flex flex-wrap gap-2"><button type="button" onClick={() => rescheduleTask(task)} className="rounded-full border border-black/10 bg-white px-4 py-2.5 text-xs font-semibold text-black/60">{language === 'es' ? 'Reprogramar' : 'Reschedule'}</button><button type="button" onClick={() => completeTask(task)} className="rounded-full bg-[#111413] px-4 py-2.5 text-xs font-semibold text-white">{language === 'es' ? 'Guardar y completar' : 'Save & complete'}</button><button type="button" onClick={() => removeTask(task)} className="inline-flex items-center gap-1.5 rounded-full border border-[#A23A32]/15 bg-white px-4 py-2.5 text-xs font-semibold text-[#8D332C]"><Trash2 className="h-3.5 w-3.5" />{language === 'es' ? 'Enviar al historial' : 'Move to history'}</button></div>
+                  <label className="mt-2 block"><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'RESULTADO / NOTA' : 'RESULT / NOTE'}</span><textarea value={resultDraft} onChange={(event) => setResultDraft(event.target.value)} rows={3} className="w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm" /></label>
+                  <div className="mt-2 flex flex-wrap gap-2"><button type="button" onClick={() => completeTask(task)} className="rounded-full bg-[#111413] px-4 py-2 text-xs font-semibold text-white">{language === 'es' ? 'Guardar y completar' : 'Save & complete'}</button><button type="button" onClick={() => removeTask(task)} className="inline-flex items-center gap-1.5 rounded-full border border-[#A23A32]/15 bg-white px-4 py-2 text-xs font-semibold text-[#8D332C]"><Trash2 className="h-3.5 w-3.5" />{language === 'es' ? 'Enviar al historial' : 'Move to history'}</button></div>
                 </div>
                 <div>
                   <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#0A3F4D]">{language === 'es' ? 'NUEVA ACCIÓN SI SE REQUIERE' : 'NEW ACTION IF NEEDED'}</p>
-                  <div className="mt-3 grid gap-3"><select value={newType} onChange={(event) => setNewType(event.target.value as WorkActionType)} className="rounded-lg border border-black/10 bg-white px-3 py-2.5 text-sm"><option value="whatsapp">WhatsApp</option><option value="email">Email</option><option value="call">{language === 'es' ? 'Llamada' : 'Call'}</option><option value="meeting">{language === 'es' ? 'Reunión' : 'Meeting'}</option><option value="task">{language === 'es' ? 'Tarea interna' : 'Internal task'}</option></select><input value={newNote} onChange={(event) => setNewNote(event.target.value)} placeholder={language === 'es' ? 'Qué debe hacerse' : 'What needs to be done'} className="rounded-lg border border-black/10 bg-white px-3 py-2.5 text-sm" /><div className="grid grid-cols-2 gap-3"><input type="date" value={newDate} onChange={(event) => setNewDate(event.target.value)} className="rounded-lg border border-black/10 bg-white px-3 py-2.5 text-sm" /><input type="time" value={newTime} onChange={(event) => setNewTime(event.target.value)} className="rounded-lg border border-black/10 bg-white px-3 py-2.5 text-sm" /></div><select value={newAssignee} onChange={(event) => setNewAssignee(event.target.value)} className="rounded-lg border border-black/10 bg-white px-3 py-2.5 text-sm"><option>Mentor</option><option>Equipo</option><option>Asistente</option><option>Ventas</option></select><button type="button" onClick={() => createFollowUp(task)} className="rounded-full bg-[#0A3F4D] px-4 py-2.5 text-xs font-semibold text-white">{language === 'es' ? 'Agregar próxima acción' : 'Add next action'}</button></div>
+                  <div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                    <select value={newType} onChange={(event) => setNewType(event.target.value as WorkActionType)} className="rounded-lg border border-black/10 bg-white px-3 py-2 text-sm"><option value="whatsapp">WhatsApp</option><option value="email">Email</option><option value="call">{language === 'es' ? 'Llamada' : 'Call'}</option><option value="meeting">{language === 'es' ? 'Reunión' : 'Meeting'}</option><option value="task">{language === 'es' ? 'Tarea interna' : 'Internal task'}</option></select>
+                    <select value={newAssignee} onChange={(event) => setNewAssignee(event.target.value)} className="rounded-lg border border-black/10 bg-white px-3 py-2 text-sm"><option>Mentor</option><option>Equipo</option><option>Asistente</option><option>Ventas</option></select>
+                    <input type="date" value={newDate} onChange={(event) => setNewDate(event.target.value)} className="rounded-lg border border-black/10 bg-white px-3 py-2 text-sm" />
+                    <input type="time" value={newTime} onChange={(event) => setNewTime(event.target.value)} className="rounded-lg border border-black/10 bg-white px-3 py-2 text-sm" />
+                  </div>
+                  <div className="mt-2 flex gap-2"><input value={newNote} onChange={(event) => setNewNote(event.target.value)} placeholder={language === 'es' ? 'Qué debe hacerse' : 'What needs to be done'} className="min-w-0 flex-1 rounded-lg border border-black/10 bg-white px-3 py-2 text-sm" /><button type="button" onClick={() => createFollowUp(task)} className="shrink-0 rounded-full bg-[#0A3F4D] px-4 py-2 text-xs font-semibold text-white">{language === 'es' ? 'Agregar acción' : 'Add action'}</button></div>
                 </div>
               </div>
             </div>}

@@ -88,6 +88,8 @@ const PILOT_TASKS: StoredTask[] = [
 
 let hydratedKey = '';
 let taskSubscription: Unsubscribe | null = null;
+let lastOwnerLocalFingerprint = '';
+let ownerSyncTimer: number | undefined;
 
 function readLocalTasks(): StoredTask[] {
   if (typeof window === 'undefined') return [];
@@ -114,13 +116,16 @@ function emitWorkspaceRefresh(): void {
 function sanitizeForFirestore<T>(value: T): T {
   if (Array.isArray(value)) return value.map((item) => sanitizeForFirestore(item)) as T;
   if (value && typeof value === 'object') {
-    return Object.fromEntries(
-      Object.entries(value as Record<string, unknown>)
-        .filter(([, item]) => item !== undefined)
-        .map(([key, item]) => [key, sanitizeForFirestore(item)])
-    ) as T;
+    const entries = Object.entries(value as Record<string, unknown>)
+      .filter(([, item]) => item !== undefined)
+      .map(([key, item]) => [key, sanitizeForFirestore(item)]);
+    return Object.fromEntries(entries) as T;
   }
   return value;
+}
+
+function fingerprint(tasks: StoredTask[]): string {
+  return JSON.stringify(tasks);
 }
 
 async function restoredUser(): Promise<User | null> {
@@ -143,13 +148,6 @@ function taskDocument(workspaceId: string, taskId: string) {
   return doc(firestoreDb, 'expert_workspaces', workspaceId, 'work_tasks', taskId);
 }
 
-function envelopeTasks(snapshot: Awaited<ReturnType<typeof getDocs>>): StoredTask[] {
-  return snapshot.docs
-    .map((item) => (item.data() as TaskEnvelope).task)
-    .filter((item): item is StoredTask => Boolean(item?.id))
-    .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
-}
-
 function withOwnerAssignment(tasks: StoredTask[], user: User): StoredTask[] {
   const displayName = user.displayName || user.email || 'Owner';
   return tasks.map((task) => task.assignedToUid ? task : {
@@ -157,7 +155,7 @@ function withOwnerAssignment(tasks: StoredTask[], user: User): StoredTask[] {
     assignedToUid: user.uid,
     assignedToName: displayName,
     createdByUid: task.createdByUid || user.uid,
-    assignee: task.assignee || displayName
+    assignee: typeof task.assignee === 'string' && task.assignee ? task.assignee : displayName
   });
 }
 
@@ -205,6 +203,32 @@ export async function persistExpertWorkTask(task: StoredTask): Promise<void> {
   } catch {}
 }
 
+async function syncOwnerLegacyTasksFromLocal(): Promise<void> {
+  const user = firebaseAuth.currentUser;
+  if (!user || typeof window === 'undefined') return;
+  const workspaceId = await resolveActiveExpertWorkspaceId(user);
+  if (!workspaceId || workspaceId !== user.uid) return;
+
+  const local = withOwnerAssignment(readLocalTasks(), user);
+  const nextFingerprint = fingerprint(local);
+  if (!local.length || nextFingerprint === lastOwnerLocalFingerprint) return;
+
+  try {
+    if (fingerprint(readLocalTasks()) !== nextFingerprint) writeLocalTasks(local);
+    await writeTaskBatch(workspaceId, local, false);
+    lastOwnerLocalFingerprint = nextFingerprint;
+  } catch {}
+}
+
+function scheduleOwnerLegacySync() {
+  if (typeof window === 'undefined') return;
+  if (ownerSyncTimer !== undefined) window.clearTimeout(ownerSyncTimer);
+  ownerSyncTimer = window.setTimeout(() => {
+    ownerSyncTimer = undefined;
+    void syncOwnerLegacyTasksFromLocal();
+  }, 160);
+}
+
 export async function hydrateExpertsTaskMemory(): Promise<'firestore' | 'local'> {
   if (typeof window === 'undefined') return 'local';
   const user = await restoredUser();
@@ -220,7 +244,10 @@ export async function hydrateExpertsTaskMemory(): Promise<'firestore' | 'local'>
     }
 
     const snapshot = await getDocs(readable.ref);
-    let remote = envelopeTasks(snapshot);
+    let remote = snapshot.docs
+      .map((item) => (item.data() as TaskEnvelope).task)
+      .filter((item): item is StoredTask => Boolean(item?.id))
+      .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
     const isOwnerWorkspace = readable.workspaceId === user.uid;
 
     if (isOwnerWorkspace && remote.length === 0) {
@@ -239,9 +266,10 @@ export async function hydrateExpertsTaskMemory(): Promise<'firestore' | 'local'>
     }
 
     writeLocalTasks(remote);
+    lastOwnerLocalFingerprint = isOwnerWorkspace ? fingerprint(remote) : '';
     hydratedKey = `${user.uid}:${readable.workspaceId}`;
     emitWorkspaceRefresh();
-    startTaskSubscription();
+    await startTaskSubscription();
     return 'firestore';
   } catch {
     return 'local';
@@ -262,6 +290,7 @@ async function startTaskSubscription(): Promise<void> {
       .filter((item): item is StoredTask => Boolean(item?.id))
       .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
     writeLocalTasks(remote);
+    if (readable.workspaceId === user.uid) lastOwnerLocalFingerprint = fingerprint(remote);
     emitWorkspaceRefresh();
   }, () => {});
 }
@@ -271,6 +300,7 @@ if (typeof window !== 'undefined') {
     taskSubscription?.();
     taskSubscription = null;
     hydratedKey = '';
+    lastOwnerLocalFingerprint = '';
     if (!user) {
       writeLocalTasks([]);
       return;
@@ -279,6 +309,10 @@ if (typeof window !== 'undefined') {
     void hydrateExpertsTaskMemory();
   });
 
+  window.addEventListener(WORKSPACE_STATE_EVENT, scheduleOwnerLegacySync);
+  window.addEventListener('storage', (event) => {
+    if (event.key === TASK_STORAGE_KEY) scheduleOwnerLegacySync();
+  });
   window.addEventListener('gkais:workspace-membership-changed', () => {
     const user = firebaseAuth.currentUser;
     if (!user) return;

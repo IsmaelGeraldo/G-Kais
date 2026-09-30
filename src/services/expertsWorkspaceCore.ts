@@ -93,7 +93,8 @@ export const DEFAULT_WORKSPACE_ROLES: WorkspaceRoleTemplate[] = [
     permissions: [
       'people.read', 'people.manage', 'webinars.read', 'formations.read',
       'mentoring.read', 'mentoring.manage', 'tasks.read.own', 'tasks.read.team',
-      'tasks.manage.own', 'tasks.manage', 'events.read', 'events.create'
+      'tasks.manage.own', 'tasks.manage', 'members.read', 'roles.read',
+      'events.read', 'events.create'
     ]
   },
   {
@@ -156,6 +157,8 @@ export type AuditLogInput = {
   occurredAt?: Date;
 };
 
+let systemRolesEnsuredFor = '';
+
 function sanitize<T>(value: T): T {
   if (Array.isArray(value)) return value.map((item) => sanitize(item)) as T;
   if (value && typeof value === 'object') {
@@ -203,8 +206,36 @@ function workspaceSubCollection(workspaceId: string, subcollection: string) {
   return collection(firestoreDb, 'expert_workspaces', workspaceId, subcollection);
 }
 
+function inviteExpiryDate(invite: WorkspaceInvite | Omit<WorkspaceInvite, 'id'>): Date | null {
+  if (invite.expiresAt instanceof Date) return invite.expiresAt;
+  if (invite.expiresAt && typeof invite.expiresAt.toDate === 'function') return invite.expiresAt.toDate();
+  return null;
+}
+
 export function hasWorkspacePermission(permissions: Array<WorkspacePermission | '*'> | undefined, permission: WorkspacePermission): boolean {
   return Boolean(permissions?.includes('*') || permissions?.includes(permission));
+}
+
+async function ensureSystemRolesForOwner(user: User, workspaceId: string): Promise<void> {
+  if (workspaceId !== user.uid || systemRolesEnsuredFor === workspaceId) return;
+  const snapshot = await getDocs(workspaceSubCollection(workspaceId, 'roles'));
+  const existing = new Set(snapshot.docs.map((item) => item.id));
+  const batch = writeBatch(firestoreDb);
+  const now = serverTimestamp();
+  DEFAULT_WORKSPACE_ROLES.forEach((role) => {
+    batch.set(workspaceSubDocument(workspaceId, 'roles', role.id), {
+      schemaVersion: SCHEMA_VERSION,
+      name: role.name,
+      description: role.description,
+      permissions: role.permissions,
+      isSystem: true,
+      createdByUid: user.uid,
+      ...(!existing.has(role.id) ? { createdAt: now } : {}),
+      updatedAt: now
+    }, { merge: true });
+  });
+  await batch.commit();
+  systemRolesEnsuredFor = workspaceId;
 }
 
 export async function ensureExpertWorkspaceCore(user: User): Promise<string> {
@@ -213,7 +244,10 @@ export async function ensureExpertWorkspaceCore(user: User): Promise<string> {
   const existingUser = userSnapshot.exists() ? userSnapshot.data() as { activeWorkspaceId?: string } : null;
   const workspaceId = existingUser?.activeWorkspaceId?.trim() || user.uid;
 
-  if (existingUser?.activeWorkspaceId) return workspaceId;
+  if (existingUser?.activeWorkspaceId) {
+    if (workspaceId === user.uid) await ensureSystemRolesForOwner(user, workspaceId).catch(() => {});
+    return workspaceId;
+  }
 
   const now = serverTimestamp();
   const batch = writeBatch(firestoreDb);
@@ -267,6 +301,7 @@ export async function ensureExpertWorkspaceCore(user: User): Promise<string> {
   }, { merge: true });
 
   await batch.commit();
+  systemRolesEnsuredFor = workspaceId;
   return workspaceId;
 }
 
@@ -275,7 +310,10 @@ export async function resolveActiveExpertWorkspaceId(user: User | null = firebas
   const userSnapshot = await getDoc(userDocument(user.uid));
   if (userSnapshot.exists()) {
     const activeWorkspaceId = (userSnapshot.data() as { activeWorkspaceId?: string }).activeWorkspaceId?.trim();
-    if (activeWorkspaceId) return activeWorkspaceId;
+    if (activeWorkspaceId) {
+      if (activeWorkspaceId === user.uid) await ensureSystemRolesForOwner(user, activeWorkspaceId).catch(() => {});
+      return activeWorkspaceId;
+    }
   }
   return ensureExpertWorkspaceCore(user);
 }
@@ -410,7 +448,10 @@ export async function getExpertWorkspaceInvite(token: string): Promise<Workspace
   if (!parsed || !user) throw new Error('AUTH_REQUIRED');
   const snapshot = await getDoc(workspaceSubDocument(parsed.workspaceId, 'invites', parsed.inviteId));
   if (!snapshot.exists()) throw new Error('INVITE_NOT_FOUND');
-  return { id: snapshot.id, ...(snapshot.data() as Omit<WorkspaceInvite, 'id'>) };
+  const invite = { id: snapshot.id, ...(snapshot.data() as Omit<WorkspaceInvite, 'id'>) };
+  const expiry = inviteExpiryDate(invite);
+  if (invite.status === 'pending' && expiry && expiry.getTime() <= Date.now()) throw new Error('INVITE_EXPIRED');
+  return invite;
 }
 
 export async function acceptExpertWorkspaceInvite(token: string): Promise<string> {
@@ -430,6 +471,8 @@ export async function acceptExpertWorkspaceInvite(token: string): Promise<string
   const authEmail = (user.email || '').trim().toLowerCase();
   if (!authEmail || authEmail !== invite.normalizedEmail) throw new Error('INVITE_EMAIL_MISMATCH');
   if (invite.status !== 'pending' && invite.status !== 'accepted') throw new Error('INVITE_NOT_ACTIVE');
+  const expiry = inviteExpiryDate(invite);
+  if (invite.status === 'pending' && expiry && expiry.getTime() <= Date.now()) throw new Error('INVITE_EXPIRED');
 
   const userRef = userDocument(user.uid);
   const userSnapshot = await getDoc(userRef);
@@ -437,9 +480,7 @@ export async function acceptExpertWorkspaceInvite(token: string): Promise<string
 
   if (invite.status === 'accepted' && memberSnapshot.exists()) {
     const existingMember = memberSnapshot.data() as WorkspaceMember;
-    if (existingMember.roleId !== invite.roleId || existingMember.email.toLowerCase() !== authEmail) {
-      throw new Error('MEMBERSHIP_MISMATCH');
-    }
+    if (existingMember.roleId !== invite.roleId || existingMember.email.toLowerCase() !== authEmail) throw new Error('MEMBERSHIP_MISMATCH');
     await setDoc(userRef, {
       schemaVersion: SCHEMA_VERSION,
       email: user.email || invite.email,
@@ -535,6 +576,7 @@ if (typeof window !== 'undefined') {
   onAuthStateChanged(firebaseAuth, (user) => {
     if (!user) {
       initializedUid = '';
+      systemRolesEnsuredFor = '';
       return;
     }
     if (initializedUid === user.uid) return;

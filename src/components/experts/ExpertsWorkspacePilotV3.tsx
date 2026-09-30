@@ -3,7 +3,7 @@ import { ArrowLeft, BookOpenCheck, CalendarDays, LayoutDashboard, ListTodo, Sett
 import { useLanguage, type Language } from '../../i18n/LanguageContext';
 import { DashboardHistory } from './DashboardHistory';
 import { PriorityRadarWorkspace } from './PriorityRadarWorkspace';
-import { ClientWorkspaceEnhanced } from './ClientWorkspaceEnhanced';
+import { ClientOnboardingWorkspace } from './ClientOnboardingWorkspace';
 import { WorkspaceSettingsProfile, type WorkspaceProfile, type WorkspaceAppearance, themeColor, workspaceBackground } from './WorkspaceSettingsProfile';
 
 type Props = { onExit: () => void };
@@ -101,7 +101,7 @@ export function ExpertsWorkspace({ onExit }: Props) {
   let content: React.ReactNode;
   if (active === 'overview') content = <DashboardHistory language={language} onNavigate={navigate} onOpenClient={openPerson} onStartSession={startSession} />;
   else if (active === 'priority') content = <PriorityRadarWorkspace language={language} onOpenClient={openPerson} />;
-  else if (active === 'clients') content = <ClientWorkspaceEnhanced language={language} selectedId={selectedClientId} onSelectedId={(id) => navigate('clients', id)} onStartSession={startSession} onOpenPriority={() => navigate('priority')} />;
+  else if (active === 'clients') content = <ClientOnboardingWorkspace language={language} selectedId={selectedClientId} onSelectedId={(id) => navigate('clients', id)} onStartSession={startSession} onOpenPriority={() => navigate('priority')} />;
   else if (active === 'settings') content = <WorkspaceSettingsProfile language={language} profile={profile} setProfile={setProfile} appearance={appearance} setAppearance={setAppearance} />;
   else content = <Placeholder active={active} language={language} />;
 

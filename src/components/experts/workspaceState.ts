@@ -1,3 +1,9 @@
+import {
+  hydrateExpertsClientMemory,
+  persistExpertClientRecords,
+  persistExpertSessionClients
+} from '../../services/expertsClientMemory';
+
 export type WorkActionType = 'email' | 'whatsapp' | 'call' | 'meeting' | 'task';
 export type WorkTaskStatus = 'pending' | 'in-progress' | 'done';
 export type WorkPriority = 'high' | 'medium' | 'normal';
@@ -101,6 +107,10 @@ export const SESSION_SUMMARY_STORAGE_KEY = 'gkais-experts-session-summaries-v1';
 export const WORKSPACE_STATE_EVENT = 'gkais:workspace-state-changed';
 export const SESSION_STAGE_EVENT = 'gkais:session-stage-completed';
 const CLIENT_RECORD_STORAGE_KEY = 'gkais-experts-client-records-v2';
+
+if (typeof window !== 'undefined') {
+  void hydrateExpertsClientMemory();
+}
 
 const INITIAL_TASKS: WorkTask[] = [
   {
@@ -264,6 +274,7 @@ function syncClientRecordsFromSession(clients: SharedSessionClient[]): void {
       };
     });
     window.localStorage.setItem(CLIENT_RECORD_STORAGE_KEY, JSON.stringify(nextRecords));
+    void persistExpertClientRecords(nextRecords);
   } catch {}
 }
 
@@ -271,6 +282,7 @@ export function saveSessionClients(clients: SharedSessionClient[]): void {
   if (typeof window === 'undefined') return;
   try {
     window.localStorage.setItem(SESSION_CLIENT_STORAGE_KEY, JSON.stringify(clients));
+    void persistExpertSessionClients(clients);
     syncClientRecordsFromSession(clients);
     emitWorkspaceStateChanged();
   } catch {}
@@ -350,12 +362,16 @@ function syncClientOperationalState(clientId: string, tasks: WorkTask[]): void {
     if (rawRecords) {
       const records = JSON.parse(rawRecords);
       if (Array.isArray(records)) {
-        window.localStorage.setItem(CLIENT_RECORD_STORAGE_KEY, JSON.stringify(records.map((record) => record?.id === clientId ? { ...record, nextAction, ...(nextMeeting ? { nextSession } : {}) } : record)));
+        const nextRecords = records.map((record) => record?.id === clientId ? { ...record, nextAction, ...(nextMeeting ? { nextSession } : {}) } : record);
+        window.localStorage.setItem(CLIENT_RECORD_STORAGE_KEY, JSON.stringify(nextRecords));
+        void persistExpertClientRecords(nextRecords);
       }
     }
     const sessionClients = loadSessionClients();
     if (sessionClients.some((client) => client.id === clientId)) {
-      window.localStorage.setItem(SESSION_CLIENT_STORAGE_KEY, JSON.stringify(sessionClients.map((client) => client.id === clientId ? { ...client, nextAction, ...(nextMeeting ? { nextSession } : {}) } : client)));
+      const nextSessionClients = sessionClients.map((client) => client.id === clientId ? { ...client, nextAction, ...(nextMeeting ? { nextSession } : {}) } : client);
+      window.localStorage.setItem(SESSION_CLIENT_STORAGE_KEY, JSON.stringify(nextSessionClients));
+      void persistExpertSessionClients(nextSessionClients);
     }
   } catch {}
   emitWorkspaceStateChanged();

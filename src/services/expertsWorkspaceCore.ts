@@ -1,7 +1,9 @@
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import {
+  collection,
   doc,
   getDoc,
+  getDocs,
   serverTimestamp,
   setDoc,
   writeBatch
@@ -39,6 +41,42 @@ export type WorkspaceRoleTemplate = {
   name: string;
   description: string;
   permissions: Array<WorkspacePermission | '*'>;
+};
+
+export type WorkspaceRole = WorkspaceRoleTemplate & {
+  isSystem: boolean;
+  createdByUid: string;
+};
+
+export type WorkspaceMember = {
+  uid: string;
+  email: string;
+  displayName: string;
+  roleId: string;
+  permissions: Array<WorkspacePermission | '*'>;
+  status: 'active' | 'invited' | 'suspended';
+  inviteId?: string;
+};
+
+export type WorkspaceInvite = {
+  id: string;
+  displayName: string;
+  email: string;
+  normalizedEmail: string;
+  roleId: string;
+  permissions: Array<WorkspacePermission | '*'>;
+  status: 'pending' | 'accepted' | 'revoked' | 'expired';
+  invitedByUid: string;
+  expiresAt?: { toDate?: () => Date } | Date;
+};
+
+export type WorkspaceTeamState = {
+  workspaceId: string;
+  currentUid: string;
+  currentMember: WorkspaceMember;
+  members: WorkspaceMember[];
+  roles: WorkspaceRole[];
+  invites: WorkspaceInvite[];
 };
 
 export const DEFAULT_WORKSPACE_ROLES: WorkspaceRoleTemplate[] = [
@@ -161,6 +199,14 @@ function workspaceSubDocument(workspaceId: string, subcollection: string, id: st
   return doc(firestoreDb, 'expert_workspaces', workspaceId, subcollection, id);
 }
 
+function workspaceSubCollection(workspaceId: string, subcollection: string) {
+  return collection(firestoreDb, 'expert_workspaces', workspaceId, subcollection);
+}
+
+export function hasWorkspacePermission(permissions: Array<WorkspacePermission | '*'> | undefined, permission: WorkspacePermission): boolean {
+  return Boolean(permissions?.includes('*') || permissions?.includes(permission));
+}
+
 export async function ensureExpertWorkspaceCore(user: User): Promise<string> {
   const userRef = userDocument(user.uid);
   const userSnapshot = await getDoc(userRef);
@@ -216,6 +262,7 @@ export async function ensureExpertWorkspaceCore(user: User): Promise<string> {
     roleId: 'owner',
     permissions: ['*'],
     status: 'active',
+    inviteId: '',
     joinedAt: now,
     updatedAt: now
   }, { merge: true });
@@ -232,6 +279,54 @@ export async function resolveActiveExpertWorkspaceId(user: User | null = firebas
     if (activeWorkspaceId) return activeWorkspaceId;
   }
   return ensureExpertWorkspaceCore(user);
+}
+
+export async function getCurrentExpertWorkspaceMember(): Promise<{ workspaceId: string; member: WorkspaceMember } | null> {
+  const user = firebaseAuth.currentUser;
+  const workspaceId = await resolveActiveExpertWorkspaceId(user);
+  if (!user || !workspaceId) return null;
+  const snapshot = await getDoc(workspaceSubDocument(workspaceId, 'members', user.uid));
+  if (!snapshot.exists()) return null;
+  return { workspaceId, member: snapshot.data() as WorkspaceMember };
+}
+
+export async function loadExpertWorkspaceTeam(): Promise<WorkspaceTeamState> {
+  const user = firebaseAuth.currentUser;
+  const workspaceId = await resolveActiveExpertWorkspaceId(user);
+  if (!user || !workspaceId) throw new Error('AUTH_REQUIRED');
+
+  const currentMemberSnapshot = await getDoc(workspaceSubDocument(workspaceId, 'members', user.uid));
+  if (!currentMemberSnapshot.exists()) throw new Error('MEMBERSHIP_REQUIRED');
+  const currentMember = currentMemberSnapshot.data() as WorkspaceMember;
+
+  const canReadMembers = hasWorkspacePermission(currentMember.permissions, 'members.read') || hasWorkspacePermission(currentMember.permissions, 'members.manage');
+  const canReadRoles = hasWorkspacePermission(currentMember.permissions, 'roles.read') || hasWorkspacePermission(currentMember.permissions, 'roles.manage');
+  const canReadInvites = hasWorkspacePermission(currentMember.permissions, 'members.manage');
+
+  const [membersSnapshot, rolesSnapshot, invitesSnapshot] = await Promise.all([
+    canReadMembers ? getDocs(workspaceSubCollection(workspaceId, 'members')) : Promise.resolve(null),
+    canReadRoles ? getDocs(workspaceSubCollection(workspaceId, 'roles')) : Promise.resolve(null),
+    canReadInvites ? getDocs(workspaceSubCollection(workspaceId, 'invites')) : Promise.resolve(null)
+  ]);
+
+  const members = membersSnapshot
+    ? membersSnapshot.docs.map((item) => item.data() as WorkspaceMember)
+    : [currentMember];
+  const roles = rolesSnapshot
+    ? rolesSnapshot.docs.map((item) => ({ id: item.id, ...(item.data() as Omit<WorkspaceRole, 'id'>) }))
+    : [];
+  const invites = invitesSnapshot
+    ? invitesSnapshot.docs.map((item) => ({ id: item.id, ...(item.data() as Omit<WorkspaceInvite, 'id'>) }))
+    : [];
+
+  return {
+    workspaceId,
+    currentUid: user.uid,
+    currentMember,
+    members: members.sort((a, b) => a.displayName.localeCompare(b.displayName)),
+    roles: roles.sort((a, b) => a.name.localeCompare(b.name)),
+    invites: invites.sort((a, b) => a.displayName.localeCompare(b.displayName))
+  };
 }
 
 export async function createExpertWorkspaceRole(input: {
@@ -258,33 +353,114 @@ export async function createExpertWorkspaceRole(input: {
 }
 
 export async function createExpertWorkspaceInvite(input: {
+  displayName: string;
   email: string;
   roleId: string;
-  permissions: WorkspacePermission[];
+  permissions?: WorkspacePermission[];
   expiresAt?: Date;
-}): Promise<string> {
+}): Promise<{ workspaceId: string; inviteId: string; token: string }> {
   const user = firebaseAuth.currentUser;
   const workspaceId = await resolveActiveExpertWorkspaceId(user);
   if (!user || !workspaceId) throw new Error('AUTH_REQUIRED');
 
   const email = input.email.trim();
   const normalizedEmail = email.toLowerCase();
+  const displayName = input.displayName.trim();
   if (!normalizedEmail) throw new Error('EMAIL_REQUIRED');
+  if (!displayName) throw new Error('NAME_REQUIRED');
+
+  const roleSnapshot = await getDoc(workspaceSubDocument(workspaceId, 'roles', input.roleId));
+  if (!roleSnapshot.exists()) throw new Error('ROLE_NOT_FOUND');
+  const role = roleSnapshot.data() as { permissions?: WorkspacePermission[] };
+  const permissions = input.permissions?.length ? input.permissions : (role.permissions || []);
 
   const inviteId = randomId('invite');
   await setDoc(workspaceSubDocument(workspaceId, 'invites', inviteId), {
     schemaVersion: SCHEMA_VERSION,
+    displayName,
     email,
     normalizedEmail,
     roleId: input.roleId,
-    permissions: Array.from(new Set(input.permissions)),
+    permissions: Array.from(new Set(permissions)),
     status: 'pending',
     invitedByUid: user.uid,
     expiresAt: input.expiresAt || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   });
-  return inviteId;
+  return { workspaceId, inviteId, token: `${workspaceId}:${inviteId}` };
+}
+
+export function parseExpertWorkspaceInviteToken(token: string): { workspaceId: string; inviteId: string } | null {
+  const decoded = token.trim();
+  const separator = decoded.indexOf(':');
+  if (separator <= 0) return null;
+  const workspaceId = decoded.slice(0, separator);
+  const inviteId = decoded.slice(separator + 1);
+  return workspaceId && inviteId ? { workspaceId, inviteId } : null;
+}
+
+export function buildExpertWorkspaceInviteLink(token: string): string {
+  if (typeof window === 'undefined') return `/workspace/experts?invite=${encodeURIComponent(token)}`;
+  return `${window.location.origin}/workspace/experts?invite=${encodeURIComponent(token)}`;
+}
+
+export async function getExpertWorkspaceInvite(token: string): Promise<WorkspaceInvite> {
+  const parsed = parseExpertWorkspaceInviteToken(token);
+  const user = firebaseAuth.currentUser;
+  if (!parsed || !user) throw new Error('AUTH_REQUIRED');
+  const snapshot = await getDoc(workspaceSubDocument(parsed.workspaceId, 'invites', parsed.inviteId));
+  if (!snapshot.exists()) throw new Error('INVITE_NOT_FOUND');
+  return { id: snapshot.id, ...(snapshot.data() as Omit<WorkspaceInvite, 'id'>) };
+}
+
+export async function acceptExpertWorkspaceInvite(token: string): Promise<string> {
+  const parsed = parseExpertWorkspaceInviteToken(token);
+  const user = firebaseAuth.currentUser;
+  if (!parsed || !user) throw new Error('AUTH_REQUIRED');
+
+  const inviteRef = workspaceSubDocument(parsed.workspaceId, 'invites', parsed.inviteId);
+  const inviteSnapshot = await getDoc(inviteRef);
+  if (!inviteSnapshot.exists()) throw new Error('INVITE_NOT_FOUND');
+  const invite = inviteSnapshot.data() as Omit<WorkspaceInvite, 'id'>;
+  const authEmail = (user.email || '').trim().toLowerCase();
+  if (!authEmail || authEmail !== invite.normalizedEmail) throw new Error('INVITE_EMAIL_MISMATCH');
+  if (invite.status !== 'pending' && invite.status !== 'accepted') throw new Error('INVITE_NOT_ACTIVE');
+
+  const userRef = userDocument(user.uid);
+  const userSnapshot = await getDoc(userRef);
+  const batch = writeBatch(firestoreDb);
+  const now = serverTimestamp();
+
+  batch.set(workspaceSubDocument(parsed.workspaceId, 'members', user.uid), {
+    schemaVersion: SCHEMA_VERSION,
+    uid: user.uid,
+    email: user.email || invite.email,
+    displayName: invite.displayName || user.displayName || user.email || 'Miembro',
+    roleId: invite.roleId,
+    permissions: invite.permissions,
+    status: 'active',
+    inviteId: parsed.inviteId,
+    joinedAt: now,
+    updatedAt: now
+  }, { merge: true });
+
+  batch.set(userRef, {
+    schemaVersion: SCHEMA_VERSION,
+    email: user.email || '',
+    displayName: user.displayName || invite.displayName || '',
+    photoURL: user.photoURL || '',
+    activeWorkspaceId: parsed.workspaceId,
+    ...(!userSnapshot.exists() ? { createdAt: now } : {}),
+    updatedAt: now
+  }, { merge: true });
+
+  if (invite.status === 'pending') {
+    batch.update(inviteRef, { status: 'accepted', updatedAt: now });
+  }
+
+  await batch.commit();
+  return parsed.workspaceId;
 }
 
 export async function appendExpertRelationshipEvent(input: RelationshipEventInput): Promise<string> {
@@ -341,6 +517,8 @@ if (typeof window !== 'undefined') {
     }
     if (initializedUid === user.uid) return;
     initializedUid = user.uid;
+    const invite = new URLSearchParams(window.location.search).get('invite');
+    if (invite) return;
     void ensureExpertWorkspaceCore(user).catch(() => {});
   });
 }

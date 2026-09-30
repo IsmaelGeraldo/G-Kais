@@ -1,6 +1,5 @@
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import {
-  collection,
   doc,
   getDoc,
   serverTimestamp,
@@ -67,7 +66,8 @@ export const DEFAULT_WORKSPACE_ROLES: WorkspaceRoleTemplate[] = [
       'people.read', 'people.manage', 'webinars.read', 'webinars.manage',
       'formations.read', 'formations.manage', 'mentoring.read', 'tasks.read.own',
       'tasks.read.team', 'tasks.manage.own', 'tasks.manage', 'members.read',
-      'members.manage', 'roles.read', 'audit.read', 'events.read', 'events.create'
+      'members.manage', 'roles.read', 'roles.manage', 'audit.read',
+      'events.read', 'events.create'
     ]
   },
   {

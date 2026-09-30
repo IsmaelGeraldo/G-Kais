@@ -252,20 +252,30 @@ export async function recordExpertWebinarRegistration(input: PersonIdentityInput
   if (!user) throw new Error('AUTH_REQUIRED');
   const person = await upsertExpertPerson({ ...input, stage: 'webinar' });
   const registrationId = relationshipId('webreg', input.webinarId, person.personId);
-  await setDoc(workspaceDocument(user.uid, 'webinar_registrations', registrationId), {
+  const registrationRef = workspaceDocument(user.uid, 'webinar_registrations', registrationId);
+  const registrationSnapshot = await getDoc(registrationRef);
+  const status = input.status || 'registered';
+  const attendanceMinutes = Math.max(0, Math.round(input.attendanceMinutes || 0));
+  const purchased = Boolean(input.purchased);
+  const interest = input.interest || 'unknown';
+  await setDoc(registrationRef, {
     schemaVersion: SCHEMA_VERSION,
     personId: person.personId,
     webinarId: input.webinarId,
-    status: input.status || 'registered',
-    attendanceMinutes: Math.max(0, Math.round(input.attendanceMinutes || 0)),
-    purchased: Boolean(input.purchased),
-    interest: input.interest || 'unknown',
-    registeredAt: serverTimestamp(),
+    status,
+    attendanceMinutes,
+    purchased,
+    interest,
+    ...(!registrationSnapshot.exists() ? { registeredAt: serverTimestamp() } : {}),
     updatedAt: serverTimestamp()
   }, { merge: true });
   await updateDoc(workspaceDocument(user.uid, 'people', person.personId), {
     'sourceRefs.webinarIds': arrayUnion(input.webinarId),
     'outcomeMemory.lastWebinarId': input.webinarId,
+    'outcomeMemory.lastWebinarStatus': status,
+    'outcomeMemory.lastWebinarAttendanceMinutes': attendanceMinutes,
+    'outcomeMemory.lastWebinarPurchased': purchased,
+    'outcomeMemory.lastWebinarInterest': interest,
     updatedAt: serverTimestamp()
   });
   return { registrationId, personId: person.personId };
@@ -312,23 +322,33 @@ export async function createExpertEnrollment(input: {
   const user = await restoredUser();
   if (!user) throw new Error('AUTH_REQUIRED');
   const id = relationshipId('enrollment', input.cohortId, input.personId);
+  const enrollmentRef = workspaceDocument(user.uid, 'enrollments', id);
+  const enrollmentSnapshot = await getDoc(enrollmentRef);
+  const status = input.status || 'active';
   const progress = Math.max(0, Math.min(100, Math.round(input.progress || 0)));
-  await setDoc(workspaceDocument(user.uid, 'enrollments', id), {
+  await setDoc(enrollmentRef, {
     schemaVersion: SCHEMA_VERSION,
     personId: input.personId,
     formationId: input.formationId,
     cohortId: input.cohortId,
-    status: input.status || 'active',
+    status,
     progress,
-    joinedAt: serverTimestamp(),
+    ...(!enrollmentSnapshot.exists() ? { joinedAt: serverTimestamp() } : {}),
     updatedAt: serverTimestamp()
   }, { merge: true });
-  await updateDoc(workspaceDocument(user.uid, 'people', input.personId), {
-    currentStage: input.status === 'completed' ? 'alumni' : 'student',
+
+  const personRef = workspaceDocument(user.uid, 'people', input.personId);
+  const personSnapshot = await getDoc(personRef);
+  if (!personSnapshot.exists()) throw new Error('PERSON_NOT_FOUND');
+  const nextStage: RelationshipStage = status === 'completed' ? 'alumni' : 'student';
+  await updateDoc(personRef, {
+    currentStage: strongerStage(personSnapshot.data().currentStage, nextStage),
     'sourceRefs.formationIds': arrayUnion(input.formationId),
     'sourceRefs.cohortIds': arrayUnion(input.cohortId),
     'outcomeMemory.currentFormationId': input.formationId,
     'outcomeMemory.currentCohortId': input.cohortId,
+    'outcomeMemory.currentEnrollmentStatus': status,
+    'outcomeMemory.currentFormationProgress': progress,
     updatedAt: serverTimestamp()
   });
   return id;

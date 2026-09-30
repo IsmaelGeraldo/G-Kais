@@ -99,6 +99,112 @@ service cloud.firestore {
         data.language in ['es', 'en'];
     }
 
+    function validExpertPerson(data) {
+      return data.keys().hasAll([
+          'schemaVersion', 'name', 'email', 'phone', 'normalizedEmail',
+          'normalizedPhone', 'firstSource', 'latestSource', 'currentStage',
+          'outcomeMemory', 'sourceRefs', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'schemaVersion', 'name', 'email', 'phone', 'normalizedEmail',
+          'normalizedPhone', 'firstSource', 'latestSource', 'currentStage',
+          'outcomeMemory', 'sourceRefs', 'createdAt', 'updatedAt'
+        ]) &&
+        data.schemaVersion == 1 &&
+        data.name is string && data.name.size() > 0 && data.name.size() <= 160 &&
+        data.email is string && data.email.size() <= 254 &&
+        data.phone is string && data.phone.size() <= 40 &&
+        data.normalizedEmail is string && data.normalizedEmail.size() <= 254 &&
+        data.normalizedPhone is string && data.normalizedPhone.size() <= 40 &&
+        (data.normalizedEmail.size() > 0 || data.normalizedPhone.size() > 0) &&
+        data.firstSource is string && data.firstSource.size() <= 120 &&
+        data.latestSource is string && data.latestSource.size() <= 120 &&
+        data.currentStage in ['lead', 'webinar', 'student', 'alumni', 'mentoring'] &&
+        data.outcomeMemory is map &&
+        data.sourceRefs is map &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function validExpertWebinar(data) {
+      return data.keys().hasAll([
+          'schemaVersion', 'title', 'startsAt', 'source', 'status', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'schemaVersion', 'title', 'startsAt', 'source', 'status', 'createdAt', 'updatedAt'
+        ]) &&
+        data.schemaVersion == 1 &&
+        data.title is string && data.title.size() > 0 && data.title.size() <= 240 &&
+        data.startsAt is string && data.startsAt.size() <= 40 &&
+        data.source is string && data.source.size() <= 120 &&
+        data.status in ['draft', 'scheduled', 'completed', 'cancelled'] &&
+        data.createdAt is timestamp && data.updatedAt is timestamp;
+    }
+
+    function validExpertWebinarRegistration(data) {
+      return data.keys().hasAll([
+          'schemaVersion', 'personId', 'webinarId', 'status', 'attendanceMinutes',
+          'purchased', 'interest', 'registeredAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'schemaVersion', 'personId', 'webinarId', 'status', 'attendanceMinutes',
+          'purchased', 'interest', 'registeredAt', 'updatedAt'
+        ]) &&
+        data.schemaVersion == 1 &&
+        data.personId is string && data.personId.size() > 0 && data.personId.size() <= 120 &&
+        data.webinarId is string && data.webinarId.size() > 0 && data.webinarId.size() <= 120 &&
+        data.status in ['registered', 'attended', 'no-show'] &&
+        data.attendanceMinutes is int && data.attendanceMinutes >= 0 && data.attendanceMinutes <= 10000 &&
+        data.purchased is bool &&
+        data.interest in ['unknown', 'low', 'medium', 'high'] &&
+        data.registeredAt is timestamp && data.updatedAt is timestamp;
+    }
+
+    function validExpertFormation(data) {
+      return data.keys().hasAll(['schemaVersion', 'title', 'status', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['schemaVersion', 'title', 'status', 'createdAt', 'updatedAt']) &&
+        data.schemaVersion == 1 &&
+        data.title is string && data.title.size() > 0 && data.title.size() <= 240 &&
+        data.status in ['draft', 'active', 'archived'] &&
+        data.createdAt is timestamp && data.updatedAt is timestamp;
+    }
+
+    function validExpertCohort(data) {
+      return data.keys().hasAll([
+          'schemaVersion', 'formationId', 'title', 'startsAt', 'endsAt',
+          'status', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'schemaVersion', 'formationId', 'title', 'startsAt', 'endsAt',
+          'status', 'createdAt', 'updatedAt'
+        ]) &&
+        data.schemaVersion == 1 &&
+        data.formationId is string && data.formationId.size() > 0 && data.formationId.size() <= 120 &&
+        data.title is string && data.title.size() > 0 && data.title.size() <= 240 &&
+        data.startsAt is string && data.startsAt.size() <= 40 &&
+        data.endsAt is string && data.endsAt.size() <= 40 &&
+        data.status in ['planned', 'active', 'completed', 'cancelled'] &&
+        data.createdAt is timestamp && data.updatedAt is timestamp;
+    }
+
+    function validExpertEnrollment(data) {
+      return data.keys().hasAll([
+          'schemaVersion', 'personId', 'formationId', 'cohortId', 'status',
+          'progress', 'joinedAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'schemaVersion', 'personId', 'formationId', 'cohortId', 'status',
+          'progress', 'joinedAt', 'updatedAt'
+        ]) &&
+        data.schemaVersion == 1 &&
+        data.personId is string && data.personId.size() > 0 && data.personId.size() <= 120 &&
+        data.formationId is string && data.formationId.size() > 0 && data.formationId.size() <= 120 &&
+        data.cohortId is string && data.cohortId.size() > 0 && data.cohortId.size() <= 120 &&
+        data.status in ['active', 'completed', 'withdrawn', 'refunded'] &&
+        data.progress is int && data.progress >= 0 && data.progress <= 100 &&
+        data.joinedAt is timestamp && data.updatedAt is timestamp;
+    }
+
     function validAudit(data, auditId) {
       return data.keys().hasAll([
           'id', 'name', 'company', 'email', 'contactChannel',
@@ -330,6 +436,48 @@ service cloud.firestore {
         settingsId == 'workspace' &&
         validExpertWorkspaceSettings(request.resource.data);
       allow delete: if ownsExpertWorkspace(workspaceId) && settingsId == 'workspace';
+    }
+
+    match /expert_workspaces/{workspaceId}/people/{personId} {
+      allow read: if ownsExpertWorkspace(workspaceId);
+      allow create, update: if ownsExpertWorkspace(workspaceId) &&
+        validExpertPerson(request.resource.data);
+      allow delete: if ownsExpertWorkspace(workspaceId);
+    }
+
+    match /expert_workspaces/{workspaceId}/webinars/{webinarId} {
+      allow read: if ownsExpertWorkspace(workspaceId);
+      allow create, update: if ownsExpertWorkspace(workspaceId) &&
+        validExpertWebinar(request.resource.data);
+      allow delete: if ownsExpertWorkspace(workspaceId);
+    }
+
+    match /expert_workspaces/{workspaceId}/webinar_registrations/{registrationId} {
+      allow read: if ownsExpertWorkspace(workspaceId);
+      allow create, update: if ownsExpertWorkspace(workspaceId) &&
+        validExpertWebinarRegistration(request.resource.data);
+      allow delete: if ownsExpertWorkspace(workspaceId);
+    }
+
+    match /expert_workspaces/{workspaceId}/formations/{formationId} {
+      allow read: if ownsExpertWorkspace(workspaceId);
+      allow create, update: if ownsExpertWorkspace(workspaceId) &&
+        validExpertFormation(request.resource.data);
+      allow delete: if ownsExpertWorkspace(workspaceId);
+    }
+
+    match /expert_workspaces/{workspaceId}/cohorts/{cohortId} {
+      allow read: if ownsExpertWorkspace(workspaceId);
+      allow create, update: if ownsExpertWorkspace(workspaceId) &&
+        validExpertCohort(request.resource.data);
+      allow delete: if ownsExpertWorkspace(workspaceId);
+    }
+
+    match /expert_workspaces/{workspaceId}/enrollments/{enrollmentId} {
+      allow read: if ownsExpertWorkspace(workspaceId);
+      allow create, update: if ownsExpertWorkspace(workspaceId) &&
+        validExpertEnrollment(request.resource.data);
+      allow delete: if ownsExpertWorkspace(workspaceId);
     }
 
     match /admins/{adminId} {

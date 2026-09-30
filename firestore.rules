@@ -30,6 +30,32 @@ service cloud.firestore {
            data.session.id == clientId));
     }
 
+    function validExpertJournalEntry(data, entryId) {
+      return data.keys().hasAll(['schemaVersion', 'entry', 'updatedAt']) &&
+        data.keys().hasOnly(['schemaVersion', 'entry', 'migratedAt', 'updatedAt']) &&
+        data.schemaVersion == 1 &&
+        data.updatedAt is timestamp &&
+        (!('migratedAt' in data) || data.migratedAt is timestamp) &&
+        data.entry is map &&
+        data.entry.id is string &&
+        data.entry.id == entryId &&
+        data.entry.clientId is string &&
+        data.entry.createdAt is string;
+    }
+
+    function validExpertSessionSummary(data, summaryId) {
+      return data.keys().hasAll(['schemaVersion', 'summary', 'updatedAt']) &&
+        data.keys().hasOnly(['schemaVersion', 'summary', 'migratedAt', 'updatedAt']) &&
+        data.schemaVersion == 1 &&
+        data.updatedAt is timestamp &&
+        (!('migratedAt' in data) || data.migratedAt is timestamp) &&
+        data.summary is map &&
+        data.summary.id is string &&
+        data.summary.id == summaryId &&
+        data.summary.clientId is string &&
+        data.summary.createdAt is string;
+    }
+
     function validAudit(data, auditId) {
       return data.keys().hasAll([
           'id', 'name', 'company', 'email', 'contactChannel',
@@ -231,6 +257,20 @@ service cloud.firestore {
       allow read: if ownsExpertWorkspace(workspaceId);
       allow create, update: if ownsExpertWorkspace(workspaceId) &&
         validExpertClientMemory(request.resource.data, clientId);
+      allow delete: if ownsExpertWorkspace(workspaceId);
+    }
+
+    match /expert_workspaces/{workspaceId}/journal_entries/{entryId} {
+      allow read: if ownsExpertWorkspace(workspaceId);
+      allow create, update: if ownsExpertWorkspace(workspaceId) &&
+        validExpertJournalEntry(request.resource.data, entryId);
+      allow delete: if ownsExpertWorkspace(workspaceId);
+    }
+
+    match /expert_workspaces/{workspaceId}/session_summaries/{summaryId} {
+      allow read: if ownsExpertWorkspace(workspaceId);
+      allow create, update: if ownsExpertWorkspace(workspaceId) &&
+        validExpertSessionSummary(request.resource.data, summaryId);
       allow delete: if ownsExpertWorkspace(workspaceId);
     }
 

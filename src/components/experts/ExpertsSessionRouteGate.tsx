@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { firebaseAuth } from '../../lib/firebase';
 import { loadExpertWorkspaceTeam } from '../../services/expertsWorkspaceCore';
+import { setActiveExpertWorkspaceStorageScope } from '../../services/expertsWorkspaceStorage';
 
 export function ExpertsSessionRouteGate({ children }: { children: React.ReactNode }) {
   const [allowed, setAllowed] = useState<boolean | null>(null);
@@ -20,6 +21,7 @@ export function ExpertsSessionRouteGate({ children }: { children: React.ReactNod
       try {
         const team = await loadExpertWorkspaceTeam();
         if (cancelled) return;
+        setActiveExpertWorkspaceStorageScope(team.workspaceId);
         if (team.workspaceId === team.currentUid) setAllowed(true);
         else {
           setAllowed(false);

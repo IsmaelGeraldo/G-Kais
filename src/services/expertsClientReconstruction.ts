@@ -17,6 +17,12 @@ type CommitmentLike = {
   status?: 'pending' | 'done' | 'overdue';
 };
 
+type SessionCommitment = {
+  id: string;
+  label: string;
+  status: 'pending' | 'done' | 'overdue';
+};
+
 function readLocalArray<T>(key: string): T[] {
   if (typeof window === 'undefined') return [];
   try {
@@ -51,10 +57,10 @@ function genericCopilot() {
   };
 }
 
-function commitmentList(record: ClientLike): Array<{ id: string; label: string; status: 'pending' | 'done' | 'overdue' }> {
+function commitmentList(record: ClientLike): SessionCommitment[] {
   const raw = Array.isArray(record.commitments) ? record.commitments as CommitmentLike[] : [];
   return raw
-    .map((item, index) => ({
+    .map((item, index): SessionCommitment => ({
       id: typeof item.id === 'string' && item.id ? item.id : `${record.id}-commitment-${index}`,
       label: typeof item.label === 'string' ? item.label : '',
       status: item.status === 'done' || item.status === 'overdue' ? item.status : 'pending'

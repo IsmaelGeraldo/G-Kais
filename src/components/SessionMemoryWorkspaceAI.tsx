@@ -1,9 +1,16 @@
-import React, { useEffect, useState } from 'react';
-import { Sparkles } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ArrowLeft, Sparkles } from 'lucide-react';
 import { SessionMemoryWorkspace } from './SessionMemoryWorkspace';
 import { useLanguage } from '../i18n/LanguageContext';
 import { requestSessionCopilot, type SessionCopilotClient } from '../services/sessionCopilot';
-import { emitWorkspaceStateChanged, SESSION_STAGE_EVENT, updateSessionClient } from './experts/workspaceState';
+import {
+  emitWorkspaceStateChanged,
+  SESSION_STAGE_EVENT,
+  updateSessionClient,
+  WORKSPACE_STATE_EVENT
+} from './experts/workspaceState';
+import { scopedWorkspaceStorageKey } from '../services/expertsWorkspaceStorage';
+import { WorkspacePersistenceStatus } from './experts/WorkspacePersistenceStatus';
 
 type Props = { onBack: () => void };
 type JournalEntry = { clientId: string; title?: string; body?: string; createdAt?: string };
@@ -26,7 +33,7 @@ const JOURNAL_STORAGE_KEY = 'gkais-experts-client-journal-v1';
 
 function loadClients(): StoredClient[] {
   try {
-    const parsed = JSON.parse(localStorage.getItem(CLIENT_STORAGE_KEY) || '[]');
+    const parsed = JSON.parse(localStorage.getItem(scopedWorkspaceStorageKey(CLIENT_STORAGE_KEY)) || '[]');
     return Array.isArray(parsed) ? parsed as StoredClient[] : [];
   } catch {
     return [];
@@ -35,7 +42,7 @@ function loadClients(): StoredClient[] {
 
 function loadJournal(): JournalEntry[] {
   try {
-    const parsed = JSON.parse(localStorage.getItem(JOURNAL_STORAGE_KEY) || '[]');
+    const parsed = JSON.parse(localStorage.getItem(scopedWorkspaceStorageKey(JOURNAL_STORAGE_KEY)) || '[]');
     return Array.isArray(parsed) ? parsed as JournalEntry[] : [];
   } catch {
     return [];
@@ -88,6 +95,7 @@ function cleanStoredQuestion(value: unknown, language: 'es' | 'en'): string {
 }
 
 function normalizeStoredCopilot(clientId: string, language: 'es' | 'en'): void {
+  if (!clientId) return;
   const clients = loadClients();
   const client = clients.find((item) => item.id === clientId);
   if (!client?.copilot) return;
@@ -116,20 +124,32 @@ function normalizeStoredCopilot(clientId: string, language: 'es' | 'en'): void {
 
   if (JSON.stringify(normalizedClient) === JSON.stringify(client)) return;
   try {
-    localStorage.setItem(CLIENT_STORAGE_KEY, JSON.stringify(clients.map((item) => item.id === clientId ? normalizedClient : item)));
+    localStorage.setItem(scopedWorkspaceStorageKey(CLIENT_STORAGE_KEY), JSON.stringify(clients.map((item) => item.id === clientId ? normalizedClient : item)));
     emitWorkspaceStateChanged();
   } catch {}
 }
 
 export function SessionMemoryWorkspaceAI({ onBack }: Props) {
   const { language } = useLanguage();
-  const [clientId] = useState(() => {
-    const id = new URLSearchParams(window.location.search).get('client') || 'sofia';
-    normalizeStoredCopilot(id, language);
-    return id;
-  });
+  const [workspaceRevision, setWorkspaceRevision] = useState(0);
   const [analyzing, setAnalyzing] = useState(true);
   const [usingAI, setUsingAI] = useState(false);
+
+  useEffect(() => {
+    const refresh = () => setWorkspaceRevision((value) => value + 1);
+    window.addEventListener(WORKSPACE_STATE_EVENT, refresh);
+    window.addEventListener('storage', refresh);
+    return () => {
+      window.removeEventListener(WORKSPACE_STATE_EVENT, refresh);
+      window.removeEventListener('storage', refresh);
+    };
+  }, []);
+
+  const clients = useMemo(() => loadClients(), [workspaceRevision]);
+  const requestedClientId = new URLSearchParams(window.location.search).get('client') || '';
+  const clientId = clients.some((item) => item.id === requestedClientId)
+    ? requestedClientId
+    : clients[0]?.id || '';
 
   useEffect(() => {
     let cancelled = false;
@@ -137,9 +157,14 @@ export function SessionMemoryWorkspaceAI({ onBack }: Props) {
 
     const hydrate = async () => {
       const thisRun = ++runId;
+      if (!clientId) {
+        setAnalyzing(false);
+        setUsingAI(false);
+        return;
+      }
       normalizeStoredCopilot(clientId, language);
-      const clients = loadClients();
-      const client = clients.find((item) => item.id === clientId);
+      const liveClients = loadClients();
+      const client = liveClients.find((item) => item.id === clientId);
       if (!client) {
         if (!cancelled && thisRun === runId) setAnalyzing(false);
         return;
@@ -165,16 +190,39 @@ export function SessionMemoryWorkspaceAI({ onBack }: Props) {
 
     const onStageCompleted = (event: Event) => {
       const detail = (event as CustomEvent<{ clientId?: string }>).detail;
-      if (!detail?.clientId || detail.clientId === clientId) hydrate();
+      if (!detail?.clientId || detail.clientId === clientId) void hydrate();
     };
 
-    hydrate();
+    void hydrate();
     window.addEventListener(SESSION_STAGE_EVENT, onStageCompleted as EventListener);
     return () => {
       cancelled = true;
       window.removeEventListener(SESSION_STAGE_EVENT, onStageCompleted as EventListener);
     };
-  }, [clientId, language]);
+  }, [clientId, language, workspaceRevision]);
+
+  if (!clients.length) {
+    return (
+      <div className="min-h-screen bg-[#F6F6F3] px-6 py-8 text-[#111413]">
+        <button type="button" onClick={onBack} className="inline-flex items-center gap-2 rounded-lg px-2 py-2 text-sm text-black/55 transition hover:bg-black/5 hover:text-black">
+          <ArrowLeft className="h-4 w-4" />
+          {language === 'es' ? 'Volver a clientes' : 'Back to clients'}
+        </button>
+        <div className="mx-auto mt-24 max-w-xl rounded-2xl border border-black/8 bg-white p-8 text-center shadow-sm">
+          <h1 className="text-xl font-semibold">{language === 'es' ? 'Todavía no hay clientes para una sesión' : 'There are no clients ready for a session yet'}</h1>
+          <p className="mt-3 text-sm leading-6 text-black/50">
+            {language === 'es'
+              ? 'Cuando agregues un cliente real, su contexto y su historial aparecerán aquí. G-KAIS ya no completa cuentas vacías con información de demostración.'
+              : 'When you add a real client, their context and history will appear here. G-KAIS no longer fills empty accounts with demo information.'}
+          </p>
+          <button type="button" onClick={onBack} className="mt-6 rounded-xl bg-[#111413] px-4 py-2.5 text-sm font-semibold text-white">
+            {language === 'es' ? 'Ir a Clientes' : 'Go to Clients'}
+          </button>
+        </div>
+        <WorkspacePersistenceStatus />
+      </div>
+    );
+  }
 
   return (
     <div className="relative">
@@ -190,6 +238,7 @@ export function SessionMemoryWorkspaceAI({ onBack }: Props) {
           {language === 'es' ? 'Usando el último contexto disponible. Gemini se activa cuando existe una sesión autenticada.' : 'Using the latest available context. Gemini activates when an authenticated session exists.'}
         </div>
       )}
+      <WorkspacePersistenceStatus />
     </div>
   );
 }

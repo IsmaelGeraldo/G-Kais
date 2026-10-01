@@ -1,8 +1,15 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import type { Language } from '../../i18n/LanguageContext';
 import { hydrateExpertsClientMemory, persistExpertClientRecord } from '../../services/expertsClientMemory';
-import { appendJournal, updateSessionClient, WORKSPACE_STATE_EVENT } from './workspaceState';
+import { emitExpertsPersistenceStatus } from '../../services/expertsPersistenceStatus';
+import { scopedWorkspaceStorageKey } from '../../services/expertsWorkspaceStorage';
+import {
+  appendJournal,
+  loadSessionClients,
+  saveSessionClients,
+  WORKSPACE_STATE_EVENT
+} from './workspaceState';
 import { ClientWorkspaceEnhanced } from './ClientWorkspaceEnhanced';
 
 const CLIENT_STORAGE_KEY = 'gkais-experts-client-records-v2';
@@ -44,7 +51,7 @@ const EMPTY_DRAFT: Draft = {
 
 function readClientRecords(): Array<Record<string, unknown> & { id: string }> {
   try {
-    const parsed = JSON.parse(window.localStorage.getItem(CLIENT_STORAGE_KEY) || '[]');
+    const parsed = JSON.parse(window.localStorage.getItem(scopedWorkspaceStorageKey(CLIENT_STORAGE_KEY)) || '[]');
     return Array.isArray(parsed) ? parsed.filter((item) => item && typeof item.id === 'string') : [];
   } catch {
     return [];
@@ -65,6 +72,10 @@ function createClientId(name: string): string {
   return `${slug}-${Date.now().toString(36)}`;
 }
 
+function normalizedPhone(value: unknown): string {
+  return String(value || '').replace(/\D/g, '');
+}
+
 function Field({ label, value, onChange, type = 'text', placeholder = '', required = false }: { label: string; value: string; onChange: (value: string) => void; type?: string; placeholder?: string; required?: boolean }) {
   return <label className="block"><span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em] text-black/45">{label}{required ? ' *' : ''}</span><input type={type} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className="w-full rounded-xl border border-black/10 bg-white px-3.5 py-2.5 text-sm outline-none transition focus:border-black/30" /></label>;
 }
@@ -78,7 +89,19 @@ export function ClientOnboardingWorkspace({ language, selectedId, onSelectedId, 
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [recordsRevision, setRecordsRevision] = useState(0);
 
+  useEffect(() => {
+    const refresh = () => setRecordsRevision((value) => value + 1);
+    window.addEventListener(WORKSPACE_STATE_EVENT, refresh);
+    window.addEventListener('storage', refresh);
+    return () => {
+      window.removeEventListener(WORKSPACE_STATE_EVENT, refresh);
+      window.removeEventListener('storage', refresh);
+    };
+  }, []);
+
+  const hasClients = useMemo(() => readClientRecords().length > 0, [recordsRevision]);
   const requiredReady = useMemo(() => Boolean(draft.name.trim() && draft.program.trim() && draft.primaryGoal.trim() && draft.startingPoint.trim() && draft.expectedOutcome.trim() && draft.nextAction.trim()), [draft]);
   const update = (key: keyof Draft, value: string) => setDraft((current) => ({ ...current, [key]: value }));
   const close = () => { if (!saving) { setOpen(false); setError(''); } };
@@ -90,6 +113,20 @@ export function ClientOnboardingWorkspace({ language, selectedId, onSelectedId, 
     try {
       await hydrateExpertsClientMemory();
       const existing = readClientRecords();
+      const normalizedEmail = draft.email.trim().toLowerCase();
+      const phoneDigits = normalizedPhone(draft.phone);
+      const duplicate = existing.find((item) => {
+        const existingEmail = String(item.email || '').trim().toLowerCase();
+        const existingPhone = normalizedPhone(item.phone);
+        return Boolean((normalizedEmail && existingEmail === normalizedEmail) || (phoneDigits && existingPhone === phoneDigits));
+      });
+      if (duplicate) {
+        setError(language === 'es'
+          ? 'Ya existe un cliente con ese email o teléfono. Abre su ficha en lugar de crear otra identidad.'
+          : 'A client with that email or phone already exists. Open their record instead of creating another identity.');
+        return;
+      }
+
       const id = createClientId(draft.name);
       const blockers = splitLines(draft.blockers);
       const commitments = splitLines(draft.commitments).map((label) => ({ label, status: 'pending' as const }));
@@ -121,10 +158,13 @@ export function ClientOnboardingWorkspace({ language, selectedId, onSelectedId, 
         createdAt: new Date().toISOString()
       };
 
-      window.localStorage.setItem(CLIENT_STORAGE_KEY, JSON.stringify([record, ...existing.filter((item) => item.id !== id)]));
+      window.localStorage.setItem(scopedWorkspaceStorageKey(CLIENT_STORAGE_KEY), JSON.stringify([record, ...existing.filter((item) => item.id !== id)]));
+      emitExpertsPersistenceStatus('saving');
       await persistExpertClientRecord(record);
-      updateSessionClient(id, (current) => ({
-        ...current,
+      emitExpertsPersistenceStatus('saved');
+
+      const sessionClients = loadSessionClients();
+      const sessionClient = {
         id,
         name: record.name,
         company: record.company,
@@ -138,13 +178,16 @@ export function ClientOnboardingWorkspace({ language, selectedId, onSelectedId, 
         planSummary: record.planSummary,
         blockers: record.blockers,
         commitments: record.commitments.map((item, index) => ({ id: `${id}-commitment-${index}`, label: item.label, status: item.status }))
-      }));
+      };
+      saveSessionClients([sessionClient, ...sessionClients.filter((item) => item.id !== id)]);
       appendJournal(id, 'onboarding', language === 'es' ? 'Cliente creado' : 'Client created', language === 'es' ? `Onboarding iniciado · ${record.program} · Objetivo: ${record.primaryGoal}` : `Onboarding started · ${record.program} · Goal: ${record.primaryGoal}`);
       window.dispatchEvent(new CustomEvent(WORKSPACE_STATE_EVENT));
       setDraft(EMPTY_DRAFT);
       setOpen(false);
       onSelectedId(id);
-    } catch {
+    } catch (caught) {
+      console.error('[G-KAIS CLIENT ONBOARDING ERROR]', caught);
+      emitExpertsPersistenceStatus('error');
       setError(language === 'es' ? 'No se pudo crear el cliente. Revisa la sesión e inténtalo nuevamente.' : 'The client could not be created. Check the session and try again.');
     } finally {
       setSaving(false);
@@ -153,7 +196,13 @@ export function ClientOnboardingWorkspace({ language, selectedId, onSelectedId, 
 
   return <>
     <div className="mb-4 flex justify-end"><button type="button" onClick={() => setOpen(true)} className="inline-flex items-center gap-2 rounded-xl bg-[#111413] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-black"><Plus className="h-4 w-4" />{language === 'es' ? 'Nuevo cliente' : 'New client'}</button></div>
-    <ClientWorkspaceEnhanced language={language} selectedId={selectedId} onSelectedId={onSelectedId} onStartSession={onStartSession} onOpenPriority={onOpenPriority} />
+    {hasClients
+      ? <ClientWorkspaceEnhanced language={language} selectedId={selectedId} onSelectedId={onSelectedId} onStartSession={onStartSession} onOpenPriority={onOpenPriority} />
+      : <div className="rounded-2xl border border-dashed border-black/12 bg-white px-6 py-14 text-center shadow-[0_10px_30px_rgba(10,10,10,0.025)]">
+          <p className="text-lg font-semibold text-black/75">{language === 'es' ? 'Todavía no hay clientes reales' : 'There are no real clients yet'}</p>
+          <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-black/45">{language === 'es' ? 'Crea el primer cliente para iniciar su Outcome Memory, próximas acciones y sesiones. Los datos de demostración ya no se mezclan con la operación.' : 'Create the first client to start their Outcome Memory, next actions and sessions. Demo data is no longer mixed with live operations.'}</p>
+          <button type="button" onClick={() => setOpen(true)} className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#111413] px-4 py-2.5 text-sm font-semibold text-white"><Plus className="h-4 w-4" />{language === 'es' ? 'Crear primer cliente' : 'Create first client'}</button>
+        </div>}
 
     {open && <div className="fixed inset-0 z-[80] flex items-start justify-center overflow-y-auto bg-black/35 px-4 py-8 backdrop-blur-[2px] md:py-12">
       <div className="w-full max-w-4xl rounded-3xl border border-black/10 bg-[#FAFAF8] shadow-[0_30px_90px_rgba(0,0,0,0.22)]">

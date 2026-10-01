@@ -46,3 +46,88 @@
   font-size: 1.05rem !important;
   line-height: 1.25rem !important;
 }
+
+/* Workspace shell: use the sticky top strip as the single page heading. */
+[class*="lg:pl-[245px]"] > header > div {
+  position: relative;
+  min-height: 36px;
+}
+
+[class*="lg:pl-[245px]"] > header > div > div:first-child > div:last-child {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  max-width: min(52vw, 640px);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+[class*="lg:pl-[245px]"] > header > div > div:first-child > div:last-child > p {
+  display: none;
+}
+
+[class*="lg:pl-[245px]"] > header > div > div:first-child > div:last-child > h1 {
+  font-size: 0.95rem;
+  line-height: 1.25rem;
+  font-weight: 600;
+}
+
+/* Remove the repeated large page title from every regular workspace view. */
+[class*="lg:pl-[245px]"] > main > div > [class~="mb-7"]:not(:has(> p:nth-child(3))) {
+  display: none;
+}
+
+/* Dashboard keeps its question + explanatory sentence in place; only its eyebrow moves upstairs. */
+[class*="lg:pl-[245px]"] > main > div > [class~="mb-7"]:has(> p:nth-child(3)) > p:first-child {
+  visibility: hidden;
+}
+
+[class*="lg:pl-[245px]"]:has(> main > div > [class~="mb-7"]:has(> p:nth-child(3))) > header > div > div:first-child > div:last-child > h1 {
+  font-size: 0;
+}
+
+[class*="lg:pl-[245px]"]:has(> main > div > [class~="mb-7"]:has(> p:nth-child(3))) > header > div > div:first-child > div:last-child > h1::after {
+  content: "VISTA OPERATIVA DIARIA";
+  font-size: 0.72rem;
+  line-height: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: #0A3F4D;
+}
+
+/* Clients: visually integrate Nuevo cliente inside the Clientes activos card. */
+@media (min-width: 1280px) {
+  [class*="lg:pl-[245px]"] > main > div {
+    position: relative;
+  }
+
+  [class*="lg:pl-[245px]"] > main > div > [class~="mb-4"][class~="justify-end"]:has(+ [class*="xl:grid-cols-[300px_minmax(0,1fr)]"]) {
+    position: absolute;
+    z-index: 4;
+    top: 8px;
+    left: 164px;
+    width: 124px;
+    height: 38px;
+    margin: 0 !important;
+    pointer-events: none;
+  }
+
+  [class*="lg:pl-[245px]"] > main > div > [class~="mb-4"][class~="justify-end"]:has(+ [class*="xl:grid-cols-[300px_minmax(0,1fr)]"]) > button {
+    width: 124px;
+    min-height: 36px;
+    justify-content: center;
+    padding: 0.45rem 0.65rem;
+    border-radius: 0.7rem;
+    font-size: 0.72rem;
+    line-height: 1rem;
+    pointer-events: auto;
+  }
+
+  [class*="lg:pl-[245px]"] > main > div > [class~="mb-4"][class~="justify-end"] + [class*="xl:grid-cols-[300px_minmax(0,1fr)]"] > aside > div:first-child {
+    min-height: 64px;
+    padding-right: 8.25rem;
+  }
+}

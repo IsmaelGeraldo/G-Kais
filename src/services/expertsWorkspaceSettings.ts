@@ -25,6 +25,7 @@ export type ExpertsWorkspaceAppearance = {
   sidebar: string;
   sidebarIntensity: number;
   surfaceIntensity: number;
+  surfaceColorIntensity: number;
 };
 
 type PersistedAppearance = {
@@ -59,7 +60,8 @@ const DEFAULT_APPEARANCE: ExpertsWorkspaceAppearance = {
   intensity: 3,
   sidebar: 'same',
   sidebarIntensity: 7,
-  surfaceIntensity: 0
+  surfaceIntensity: 0,
+  surfaceColorIntensity: 3
 };
 
 const THEME_HEX: Record<string, string> = {
@@ -110,13 +112,14 @@ function clampSurfaceIndex(value: unknown, fallback: number): number {
   return Number.isFinite(number) ? Math.max(0, Math.min(SURFACE_PALETTE.length - 1, Math.round(number))) : fallback;
 }
 
-function decodeSidebar(rawValue: unknown, fallback: ExpertsWorkspaceAppearance): { sidebar: string; surfaceIntensity: number } {
+function decodeSidebar(rawValue: unknown, fallback: ExpertsWorkspaceAppearance): { sidebar: string; surfaceIntensity: number; surfaceColorIntensity: number } {
   const raw = typeof rawValue === 'string' ? rawValue : fallback.sidebar;
-  const currentMatch = raw.match(/^(.*)\|surface3:(\d{1,2})$/);
+  const currentMatch = raw.match(/^(.*)\|surface3:(\d{1,2})(?::(\d{1,2}))?$/);
   if (currentMatch) {
     return {
       sidebar: currentMatch[1] || fallback.sidebar,
-      surfaceIntensity: clampSurfaceIndex(currentMatch[2], fallback.surfaceIntensity)
+      surfaceIntensity: clampSurfaceIndex(currentMatch[2], fallback.surfaceIntensity),
+      surfaceColorIntensity: clampIntensity(currentMatch[3], DEFAULT_APPEARANCE.surfaceColorIntensity)
     };
   }
 
@@ -124,10 +127,10 @@ function decodeSidebar(rawValue: unknown, fallback: ExpertsWorkspaceAppearance):
   // now uses a discrete color palette rather than a progressive darkening scale.
   const legacyMatch = raw.match(/^(.*)\|surface(?:2)?:\d{1,2}$/);
   if (legacyMatch) {
-    return { sidebar: legacyMatch[1] || fallback.sidebar, surfaceIntensity: 0 };
+    return { sidebar: legacyMatch[1] || fallback.sidebar, surfaceIntensity: 0, surfaceColorIntensity: DEFAULT_APPEARANCE.surfaceColorIntensity };
   }
 
-  return { sidebar: raw, surfaceIntensity: fallback.surfaceIntensity };
+  return { sidebar: raw, surfaceIntensity: fallback.surfaceIntensity, surfaceColorIntensity: fallback.surfaceColorIntensity };
 }
 
 function normalizeProfile(value: Partial<ExpertsWorkspaceProfile> | undefined, fallback = DEFAULT_PROFILE): ExpertsWorkspaceProfile {
@@ -142,16 +145,18 @@ function normalizeProfile(value: Partial<ExpertsWorkspaceProfile> | undefined, f
 function normalizeAppearance(value: Partial<ExpertsWorkspaceAppearance> | Partial<PersistedAppearance> | undefined, fallback = DEFAULT_APPEARANCE): ExpertsWorkspaceAppearance {
   const decoded = decodeSidebar(value?.sidebar, fallback);
   const explicitSurface = value && 'surfaceIntensity' in value ? (value as Partial<ExpertsWorkspaceAppearance>).surfaceIntensity : undefined;
+  const explicitIntensity = value && 'surfaceColorIntensity' in value ? (value as Partial<ExpertsWorkspaceAppearance>).surfaceColorIntensity : undefined;
   return {
     theme: typeof value?.theme === 'string' ? value.theme : fallback.theme,
     intensity: clampIntensity(value?.intensity, fallback.intensity),
     sidebar: decoded.sidebar,
     sidebarIntensity: clampIntensity(value?.sidebarIntensity, fallback.sidebarIntensity),
-    surfaceIntensity: clampSurfaceIndex(explicitSurface, decoded.surfaceIntensity)
+    surfaceIntensity: clampSurfaceIndex(explicitSurface, decoded.surfaceIntensity),
+    surfaceColorIntensity: clampIntensity(explicitIntensity, decoded.surfaceColorIntensity)
   };
 }
 
-function surfaceVisuals(value: number) {
+function surfaceVisuals(value: number, intensity: number) {
   const index = clampSurfaceIndex(value, 0);
   const selected = SURFACE_PALETTE[index] ?? SURFACE_PALETTE[0];
   if (selected.id === 'white') {
@@ -170,7 +175,16 @@ function surfaceVisuals(value: number) {
   if (selected.id === 'charcoal') mix = 64;
   if (selected.id === 'smoke-black') mix = 82;
   if (selected.id === 'black') mix = 96;
-  const dark = ['charcoal', 'smoke-black', 'black'].includes(selected.id);
+  // Level 3 preserves the previously approved palette. Lower levels soften it;
+  // higher levels deepen the same selected color, independently of the Workspace.
+  const level = clampIntensity(intensity, DEFAULT_APPEARANCE.surfaceColorIntensity);
+  const maxMix = ['graphite', 'charcoal', 'smoke-black', 'black'].includes(selected.id) ? 100 : 60;
+  mix = level <= 3 ? mix * level / 3 : mix + (maxMix - mix) * (level - 3) / 7;
+  const channels = selected.hex.slice(1).match(/../g)!.map((channel) => {
+    const srgb = (255 + (parseInt(channel, 16) - 255) * mix / 100) / 255;
+    return srgb <= 0.04045 ? srgb / 12.92 : ((srgb + 0.055) / 1.055) ** 2.4;
+  });
+  const dark = channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722 < 0.25;
 
   return {
     surface: `color-mix(in srgb, ${selected.hex} ${mix}%, rgba(255,255,255,0.96))`,
@@ -184,7 +198,7 @@ function surfaceVisuals(value: number) {
 
 function applyWorkspaceSurface(appearance: ExpertsWorkspaceAppearance): void {
   if (typeof document === 'undefined') return;
-  const visuals = surfaceVisuals(appearance.surfaceIntensity);
+  const visuals = surfaceVisuals(appearance.surfaceIntensity, appearance.surfaceColorIntensity);
   const accentId = appearance.sidebar === 'same' ? appearance.theme : appearance.sidebar;
   const accent = THEME_HEX[accentId] ?? THEME_HEX.stone;
   const root = document.documentElement;
@@ -268,7 +282,7 @@ function persistedPayload(settings: ExpertsWorkspaceSettings): Omit<PersistedSet
     appearance: {
       theme: appearance.theme,
       intensity: appearance.intensity,
-      sidebar: `${appearance.sidebar}|surface3:${appearance.surfaceIntensity}`,
+      sidebar: `${appearance.sidebar}|surface3:${appearance.surfaceIntensity}:${appearance.surfaceColorIntensity}`,
       sidebarIntensity: appearance.sidebarIntensity
     },
     language: settings.language

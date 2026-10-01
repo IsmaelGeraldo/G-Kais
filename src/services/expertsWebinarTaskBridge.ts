@@ -1,4 +1,4 @@
-import { markWebinarFollowUpCompleted } from './expertsAcquisition';
+import { markWebinarWorkActionCompleted, type WebinarWorkActionKind } from './expertsWebinarActions';
 
 const TASK_STORAGE_KEY = 'gkais-experts-work-tasks-v1';
 const WORKSPACE_STATE_EVENT = 'gkais:workspace-state-changed';
@@ -9,6 +9,7 @@ type WebinarTask = {
   result?: string;
   personId?: string;
   sourceRegistrationId?: string;
+  sourceActionKind?: WebinarWorkActionKind;
 };
 
 const synced = new Set<string>();
@@ -32,10 +33,16 @@ async function syncCompletedWebinarTasks() {
   );
 
   for (const task of completed) {
-    const key = `${task.id || ''}:${task.sourceRegistrationId}:${task.result || ''}`;
+    const key = `${task.id || ''}:${task.sourceRegistrationId}:${task.sourceActionKind || ''}:${task.result || ''}`;
     if (synced.has(key)) continue;
     try {
-      await markWebinarFollowUpCompleted(task.sourceRegistrationId!, task.personId!, task.result || '');
+      await markWebinarWorkActionCompleted({
+        registrationId: task.sourceRegistrationId!,
+        personId: task.personId!,
+        result: task.result || '',
+        kind: task.sourceActionKind,
+        taskId: task.id
+      });
       synced.add(key);
     } catch {}
   }

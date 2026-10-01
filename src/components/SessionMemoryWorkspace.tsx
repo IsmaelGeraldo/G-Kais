@@ -112,15 +112,31 @@ export function SessionMemoryWorkspace({ onBack }: Props) {
     return uniqueStrings(options.map((item) => simpleLanguage(String(item || ''), language))).slice(0, 4);
   }, [brief.gap, brief.risks, language, reviewLooksPositive, selectedClient.currentGap]);
   const diagnosisQuestions = useMemo(() => {
-    const questions = language === 'es'
-      ? reviewLooksPositive
-        ? ['¿Qué cambió para que funcionara?', '¿Qué podría frenarlo ahora?', '¿Queda algún riesgo?', '¿Qué confirmaría que está resuelto?']
-        : ['¿Qué demuestra que este es el problema?', '¿Qué depende del cliente?', '¿Qué podría empeorarlo?', '¿Qué confirmaría que está resuelto?']
-      : reviewLooksPositive
-        ? ['What changed so it worked?', 'What could stop it now?', 'Is any risk still active?', 'How will we know it is resolved?']
-        : ['What proves this is the problem?', 'What is under the client’s control?', 'What could make it worse?', 'How will we know it is resolved?'];
-    return questions;
-  }, [language, reviewLooksPositive]);
+    const priorityCommitment = selectedClient.commitments.find((item) => item.status === 'overdue')
+      || selectedClient.commitments.find((item) => item.status === 'pending');
+    const problem = currentProblem.trim() || brief.gap || String(selectedClient.currentGap || '');
+    const risk = brief.risks?.[0] || '';
+    const goal = String(selectedClient.goal || '');
+    const generated = language === 'es'
+      ? [
+          priorityCommitment && `Sobre “${compactText(priorityCommitment.label, 66)}”, ¿qué ocurrió exactamente y qué impidió completarlo?`,
+          problem && `¿Qué evidencia concreta tenemos hoy de que “${compactText(problem, 72)}” sigue siendo el problema principal?`,
+          goal && `¿Cómo está afectando esta situación al objetivo “${compactText(goal, 72)}”?`,
+          risk && `¿Qué tendría que ocurrir para confirmar o descartar este riesgo: ${compactText(risk, 72)}?`,
+          reviewLooksPositive && goal && `Si el avance se mantiene, ¿qué resultado observable nos acercaría ahora a “${compactText(goal, 70)}”?`
+        ]
+      : [
+          priorityCommitment && `Regarding “${compactText(priorityCommitment.label, 66)}”, what happened specifically and what prevented completion?`,
+          problem && `What concrete evidence shows that “${compactText(problem, 72)}” is still the main problem today?`,
+          goal && `How is this situation affecting the goal “${compactText(goal, 72)}”?`,
+          risk && `What would need to happen to confirm or rule out this risk: ${compactText(risk, 72)}?`,
+          reviewLooksPositive && goal && `If progress continues, what observable result would move us closer to “${compactText(goal, 70)}”?`
+        ];
+    return uniqueStrings([
+      ...(brief.questions || []).map((item) => simpleLanguage(item, language)),
+      ...generated.filter((item): item is string => Boolean(item))
+    ]).slice(0, 4);
+  }, [brief.gap, brief.questions, brief.risks, currentProblem, language, reviewLooksPositive, selectedClient.commitments, selectedClient.currentGap, selectedClient.goal]);
   const noActiveBlocker = reviewLooksPositive && /avanza según (?:el )?plan|todo va bien|progressing as planned|everything is going well/i.test(diagnosisStatus);
   const generatedBlocker = useMemo(() => {
     if (!currentProblem.trim() || !rootCause.trim() || !attemptedSolutions.trim()) return '';

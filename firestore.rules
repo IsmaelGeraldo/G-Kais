@@ -286,12 +286,16 @@ service cloud.firestore {
           'schemaVersion', 'title', 'startsAt', 'source', 'status', 'createdAt', 'updatedAt'
         ]) &&
         data.keys().hasOnly([
-          'schemaVersion', 'title', 'startsAt', 'source', 'status', 'createdAt', 'updatedAt'
+          'schemaVersion', 'title', 'startsAt', 'source', 'platform', 'externalUrl',
+          'offerLabel', 'status', 'createdAt', 'updatedAt'
         ]) &&
         data.schemaVersion == 1 &&
         data.title is string && data.title.size() > 0 && data.title.size() <= 240 &&
         data.startsAt is string && data.startsAt.size() <= 40 &&
         data.source is string && data.source.size() <= 120 &&
+        (!('platform' in data) || (data.platform is string && data.platform.size() <= 120)) &&
+        (!('externalUrl' in data) || (data.externalUrl is string && data.externalUrl.size() <= 2000)) &&
+        (!('offerLabel' in data) || (data.offerLabel is string && data.offerLabel.size() <= 240)) &&
         data.status in ['draft', 'scheduled', 'completed', 'cancelled'] &&
         data.createdAt is timestamp && data.updatedAt is timestamp;
     }
@@ -303,7 +307,8 @@ service cloud.firestore {
         ]) &&
         data.keys().hasOnly([
           'schemaVersion', 'personId', 'webinarId', 'status', 'attendanceMinutes',
-          'purchased', 'interest', 'registeredAt', 'updatedAt'
+          'purchased', 'interest', 'followUpTaskId', 'followUpStatus', 'followUpResult',
+          'followUpCompletedAt', 'registeredAt', 'updatedAt'
         ]) &&
         data.schemaVersion == 1 &&
         data.personId is string && data.personId.size() > 0 && data.personId.size() <= 120 &&
@@ -312,6 +317,10 @@ service cloud.firestore {
         data.attendanceMinutes is int && data.attendanceMinutes >= 0 && data.attendanceMinutes <= 10000 &&
         data.purchased is bool &&
         data.interest in ['unknown', 'low', 'medium', 'high'] &&
+        (!('followUpTaskId' in data) || (data.followUpTaskId is string && data.followUpTaskId.size() <= 240)) &&
+        (!('followUpStatus' in data) || data.followUpStatus in ['needed', 'created', 'completed', 'not-needed']) &&
+        (!('followUpResult' in data) || (data.followUpResult is string && data.followUpResult.size() <= 4000)) &&
+        (!('followUpCompletedAt' in data) || data.followUpCompletedAt is timestamp) &&
         data.registeredAt is timestamp && data.updatedAt is timestamp;
     }
 
@@ -739,9 +748,28 @@ service cloud.firestore {
     }
 
     match /expert_workspaces/{workspaceId}/webinar_registrations/{registrationId} {
-      allow read: if ownsExpertWorkspace(workspaceId);
-      allow create, update: if ownsExpertWorkspace(workspaceId) &&
+      allow read: if ownsExpertWorkspace(workspaceId) || (
+        resource.data.followUpTaskId is string &&
+        resource.data.followUpTaskId.size() > 0 &&
+        (hasWorkspacePermission(workspaceId, 'tasks.manage') ||
+          (hasWorkspacePermission(workspaceId, 'tasks.manage.own') &&
+            get(/databases/$(database)/documents/expert_workspaces/$(workspaceId)/work_tasks/$(resource.data.followUpTaskId)).data.task.assignedToUid == request.auth.uid))
+      );
+      allow create: if ownsExpertWorkspace(workspaceId) &&
         validExpertWebinarRegistration(request.resource.data);
+      allow update: if validExpertWebinarRegistration(request.resource.data) && (
+        ownsExpertWorkspace(workspaceId) || (
+          resource.data.followUpTaskId is string &&
+          resource.data.followUpTaskId.size() > 0 &&
+          (hasWorkspacePermission(workspaceId, 'tasks.manage') ||
+            (hasWorkspacePermission(workspaceId, 'tasks.manage.own') &&
+              get(/databases/$(database)/documents/expert_workspaces/$(workspaceId)/work_tasks/$(resource.data.followUpTaskId)).data.task.assignedToUid == request.auth.uid)) &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'followUpStatus', 'followUpResult', 'followUpCompletedAt', 'updatedAt'
+          ]) &&
+          request.resource.data.followUpStatus == 'completed'
+        )
+      );
       allow delete: if ownsExpertWorkspace(workspaceId);
     }
 

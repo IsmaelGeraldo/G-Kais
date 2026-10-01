@@ -7,8 +7,7 @@ import {
   Plus,
   Presentation,
   Search,
-  Users,
-  Zap
+  Users
 } from 'lucide-react';
 import type { Language } from '../../i18n/LanguageContext';
 import {
@@ -296,7 +295,7 @@ export function WebinarsWorkspace({ language }: { language: Language }) {
   const addParticipant = async () => {
     if (!selected) return;
     if (!participant.name.trim()) {
-      setMessage(language === 'es' ? 'Ingresa el nombre de la persona.' : 'Enter the person name.');
+      setMessage(language === 'es' ? 'Ingresa nombre y apellidos.' : 'Enter first and last name.');
       return;
     }
     if (!participant.email.trim() && !participant.phone.trim()) {
@@ -340,13 +339,9 @@ export function WebinarsWorkspace({ language }: { language: Language }) {
         actionCreated = true;
       }
 
-      setMessage(actionCreated
-        ? (language === 'es'
-          ? `${participant.name.trim()} registrada · siguiente acción enviada automáticamente a Priority Work.`
-          : `${participant.name.trim()} registered · next action sent automatically to Priority Work.`)
-        : (language === 'es'
-          ? `${participant.name.trim()} registrada. La acción se generará cuando exista asistencia, no-show o compra.`
-          : `${participant.name.trim()} registered. An action will be created when attendance, no-show or purchase is recorded.`));
+      setMessage(language === 'es'
+        ? `${participant.name.trim()} registrada${actionCreated ? ' · próxima acción creada' : ''}.`
+        : `${participant.name.trim()} registered${actionCreated ? ' · next action created' : ''}.`);
       resetParticipantForm();
       setShowParticipant(false);
     } catch (error) {
@@ -355,9 +350,7 @@ export function WebinarsWorkspace({ language }: { language: Language }) {
           ? 'Existe un conflicto de identidad por email/teléfono. No se fusionó automáticamente.'
           : 'Identity conflict found. No automatic merge was performed.');
       } else if (error instanceof Error && error.message === 'PERSON_IDENTITY_REQUIRED') {
-        setMessage(language === 'es'
-          ? 'Ingresa email o teléfono para identificar a la persona.'
-          : 'Enter an email or phone to identify the person.');
+        setMessage(language === 'es' ? 'Ingresa email o teléfono para identificar a la persona.' : 'Enter an email or phone to identify the person.');
       } else {
         setMessage(language === 'es' ? 'No se pudo registrar la persona.' : 'Could not register the person.');
       }
@@ -418,9 +411,7 @@ export function WebinarsWorkspace({ language }: { language: Language }) {
       const becamePurchased = nextRegistration.purchased && !registration.purchased;
       const becameActionable = webinarNeedsWorkAction(nextRegistration);
       if (becamePurchased || becameActionable) {
-        await ensureWorkAction(nextRegistration, person, {
-          type: nextRegistration.purchased ? 'task' : 'whatsapp'
-        });
+        await ensureWorkAction(nextRegistration, person, { type: nextRegistration.purchased ? 'task' : 'whatsapp' });
       }
     } catch {
       setMessage(language === 'es' ? 'No se pudo actualizar el participante.' : 'Could not update participant.');
@@ -434,7 +425,7 @@ export function WebinarsWorkspace({ language }: { language: Language }) {
     try {
       await ensureWorkAction(registration, person);
       setMessage(language === 'es'
-        ? `${registration.purchased ? 'Integración' : 'Seguimiento'} enviado a Priority Work.`
+        ? `${registration.purchased ? 'Integración' : 'Seguimiento'} enviado a Trabajo prioritario.`
         : `${registration.purchased ? 'Enrollment' : 'Follow-up'} sent to Priority Work.`);
     } catch {
       setMessage(language === 'es' ? 'No se pudo crear la acción.' : 'Could not create action.');
@@ -508,8 +499,8 @@ export function WebinarsWorkspace({ language }: { language: Language }) {
       }
 
       setMessage(language === 'es'
-        ? `CSV procesado: ${imported} personas importadas${enrollmentTasks ? ` · ${enrollmentTasks} integraciones enviadas a Priority Work` : ''}${skipped ? ` · ${skipped} omitidas` : ''}.`
-        : `CSV processed: ${imported} people imported${enrollmentTasks ? ` · ${enrollmentTasks} enrollment tasks sent to Priority Work` : ''}${skipped ? ` · ${skipped} skipped` : ''}.`);
+        ? `CSV procesado: ${imported} personas importadas${enrollmentTasks ? ` · ${enrollmentTasks} integraciones creadas` : ''}${skipped ? ` · ${skipped} omitidas` : ''}.`
+        : `CSV processed: ${imported} people imported${enrollmentTasks ? ` · ${enrollmentTasks} enrollment tasks created` : ''}${skipped ? ` · ${skipped} skipped` : ''}.`);
     } catch {
       setMessage(language === 'es' ? 'No se pudo procesar el CSV.' : 'Could not process the CSV.');
     } finally {
@@ -520,16 +511,12 @@ export function WebinarsWorkspace({ language }: { language: Language }) {
 
   const updateWebinarStatus = async (status: ExpertWebinarStatus) => {
     if (!selected) return;
-    try {
-      await updateOperationalWebinar(selected.id, { status });
-    } catch {}
+    try { await updateOperationalWebinar(selected.id, { status }); } catch {}
   };
 
   const participantCreatesAction = shouldCreateAutomaticAction(participant);
   const actionPreview = participant.purchased
-    ? (language === 'es'
-      ? `Integrar a ${selected?.offerLabel || 'programa comprado'}`
-      : `Enroll in ${selected?.offerLabel || 'purchased program'}`)
+    ? (language === 'es' ? `Integrar a ${selected?.offerLabel || 'programa comprado'}` : `Enroll in ${selected?.offerLabel || 'purchased program'}`)
     : participant.status === 'no-show'
       ? (language === 'es' ? 'Recuperar no-show' : 'Recover no-show')
       : (language === 'es' ? 'Seguimiento post-webinar' : 'Post-webinar follow-up');
@@ -588,45 +575,42 @@ export function WebinarsWorkspace({ language }: { language: Language }) {
             ].map(([label, value]) => <div key={String(label)} className="rounded-xl bg-[#F7F7F5] p-3"><p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-black/35">{label}</p><p className="mt-1 text-xl font-semibold">{value}</p></div>)}
           </div>
 
-          {showParticipant && <div className="mt-4 rounded-xl border border-black/8 bg-[#FAFAF8] p-4">
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              <label><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'NOMBRE' : 'NAME'}</span><input value={participant.name} onChange={(event) => setParticipant((current) => ({ ...current, name: event.target.value }))} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2.5 text-sm" /></label>
-              <label><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">EMAIL</span><input value={participant.email} onChange={(event) => setParticipant((current) => ({ ...current, email: event.target.value }))} placeholder={language === 'es' ? 'Email o teléfono: al menos uno' : 'Email or phone: at least one'} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2.5 text-sm" /></label>
-              <label><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'TELÉFONO' : 'PHONE'}</span><input value={participant.phone} onChange={(event) => setParticipant((current) => ({ ...current, phone: event.target.value }))} placeholder={language === 'es' ? 'Email o teléfono: al menos uno' : 'Email or phone: at least one'} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2.5 text-sm" /></label>
-              <label><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'ESTADO' : 'STATUS'}</span><select value={participant.status} onChange={(event) => setParticipant((current) => ({ ...current, status: event.target.value as WebinarAttendanceStatus }))} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2.5 text-sm"><option value="registered">{language === 'es' ? 'Registrado' : 'Registered'}</option><option value="attended">{language === 'es' ? 'Asistió' : 'Attended'}</option><option value="no-show">No-show</option></select></label>
-              <label><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'MINUTOS DE ASISTENCIA' : 'ATTENDANCE MINUTES'}</span><input type="number" min="0" value={participant.attendanceMinutes} onChange={(event) => setParticipant((current) => ({ ...current, attendanceMinutes: event.target.value }))} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2.5 text-sm" /></label>
-              <label><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'INTERÉS' : 'INTEREST'}</span><select value={participant.interest} onChange={(event) => setParticipant((current) => ({ ...current, interest: event.target.value as WebinarInterest }))} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2.5 text-sm"><option value="unknown">{language === 'es' ? 'Sin definir' : 'Unknown'}</option><option value="low">{language === 'es' ? 'Bajo' : 'Low'}</option><option value="medium">{language === 'es' ? 'Medio' : 'Medium'}</option><option value="high">{language === 'es' ? 'Alto' : 'High'}</option></select></label>
-              <label className="flex items-end"><span className="flex min-h-[42px] w-full items-center gap-2 rounded-lg border border-black/10 bg-white px-3 py-2.5 text-sm"><input type="checkbox" checked={participant.purchased} onChange={(event) => { const checked = event.target.checked; setParticipant((current) => ({ ...current, purchased: checked })); if (checked) setActionType('task'); else if (actionType === 'task') setActionType('whatsapp'); }} />{language === 'es' ? 'Compró la oferta' : 'Purchased offer'}</span></label>
+          {showParticipant && <div className="mt-4 max-w-4xl rounded-xl border border-black/8 bg-[#FAFAF8] p-3.5">
+            <div className="grid gap-2.5 md:grid-cols-2 xl:grid-cols-3">
+              <label><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'NOMBRE Y APELLIDOS' : 'FIRST AND LAST NAME'}</span><input value={participant.name} onChange={(event) => setParticipant((current) => ({ ...current, name: event.target.value }))} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm" /></label>
+              <label><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">EMAIL</span><input value={participant.email} onChange={(event) => setParticipant((current) => ({ ...current, email: event.target.value }))} placeholder={language === 'es' ? 'Email o teléfono: al menos uno' : 'Email or phone: at least one'} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm" /></label>
+              <label><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'TELÉFONO' : 'PHONE'}</span><input value={participant.phone} onChange={(event) => setParticipant((current) => ({ ...current, phone: event.target.value }))} placeholder={language === 'es' ? 'Email o teléfono: al menos uno' : 'Email or phone: at least one'} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm" /></label>
+              <label><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'ESTADO' : 'STATUS'}</span><select value={participant.status} onChange={(event) => setParticipant((current) => ({ ...current, status: event.target.value as WebinarAttendanceStatus }))} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm"><option value="registered">{language === 'es' ? 'Registrado' : 'Registered'}</option><option value="attended">{language === 'es' ? 'Asistió' : 'Attended'}</option><option value="no-show">No-show</option></select></label>
+              <label><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'MINUTOS DE ASISTENCIA' : 'ATTENDANCE MINUTES'}</span><input type="number" min="0" value={participant.attendanceMinutes} onChange={(event) => setParticipant((current) => ({ ...current, attendanceMinutes: event.target.value }))} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm" /></label>
+              <label><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'INTERÉS' : 'INTEREST'}</span><select value={participant.interest} onChange={(event) => setParticipant((current) => ({ ...current, interest: event.target.value as WebinarInterest }))} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm"><option value="unknown">{language === 'es' ? 'Sin definir' : 'Unknown'}</option><option value="low">{language === 'es' ? 'Bajo' : 'Low'}</option><option value="medium">{language === 'es' ? 'Medio' : 'Medium'}</option><option value="high">{language === 'es' ? 'Alto' : 'High'}</option></select></label>
+              <label className="flex items-end"><span className="flex min-h-[38px] w-full items-center gap-2 rounded-lg border border-black/10 bg-white px-3 py-2 text-sm"><input type="checkbox" checked={participant.purchased} onChange={(event) => { const checked = event.target.checked; setParticipant((current) => ({ ...current, purchased: checked })); if (checked) setActionType('task'); else if (actionType === 'task') setActionType('whatsapp'); }} />{language === 'es' ? 'Compró la oferta' : 'Purchased offer'}</span></label>
             </div>
 
-            <p className="mt-2 text-[11px] text-black/40">{language === 'es' ? 'Para mantener una identidad única, G-KAIS necesita al menos email o teléfono. No es obligatorio completar ambos.' : 'To preserve one identity, G-KAIS needs at least email or phone. You do not need both.'}</p>
+            <p className="mt-2 text-[10px] text-black/40">{language === 'es' ? 'G-KAIS necesita al menos email o teléfono para mantener una identidad única.' : 'G-KAIS needs at least email or phone to preserve one identity.'}</p>
 
-            <div className="mt-4 border-t border-black/8 pt-4">
-              <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
-                <div><p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#0A3F4D]">{language === 'es' ? 'SIGUIENTE ACCIÓN' : 'NEXT ACTION'}</p><p className="mt-1 text-sm font-semibold">{actionPreview}</p></div>
-                {participantCreatesAction && <span className="inline-flex items-center gap-1.5 self-start rounded-full bg-[#0A3F4D]/8 px-3 py-1.5 text-[10px] font-semibold text-[#0A3F4D]"><Zap className="h-3.5 w-3.5" />{language === 'es' ? 'Se enviará automáticamente' : 'Will be sent automatically'}</span>}
+            <div className="mt-3 border-t border-black/8 pt-3">
+              <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[#0A3F4D]">{language === 'es' ? 'SIGUIENTE ACCIÓN' : 'NEXT ACTION'}</p>
+              <p className="mt-1 text-xs font-semibold">{actionPreview}</p>
+              <div className="mt-2.5 grid gap-2.5 md:grid-cols-2 xl:grid-cols-4">
+                <label><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'TIPO' : 'TYPE'}</span><select value={actionType} onChange={(event) => setActionType(event.target.value as WebinarWorkActionType)} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm"><option value="whatsapp">WhatsApp</option><option value="email">Email</option><option value="call">{language === 'es' ? 'Llamada' : 'Call'}</option><option value="meeting">{language === 'es' ? 'Reunión' : 'Meeting'}</option><option value="task">{language === 'es' ? 'Tarea interna' : 'Internal task'}</option></select></label>
+                <label><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'RESPONSABLE' : 'OWNER'}</span><select value={actionAssigneeUid} onChange={(event) => setActionAssigneeUid(event.target.value)} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm">{members.map((member) => <option key={member.uid} value={member.uid}>{memberLabel(member)}</option>)}</select></label>
+                <label><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'FECHA' : 'DATE'}</span><input type="date" value={actionDate} onChange={(event) => setActionDate(event.target.value)} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm" /></label>
+                <label><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'HORA' : 'TIME'}</span><input type="time" value={actionTime} onChange={(event) => setActionTime(event.target.value)} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm" /></label>
               </div>
-              <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                <label><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'TIPO' : 'TYPE'}</span><select value={actionType} onChange={(event) => setActionType(event.target.value as WebinarWorkActionType)} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2.5 text-sm"><option value="whatsapp">WhatsApp</option><option value="email">Email</option><option value="call">{language === 'es' ? 'Llamada' : 'Call'}</option><option value="meeting">{language === 'es' ? 'Reunión' : 'Meeting'}</option><option value="task">{language === 'es' ? 'Tarea interna' : 'Internal task'}</option></select></label>
-                <label><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'RESPONSABLE' : 'OWNER'}</span><select value={actionAssigneeUid} onChange={(event) => setActionAssigneeUid(event.target.value)} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2.5 text-sm">{members.map((member) => <option key={member.uid} value={member.uid}>{memberLabel(member)}</option>)}</select></label>
-                <label><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'FECHA' : 'DATE'}</span><input type="date" value={actionDate} onChange={(event) => setActionDate(event.target.value)} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2.5 text-sm" /></label>
-                <label><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'HORA' : 'TIME'}</span><input type="time" value={actionTime} onChange={(event) => setActionTime(event.target.value)} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2.5 text-sm" /></label>
-              </div>
-              <p className="mt-2 text-[11px] text-black/40">{participantCreatesAction ? (language === 'es' ? 'Al registrar, G-KAIS crea la tarea en Priority Work. Si compró, la acción pasa a integración del programa; si asistió o fue no-show, pasa a seguimiento.' : 'On registration, G-KAIS creates the Priority Work task. A purchase becomes program enrollment; attended/no-show becomes follow-up.') : (language === 'es' ? 'Mientras solo esté registrado, G-KAIS conserva la persona sin crear trabajo innecesario.' : 'While only registered, G-KAIS keeps the person without creating unnecessary work.')}</p>
             </div>
 
-            <div className="mt-4 flex gap-2">
-              <button type="button" disabled={busy} onClick={() => void addParticipant()} className="rounded-full bg-[#0A3F4D] px-4 py-2.5 text-xs font-semibold text-white disabled:opacity-40">{busy ? (language === 'es' ? 'Guardando…' : 'Saving…') : participantCreatesAction ? (language === 'es' ? 'Registrar y enviar a Priority Work' : 'Register and send to Priority Work') : (language === 'es' ? 'Registrar persona' : 'Register person')}</button>
-              <button type="button" onClick={() => { resetParticipantForm(); setShowParticipant(false); }} className="rounded-full border border-black/10 bg-white px-4 py-2.5 text-xs font-semibold text-black/55">{language === 'es' ? 'Cancelar' : 'Cancel'}</button>
+            <div className="mt-3 flex gap-2">
+              <button type="button" disabled={busy} onClick={() => void addParticipant()} className="rounded-full bg-[#0A3F4D] px-4 py-2 text-xs font-semibold text-white disabled:opacity-40">{busy ? (language === 'es' ? 'Guardando…' : 'Saving…') : (language === 'es' ? 'Registrar' : 'Register')}</button>
+              <button type="button" onClick={() => { resetParticipantForm(); setShowParticipant(false); }} className="rounded-full border border-black/10 bg-white px-4 py-2 text-xs font-semibold text-black/55">{language === 'es' ? 'Cancelar' : 'Cancel'}</button>
             </div>
           </div>}
         </section>
 
-        <section className="rounded-2xl border border-black/10 bg-white p-4">
-          <label className="relative block max-w-xl"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-black/30" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={language === 'es' ? 'Buscar participante…' : 'Search participant…'} className="w-full rounded-xl border border-black/10 bg-[#FAFAF8] py-2.5 pl-9 pr-3 text-sm" /></label>
-        </section>
-
         <section className="overflow-hidden rounded-2xl border border-black/10 bg-white">
+          <div className="flex flex-col gap-3 border-b border-black/7 bg-[#FAFAF8] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2"><Users className="h-4 w-4 text-[#0A3F4D]" /><p className="text-sm font-semibold">{language === 'es' ? 'Personas' : 'People'}</p><span className="rounded-full bg-black/5 px-2 py-0.5 text-[10px] font-semibold text-black/40">{filteredRegistrations.length}</span></div>
+            <label className="relative block sm:w-[320px]"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-black/30" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={language === 'es' ? 'Buscar nombre, email o teléfono…' : 'Search name, email or phone…'} className="w-full rounded-xl border border-black/10 bg-white py-2 pl-9 pr-3 text-sm" /></label>
+          </div>
           <div className="hidden grid-cols-[minmax(200px,1fr)_130px_110px_110px_120px_190px] gap-3 border-b border-black/7 bg-[#FAFAF8] px-4 py-3 text-[9px] font-semibold uppercase tracking-[0.12em] text-black/35 lg:grid"><span>{language === 'es' ? 'Persona' : 'Person'}</span><span>{language === 'es' ? 'Asistencia' : 'Attendance'}</span><span>{language === 'es' ? 'Minutos' : 'Minutes'}</span><span>{language === 'es' ? 'Interés' : 'Interest'}</span><span>{language === 'es' ? 'Compra' : 'Purchase'}</span><span>{language === 'es' ? 'Siguiente acción' : 'Next action'}</span></div>
           <div className="divide-y divide-black/5">{filteredRegistrations.map((registration) => {
             const person = peopleById.get(registration.personId);
@@ -641,14 +625,14 @@ export function WebinarsWorkspace({ language }: { language: Language }) {
               <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={registration.purchased} onChange={(event) => void updateRegistration(registration, { purchased: event.target.checked })} />{registration.purchased ? (language === 'es' ? 'Compró' : 'Purchased') : (language === 'es' ? 'No compró' : 'No purchase')}</label>
               <div className="flex flex-wrap items-center gap-1.5">
                 {registration.followUpStatus === 'completed' ? <span className="inline-flex items-center gap-1.5 rounded-full bg-[#0A3F4D]/8 px-2.5 py-1.5 text-[10px] font-semibold text-[#0A3F4D]"><CheckCircle2 className="h-3.5 w-3.5" />{isEnrollment ? (language === 'es' ? 'Integración lista' : 'Enrollment done') : (language === 'es' ? 'Seguimiento listo' : 'Follow-up done')}</span>
-                  : registration.followUpStatus === 'created' ? <span className="inline-flex items-center gap-1.5 rounded-full bg-black/5 px-2.5 py-1.5 text-[10px] font-semibold text-black/50"><Users className="h-3.5 w-3.5" />Priority Work · {isEnrollment ? (language === 'es' ? 'Integración' : 'Enrollment') : (language === 'es' ? 'Seguimiento' : 'Follow-up')}</span>
+                  : registration.followUpStatus === 'created' ? <span className="inline-flex items-center gap-1.5 rounded-full bg-black/5 px-2.5 py-1.5 text-[10px] font-semibold text-black/50"><Users className="h-3.5 w-3.5" />Trabajo prioritario · {isEnrollment ? (language === 'es' ? 'Integración' : 'Enrollment') : (language === 'es' ? 'Seguimiento' : 'Follow-up')}</span>
                     : needsAction ? <>
                       {signal === 'high' || isEnrollment ? <span className="rounded-full bg-[#111413] px-2.5 py-1.5 text-[10px] font-semibold text-white">{language === 'es' ? 'Prioridad alta' : 'High priority'}</span> : null}
                       <button type="button" onClick={() => void createLegacyAction(registration)} className="rounded-full border border-black/10 bg-white px-2.5 py-1.5 text-[10px] font-semibold text-black/60">{isEnrollment ? (language === 'es' ? `Integrar a ${selected.offerLabel || 'programa'}` : 'Create enrollment') : (language === 'es' ? 'Crear acción' : 'Create action')}</button>
                     </> : <span className="text-[10px] text-black/30">{statusLabel(registration.status, language)}</span>}
               </div>
             </div>;
-          })}{filteredRegistrations.length === 0 && <div className="p-9 text-center text-sm text-black/35">{language === 'es' ? 'No hay participantes registrados en este webinar.' : 'No participants registered for this webinar.'}</div>}</div>
+          })}{filteredRegistrations.length === 0 && <div className="p-9 text-center text-sm text-black/35">{language === 'es' ? 'No hay participantes que coincidan.' : 'No matching participants.'}</div>}</div>
         </section>
       </div> : <section className="grid min-h-[340px] place-items-center rounded-2xl border border-black/10 bg-white p-8 text-center"><div><Presentation className="mx-auto h-8 w-8 text-black/20" /><p className="mt-3 text-sm font-semibold">{language === 'es' ? 'Crea o selecciona un webinar.' : 'Create or select a webinar.'}</p></div></section>}
     </div>

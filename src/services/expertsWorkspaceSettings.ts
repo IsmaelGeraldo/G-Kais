@@ -194,6 +194,7 @@ export function readLocalExpertsWorkspaceSettings(): ExpertsWorkspaceSettings {
   if (window.localStorage.getItem(SURFACE_SCALE_MIGRATION_KEY) !== '1') {
     if (typeof storedAppearance.surfaceIntensity === 'number') {
       storedAppearance.surfaceIntensity = legacySurfaceToCurrent(storedAppearance.surfaceIntensity);
+      try { window.localStorage.setItem(APPEARANCE_KEY, JSON.stringify(storedAppearance)); } catch {}
     }
     try { window.localStorage.setItem(SURFACE_SCALE_MIGRATION_KEY, '1'); } catch {}
   }

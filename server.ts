@@ -18,6 +18,7 @@ import {
   analyzeLeadWithGemini,
   sanitizeLeadIntelligenceInput
 } from './src/server/services/leadIntelligence';
+import { registerWorkspaceAiRoutes } from './src/server/routes/workspaceAi';
 
 async function startServer() {
   const app = express();
@@ -44,6 +45,9 @@ async function startServer() {
     }
     next(err);
   });
+
+  // Workspace AI is authorized independently from global admin-only routes.
+  registerWorkspaceAiRoutes(app);
 
   // 2. Service liveness endpoint.
   // Public intake currently persists through the Firebase Web SDK, so this

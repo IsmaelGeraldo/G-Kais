@@ -7,9 +7,9 @@ import {
   getDocs,
   limit,
   query,
+  runTransaction,
   serverTimestamp,
   setDoc,
-  updateDoc,
   where
 } from 'firebase/firestore';
 import { firebaseAuth, firestoreDb } from '../lib/firebase';
@@ -69,6 +69,23 @@ function sanitize<T>(value: T): T {
 
 function createId(prefix: string): string {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function stableHash(value: string, seed: number): string {
+  let hash = seed >>> 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619) >>> 0;
+  }
+  return hash.toString(36).padStart(7, '0');
+}
+
+function deterministicPersonId(email: string, phone: string): string {
+  const kind = email ? 'e' : 'p';
+  const identity = email || phone;
+  const first = stableHash(identity, 2166136261);
+  const second = stableHash(identity.split('').reverse().join(''), 2246822519);
+  return `person-${kind}-${first}${second}`;
 }
 
 function relationshipId(prefix: string, left: string, right: string): string {
@@ -138,44 +155,44 @@ export async function upsertExpertPerson(input: PersonIdentityInput): Promise<Pe
   const existing = await resolveExistingPerson(workspaceId, email, phone);
   const stage = input.stage || 'lead';
   const source = (input.source || '').trim();
+  const personId = existing?.id || deterministicPersonId(email, phone);
+  const personRef = workspaceDocument(workspaceId, 'people', personId);
 
-  if (existing) {
-    const current = existing.data() as Record<string, unknown>;
+  return runTransaction(firestoreDb, async (transaction) => {
+    const snapshot = await transaction.get(personRef);
+    const current = snapshot.exists() ? snapshot.data() as Record<string, unknown> : {};
+
+    if (!existing && snapshot.exists()) {
+      const currentEmail = typeof current.normalizedEmail === 'string' ? current.normalizedEmail : '';
+      const currentPhone = typeof current.normalizedPhone === 'string' ? current.normalizedPhone : '';
+      if ((email && currentEmail && currentEmail !== email) || (!email && phone && currentPhone && currentPhone !== phone)) {
+        throw new Error('IDENTITY_CONFLICT');
+      }
+    }
+
     const currentMemory = current.outcomeMemory && typeof current.outcomeMemory === 'object'
       ? current.outcomeMemory as Record<string, unknown>
       : {};
-    await setDoc(existing.ref, {
+    const created = !snapshot.exists();
+
+    transaction.set(personRef, {
       schemaVersion: SCHEMA_VERSION,
       name,
       email: displayEmail || current.email || '',
       phone: displayPhone || current.phone || '',
       normalizedEmail: email || current.normalizedEmail || '',
       normalizedPhone: phone || current.normalizedPhone || '',
-      currentStage: strongerStage(current.currentStage, stage),
+      firstSource: current.firstSource || source,
       ...(source ? { latestSource: source } : {}),
+      currentStage: strongerStage(current.currentStage, stage),
       outcomeMemory: sanitize({ ...currentMemory, ...(input.outcomeMemory || {}) }),
+      sourceRefs: current.sourceRefs && typeof current.sourceRefs === 'object' ? current.sourceRefs : {},
+      ...(created ? { createdAt: serverTimestamp() } : {}),
       updatedAt: serverTimestamp()
     }, { merge: true });
-    return { personId: existing.id, created: false };
-  }
 
-  const personId = createId('person');
-  await setDoc(workspaceDocument(workspaceId, 'people', personId), {
-    schemaVersion: SCHEMA_VERSION,
-    name,
-    email: displayEmail,
-    phone: displayPhone,
-    normalizedEmail: email,
-    normalizedPhone: phone,
-    firstSource: source,
-    latestSource: source,
-    currentStage: stage,
-    outcomeMemory: sanitize(input.outcomeMemory || {}),
-    sourceRefs: {},
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp()
+    return { personId, created };
   });
-  return { personId, created: true };
 }
 
 export async function linkMentoringClientToPerson(clientId: string, personId: string): Promise<void> {
@@ -183,19 +200,27 @@ export async function linkMentoringClientToPerson(clientId: string, personId: st
   if (!user || !clientId || !personId) return;
   const workspaceId = await activeWorkspaceId(user);
   const clientRef = workspaceDocument(workspaceId, 'clients', clientId);
-  const clientSnapshot = await getDoc(clientRef);
-  if (!clientSnapshot.exists()) return;
-  const data = clientSnapshot.data() as ClientEnvelope;
-  const update: Record<string, unknown> = {
-    'record.personId': personId,
-    updatedAt: serverTimestamp()
-  };
-  if (data.session?.id) update['session.personId'] = personId;
-  await updateDoc(clientRef, update);
-  await updateDoc(workspaceDocument(workspaceId, 'people', personId), {
-    'sourceRefs.clientIds': arrayUnion(clientId),
-    currentStage: 'mentoring',
-    updatedAt: serverTimestamp()
+  const personRef = workspaceDocument(workspaceId, 'people', personId);
+
+  await runTransaction(firestoreDb, async (transaction) => {
+    const [clientSnapshot, personSnapshot] = await Promise.all([
+      transaction.get(clientRef),
+      transaction.get(personRef)
+    ]);
+    if (!clientSnapshot.exists()) return;
+    if (!personSnapshot.exists()) throw new Error('PERSON_NOT_FOUND');
+    const data = clientSnapshot.data() as ClientEnvelope;
+    const update: Record<string, unknown> = {
+      'record.personId': personId,
+      updatedAt: serverTimestamp()
+    };
+    if (data.session?.id) update['session.personId'] = personId;
+    transaction.update(clientRef, update);
+    transaction.update(personRef, {
+      'sourceRefs.clientIds': arrayUnion(clientId),
+      currentStage: 'mentoring',
+      updatedAt: serverTimestamp()
+    });
   });
 }
 
@@ -266,30 +291,38 @@ export async function recordExpertWebinarRegistration(input: PersonIdentityInput
   const person = await upsertExpertPerson({ ...input, stage: 'webinar' });
   const registrationId = relationshipId('webreg', input.webinarId, person.personId);
   const registrationRef = workspaceDocument(workspaceId, 'webinar_registrations', registrationId);
-  const registrationSnapshot = await getDoc(registrationRef);
+  const personRef = workspaceDocument(workspaceId, 'people', person.personId);
   const status = input.status || 'registered';
   const attendanceMinutes = Math.max(0, Math.round(input.attendanceMinutes || 0));
   const purchased = Boolean(input.purchased);
   const interest = input.interest || 'unknown';
-  await setDoc(registrationRef, {
-    schemaVersion: SCHEMA_VERSION,
-    personId: person.personId,
-    webinarId: input.webinarId,
-    status,
-    attendanceMinutes,
-    purchased,
-    interest,
-    ...(!registrationSnapshot.exists() ? { registeredAt: serverTimestamp() } : {}),
-    updatedAt: serverTimestamp()
-  }, { merge: true });
-  await updateDoc(workspaceDocument(workspaceId, 'people', person.personId), {
-    'sourceRefs.webinarIds': arrayUnion(input.webinarId),
-    'outcomeMemory.lastWebinarId': input.webinarId,
-    'outcomeMemory.lastWebinarStatus': status,
-    'outcomeMemory.lastWebinarAttendanceMinutes': attendanceMinutes,
-    'outcomeMemory.lastWebinarPurchased': purchased,
-    'outcomeMemory.lastWebinarInterest': interest,
-    updatedAt: serverTimestamp()
+
+  await runTransaction(firestoreDb, async (transaction) => {
+    const [registrationSnapshot, personSnapshot] = await Promise.all([
+      transaction.get(registrationRef),
+      transaction.get(personRef)
+    ]);
+    if (!personSnapshot.exists()) throw new Error('PERSON_NOT_FOUND');
+    transaction.set(registrationRef, {
+      schemaVersion: SCHEMA_VERSION,
+      personId: person.personId,
+      webinarId: input.webinarId,
+      status,
+      attendanceMinutes,
+      purchased,
+      interest,
+      ...(!registrationSnapshot.exists() ? { registeredAt: serverTimestamp() } : {}),
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+    transaction.update(personRef, {
+      'sourceRefs.webinarIds': arrayUnion(input.webinarId),
+      'outcomeMemory.lastWebinarId': input.webinarId,
+      'outcomeMemory.lastWebinarStatus': status,
+      'outcomeMemory.lastWebinarAttendanceMinutes': attendanceMinutes,
+      'outcomeMemory.lastWebinarPurchased': purchased,
+      'outcomeMemory.lastWebinarInterest': interest,
+      updatedAt: serverTimestamp()
+    });
   });
   return { registrationId, personId: person.personId };
 }
@@ -339,33 +372,37 @@ export async function createExpertEnrollment(input: {
   const workspaceId = await activeWorkspaceId(user);
   const id = relationshipId('enrollment', input.cohortId, input.personId);
   const enrollmentRef = workspaceDocument(workspaceId, 'enrollments', id);
-  const enrollmentSnapshot = await getDoc(enrollmentRef);
+  const personRef = workspaceDocument(workspaceId, 'people', input.personId);
   const status = input.status || 'active';
   const progress = Math.max(0, Math.min(100, Math.round(input.progress || 0)));
-  await setDoc(enrollmentRef, {
-    schemaVersion: SCHEMA_VERSION,
-    personId: input.personId,
-    formationId: input.formationId,
-    cohortId: input.cohortId,
-    status,
-    progress,
-    ...(!enrollmentSnapshot.exists() ? { joinedAt: serverTimestamp() } : {}),
-    updatedAt: serverTimestamp()
-  }, { merge: true });
-
-  const personRef = workspaceDocument(workspaceId, 'people', input.personId);
-  const personSnapshot = await getDoc(personRef);
-  if (!personSnapshot.exists()) throw new Error('PERSON_NOT_FOUND');
   const nextStage: RelationshipStage = status === 'completed' ? 'alumni' : 'student';
-  await updateDoc(personRef, {
-    currentStage: strongerStage(personSnapshot.data().currentStage, nextStage),
-    'sourceRefs.formationIds': arrayUnion(input.formationId),
-    'sourceRefs.cohortIds': arrayUnion(input.cohortId),
-    'outcomeMemory.currentFormationId': input.formationId,
-    'outcomeMemory.currentCohortId': input.cohortId,
-    'outcomeMemory.currentEnrollmentStatus': status,
-    'outcomeMemory.currentFormationProgress': progress,
-    updatedAt: serverTimestamp()
+
+  await runTransaction(firestoreDb, async (transaction) => {
+    const [enrollmentSnapshot, personSnapshot] = await Promise.all([
+      transaction.get(enrollmentRef),
+      transaction.get(personRef)
+    ]);
+    if (!personSnapshot.exists()) throw new Error('PERSON_NOT_FOUND');
+    transaction.set(enrollmentRef, {
+      schemaVersion: SCHEMA_VERSION,
+      personId: input.personId,
+      formationId: input.formationId,
+      cohortId: input.cohortId,
+      status,
+      progress,
+      ...(!enrollmentSnapshot.exists() ? { joinedAt: serverTimestamp() } : {}),
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+    transaction.update(personRef, {
+      currentStage: strongerStage(personSnapshot.data().currentStage, nextStage),
+      'sourceRefs.formationIds': arrayUnion(input.formationId),
+      'sourceRefs.cohortIds': arrayUnion(input.cohortId),
+      'outcomeMemory.currentFormationId': input.formationId,
+      'outcomeMemory.currentCohortId': input.cohortId,
+      'outcomeMemory.currentEnrollmentStatus': status,
+      'outcomeMemory.currentFormationProgress': progress,
+      updatedAt: serverTimestamp()
+    });
   });
   return id;
 }

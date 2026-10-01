@@ -1,11 +1,15 @@
-import type { Express, Request, Response } from 'express';
+import type { Express, NextFunction, Request, Response } from 'express';
 import { verifyWorkspaceBearerToken } from '../auth/workspaceAuth';
 import {
   analyzeLeadWithGemini,
   sanitizeLeadIntelligenceInput
 } from '../services/leadIntelligence';
 
-async function sessionBriefHandler(req: Request, res: Response) {
+async function sessionBriefHandler(
+  req: Request,
+  res: Response,
+  next?: NextFunction
+) {
   try {
     const identity = await verifyWorkspaceBearerToken(
       req.headers.authorization,
@@ -13,6 +17,7 @@ async function sessionBriefHandler(req: Request, res: Response) {
     );
 
     if (!identity) {
+      if (next) return next();
       return res.status(403).json({
         success: false,
         code: 'WORKSPACE_FORBIDDEN',
@@ -57,11 +62,11 @@ async function sessionBriefHandler(req: Request, res: Response) {
 }
 
 export function registerWorkspaceAiRoutes(app: Express): void {
-  app.post('/api/workspace/ai/session-brief', sessionBriefHandler);
+  app.post('/api/workspace/ai/session-brief', (req, res) => sessionBriefHandler(req, res));
 
-  // Compatibility alias for the current Session Copilot client. This route is
-  // registered before the legacy admin-only handler in server.ts, so session
-  // Copilot requests use Workspace membership/permissions without broadening
-  // any admin email endpoint.
-  app.post('/api/admin/ai/lead-brief', sessionBriefHandler);
+  // Compatibility alias for the current Session Copilot client. Workspace
+  // members with mentoring access are handled here. If the caller is not a
+  // Workspace-authorized user, control falls through to the existing strict
+  // global-admin handler registered later in server.ts.
+  app.post('/api/admin/ai/lead-brief', (req, res, next) => sessionBriefHandler(req, res, next));
 }

@@ -1,5 +1,6 @@
 import {
   collection,
+  deleteField,
   doc,
   getDoc,
   getDocs,
@@ -68,14 +69,14 @@ function relationshipId(prefix: string, left: string, right: string): string {
   return `${prefix}-${left}-${right}`.slice(0, 420);
 }
 
-function sanitize<T>(value: T): T {
-  if (Array.isArray(value)) return value.map((item) => sanitize(item)) as T;
+function sanitizePlain<T>(value: T): T {
+  if (Array.isArray(value)) return value.map((item) => sanitizePlain(item)) as T;
   if (value && typeof value === 'object') {
     if (value instanceof Date) return value;
     return Object.fromEntries(
       Object.entries(value as Record<string, unknown>)
         .filter(([, item]) => item !== undefined)
-        .map(([key, item]) => [key, sanitize(item)])
+        .map(([key, item]) => [key, sanitizePlain(item)])
     ) as T;
   }
   return value;
@@ -236,8 +237,11 @@ export async function createOperationalWebinar(input: {
 
 export async function updateOperationalWebinar(webinarId: string, patch: Partial<Omit<ExpertWebinar, 'id'>>): Promise<void> {
   const id = await workspaceId();
-  await updateDoc(workspaceDocument(id, 'webinars', webinarId), sanitize({ ...patch, updatedAt: serverTimestamp() }));
-  await appendExpertAuditLog({ entityType: 'webinar', entityId: webinarId, action: 'webinar.updated', changes: sanitize(patch) }).catch(() => {});
+  await updateDoc(workspaceDocument(id, 'webinars', webinarId), {
+    ...sanitizePlain(patch),
+    updatedAt: serverTimestamp()
+  });
+  await appendExpertAuditLog({ entityType: 'webinar', entityId: webinarId, action: 'webinar.updated', changes: sanitizePlain(patch) }).catch(() => {});
 }
 
 export async function recordOperationalWebinarRegistration(input: {
@@ -274,7 +278,7 @@ export async function recordOperationalWebinarRegistration(input: {
       ? previous.followUpStatus
       : (status === 'attended' || status === 'no-show') ? 'needed' : undefined;
 
-  await setDoc(registrationRef, sanitize({
+  await setDoc(registrationRef, {
     schemaVersion: SCHEMA_VERSION,
     personId: person.personId,
     webinarId: input.webinarId,
@@ -282,16 +286,22 @@ export async function recordOperationalWebinarRegistration(input: {
     attendanceMinutes,
     purchased,
     interest,
-    ...(followUpStatus ? { followUpStatus } : {}),
+    followUpStatus: followUpStatus || deleteField(),
     ...(!existingSnapshot.exists() ? { registeredAt: serverTimestamp() } : {}),
     updatedAt: serverTimestamp()
-  }), { merge: true });
+  }, { merge: true });
 
-  await setDoc(workspaceDocument(id, 'people', person.personId), {
+  const personRef = workspaceDocument(id, 'people', person.personId);
+  const personSnapshot = await getDoc(personRef);
+  const currentMemory = personSnapshot.exists() && personSnapshot.data().outcomeMemory && typeof personSnapshot.data().outcomeMemory === 'object'
+    ? personSnapshot.data().outcomeMemory as Record<string, unknown>
+    : {};
+  await setDoc(personRef, {
     latestSource: 'webinar',
-    outcomeMemory: sanitize({
-      ...(await getDoc(workspaceDocument(id, 'people', person.personId))).data()?.outcomeMemory,
+    outcomeMemory: sanitizePlain({
+      ...currentMemory,
       lastWebinarId: input.webinarId,
+      lastWebinarRegistrationId: registrationId,
       lastWebinarStatus: status,
       lastWebinarAttendanceMinutes: attendanceMinutes,
       lastWebinarPurchased: purchased,
@@ -364,10 +374,13 @@ export async function createWebinarFollowUp(input: {
   const title = input.registration.status === 'no-show'
     ? `Recuperar no-show · ${input.webinar.title}`
     : `Seguimiento post-webinar · ${input.webinar.title}`;
+  const existingCreatedAt = existingTask.exists()
+    ? ((existingTask.data() as { task?: { createdAt?: string } }).task?.createdAt || new Date().toISOString())
+    : new Date().toISOString();
 
   await setDoc(taskRef, {
     schemaVersion: SCHEMA_VERSION,
-    task: sanitize({
+    task: sanitizePlain({
       id: taskId,
       clientId: '',
       clientName: input.person.name,
@@ -382,9 +395,7 @@ export async function createWebinarFollowUp(input: {
       assignedToName: input.assignee.displayName || input.assignee.email,
       createdByUid: user.uid,
       status: 'pending',
-      createdAt: existingTask.exists()
-        ? ((existingTask.data() as { task?: { createdAt?: string } }).task?.createdAt || new Date().toISOString())
-        : new Date().toISOString(),
+      createdAt: existingCreatedAt,
       source: 'webinar',
       sourceId: input.webinar.id,
       sourceRegistrationId: input.registration.id,
@@ -398,12 +409,13 @@ export async function createWebinarFollowUp(input: {
     followUpStatus: 'created',
     updatedAt: serverTimestamp()
   });
-  const personSnapshot = await getDoc(workspaceDocument(id, 'people', input.person.id));
+  const personRef = workspaceDocument(id, 'people', input.person.id);
+  const personSnapshot = await getDoc(personRef);
   const currentMemory = personSnapshot.exists() && personSnapshot.data().outcomeMemory && typeof personSnapshot.data().outcomeMemory === 'object'
     ? personSnapshot.data().outcomeMemory as Record<string, unknown>
     : {};
-  await setDoc(workspaceDocument(id, 'people', input.person.id), {
-    outcomeMemory: sanitize({
+  await setDoc(personRef, {
+    outcomeMemory: sanitizePlain({
       ...currentMemory,
       webinarFollowUpStatus: 'created',
       nextActionType: input.type || 'whatsapp',
@@ -429,23 +441,20 @@ export async function createWebinarFollowUp(input: {
   return taskId;
 }
 
-export async function markWebinarFollowUpCompleted(registrationId: string, personId: string, result: string): Promise<void> {
+export async function syncWebinarFollowUpOutcome(personId: string, result: string): Promise<void> {
+  const user = firebaseAuth.currentUser;
+  if (!user) return;
   const id = await workspaceId();
-  const registrationRef = workspaceDocument(id, 'webinar_registrations', registrationId);
-  const snapshot = await getDoc(registrationRef);
+  if (id !== user.uid) return;
+  const personRef = workspaceDocument(id, 'people', personId);
+  const snapshot = await getDoc(personRef);
   if (!snapshot.exists()) return;
-  await updateDoc(registrationRef, {
-    followUpStatus: 'completed',
-    followUpResult: result.trim(),
-    followUpCompletedAt: serverTimestamp(),
-    updatedAt: serverTimestamp()
-  });
-  const personSnapshot = await getDoc(workspaceDocument(id, 'people', personId));
-  const currentMemory = personSnapshot.exists() && personSnapshot.data().outcomeMemory && typeof personSnapshot.data().outcomeMemory === 'object'
-    ? personSnapshot.data().outcomeMemory as Record<string, unknown>
+  const currentMemory = snapshot.data().outcomeMemory && typeof snapshot.data().outcomeMemory === 'object'
+    ? snapshot.data().outcomeMemory as Record<string, unknown>
     : {};
-  await setDoc(workspaceDocument(id, 'people', personId), {
-    outcomeMemory: sanitize({
+  if (currentMemory.webinarFollowUpStatus === 'completed' && currentMemory.lastFollowUpResult === result.trim()) return;
+  await setDoc(personRef, {
+    outcomeMemory: sanitizePlain({
       ...currentMemory,
       webinarFollowUpStatus: 'completed',
       lastFollowUpResult: result.trim(),
@@ -456,4 +465,37 @@ export async function markWebinarFollowUpCompleted(registrationId: string, perso
     }),
     updatedAt: serverTimestamp()
   }, { merge: true });
+}
+
+export async function markWebinarFollowUpCompleted(registrationId: string, personId: string, result: string): Promise<void> {
+  const user = firebaseAuth.currentUser;
+  if (!user) throw new Error('AUTH_REQUIRED');
+  const id = await workspaceId();
+  const registrationRef = workspaceDocument(id, 'webinar_registrations', registrationId);
+  const snapshot = await getDoc(registrationRef);
+  if (!snapshot.exists()) return;
+  const registration = mapRegistration(snapshot.id, snapshot.data() as Record<string, unknown>);
+  if (registration.followUpStatus !== 'completed' || registration.followUpResult !== result.trim()) {
+    await updateDoc(registrationRef, {
+      followUpStatus: 'completed',
+      followUpResult: result.trim(),
+      followUpCompletedAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+  }
+  await appendExpertRelationshipEvent({
+    personId,
+    type: 'webinar.followup_completed',
+    sourceType: 'work_task',
+    sourceId: registration.followUpTaskId || registrationId,
+    idempotencyKey: `${registrationId}:followup_completed`,
+    metadata: { webinarId: registration.webinarId, registrationId, result: result.trim() }
+  }).catch(() => {});
+  await appendExpertAuditLog({
+    entityType: 'webinar_registration',
+    entityId: registrationId,
+    action: 'webinar.followup_completed',
+    changes: { personId, result: result.trim(), actorUid: user.uid }
+  }).catch(() => {});
+  if (id === user.uid) await syncWebinarFollowUpOutcome(personId, result);
 }

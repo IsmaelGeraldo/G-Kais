@@ -16,6 +16,8 @@ export const THEME_COLORS = [
   { id: 'smoke-black', label: 'Negro humo', hex: '#181A19' }, { id: 'black', label: 'Negro', hex: '#000000' }
 ];
 
+const WINDOW_COLORS = [{ id: 'white', label: 'Blanco', hex: '#FFFFFF' }, ...THEME_COLORS];
+
 export function themeColor(id: string): string {
   return THEME_COLORS.find((item) => item.id === id)?.hex ?? THEME_COLORS[0].hex;
 }
@@ -29,20 +31,6 @@ export function workspaceBackground(color: string, intensity: number): string {
   return `linear-gradient(135deg, color-mix(in srgb, ${color} ${Math.max(3, amount - 8)}%, #FAFAF7) 0%, color-mix(in srgb, ${color} ${amount}%, #F2F2ED) 100%)`;
 }
 
-function previewSurfaceStyle(value: number): React.CSSProperties {
-  const intensity = Math.max(0, Math.min(20, Math.round(value)));
-  if (intensity === 0) return { background: '#FFFFFF' };
-  const t = intensity / 20;
-  const darkMix = Math.min(98, Math.round(98 * t * t));
-  const whiteAlpha = Math.max(0.56, 0.98 - 0.42 * Math.pow(t, 1.15));
-  const blur = 24 - 8 * t;
-  return {
-    background: `color-mix(in srgb, #151716 ${darkMix}%, rgba(255,255,255,${whiteAlpha.toFixed(3)}))`,
-    backdropFilter: `blur(${blur.toFixed(1)}px) saturate(${(1.16 - 0.06 * t).toFixed(3)})`,
-    boxShadow: `0 14px 34px rgba(20,24,22,${(0.04 + 0.06 * t).toFixed(3)}), inset 0 1px 0 rgba(255,255,255,${Math.max(0.12, 0.72 - 0.46 * t).toFixed(3)})`
-  };
-}
-
 export function WorkspaceSettingsProfile({ language, profile, setProfile, appearance, setAppearance }: {
   language: Language;
   profile: WorkspaceProfile;
@@ -51,8 +39,7 @@ export function WorkspaceSettingsProfile({ language, profile, setProfile, appear
   setAppearance: React.Dispatch<React.SetStateAction<WorkspaceAppearance>>;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
-  const surfaceIntensity = appearance.surfaceIntensity ?? 0;
-  const surfaceDark = surfaceIntensity >= 15;
+  const surfaceIndex = Math.max(0, Math.min(WINDOW_COLORS.length - 1, Math.round(appearance.surfaceIntensity ?? 0)));
   const handleFile = (file?: File) => {
     if (!file) return;
     const reader = new FileReader();
@@ -84,9 +71,8 @@ export function WorkspaceSettingsProfile({ language, profile, setProfile, appear
       </section>
 
       <section className="rounded-2xl border border-black/10 bg-white p-5 shadow-[0_10px_30px_rgba(10,10,10,0.035)]">
-        <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#0A3F4D]">{language === 'es' ? 'VENTANAS' : 'SURFACES'}</p><h3 className="mt-2 text-lg font-semibold">{language === 'es' ? 'Apariencia de ventanas' : 'Window appearance'}</h3><p className="mt-2 text-xs leading-5 text-black/50">{language === 'es' ? '0 mantiene el blanco original. Los primeros niveles añaden un glass suave antes de oscurecer progresivamente.' : '0 keeps the original white. Early levels add soft glass before gradually darkening.'}</p></div><Layers3 className="h-5 w-5 shrink-0 text-[#0A3F4D]" /></div>
-        <div className="mt-5 rounded-xl border border-black/8 p-4 transition-all duration-200" style={previewSurfaceStyle(surfaceIntensity)}><p className={`text-sm font-semibold ${surfaceDark ? 'text-white' : 'text-black/75'}`}>{language === 'es' ? 'Vista previa' : 'Preview'}</p><p className={`mt-1 text-xs ${surfaceDark ? 'text-white/60' : 'text-black/45'}`}>{language === 'es' ? 'Blanco → Glass → Negro' : 'White → Glass → Black'}</p></div>
-        <div className="mt-5"><div className="grid grid-cols-3 items-center text-xs font-semibold"><span>{language === 'es' ? 'Blanco' : 'White'}</span><span className="text-center">{surfaceIntensity}/20</span><span className="text-right">{language === 'es' ? 'Negro' : 'Black'}</span></div><input type="range" min="0" max="20" step="1" value={surfaceIntensity} onChange={(event) => setAppearance((current) => ({ ...current, surfaceIntensity: Number(event.target.value) }))} className="mt-2 w-full" /></div>
+        <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#0A3F4D]">{language === 'es' ? 'VENTANAS' : 'SURFACES'}</p><h3 className="mt-2 text-lg font-semibold">{language === 'es' ? 'Color de ventanas' : 'Window color'}</h3><p className="mt-2 text-xs leading-5 text-black/50">{language === 'es' ? 'Elige una paleta independiente para las tarjetas. Blanco conserva la apariencia original.' : 'Choose an independent palette for cards. White keeps the original appearance.'}</p></div><Layers3 className="h-5 w-5 shrink-0 text-[#0A3F4D]" /></div>
+        <div className="mt-4 grid grid-cols-3 gap-2">{WINDOW_COLORS.map((item, index) => <button key={item.id} type="button" onClick={() => setAppearance((current) => ({ ...current, surfaceIntensity: index }))} className={`flex min-w-0 items-center gap-1.5 rounded-lg border px-2 py-2 text-[9px] font-semibold transition ${surfaceIndex === index ? 'border-black/35 ring-2 ring-black/8' : 'border-black/8'}`}><span className="h-3.5 w-3.5 shrink-0 rounded-full border border-black/10" style={{ background: item.hex }} /><span className="truncate">{item.label}</span></button>)}</div>
       </section>
     </div>
   </div>;

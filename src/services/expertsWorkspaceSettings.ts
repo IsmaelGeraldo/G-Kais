@@ -7,7 +7,7 @@ const PROFILE_KEY = 'gkais-experts-profile-v1';
 const APPEARANCE_KEY = 'gkais-experts-appearance-v2';
 const LANGUAGE_KEY = 'gkais-language';
 const RELOAD_GUARD_KEY = 'gkais-experts-settings-reload-v1';
-const SURFACE_SCALE_MIGRATION_KEY = 'gkais-window-surface-scale-v2';
+const SURFACE_PALETTE_MIGRATION_KEY = 'gkais-window-surface-palette-v1';
 const SCHEMA_VERSION = 1;
 
 export const WORKSPACE_SETTINGS_EVENT = 'gkais:workspace-settings-hydrated';
@@ -68,6 +68,26 @@ const THEME_HEX: Record<string, string> = {
   amber: '#9A7629', sand: '#A58A65', graphite: '#3B3E3D', charcoal: '#292C2B', 'smoke-black': '#181A19', black: '#000000'
 };
 
+const SURFACE_PALETTE = [
+  { id: 'white', hex: '#FFFFFF' },
+  { id: 'stone', hex: '#77807A' },
+  { id: 'teal', hex: '#0A6B66' },
+  { id: 'green', hex: '#3D7A57' },
+  { id: 'blue', hex: '#37699A' },
+  { id: 'sky', hex: '#5B8EAD' },
+  { id: 'indigo', hex: '#5357A6' },
+  { id: 'violet', hex: '#76589B' },
+  { id: 'rose', hex: '#A15E78' },
+  { id: 'terracotta', hex: '#9A5449' },
+  { id: 'orange', hex: '#B46A32' },
+  { id: 'amber', hex: '#9A7629' },
+  { id: 'sand', hex: '#A58A65' },
+  { id: 'graphite', hex: '#3B3E3D' },
+  { id: 'charcoal', hex: '#292C2B' },
+  { id: 'smoke-black', hex: '#181A19' },
+  { id: 'black', hex: '#000000' }
+];
+
 let lastPersistedFingerprint = '';
 
 function safeParse<T>(value: string | null, fallback: T): T {
@@ -85,33 +105,26 @@ function clampIntensity(value: unknown, fallback: number): number {
   return Number.isFinite(number) ? Math.max(1, Math.min(10, Math.round(number))) : fallback;
 }
 
-function clampSurfaceIntensity(value: unknown, fallback: number): number {
+function clampSurfaceIndex(value: unknown, fallback: number): number {
   const number = Number(value);
-  return Number.isFinite(number) ? Math.max(0, Math.min(20, Math.round(number))) : fallback;
-}
-
-function legacySurfaceToCurrent(value: unknown): number {
-  const legacy = Number(value);
-  if (!Number.isFinite(legacy)) return DEFAULT_APPEARANCE.surfaceIntensity;
-  return Math.round(((Math.max(1, Math.min(10, legacy)) - 1) / 9) * 20);
+  return Number.isFinite(number) ? Math.max(0, Math.min(SURFACE_PALETTE.length - 1, Math.round(number))) : fallback;
 }
 
 function decodeSidebar(rawValue: unknown, fallback: ExpertsWorkspaceAppearance): { sidebar: string; surfaceIntensity: number } {
   const raw = typeof rawValue === 'string' ? rawValue : fallback.sidebar;
-  const currentMatch = raw.match(/^(.*)\|surface2:(\d{1,2})$/);
+  const currentMatch = raw.match(/^(.*)\|surface3:(\d{1,2})$/);
   if (currentMatch) {
     return {
       sidebar: currentMatch[1] || fallback.sidebar,
-      surfaceIntensity: clampSurfaceIntensity(currentMatch[2], fallback.surfaceIntensity)
+      surfaceIntensity: clampSurfaceIndex(currentMatch[2], fallback.surfaceIntensity)
     };
   }
 
-  const legacyMatch = raw.match(/^(.*)\|surface:(\d{1,2})$/);
+  // Older surface sliders are intentionally reset to white because the product
+  // now uses a discrete color palette rather than a progressive darkening scale.
+  const legacyMatch = raw.match(/^(.*)\|surface(?:2)?:\d{1,2}$/);
   if (legacyMatch) {
-    return {
-      sidebar: legacyMatch[1] || fallback.sidebar,
-      surfaceIntensity: legacySurfaceToCurrent(legacyMatch[2])
-    };
+    return { sidebar: legacyMatch[1] || fallback.sidebar, surfaceIntensity: 0 };
   }
 
   return { sidebar: raw, surfaceIntensity: fallback.surfaceIntensity };
@@ -134,13 +147,14 @@ function normalizeAppearance(value: Partial<ExpertsWorkspaceAppearance> | Partia
     intensity: clampIntensity(value?.intensity, fallback.intensity),
     sidebar: decoded.sidebar,
     sidebarIntensity: clampIntensity(value?.sidebarIntensity, fallback.sidebarIntensity),
-    surfaceIntensity: clampSurfaceIntensity(explicitSurface, decoded.surfaceIntensity)
+    surfaceIntensity: clampSurfaceIndex(explicitSurface, decoded.surfaceIntensity)
   };
 }
 
 function surfaceVisuals(value: number) {
-  const intensity = clampSurfaceIntensity(value, 0);
-  if (intensity === 0) {
+  const index = clampSurfaceIndex(value, 0);
+  const selected = SURFACE_PALETTE[index] ?? SURFACE_PALETTE[0];
+  if (selected.id === 'white') {
     return {
       surface: '#FFFFFF',
       blur: 0,
@@ -151,21 +165,20 @@ function surfaceVisuals(value: number) {
     };
   }
 
-  const t = intensity / 20;
-  const darkMix = Math.min(98, Math.round(98 * t * t));
-  const whiteAlpha = Math.max(0.56, 0.98 - 0.42 * Math.pow(t, 1.15));
-  const blur = 24 - 8 * t;
-  const saturate = 1.16 - 0.06 * t;
-  const highlightAlpha = Math.max(0.12, 0.72 - 0.46 * t);
-  const outerShadowAlpha = 0.045 + 0.075 * t;
+  let mix = 22;
+  if (selected.id === 'graphite') mix = 44;
+  if (selected.id === 'charcoal') mix = 64;
+  if (selected.id === 'smoke-black') mix = 82;
+  if (selected.id === 'black') mix = 96;
+  const dark = ['charcoal', 'smoke-black', 'black'].includes(selected.id);
 
   return {
-    surface: `color-mix(in srgb, #151716 ${darkMix}%, rgba(255,255,255,${whiteAlpha.toFixed(3)}))`,
-    blur,
-    saturate,
-    border: intensity >= 15 ? 'rgba(255,255,255,0.11)' : `rgba(255,255,255,${Math.max(0.24, 0.68 - 0.26 * t).toFixed(3)})`,
-    shadow: `0 18px 48px rgba(20,24,22,${outerShadowAlpha.toFixed(3)}), inset 0 1px 0 rgba(255,255,255,${highlightAlpha.toFixed(3)})`,
-    dark: intensity >= 15
+    surface: `color-mix(in srgb, ${selected.hex} ${mix}%, rgba(255,255,255,0.96))`,
+    blur: 12,
+    saturate: 1.06,
+    border: dark ? 'rgba(255,255,255,0.11)' : 'rgba(10,10,10,0.08)',
+    shadow: dark ? '0 16px 38px rgba(0,0,0,0.12)' : '0 14px 34px rgba(10,10,10,0.05)',
+    dark
   };
 }
 
@@ -176,8 +189,8 @@ function applyWorkspaceSurface(appearance: ExpertsWorkspaceAppearance): void {
   const accent = THEME_HEX[accentId] ?? THEME_HEX.stone;
   const root = document.documentElement;
   root.style.setProperty('--gkais-window-surface', visuals.surface);
-  root.style.setProperty('--gkais-window-blur', `${visuals.blur.toFixed(1)}px`);
-  root.style.setProperty('--gkais-window-saturate', visuals.saturate.toFixed(3));
+  root.style.setProperty('--gkais-window-blur', `${visuals.blur}px`);
+  root.style.setProperty('--gkais-window-saturate', String(visuals.saturate));
   root.style.setProperty('--gkais-window-border', visuals.border);
   root.style.setProperty('--gkais-window-shadow', visuals.shadow);
   root.style.setProperty('--gkais-sidebar-accent', accent);
@@ -191,12 +204,12 @@ export function readLocalExpertsWorkspaceSettings(): ExpertsWorkspaceSettings {
   const storedAppearance = safeParse<Partial<ExpertsWorkspaceAppearance>>(window.localStorage.getItem(APPEARANCE_KEY), {});
   const storedLanguage = window.localStorage.getItem(LANGUAGE_KEY);
 
-  if (window.localStorage.getItem(SURFACE_SCALE_MIGRATION_KEY) !== '1') {
-    if (typeof storedAppearance.surfaceIntensity === 'number') {
-      storedAppearance.surfaceIntensity = legacySurfaceToCurrent(storedAppearance.surfaceIntensity);
-      try { window.localStorage.setItem(APPEARANCE_KEY, JSON.stringify(storedAppearance)); } catch {}
-    }
-    try { window.localStorage.setItem(SURFACE_SCALE_MIGRATION_KEY, '1'); } catch {}
+  if (window.localStorage.getItem(SURFACE_PALETTE_MIGRATION_KEY) !== '1') {
+    storedAppearance.surfaceIntensity = 0;
+    try {
+      window.localStorage.setItem(APPEARANCE_KEY, JSON.stringify(storedAppearance));
+      window.localStorage.setItem(SURFACE_PALETTE_MIGRATION_KEY, '1');
+    } catch {}
   }
 
   return {
@@ -212,7 +225,7 @@ function writeLocalExpertsWorkspaceSettings(settings: ExpertsWorkspaceSettings):
     window.localStorage.setItem(PROFILE_KEY, JSON.stringify(settings.profile));
     window.localStorage.setItem(APPEARANCE_KEY, JSON.stringify(settings.appearance));
     window.localStorage.setItem(LANGUAGE_KEY, settings.language);
-    window.localStorage.setItem(SURFACE_SCALE_MIGRATION_KEY, '1');
+    window.localStorage.setItem(SURFACE_PALETTE_MIGRATION_KEY, '1');
   } catch {}
   applyWorkspaceSurface(settings.appearance);
 }
@@ -255,7 +268,7 @@ function persistedPayload(settings: ExpertsWorkspaceSettings): Omit<PersistedSet
     appearance: {
       theme: appearance.theme,
       intensity: appearance.intensity,
-      sidebar: `${appearance.sidebar}|surface2:${appearance.surfaceIntensity}`,
+      sidebar: `${appearance.sidebar}|surface3:${appearance.surfaceIntensity}`,
       sidebarIntensity: appearance.sidebarIntensity
     },
     language: settings.language

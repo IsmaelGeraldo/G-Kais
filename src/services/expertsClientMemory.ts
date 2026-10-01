@@ -9,6 +9,11 @@ import {
 } from 'firebase/firestore';
 import { firebaseAuth, firestoreDb } from '../lib/firebase';
 import { resolveActiveExpertWorkspaceId } from './expertsWorkspaceCore';
+import { emitExpertsPersistenceStatus } from './expertsPersistenceStatus';
+import {
+  scopedWorkspaceStorageKey,
+  setActiveExpertWorkspaceStorageScope
+} from './expertsWorkspaceStorage';
 
 const CLIENT_RECORD_STORAGE_KEY = 'gkais-experts-client-records-v2';
 const SESSION_CLIENT_STORAGE_KEY = 'gkais-experts-session-clients-v2';
@@ -19,117 +24,19 @@ type ClientLike = Record<string, unknown> & { id: string };
 type HydrationResult = 'firestore' | 'migrated' | 'local';
 type OutcomeMemory = Record<string, unknown>;
 
-const PILOT_CLIENT_RECORDS: ClientLike[] = [
-  {
-    id: 'sofia',
-    name: 'Sofía Martínez',
-    initials: 'SM',
-    company: 'Sofía Martínez Consulting',
-    businessType: 'Mentoría de negocio',
-    email: 'sofia@example.com',
-    phone: '+56 9 5555 0101',
-    program: 'Mentoría Escala',
-    startDate: '12 ago 2026',
-    duration: '24 semanas',
-    progress: 'Semana 7 / 24',
-    status: 'attention',
-    nextAction: 'Revisar compromisos antes de la próxima sesión',
-    primaryGoal: 'US$15k mensuales',
-    currentPhase: 'Adquisición',
-    nextSession: 'Martes · 15:30',
-    startingPoint: 'Dependencia de referidos y seguimiento comercial irregular.',
-    expectedOutcome: 'Crear adquisición predecible y llegar a US$15k/mes.',
-    currentGap: 'Funnel activo, pero ejecución inconsistente y volumen insuficiente.',
-    planSummary: 'Validar el funnel con suficiente volumen, estabilizar la rutina comercial y aumentar la ejecución semanal antes de cambiar la estrategia.',
-    blockers: ['Ejecución inconsistente', 'Dificultad delegando'],
-    milestones: [
-      { label: 'Oferta redefinida', status: 'done' },
-      { label: 'Landing publicada', status: 'done' }
-    ],
-    commitments: [
-      { label: 'Publicar 3 piezas de contenido', status: 'overdue' },
-      { label: 'Contactar 25 prospectos', status: 'pending' },
-      { label: 'Revisión comercial cada viernes', status: 'done' }
-    ]
-  },
-  {
-    id: 'andres',
-    name: 'Andrés Silva',
-    initials: 'AS',
-    company: 'Silva Growth',
-    businessType: 'Consultoría comercial',
-    email: 'andres@example.com',
-    phone: '+56 9 5555 0102',
-    program: 'Mentoría Escala',
-    startDate: '15 jul 2026',
-    duration: '24 semanas',
-    progress: 'Semana 11 / 24',
-    status: 'active',
-    nextAction: 'Sesión hoy 10:00',
-    primaryGoal: 'US$20k mensuales',
-    currentPhase: 'Conversión',
-    nextSession: 'Hoy · 10:00',
-    startingPoint: 'Buen volumen de oportunidades, pero cierre comercial inconsistente.',
-    expectedOutcome: 'Aumentar la tasa de cierre y estabilizar ingresos mensuales.',
-    currentGap: 'El equipo genera reuniones, pero no existe un proceso de venta consistente.',
-    planSummary: 'Estandarizar diagnóstico, propuesta y seguimiento antes de aumentar inversión en adquisición.',
-    blockers: ['Seguimiento irregular'],
-    milestones: [{ label: 'Guion de diagnóstico definido', status: 'done' }],
-    commitments: [
-      { label: 'Revisar 5 llamadas grabadas', status: 'done' },
-      { label: 'Enviar follow-up dentro de 24h', status: 'pending' }
-    ]
-  },
-  {
-    id: 'diego',
-    name: 'Diego Rojas',
-    initials: 'DR',
-    company: 'Rojas Advisory',
-    businessType: 'Asesoría estratégica',
-    email: 'diego@example.com',
-    phone: '+56 9 5555 0103',
-    program: 'Mentoría Escala',
-    startDate: '20 abr 2026',
-    duration: '24 semanas',
-    progress: 'Semana 22 / 24',
-    status: 'renewal',
-    nextAction: 'Preparar conversación de renovación',
-    primaryGoal: 'Consolidar equipo y delegar delivery',
-    currentPhase: 'Renovación',
-    nextSession: 'Jueves · 12:00',
-    startingPoint: 'El fundador concentraba ventas, delivery y operación.',
-    expectedOutcome: 'Delegar operación y mantener crecimiento sin aumentar carga personal.',
-    currentGap: 'La delegación mejoró, pero aún existen decisiones críticas concentradas en el fundador.',
-    planSummary: 'Cerrar el ciclo actual midiendo avances, identificar el siguiente cuello de botella y decidir si una segunda etapa tiene valor claro.',
-    blockers: ['Decisiones centralizadas'],
-    milestones: [{ label: 'Responsabilidades del equipo definidas', status: 'done' }],
-    commitments: [
-      { label: 'Documentar SOP de onboarding', status: 'pending' },
-      { label: 'Preparar métricas de cierre del programa', status: 'done' }
-    ]
-  }
-];
-
-function readLocalArray<T>(key: string): T[] {
+function readLocalArray<T>(baseKey: string, workspaceId: string): T[] {
   if (typeof window === 'undefined') return [];
   try {
-    const parsed = JSON.parse(window.localStorage.getItem(key) || '[]');
+    const parsed = JSON.parse(window.localStorage.getItem(scopedWorkspaceStorageKey(baseKey, workspaceId)) || '[]');
     return Array.isArray(parsed) ? parsed as T[] : [];
   } catch {
     return [];
   }
 }
 
-function writeLocalArray(key: string, value: unknown[]): void {
+function writeLocalArray(baseKey: string, workspaceId: string, value: unknown[]): void {
   if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(key, JSON.stringify(value));
-  } catch {}
-}
-
-function clearOwnerOnlyClientCache(): void {
-  writeLocalArray(CLIENT_RECORD_STORAGE_KEY, []);
-  writeLocalArray(SESSION_CLIENT_STORAGE_KEY, []);
+  window.localStorage.setItem(scopedWorkspaceStorageKey(baseKey, workspaceId), JSON.stringify(value));
 }
 
 function emitWorkspaceRefresh(): void {
@@ -173,8 +80,11 @@ function buildOutcomeMemory(record?: ClientLike, session?: ClientLike): OutcomeM
 async function restoredUser(): Promise<User | null> {
   if (firebaseAuth.currentUser) return firebaseAuth.currentUser;
   return new Promise((resolve) => {
+    let finished = false;
     let unsubscribe = () => {};
     const finish = (user: User | null) => {
+      if (finished) return;
+      finished = true;
       unsubscribe();
       resolve(user);
     };
@@ -185,11 +95,9 @@ async function restoredUser(): Promise<User | null> {
 async function ownerWorkspaceId(user: User): Promise<string | null> {
   if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('invite')) return null;
   const workspaceId = await resolveActiveExpertWorkspaceId(user);
-  if (!workspaceId || workspaceId !== user.uid) {
-    clearOwnerOnlyClientCache();
-    return null;
-  }
-  return workspaceId;
+  if (!workspaceId) return null;
+  setActiveExpertWorkspaceStorageScope(workspaceId);
+  return workspaceId === user.uid ? workspaceId : null;
 }
 
 function clientsCollection(workspaceId: string) {
@@ -200,12 +108,12 @@ function clientDocument(workspaceId: string, clientId: string) {
   return doc(firestoreDb, 'expert_workspaces', workspaceId, 'clients', clientId);
 }
 
-function localClientRecord(clientId: string): ClientLike | undefined {
-  return readLocalArray<ClientLike>(CLIENT_RECORD_STORAGE_KEY).find((item) => item?.id === clientId);
+function localClientRecord(clientId: string, workspaceId: string): ClientLike | undefined {
+  return readLocalArray<ClientLike>(CLIENT_RECORD_STORAGE_KEY, workspaceId).find((item) => item?.id === clientId);
 }
 
-function localSessionClient(clientId: string): ClientLike | undefined {
-  return readLocalArray<ClientLike>(SESSION_CLIENT_STORAGE_KEY).find((item) => item?.id === clientId);
+function localSessionClient(clientId: string, workspaceId: string): ClientLike | undefined {
+  return readLocalArray<ClientLike>(SESSION_CLIENT_STORAGE_KEY, workspaceId).find((item) => item?.id === clientId);
 }
 
 export async function hydrateExpertsClientMemory(): Promise<HydrationResult> {
@@ -220,20 +128,23 @@ export async function hydrateExpertsClientMemory(): Promise<HydrationResult> {
 
   try {
     const snapshot = await getDocs(clientsCollection(workspaceId));
-    const storedRecords = readLocalArray<ClientLike>(CLIENT_RECORD_STORAGE_KEY);
-    const localSessions = readLocalArray<ClientLike>(SESSION_CLIENT_STORAGE_KEY);
+    const localRecords = readLocalArray<ClientLike>(CLIENT_RECORD_STORAGE_KEY, workspaceId);
+    const localSessions = readLocalArray<ClientLike>(SESSION_CLIENT_STORAGE_KEY, workspaceId);
 
     if (snapshot.empty) {
-      const localRecords = storedRecords.length ? storedRecords : PILOT_CLIENT_RECORDS;
-      if (!storedRecords.length) writeLocalArray(CLIENT_RECORD_STORAGE_KEY, localRecords);
-
       const ids = Array.from(new Set([
         ...localRecords.map((item) => item.id),
         ...localSessions.map((item) => item.id)
       ].filter(Boolean)));
 
-      if (!ids.length) return 'local';
+      if (!ids.length) {
+        writeLocalArray(CLIENT_RECORD_STORAGE_KEY, workspaceId, []);
+        writeLocalArray(SESSION_CLIENT_STORAGE_KEY, workspaceId, []);
+        emitWorkspaceRefresh();
+        return 'firestore';
+      }
 
+      emitExpertsPersistenceStatus('saving', 'Sincronizando datos del Workspace…');
       const batch = writeBatch(firestoreDb);
       ids.forEach((clientId) => {
         const record = localRecords.find((item) => item.id === clientId);
@@ -248,6 +159,7 @@ export async function hydrateExpertsClientMemory(): Promise<HydrationResult> {
         });
       });
       await batch.commit();
+      emitExpertsPersistenceStatus('saved');
       emitWorkspaceRefresh();
       return 'migrated';
     }
@@ -260,11 +172,13 @@ export async function hydrateExpertsClientMemory(): Promise<HydrationResult> {
       if (data.session?.id) sessions.push(data.session);
     });
 
-    if (records.length) writeLocalArray(CLIENT_RECORD_STORAGE_KEY, records);
-    if (sessions.length) writeLocalArray(SESSION_CLIENT_STORAGE_KEY, sessions);
-    if (records.length || sessions.length) emitWorkspaceRefresh();
+    writeLocalArray(CLIENT_RECORD_STORAGE_KEY, workspaceId, records);
+    writeLocalArray(SESSION_CLIENT_STORAGE_KEY, workspaceId, sessions);
+    emitWorkspaceRefresh();
     return 'firestore';
-  } catch {
+  } catch (error) {
+    console.error('[G-KAIS CLIENT MEMORY HYDRATION ERROR]', error);
+    emitExpertsPersistenceStatus('error', 'No se pudo sincronizar la información del Workspace.');
     return 'local';
   }
 }
@@ -275,15 +189,13 @@ export async function persistExpertClientRecord(record: ClientLike): Promise<voi
   if (!user) return;
   const workspaceId = await ownerWorkspaceId(user);
   if (!workspaceId) return;
-  const session = localSessionClient(record.id);
-  try {
-    await setDoc(clientDocument(workspaceId, record.id), {
-      schemaVersion: SCHEMA_VERSION,
-      record: sanitizeForFirestore(record),
-      outcomeMemory: buildOutcomeMemory(record, session),
-      updatedAt: serverTimestamp()
-    }, { merge: true });
-  } catch {}
+  const session = localSessionClient(record.id, workspaceId);
+  await setDoc(clientDocument(workspaceId, record.id), {
+    schemaVersion: SCHEMA_VERSION,
+    record: sanitizeForFirestore(record),
+    outcomeMemory: buildOutcomeMemory(record, session),
+    updatedAt: serverTimestamp()
+  }, { merge: true });
 }
 
 export async function persistExpertClientRecords(records: ClientLike[]): Promise<void> {
@@ -293,20 +205,18 @@ export async function persistExpertClientRecords(records: ClientLike[]): Promise
   if (!user) return;
   const workspaceId = await ownerWorkspaceId(user);
   if (!workspaceId) return;
-  const sessions = readLocalArray<ClientLike>(SESSION_CLIENT_STORAGE_KEY);
-  try {
-    const batch = writeBatch(firestoreDb);
-    valid.forEach((record) => {
-      const session = sessions.find((item) => item.id === record.id);
-      batch.set(clientDocument(workspaceId, record.id), {
-        schemaVersion: SCHEMA_VERSION,
-        record: sanitizeForFirestore(record),
-        outcomeMemory: buildOutcomeMemory(record, session),
-        updatedAt: serverTimestamp()
-      }, { merge: true });
-    });
-    await batch.commit();
-  } catch {}
+  const sessions = readLocalArray<ClientLike>(SESSION_CLIENT_STORAGE_KEY, workspaceId);
+  const batch = writeBatch(firestoreDb);
+  valid.forEach((record) => {
+    const session = sessions.find((item) => item.id === record.id);
+    batch.set(clientDocument(workspaceId, record.id), {
+      schemaVersion: SCHEMA_VERSION,
+      record: sanitizeForFirestore(record),
+      outcomeMemory: buildOutcomeMemory(record, session),
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+  });
+  await batch.commit();
 }
 
 export async function persistExpertSessionClient(session: ClientLike): Promise<void> {
@@ -315,15 +225,13 @@ export async function persistExpertSessionClient(session: ClientLike): Promise<v
   if (!user) return;
   const workspaceId = await ownerWorkspaceId(user);
   if (!workspaceId) return;
-  const record = localClientRecord(session.id);
-  try {
-    await setDoc(clientDocument(workspaceId, session.id), {
-      schemaVersion: SCHEMA_VERSION,
-      session: sanitizeForFirestore(session),
-      outcomeMemory: buildOutcomeMemory(record, session),
-      updatedAt: serverTimestamp()
-    }, { merge: true });
-  } catch {}
+  const record = localClientRecord(session.id, workspaceId);
+  await setDoc(clientDocument(workspaceId, session.id), {
+    schemaVersion: SCHEMA_VERSION,
+    session: sanitizeForFirestore(session),
+    outcomeMemory: buildOutcomeMemory(record, session),
+    updatedAt: serverTimestamp()
+  }, { merge: true });
 }
 
 export async function persistExpertSessionClients(sessions: ClientLike[]): Promise<void> {
@@ -333,38 +241,34 @@ export async function persistExpertSessionClients(sessions: ClientLike[]): Promi
   if (!user) return;
   const workspaceId = await ownerWorkspaceId(user);
   if (!workspaceId) return;
-  const records = readLocalArray<ClientLike>(CLIENT_RECORD_STORAGE_KEY);
-  try {
-    const batch = writeBatch(firestoreDb);
-    valid.forEach((session) => {
-      const record = records.find((item) => item.id === session.id);
-      batch.set(clientDocument(workspaceId, session.id), {
-        schemaVersion: SCHEMA_VERSION,
-        session: sanitizeForFirestore(session),
-        outcomeMemory: buildOutcomeMemory(record, session),
-        updatedAt: serverTimestamp()
-      }, { merge: true });
-    });
-    await batch.commit();
-  } catch {}
+  const records = readLocalArray<ClientLike>(CLIENT_RECORD_STORAGE_KEY, workspaceId);
+  const batch = writeBatch(firestoreDb);
+  valid.forEach((session) => {
+    const record = records.find((item) => item.id === session.id);
+    batch.set(clientDocument(workspaceId, session.id), {
+      schemaVersion: SCHEMA_VERSION,
+      session: sanitizeForFirestore(session),
+      outcomeMemory: buildOutcomeMemory(record, session),
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+  });
+  await batch.commit();
 }
 
 export async function persistExpertClientMemory(clientId: string): Promise<void> {
   if (!clientId) return;
-  const record = localClientRecord(clientId);
-  const session = localSessionClient(clientId);
-  if (!record && !session) return;
   const user = await restoredUser();
   if (!user) return;
   const workspaceId = await ownerWorkspaceId(user);
   if (!workspaceId) return;
-  try {
-    await setDoc(clientDocument(workspaceId, clientId), {
-      schemaVersion: SCHEMA_VERSION,
-      ...(record ? { record: sanitizeForFirestore(record) } : {}),
-      ...(session ? { session: sanitizeForFirestore(session) } : {}),
-      outcomeMemory: buildOutcomeMemory(record, session),
-      updatedAt: serverTimestamp()
-    }, { merge: true });
-  } catch {}
+  const record = localClientRecord(clientId, workspaceId);
+  const session = localSessionClient(clientId, workspaceId);
+  if (!record && !session) return;
+  await setDoc(clientDocument(workspaceId, clientId), {
+    schemaVersion: SCHEMA_VERSION,
+    ...(record ? { record: sanitizeForFirestore(record) } : {}),
+    ...(session ? { session: sanitizeForFirestore(session) } : {}),
+    outcomeMemory: buildOutcomeMemory(record, session),
+    updatedAt: serverTimestamp()
+  }, { merge: true });
 }

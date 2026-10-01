@@ -1,13 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
-import { ArrowLeft, BookOpenCheck, CalendarDays, ContactRound, GraduationCap, LayoutDashboard, ListTodo, Presentation, Settings, Sparkles, Users, UsersRound } from 'lucide-react';
+import { ArrowLeft, BookOpenCheck, CalendarDays, ContactRound, GraduationCap, HeartHandshake, LayoutDashboard, ListTodo, Presentation, Settings, Sparkles, Users, UsersRound } from 'lucide-react';
 import { useLanguage, type Language } from '../../i18n/LanguageContext';
 import { firebaseAuth, firestoreDb } from '../../lib/firebase';
 import { loadExpertWorkspaceTeam, type WorkspaceMember } from '../../services/expertsWorkspaceCore';
 import { DashboardHistory } from './DashboardHistory';
 import { PriorityRadarWorkspace } from './PriorityRadarWorkspace';
 import { ClientOnboardingWorkspace } from './ClientOnboardingWorkspace';
+import { ContinuityWorkspace } from './ContinuityWorkspace';
 import { FormationsWorkspace } from './FormationsWorkspace';
 import { PeopleWorkspace } from './PeopleWorkspace';
 import { TeamWorkspace } from './TeamWorkspace';
@@ -32,6 +33,7 @@ const NAV: NavItem[] = [
   { id: 'overview', label: { es: 'Dashboard', en: 'Dashboard' }, icon: LayoutDashboard, section: 'overview' },
   { id: 'people', label: { es: 'Personas', en: 'People' }, icon: ContactRound, section: 'people' },
   { id: 'webinars', label: { es: 'Webinars', en: 'Webinars' }, icon: Presentation, section: 'people' },
+  { id: 'continuity', label: { es: 'Continuidad', en: 'Continuity' }, icon: HeartHandshake, section: 'people' },
   { id: 'formations', label: { es: 'Formaciones', en: 'Formations' }, icon: GraduationCap, section: 'people' },
   { id: 'clients', label: { es: 'Clientes', en: 'Clients' }, icon: Users, section: 'people' },
   { id: 'priority', label: { es: 'Trabajo prioritario', en: 'Priority Work' }, icon: ListTodo, section: 'work' },
@@ -202,6 +204,7 @@ function ExpertsWorkspaceShell({ onExit }: Props) {
   if (active === 'overview' && access.isOwner) content = <DashboardHistory language={language} onNavigate={navigate} onOpenClient={openPerson} onStartSession={startSession} />;
   else if (active === 'people' && access.isOwner) content = <PeopleWorkspace language={language} />;
   else if (active === 'webinars' && access.isOwner) content = <WebinarsWorkspace language={language} />;
+  else if (active === 'continuity' && access.isOwner) content = <ContinuityWorkspace language={language} />;
   else if (active === 'formations' && access.isOwner) content = <FormationsWorkspace language={language} />;
   else if (active === 'priority') content = <PriorityRadarWorkspace language={language} onOpenClient={openPerson} />;
   else if (active === 'clients' && access.isOwner) content = <ClientOnboardingWorkspace language={language} selectedId={selectedClientId} onSelectedId={(id) => navigate('clients', id)} onStartSession={startSession} onOpenPriority={() => navigate('priority')} />;
@@ -239,7 +242,7 @@ function ExpertsWorkspaceShell({ onExit }: Props) {
       <header className="sticky top-0 z-20 border-b border-black/8 bg-white/75 px-4 py-3 backdrop-blur md:px-8 lg:px-10"><div className="flex items-center justify-between gap-4"><div className="flex items-center gap-3"><button type="button" onClick={goBack} className="grid h-9 w-9 place-items-center rounded-full border border-black/10 bg-white text-black/60"><ArrowLeft className="h-4 w-4" /></button><div><p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-black/35">{workspaceName}</p><h1 className="text-sm font-semibold">{activeLabel}</h1></div></div><div className="flex items-center gap-3"><div className="inline-flex rounded-full border border-black/10 bg-white p-0.5">{(['es','en'] as Language[]).map((option) => <button key={option} type="button" onClick={() => setLanguage(option)} className={`rounded-full px-2.5 py-1.5 text-[10px] font-semibold uppercase ${language === option ? 'bg-[#111413] text-white' : 'text-black/40'}`}>{option}</button>)}</div>{memberAvatar ? <img src={memberAvatar} alt="" className="h-9 w-9 rounded-full object-cover" /> : <div className="grid h-9 w-9 place-items-center rounded-full bg-[#111413] text-xs font-semibold text-white">{memberName.split(' ').map((part) => part[0]).slice(0,2).join('').toUpperCase()}</div>}</div></div></header>
       <main className="px-4 py-6 md:px-8 md:py-8 lg:px-10 lg:py-10"><div className="mx-auto max-w-[1500px]">
         <div className="mb-5 lg:hidden"><div className="flex gap-2 overflow-x-auto pb-2">{visibleNav.map((item) => <button key={item.id} onClick={() => navigate(item.id)} className={`whitespace-nowrap rounded-full px-3 py-2 text-xs font-semibold ${active === item.id ? 'bg-[#111413] text-white' : 'border border-black/10 bg-white text-black/55'}`}>{item.label[language]}</button>)}</div></div>
-        <div className="mb-7"><p className={`text-xs font-semibold uppercase tracking-[0.18em] ${darkWorkspace ? 'text-white/70' : 'text-[#0A3F4D]'}`}>{active === 'overview' ? (language === 'es' ? 'VISTA OPERATIVA DIARIA' : 'DAILY OPERATING VIEW') : active === 'settings' ? (language === 'es' ? 'PREFERENCIAS DEL WORKSPACE' : 'WORKSPACE PREFERENCES') : active === 'team' ? (language === 'es' ? 'OPERACIÓN DEL EQUIPO' : 'TEAM OPERATIONS') : active === 'priority' ? (language === 'es' ? 'TRABAJO ASIGNADO' : 'ASSIGNED WORK') : active === 'webinars' ? (language === 'es' ? 'RECORRIDO COMERCIAL' : 'COMMERCIAL JOURNEY') : active === 'formations' ? (language === 'es' ? 'ALUMNOS Y COHORTES' : 'STUDENTS AND COHORTS') : active === 'people' ? 'PEOPLE' : 'G-KAIS WORKSPACE'}</p><h2 className={`mt-2 text-3xl font-semibold tracking-[-0.035em] md:text-4xl ${darkWorkspace ? 'text-white' : 'text-[#0A0A0A]'}`}>{active === 'overview' ? (language === 'es' ? '¿Qué necesita tu atención?' : 'What needs your attention?') : activeLabel}</h2>{active === 'overview' && <p className={`mt-2 max-w-2xl text-sm leading-6 ${darkWorkspace ? 'text-white/65' : 'text-black/50'}`}>{language === 'es' ? 'Entiende el negocio, detecta señales y ejecuta el trabajo sin perder el contexto de cada relación.' : 'Understand the business, detect signals and execute work without losing relationship context.'}</p>}</div>
+        <div className="mb-7"><p className={`text-xs font-semibold uppercase tracking-[0.18em] ${darkWorkspace ? 'text-white/70' : 'text-[#0A3F4D]'}`}>{active === 'overview' ? (language === 'es' ? 'VISTA OPERATIVA DIARIA' : 'DAILY OPERATING VIEW') : active === 'settings' ? (language === 'es' ? 'PREFERENCIAS DEL WORKSPACE' : 'WORKSPACE PREFERENCES') : active === 'team' ? (language === 'es' ? 'OPERACIÓN DEL EQUIPO' : 'TEAM OPERATIONS') : active === 'priority' ? (language === 'es' ? 'TRABAJO ASIGNADO' : 'ASSIGNED WORK') : active === 'webinars' ? (language === 'es' ? 'RECORRIDO COMERCIAL' : 'COMMERCIAL JOURNEY') : active === 'continuity' ? (language === 'es' ? 'RELACIÓN DESPUÉS DEL NO' : 'RELATIONSHIP AFTER NO') : active === 'formations' ? (language === 'es' ? 'ALUMNOS Y COHORTES' : 'STUDENTS AND COHORTS') : active === 'people' ? 'PEOPLE' : 'G-KAIS WORKSPACE'}</p><h2 className={`mt-2 text-3xl font-semibold tracking-[-0.035em] md:text-4xl ${darkWorkspace ? 'text-white' : 'text-[#0A0A0A]'}`}>{active === 'overview' ? (language === 'es' ? '¿Qué necesita tu atención?' : 'What needs your attention?') : activeLabel}</h2>{active === 'overview' && <p className={`mt-2 max-w-2xl text-sm leading-6 ${darkWorkspace ? 'text-white/65' : 'text-black/50'}`}>{language === 'es' ? 'Entiende el negocio, detecta señales y ejecuta el trabajo sin perder el contexto de cada relación.' : 'Understand the business, detect signals and execute work without losing relationship context.'}</p>}</div>
         {content}
       </div></main>
     </div>

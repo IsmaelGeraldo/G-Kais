@@ -1,0 +1,37 @@
+/* Stage 3 visual alignment only. No business logic lives here. */
+
+@media (min-width: 1280px) {
+  /* Webinar > Añadir persona: three balanced rows.
+     Row 1: identity (name, email, phone)
+     Row 2: webinar outcome (status, minutes, interest, purchase)
+     Row 3: next action (type, assignee, date, time) */
+  [class~="xl:grid-cols-8"] {
+    grid-template-columns: repeat(12, minmax(0, 1fr)) !important;
+  }
+
+  [class~="xl:grid-cols-8"] > :nth-child(1),
+  [class~="xl:grid-cols-8"] > :nth-child(2),
+  [class~="xl:grid-cols-8"] > :nth-child(3) {
+    grid-column: span 4 / span 4 !important;
+  }
+
+  [class~="xl:grid-cols-8"] > :nth-child(4),
+  [class~="xl:grid-cols-8"] > :nth-child(5),
+  [class~="xl:grid-cols-8"] > :nth-child(6),
+  [class~="xl:grid-cols-8"] > :nth-child(7),
+  [class~="xl:grid-cols-8"] > :nth-child(8),
+  [class~="xl:grid-cols-8"] > :nth-child(9),
+  [class~="xl:grid-cols-8"] > :nth-child(10),
+  [class~="xl:grid-cols-8"] > :nth-child(11) {
+    grid-column: span 3 / span 3 !important;
+  }
+}
+
+/* Priority Work counters: Total and every type use the exact same footprint. */
+[class~="min-w-[66px]"],
+[class~="min-w-[72px]"] {
+  width: 96px !important;
+  min-width: 96px !important;
+  height: 52px !important;
+  box-sizing: border-box;
+}

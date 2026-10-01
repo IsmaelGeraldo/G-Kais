@@ -16,13 +16,16 @@ export const THEME_COLORS = [
   { id: 'smoke-black', label: 'Negro humo', hex: '#181A19' }, { id: 'black', label: 'Negro', hex: '#000000' }
 ];
 
-const WINDOW_COLORS = [{ id: 'white', label: 'Blanco', hex: '#FFFFFF' }, ...THEME_COLORS];
+const WORKSPACE_COLORS = [{ id: 'white', label: 'Blanco', hex: '#FFFFFF' }, ...THEME_COLORS];
+const WINDOW_COLORS = WORKSPACE_COLORS;
 
 export function themeColor(id: string): string {
+  if (id === 'white') return '#FFFFFF';
   return THEME_COLORS.find((item) => item.id === id)?.hex ?? THEME_COLORS[0].hex;
 }
 
 export function workspaceBackground(color: string, intensity: number): string {
+  if (color.toUpperCase() === '#FFFFFF') return '#FFFFFF';
   if (color.toUpperCase() === '#000000') {
     const amount = Math.max(10, Math.min(100, intensity * 10));
     return `linear-gradient(135deg, color-mix(in srgb, #000000 ${Math.max(8, amount - 8)}%, #FAFAF7) 0%, color-mix(in srgb, #000000 ${amount}%, #F2F2ED) 100%)`;
@@ -60,7 +63,7 @@ export function WorkspaceSettingsProfile({ language, profile, setProfile, appear
     <div className="grid gap-5 xl:grid-cols-3">
       <section className="rounded-2xl border border-black/10 bg-white p-5 shadow-[0_10px_30px_rgba(10,10,10,0.035)]">
         <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#0A3F4D]">{language === 'es' ? 'APARIENCIA' : 'APPEARANCE'}</p><h3 className="mt-2 text-lg font-semibold">{language === 'es' ? 'Color del Workspace' : 'Workspace color'}</h3><p className="mt-2 text-xs leading-5 text-black/50">{language === 'es' ? 'Paleta general e intensidad del fondo.' : 'General palette and background intensity.'}</p></div><Palette className="h-5 w-5 shrink-0 text-[#0A3F4D]" /></div>
-        <div className="mt-4 grid grid-cols-3 gap-2">{THEME_COLORS.map((item) => <button key={item.id} type="button" onClick={() => setAppearance((current) => ({ ...current, theme: item.id }))} className={`flex min-w-0 items-center gap-1.5 rounded-lg border px-2 py-2 text-[9px] font-semibold transition ${appearance.theme === item.id ? 'border-black/35 ring-2 ring-black/8' : 'border-black/8'}`}><span className="h-3.5 w-3.5 shrink-0 rounded-full" style={{ background: item.hex }} /><span className="truncate">{item.label}</span></button>)}</div>
+        <div className="mt-4 grid grid-cols-3 gap-2">{WORKSPACE_COLORS.map((item) => <button key={item.id} type="button" onClick={() => setAppearance((current) => ({ ...current, theme: item.id }))} className={`flex min-w-0 items-center gap-1.5 rounded-lg border px-2 py-2 text-[9px] font-semibold transition ${appearance.theme === item.id ? 'border-black/35 ring-2 ring-black/8' : 'border-black/8'}`}><span className="h-3.5 w-3.5 shrink-0 rounded-full border border-black/10" style={{ background: item.hex }} /><span className="truncate">{item.label}</span></button>)}</div>
         <div className="mt-5"><div className="flex justify-between text-xs font-semibold"><span>{language === 'es' ? 'Intensidad' : 'Intensity'}</span><span>{appearance.intensity}/10</span></div><input type="range" min="1" max="10" value={appearance.intensity} onChange={(event) => setAppearance((current) => ({ ...current, intensity: Number(event.target.value) }))} className="mt-2 w-full" /></div>
       </section>
 

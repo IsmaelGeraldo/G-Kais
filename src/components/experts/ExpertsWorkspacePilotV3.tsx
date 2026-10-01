@@ -56,7 +56,7 @@ function loadProfile(): WorkspaceProfile {
 
 function loadAppearance(): WorkspaceAppearance {
   try { return JSON.parse(localStorage.getItem(APPEARANCE_KEY) || '') as WorkspaceAppearance; }
-  catch { return { theme: 'stone', intensity: 3, sidebar: 'same', sidebarIntensity: 7 }; }
+  catch { return { theme: 'white', intensity: 3, sidebar: 'same', sidebarIntensity: 7 }; }
 }
 
 function Placeholder({ active, language }: { active: string; language: Language }) {
@@ -182,7 +182,7 @@ function ExpertsWorkspaceShell({ onExit }: Props) {
 
   const accent = themeColor(appearance.sidebar === 'same' ? appearance.theme : appearance.sidebar);
   const selectedBackground = `color-mix(in srgb, ${accent} ${Math.min(94, 40 + appearance.sidebarIntensity * 5)}%, white)`;
-  const selectedText = appearance.sidebarIntensity >= 6 ? '#FFFFFF' : '#111413';
+  const selectedText = accent !== '#FFFFFF' && appearance.sidebarIntensity >= 6 ? '#FFFFFF' : '#111413';
   const workspaceAccent = themeColor(appearance.theme);
   const darkWorkspace = appearance.theme === 'black' && appearance.intensity > 7;
   const blackSurfaceMix = appearance.theme === 'black' ? Math.max(0, (appearance.intensity - 4) * 2) : 0;

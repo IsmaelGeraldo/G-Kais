@@ -56,7 +56,7 @@ const DEFAULT_PROFILE: ExpertsWorkspaceProfile = {
 };
 
 const DEFAULT_APPEARANCE: ExpertsWorkspaceAppearance = {
-  theme: 'stone',
+  theme: 'white',
   intensity: 3,
   sidebar: 'same',
   sidebarIntensity: 7,
@@ -65,6 +65,7 @@ const DEFAULT_APPEARANCE: ExpertsWorkspaceAppearance = {
 };
 
 const THEME_HEX: Record<string, string> = {
+  white: '#FFFFFF',
   stone: '#77807A', teal: '#0A6B66', green: '#3D7A57', blue: '#37699A', sky: '#5B8EAD',
   indigo: '#5357A6', violet: '#76589B', rose: '#A15E78', terracotta: '#9A5449', orange: '#B46A32',
   amber: '#9A7629', sand: '#A58A65', graphite: '#3B3E3D', charcoal: '#292C2B', 'smoke-black': '#181A19', black: '#000000'

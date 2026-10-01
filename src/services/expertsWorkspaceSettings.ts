@@ -7,6 +7,7 @@ const PROFILE_KEY = 'gkais-experts-profile-v1';
 const APPEARANCE_KEY = 'gkais-experts-appearance-v2';
 const LANGUAGE_KEY = 'gkais-language';
 const RELOAD_GUARD_KEY = 'gkais-experts-settings-reload-v1';
+const SURFACE_SCALE_MIGRATION_KEY = 'gkais-window-surface-scale-v2';
 const SCHEMA_VERSION = 1;
 
 export const WORKSPACE_SETTINGS_EVENT = 'gkais:workspace-settings-hydrated';
@@ -58,7 +59,7 @@ const DEFAULT_APPEARANCE: ExpertsWorkspaceAppearance = {
   intensity: 3,
   sidebar: 'same',
   sidebarIntensity: 7,
-  surfaceIntensity: 1
+  surfaceIntensity: 0
 };
 
 const THEME_HEX: Record<string, string> = {
@@ -84,14 +85,36 @@ function clampIntensity(value: unknown, fallback: number): number {
   return Number.isFinite(number) ? Math.max(1, Math.min(10, Math.round(number))) : fallback;
 }
 
+function clampSurfaceIntensity(value: unknown, fallback: number): number {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.max(0, Math.min(20, Math.round(number))) : fallback;
+}
+
+function legacySurfaceToCurrent(value: unknown): number {
+  const legacy = Number(value);
+  if (!Number.isFinite(legacy)) return DEFAULT_APPEARANCE.surfaceIntensity;
+  return Math.round(((Math.max(1, Math.min(10, legacy)) - 1) / 9) * 20);
+}
+
 function decodeSidebar(rawValue: unknown, fallback: ExpertsWorkspaceAppearance): { sidebar: string; surfaceIntensity: number } {
   const raw = typeof rawValue === 'string' ? rawValue : fallback.sidebar;
-  const match = raw.match(/^(.*)\|surface:(\d{1,2})$/);
-  if (!match) return { sidebar: raw, surfaceIntensity: fallback.surfaceIntensity };
-  return {
-    sidebar: match[1] || fallback.sidebar,
-    surfaceIntensity: clampIntensity(match[2], fallback.surfaceIntensity)
-  };
+  const currentMatch = raw.match(/^(.*)\|surface2:(\d{1,2})$/);
+  if (currentMatch) {
+    return {
+      sidebar: currentMatch[1] || fallback.sidebar,
+      surfaceIntensity: clampSurfaceIntensity(currentMatch[2], fallback.surfaceIntensity)
+    };
+  }
+
+  const legacyMatch = raw.match(/^(.*)\|surface:(\d{1,2})$/);
+  if (legacyMatch) {
+    return {
+      sidebar: legacyMatch[1] || fallback.sidebar,
+      surfaceIntensity: legacySurfaceToCurrent(legacyMatch[2])
+    };
+  }
+
+  return { sidebar: raw, surfaceIntensity: fallback.surfaceIntensity };
 }
 
 function normalizeProfile(value: Partial<ExpertsWorkspaceProfile> | undefined, fallback = DEFAULT_PROFILE): ExpertsWorkspaceProfile {
@@ -111,24 +134,55 @@ function normalizeAppearance(value: Partial<ExpertsWorkspaceAppearance> | Partia
     intensity: clampIntensity(value?.intensity, fallback.intensity),
     sidebar: decoded.sidebar,
     sidebarIntensity: clampIntensity(value?.sidebarIntensity, fallback.sidebarIntensity),
-    surfaceIntensity: clampIntensity(explicitSurface, decoded.surfaceIntensity)
+    surfaceIntensity: clampSurfaceIntensity(explicitSurface, decoded.surfaceIntensity)
+  };
+}
+
+function surfaceVisuals(value: number) {
+  const intensity = clampSurfaceIntensity(value, 0);
+  if (intensity === 0) {
+    return {
+      surface: '#FFFFFF',
+      blur: 0,
+      saturate: 1,
+      border: 'rgba(10,10,10,0.10)',
+      shadow: '0 10px 30px rgba(10,10,10,0.035)',
+      dark: false
+    };
+  }
+
+  const t = intensity / 20;
+  const darkMix = Math.min(98, Math.round(98 * t * t));
+  const whiteAlpha = Math.max(0.56, 0.98 - 0.42 * Math.pow(t, 1.15));
+  const blur = 24 - 8 * t;
+  const saturate = 1.16 - 0.06 * t;
+  const highlightAlpha = Math.max(0.12, 0.72 - 0.46 * t);
+  const outerShadowAlpha = 0.045 + 0.075 * t;
+
+  return {
+    surface: `color-mix(in srgb, #151716 ${darkMix}%, rgba(255,255,255,${whiteAlpha.toFixed(3)}))`,
+    blur,
+    saturate,
+    border: intensity >= 15 ? 'rgba(255,255,255,0.11)' : `rgba(255,255,255,${Math.max(0.24, 0.68 - 0.26 * t).toFixed(3)})`,
+    shadow: `0 18px 48px rgba(20,24,22,${outerShadowAlpha.toFixed(3)}), inset 0 1px 0 rgba(255,255,255,${highlightAlpha.toFixed(3)})`,
+    dark: intensity >= 15
   };
 }
 
 function applyWorkspaceSurface(appearance: ExpertsWorkspaceAppearance): void {
   if (typeof document === 'undefined') return;
-  const intensity = clampIntensity(appearance.surfaceIntensity, 1);
-  const darkMix = Math.round(((intensity - 1) / 9) * 100);
-  const blur = Math.max(0, 18 - (intensity - 1) * 2);
+  const visuals = surfaceVisuals(appearance.surfaceIntensity);
   const accentId = appearance.sidebar === 'same' ? appearance.theme : appearance.sidebar;
   const accent = THEME_HEX[accentId] ?? THEME_HEX.stone;
   const root = document.documentElement;
-  root.style.setProperty('--gkais-window-surface', `color-mix(in srgb, #111413 ${darkMix}%, rgba(255,255,255,0.72))`);
-  root.style.setProperty('--gkais-window-blur', `${blur}px`);
-  root.style.setProperty('--gkais-window-border', intensity >= 5 ? 'rgba(255,255,255,0.11)' : 'rgba(10,10,10,0.10)');
+  root.style.setProperty('--gkais-window-surface', visuals.surface);
+  root.style.setProperty('--gkais-window-blur', `${visuals.blur.toFixed(1)}px`);
+  root.style.setProperty('--gkais-window-saturate', visuals.saturate.toFixed(3));
+  root.style.setProperty('--gkais-window-border', visuals.border);
+  root.style.setProperty('--gkais-window-shadow', visuals.shadow);
   root.style.setProperty('--gkais-sidebar-accent', accent);
   root.classList.add('gkais-window-surface');
-  root.classList.toggle('gkais-surface-dark', intensity >= 5);
+  root.classList.toggle('gkais-surface-dark', visuals.dark);
 }
 
 export function readLocalExpertsWorkspaceSettings(): ExpertsWorkspaceSettings {
@@ -136,6 +190,14 @@ export function readLocalExpertsWorkspaceSettings(): ExpertsWorkspaceSettings {
   const storedProfile = safeParse<Partial<ExpertsWorkspaceProfile>>(window.localStorage.getItem(PROFILE_KEY), {});
   const storedAppearance = safeParse<Partial<ExpertsWorkspaceAppearance>>(window.localStorage.getItem(APPEARANCE_KEY), {});
   const storedLanguage = window.localStorage.getItem(LANGUAGE_KEY);
+
+  if (window.localStorage.getItem(SURFACE_SCALE_MIGRATION_KEY) !== '1') {
+    if (typeof storedAppearance.surfaceIntensity === 'number') {
+      storedAppearance.surfaceIntensity = legacySurfaceToCurrent(storedAppearance.surfaceIntensity);
+    }
+    try { window.localStorage.setItem(SURFACE_SCALE_MIGRATION_KEY, '1'); } catch {}
+  }
+
   return {
     profile: normalizeProfile(storedProfile),
     appearance: normalizeAppearance(storedAppearance),
@@ -149,6 +211,7 @@ function writeLocalExpertsWorkspaceSettings(settings: ExpertsWorkspaceSettings):
     window.localStorage.setItem(PROFILE_KEY, JSON.stringify(settings.profile));
     window.localStorage.setItem(APPEARANCE_KEY, JSON.stringify(settings.appearance));
     window.localStorage.setItem(LANGUAGE_KEY, settings.language);
+    window.localStorage.setItem(SURFACE_SCALE_MIGRATION_KEY, '1');
   } catch {}
   applyWorkspaceSurface(settings.appearance);
 }
@@ -191,7 +254,7 @@ function persistedPayload(settings: ExpertsWorkspaceSettings): Omit<PersistedSet
     appearance: {
       theme: appearance.theme,
       intensity: appearance.intensity,
-      sidebar: `${appearance.sidebar}|surface:${appearance.surfaceIntensity}`,
+      sidebar: `${appearance.sidebar}|surface2:${appearance.surfaceIntensity}`,
       sidebarIntensity: appearance.sidebarIntensity
     },
     language: settings.language

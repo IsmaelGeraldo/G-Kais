@@ -27,11 +27,22 @@
   }
 }
 
-/* Priority Work counters: Total and every type use the exact same footprint. */
+/* Priority Work counters: larger, uniform cards with centered values. */
 [class~="min-w-[66px]"],
 [class~="min-w-[72px]"] {
-  width: 96px !important;
-  min-width: 96px !important;
-  height: 52px !important;
+  width: 116px !important;
+  min-width: 116px !important;
+  height: 64px !important;
   box-sizing: border-box;
+  display: flex !important;
+  flex-direction: column;
+  justify-content: center;
+}
+
+[class~="min-w-[66px]"] > p:last-child,
+[class~="min-w-[72px]"] > p:last-child {
+  width: 100%;
+  text-align: center !important;
+  font-size: 1.05rem !important;
+  line-height: 1.25rem !important;
 }

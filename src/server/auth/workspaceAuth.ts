@@ -1,6 +1,7 @@
 import { getApps, initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
+import firebaseAppletConfig from '../../../firebase-applet-config.json';
 
 export type WorkspaceAiIdentity = {
   uid: string;
@@ -12,12 +13,11 @@ export type WorkspaceAiIdentity = {
 
 function getAdminApp() {
   const apps = getApps();
+  const configuredProjectId = process.env.FIREBASE_PROJECT_ID?.trim() || firebaseAppletConfig.projectId?.trim();
   return apps.length > 0
     ? apps[0]
     : initializeApp({
-        ...(process.env.FIREBASE_PROJECT_ID
-          ? { projectId: process.env.FIREBASE_PROJECT_ID }
-          : {})
+        ...(configuredProjectId ? { projectId: configuredProjectId } : {})
       });
 }
 
@@ -36,7 +36,7 @@ export async function verifyWorkspaceBearerToken(
 
   const app = getAdminApp();
   const decoded = await getAuth(app).verifyIdToken(idToken);
-  const dbId = process.env.FIRESTORE_DATABASE_ID?.trim();
+  const dbId = process.env.FIRESTORE_DATABASE_ID?.trim() || firebaseAppletConfig.firestoreDatabaseId?.trim();
   const db = dbId ? getFirestore(app, dbId) : getFirestore(app);
 
   const userSnapshot = await db.collection('users').doc(decoded.uid).get();

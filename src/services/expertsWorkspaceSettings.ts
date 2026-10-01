@@ -23,6 +23,14 @@ export type ExpertsWorkspaceAppearance = {
   intensity: number;
   sidebar: string;
   sidebarIntensity: number;
+  surfaceIntensity: number;
+};
+
+type PersistedAppearance = {
+  theme: string;
+  intensity: number;
+  sidebar: string;
+  sidebarIntensity: number;
 };
 
 export type ExpertsWorkspaceSettings = {
@@ -34,7 +42,7 @@ export type ExpertsWorkspaceSettings = {
 type PersistedSettings = {
   schemaVersion: number;
   profile: Omit<ExpertsWorkspaceProfile, 'avatar'>;
-  appearance: ExpertsWorkspaceAppearance;
+  appearance: PersistedAppearance;
   language: 'es' | 'en';
 };
 
@@ -49,7 +57,14 @@ const DEFAULT_APPEARANCE: ExpertsWorkspaceAppearance = {
   theme: 'stone',
   intensity: 3,
   sidebar: 'same',
-  sidebarIntensity: 7
+  sidebarIntensity: 7,
+  surfaceIntensity: 1
+};
+
+const THEME_HEX: Record<string, string> = {
+  stone: '#77807A', teal: '#0A6B66', green: '#3D7A57', blue: '#37699A', sky: '#5B8EAD',
+  indigo: '#5357A6', violet: '#76589B', rose: '#A15E78', terracotta: '#9A5449', orange: '#B46A32',
+  amber: '#9A7629', sand: '#A58A65', graphite: '#3B3E3D', charcoal: '#292C2B', 'smoke-black': '#181A19', black: '#000000'
 };
 
 let lastPersistedFingerprint = '';
@@ -64,6 +79,21 @@ function safeParse<T>(value: string | null, fallback: T): T {
   }
 }
 
+function clampIntensity(value: unknown, fallback: number): number {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.max(1, Math.min(10, Math.round(number))) : fallback;
+}
+
+function decodeSidebar(rawValue: unknown, fallback: ExpertsWorkspaceAppearance): { sidebar: string; surfaceIntensity: number } {
+  const raw = typeof rawValue === 'string' ? rawValue : fallback.sidebar;
+  const match = raw.match(/^(.*)\|surface:(\d{1,2})$/);
+  if (!match) return { sidebar: raw, surfaceIntensity: fallback.surfaceIntensity };
+  return {
+    sidebar: match[1] || fallback.sidebar,
+    surfaceIntensity: clampIntensity(match[2], fallback.surfaceIntensity)
+  };
+}
+
 function normalizeProfile(value: Partial<ExpertsWorkspaceProfile> | undefined, fallback = DEFAULT_PROFILE): ExpertsWorkspaceProfile {
   return {
     name: typeof value?.name === 'string' ? value.name : fallback.name,
@@ -73,15 +103,32 @@ function normalizeProfile(value: Partial<ExpertsWorkspaceProfile> | undefined, f
   };
 }
 
-function normalizeAppearance(value: Partial<ExpertsWorkspaceAppearance> | undefined, fallback = DEFAULT_APPEARANCE): ExpertsWorkspaceAppearance {
-  const intensity = Number(value?.intensity);
-  const sidebarIntensity = Number(value?.sidebarIntensity);
+function normalizeAppearance(value: Partial<ExpertsWorkspaceAppearance> | Partial<PersistedAppearance> | undefined, fallback = DEFAULT_APPEARANCE): ExpertsWorkspaceAppearance {
+  const decoded = decodeSidebar(value?.sidebar, fallback);
+  const explicitSurface = value && 'surfaceIntensity' in value ? (value as Partial<ExpertsWorkspaceAppearance>).surfaceIntensity : undefined;
   return {
     theme: typeof value?.theme === 'string' ? value.theme : fallback.theme,
-    intensity: Number.isFinite(intensity) ? Math.max(1, Math.min(10, Math.round(intensity))) : fallback.intensity,
-    sidebar: typeof value?.sidebar === 'string' ? value.sidebar : fallback.sidebar,
-    sidebarIntensity: Number.isFinite(sidebarIntensity) ? Math.max(1, Math.min(10, Math.round(sidebarIntensity))) : fallback.sidebarIntensity
+    intensity: clampIntensity(value?.intensity, fallback.intensity),
+    sidebar: decoded.sidebar,
+    sidebarIntensity: clampIntensity(value?.sidebarIntensity, fallback.sidebarIntensity),
+    surfaceIntensity: clampIntensity(explicitSurface, decoded.surfaceIntensity)
   };
+}
+
+function applyWorkspaceSurface(appearance: ExpertsWorkspaceAppearance): void {
+  if (typeof document === 'undefined') return;
+  const intensity = clampIntensity(appearance.surfaceIntensity, 1);
+  const darkMix = Math.round(((intensity - 1) / 9) * 100);
+  const blur = Math.max(0, 18 - (intensity - 1) * 2);
+  const accentId = appearance.sidebar === 'same' ? appearance.theme : appearance.sidebar;
+  const accent = THEME_HEX[accentId] ?? THEME_HEX.stone;
+  const root = document.documentElement;
+  root.style.setProperty('--gkais-window-surface', `color-mix(in srgb, #111413 ${darkMix}%, rgba(255,255,255,0.72))`);
+  root.style.setProperty('--gkais-window-blur', `${blur}px`);
+  root.style.setProperty('--gkais-window-border', intensity >= 5 ? 'rgba(255,255,255,0.11)' : 'rgba(10,10,10,0.10)');
+  root.style.setProperty('--gkais-sidebar-accent', accent);
+  root.classList.add('gkais-window-surface');
+  root.classList.toggle('gkais-surface-dark', intensity >= 5);
 }
 
 export function readLocalExpertsWorkspaceSettings(): ExpertsWorkspaceSettings {
@@ -103,6 +150,7 @@ function writeLocalExpertsWorkspaceSettings(settings: ExpertsWorkspaceSettings):
     window.localStorage.setItem(APPEARANCE_KEY, JSON.stringify(settings.appearance));
     window.localStorage.setItem(LANGUAGE_KEY, settings.language);
   } catch {}
+  applyWorkspaceSurface(settings.appearance);
 }
 
 function emitSettingsHydrated(): void {
@@ -133,13 +181,19 @@ function settingsDocument(workspaceId: string) {
 }
 
 function persistedPayload(settings: ExpertsWorkspaceSettings): Omit<PersistedSettings, 'schemaVersion'> {
+  const appearance = normalizeAppearance(settings.appearance);
   return {
     profile: {
       name: settings.profile.name,
       business: settings.profile.business,
       role: settings.profile.role
     },
-    appearance: normalizeAppearance(settings.appearance),
+    appearance: {
+      theme: appearance.theme,
+      intensity: appearance.intensity,
+      sidebar: `${appearance.sidebar}|surface:${appearance.surfaceIntensity}`,
+      sidebarIntensity: appearance.sidebarIntensity
+    },
     language: settings.language
   };
 }
@@ -150,6 +204,7 @@ function settingsFingerprint(settings: ExpertsWorkspaceSettings): string {
 
 export async function hydrateExpertsWorkspaceSettings(): Promise<ExpertsWorkspaceSettings> {
   const local = readLocalExpertsWorkspaceSettings();
+  applyWorkspaceSurface(local.appearance);
   if (typeof window === 'undefined') return local;
   const user = await restoredUser();
   if (!user) return local;
@@ -214,6 +269,7 @@ export async function persistExpertsWorkspaceSettings(settings: ExpertsWorkspace
 
 async function syncLocalSettingsIfChanged(): Promise<void> {
   const settings = readLocalExpertsWorkspaceSettings();
+  applyWorkspaceSurface(settings.appearance);
   const fingerprint = settingsFingerprint(settings);
   if (fingerprint === lastPersistedFingerprint) return;
   await persistExpertsWorkspaceSettings(settings);
@@ -222,7 +278,9 @@ async function syncLocalSettingsIfChanged(): Promise<void> {
 if (typeof window !== 'undefined') {
   let hydratedUid = '';
   let syncTimer: number | undefined;
+  applyWorkspaceSurface(readLocalExpertsWorkspaceSettings().appearance);
   const scheduleSync = () => {
+    window.setTimeout(() => applyWorkspaceSurface(readLocalExpertsWorkspaceSettings().appearance), 0);
     if (syncTimer !== undefined) window.clearTimeout(syncTimer);
     syncTimer = window.setTimeout(() => {
       syncTimer = undefined;

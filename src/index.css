@@ -24,3 +24,68 @@
 .gkais-black-surface aside.bg-white {
   background-color: var(--gkais-card-surface, #ffffff) !important;
 }
+
+/* Workspace window appearance: scoped to Experts Workspace so the public site is untouched. */
+html.gkais-window-surface [class*="lg:pl-[245px]"] section.bg-white,
+html.gkais-window-surface [class*="lg:pl-[245px]"] article.bg-white,
+html.gkais-window-surface [class*="lg:pl-[245px]"] aside.bg-white {
+  background: var(--gkais-window-surface, rgba(255,255,255,0.72)) !important;
+  border-color: var(--gkais-window-border, rgba(10,10,10,0.10)) !important;
+  -webkit-backdrop-filter: blur(var(--gkais-window-blur, 18px));
+  backdrop-filter: blur(var(--gkais-window-blur, 18px));
+}
+
+html.gkais-surface-dark [class*="lg:pl-[245px]"] section.bg-white,
+html.gkais-surface-dark [class*="lg:pl-[245px]"] article.bg-white,
+html.gkais-surface-dark [class*="lg:pl-[245px]"] aside.bg-white {
+  color: #F7F7F5;
+}
+
+html.gkais-surface-dark [class*="lg:pl-[245px]"] section.bg-white .text-black,
+html.gkais-surface-dark [class*="lg:pl-[245px]"] article.bg-white .text-black,
+html.gkais-surface-dark [class*="lg:pl-[245px]"] aside.bg-white .text-black {
+  color: #F7F7F5 !important;
+}
+
+html.gkais-surface-dark [class*="lg:pl-[245px]"] section.bg-white [class*="text-black/"],
+html.gkais-surface-dark [class*="lg:pl-[245px]"] article.bg-white [class*="text-black/"],
+html.gkais-surface-dark [class*="lg:pl-[245px]"] aside.bg-white [class*="text-black/"] {
+  color: rgba(247,247,245,0.62) !important;
+}
+
+html.gkais-surface-dark [class*="lg:pl-[245px]"] section.bg-white .bg-white,
+html.gkais-surface-dark [class*="lg:pl-[245px]"] article.bg-white .bg-white,
+html.gkais-surface-dark [class*="lg:pl-[245px]"] aside.bg-white .bg-white,
+html.gkais-surface-dark [class*="lg:pl-[245px]"] section.bg-white [class*="bg-[#F7F7F5]"],
+html.gkais-surface-dark [class*="lg:pl-[245px]"] article.bg-white [class*="bg-[#F7F7F5]"],
+html.gkais-surface-dark [class*="lg:pl-[245px]"] aside.bg-white [class*="bg-[#F7F7F5]"],
+html.gkais-surface-dark [class*="lg:pl-[245px]"] section.bg-white [class*="bg-[#FAFAF8]"],
+html.gkais-surface-dark [class*="lg:pl-[245px]"] article.bg-white [class*="bg-[#FAFAF8]"],
+html.gkais-surface-dark [class*="lg:pl-[245px]"] aside.bg-white [class*="bg-[#FAFAF8]"] {
+  background: rgba(255,255,255,0.065) !important;
+  border-color: rgba(255,255,255,0.10) !important;
+}
+
+html.gkais-surface-dark [class*="lg:pl-[245px]"] section.bg-white input,
+html.gkais-surface-dark [class*="lg:pl-[245px]"] section.bg-white select,
+html.gkais-surface-dark [class*="lg:pl-[245px]"] section.bg-white textarea,
+html.gkais-surface-dark [class*="lg:pl-[245px]"] article.bg-white input,
+html.gkais-surface-dark [class*="lg:pl-[245px]"] article.bg-white select,
+html.gkais-surface-dark [class*="lg:pl-[245px]"] article.bg-white textarea,
+html.gkais-surface-dark [class*="lg:pl-[245px]"] aside.bg-white input,
+html.gkais-surface-dark [class*="lg:pl-[245px]"] aside.bg-white select,
+html.gkais-surface-dark [class*="lg:pl-[245px]"] aside.bg-white textarea {
+  background: rgba(255,255,255,0.08) !important;
+  border-color: rgba(255,255,255,0.14) !important;
+  color: #F7F7F5 !important;
+  color-scheme: dark;
+}
+
+html.gkais-surface-dark [class*="lg:pl-[245px]"] section.bg-white input::placeholder,
+html.gkais-surface-dark [class*="lg:pl-[245px]"] section.bg-white textarea::placeholder,
+html.gkais-surface-dark [class*="lg:pl-[245px]"] article.bg-white input::placeholder,
+html.gkais-surface-dark [class*="lg:pl-[245px]"] article.bg-white textarea::placeholder,
+html.gkais-surface-dark [class*="lg:pl-[245px]"] aside.bg-white input::placeholder,
+html.gkais-surface-dark [class*="lg:pl-[245px]"] aside.bg-white textarea::placeholder {
+  color: rgba(247,247,245,0.36) !important;
+}

@@ -3,6 +3,8 @@ import {
   persistExpertClientRecords,
   persistExpertSessionClients
 } from '../../services/expertsClientMemory';
+import { emitExpertsPersistenceStatus } from '../../services/expertsPersistenceStatus';
+import { scopedWorkspaceStorageKey } from '../../services/expertsWorkspaceStorage';
 
 export type WorkActionType = 'email' | 'whatsapp' | 'call' | 'meeting' | 'task';
 export type WorkTaskStatus = 'pending' | 'in-progress' | 'done';
@@ -112,65 +114,30 @@ if (typeof window !== 'undefined') {
   void hydrateExpertsClientMemory();
 }
 
-const INITIAL_TASKS: WorkTask[] = [
-  {
-    id: 'task-sofia-followup',
-    clientId: 'sofia',
-    clientName: 'Sofía Martínez',
-    title: 'Enviar seguimiento por compromiso vencido',
-    type: 'email',
-    note: 'Confirmar qué bloqueó la ejecución y acordar el siguiente paso antes de la próxima sesión.',
-    dueDate: '2026-09-28',
-    dueTime: '17:00',
-    assignee: 'Equipo',
-    status: 'pending',
-    createdAt: '2026-09-28T12:00:00.000Z',
-    source: 'attention',
-    sourceCommitmentLabel: 'Publicar 3 piezas de contenido',
-    confirmationEmail: 'not-required'
-  },
-  {
-    id: 'task-diego-renewal',
-    clientId: 'diego',
-    clientName: 'Diego Rojas',
-    title: 'Confirmar reunión de renovación',
-    type: 'meeting',
-    note: 'Coordinar una conversación antes del cierre del programa.',
-    dueDate: '2026-09-30',
-    dueTime: '12:00',
-    assignee: 'Mentor',
-    status: 'pending',
-    createdAt: '2026-09-28T12:05:00.000Z',
-    source: 'attention',
-    confirmationEmail: 'queued'
-  },
-  {
-    id: 'task-valentina-call',
-    clientId: 'valentina',
-    clientName: 'Valentina Cruz',
-    title: 'Llamar para confirmar diagnóstico',
-    type: 'call',
-    note: 'Alta intención y conversación sin siguiente paso.',
-    dueDate: '2026-09-29',
-    dueTime: '11:00',
-    assignee: 'Equipo',
-    status: 'pending',
-    createdAt: '2026-09-28T12:10:00.000Z',
-    source: 'attention',
-    confirmationEmail: 'not-required'
-  }
-];
+function storageKey(baseKey: string): string {
+  return scopedWorkspaceStorageKey(baseKey);
+}
 
-function safeParseArray<T>(key: string, fallback: T[]): T[] {
+function safeParseArray<T>(baseKey: string, fallback: T[]): T[] {
   if (typeof window === 'undefined') return fallback;
   try {
-    const raw = window.localStorage.getItem(key);
+    const raw = window.localStorage.getItem(storageKey(baseKey));
     if (!raw) return fallback;
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed as T[] : fallback;
   } catch {
     return fallback;
   }
+}
+
+function reportRemotePersistence(operation: Promise<unknown>): void {
+  emitExpertsPersistenceStatus('saving');
+  void operation
+    .then(() => emitExpertsPersistenceStatus('saved'))
+    .catch((error) => {
+      console.error('[G-KAIS PERSISTENCE ERROR]', error);
+      emitExpertsPersistenceStatus('error');
+    });
 }
 
 function fallbackCopilot() {
@@ -237,68 +204,65 @@ export function loadSessionClients(): SharedSessionClient[] {
   return safeParseArray<SharedSessionClient>(SESSION_CLIENT_STORAGE_KEY, []);
 }
 
-function syncClientRecordsFromSession(clients: SharedSessionClient[]): void {
+async function syncClientRecordsFromSession(clients: SharedSessionClient[]): Promise<void> {
   if (typeof window === 'undefined') return;
-  try {
-    const raw = window.localStorage.getItem(CLIENT_RECORD_STORAGE_KEY);
-    if (!raw) return;
-    const records = JSON.parse(raw);
-    if (!Array.isArray(records)) return;
-    const nextRecords = records.map((record) => {
-      if (!record || typeof record !== 'object') return record;
-      const typed = record as Record<string, unknown>;
-      const id = typeof typed.id === 'string' ? typed.id : '';
-      const live = clients.find((client) => client.id === id);
-      if (!live) return record;
-      const overdueCount = live.commitments?.filter((commitment) => commitment.status === 'overdue').length ?? 0;
-      const currentStatus = typeof typed.status === 'string' ? typed.status : 'active';
-      const derivedStatus = currentStatus === 'attention' && live.commitments && overdueCount === 0 ? 'active' : currentStatus;
-      const derivedAttentionReason = currentStatus === 'attention' && overdueCount > 0
-        ? `${overdueCount} compromiso${overdueCount === 1 ? '' : 's'} vencido${overdueCount === 1 ? '' : 's'} pendiente${overdueCount === 1 ? '' : 's'} de resolver.`
-        : typed.attentionReason;
-      return {
-        ...typed,
-        company: live.company ?? typed.company,
-        program: live.program ?? typed.program,
-        progress: live.week ?? typed.progress,
-        expectedOutcome: live.goal ?? typed.expectedOutcome,
-        nextAction: live.nextAction ?? typed.nextAction,
-        nextSession: live.nextSession ?? typed.nextSession,
-        currentPhase: live.currentPhase ?? typed.currentPhase,
-        currentGap: live.currentGap ?? typed.currentGap,
-        planSummary: live.planSummary ?? typed.planSummary,
-        blockers: live.blockers ?? typed.blockers,
-        commitments: live.commitments?.map((item) => ({ label: item.label, status: item.status })) ?? typed.commitments,
-        status: derivedStatus,
-        attentionReason: derivedAttentionReason
-      };
-    });
-    window.localStorage.setItem(CLIENT_RECORD_STORAGE_KEY, JSON.stringify(nextRecords));
-    void persistExpertClientRecords(nextRecords);
-  } catch {}
+  const raw = window.localStorage.getItem(storageKey(CLIENT_RECORD_STORAGE_KEY));
+  if (!raw) return;
+  const records = JSON.parse(raw);
+  if (!Array.isArray(records)) return;
+  const nextRecords = records.map((record) => {
+    if (!record || typeof record !== 'object') return record;
+    const typed = record as Record<string, unknown>;
+    const id = typeof typed.id === 'string' ? typed.id : '';
+    const live = clients.find((client) => client.id === id);
+    if (!live) return record;
+    const overdueCount = live.commitments?.filter((commitment) => commitment.status === 'overdue').length ?? 0;
+    const currentStatus = typeof typed.status === 'string' ? typed.status : 'active';
+    const derivedStatus = currentStatus === 'attention' && live.commitments && overdueCount === 0 ? 'active' : currentStatus;
+    const derivedAttentionReason = currentStatus === 'attention' && overdueCount > 0
+      ? `${overdueCount} compromiso${overdueCount === 1 ? '' : 's'} vencido${overdueCount === 1 ? '' : 's'} pendiente${overdueCount === 1 ? '' : 's'} de resolver.`
+      : typed.attentionReason;
+    return {
+      ...typed,
+      company: live.company ?? typed.company,
+      program: live.program ?? typed.program,
+      progress: live.week ?? typed.progress,
+      expectedOutcome: live.goal ?? typed.expectedOutcome,
+      nextAction: live.nextAction ?? typed.nextAction,
+      nextSession: live.nextSession ?? typed.nextSession,
+      currentPhase: live.currentPhase ?? typed.currentPhase,
+      currentGap: live.currentGap ?? typed.currentGap,
+      planSummary: live.planSummary ?? typed.planSummary,
+      blockers: live.blockers ?? typed.blockers,
+      commitments: live.commitments?.map((item) => ({ label: item.label, status: item.status })) ?? typed.commitments,
+      status: derivedStatus,
+      attentionReason: derivedAttentionReason
+    };
+  });
+  window.localStorage.setItem(storageKey(CLIENT_RECORD_STORAGE_KEY), JSON.stringify(nextRecords));
+  await persistExpertClientRecords(nextRecords);
 }
 
 export function saveSessionClients(clients: SharedSessionClient[]): void {
   if (typeof window === 'undefined') return;
   try {
-    window.localStorage.setItem(SESSION_CLIENT_STORAGE_KEY, JSON.stringify(clients));
-    void persistExpertSessionClients(clients);
-    syncClientRecordsFromSession(clients);
+    window.localStorage.setItem(storageKey(SESSION_CLIENT_STORAGE_KEY), JSON.stringify(clients));
+    reportRemotePersistence(Promise.all([
+      persistExpertSessionClients(clients),
+      syncClientRecordsFromSession(clients)
+    ]));
     emitWorkspaceStateChanged();
-  } catch {}
+  } catch (error) {
+    console.error('[G-KAIS LOCAL SAVE ERROR]', error);
+    emitExpertsPersistenceStatus('error');
+  }
 }
 
 export function updateSessionClient(clientId: string, updater: (client: SharedSessionClient) => SharedSessionClient): void {
   const clients = loadSessionClients();
   const existing = clients.find((client) => client.id === clientId);
-  if (existing) {
-    saveSessionClients(clients.map((client) => client.id === clientId ? updater(client) : client));
-    return;
-  }
-  const seed: SharedSessionClient = {
-    id: clientId, name: clientId, company: '', program: '', week: '', goal: '', nextAction: '', nextSession: '', currentPhase: '', currentGap: '', planSummary: '', blockers: [], commitments: [], copilot: fallbackCopilot()
-  };
-  saveSessionClients([...clients, updater(seed)]);
+  if (!existing) return;
+  saveSessionClients(clients.map((client) => client.id === clientId ? updater(client) : client));
 }
 
 export function loadJournal(): JournalEntry[] {
@@ -310,10 +274,14 @@ export function appendJournal(clientId: string, type: string, title: string, bod
   const entry: JournalEntry = { id: `journal-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, clientId, type, title, body: body.trim(), createdAt: new Date().toISOString() };
   try {
     const entries = loadJournal();
-    window.localStorage.setItem(JOURNAL_STORAGE_KEY, JSON.stringify([entry, ...entries]));
+    window.localStorage.setItem(storageKey(JOURNAL_STORAGE_KEY), JSON.stringify([entry, ...entries]));
     emitWorkspaceStateChanged();
     return entry;
-  } catch { return null; }
+  } catch (error) {
+    console.error('[G-KAIS JOURNAL SAVE ERROR]', error);
+    emitExpertsPersistenceStatus('error');
+    return null;
+  }
 }
 
 export function loadSessionSummaries(): SessionSummary[] {
@@ -325,9 +293,12 @@ export function saveSessionSummary(summary: SessionSummary): SessionSummary[] {
   const current = loadSessionSummaries();
   const next = [summary, ...current.filter((item) => item.id !== summary.id)];
   try {
-    window.localStorage.setItem(SESSION_SUMMARY_STORAGE_KEY, JSON.stringify(next));
+    window.localStorage.setItem(storageKey(SESSION_SUMMARY_STORAGE_KEY), JSON.stringify(next));
     emitWorkspaceStateChanged();
-  } catch {}
+  } catch (error) {
+    console.error('[G-KAIS SESSION SUMMARY SAVE ERROR]', error);
+    emitExpertsPersistenceStatus('error');
+  }
   return next;
 }
 
@@ -342,11 +313,16 @@ function reconcileTask(task: WorkTask, clients: SharedSessionClient[]): WorkTask
 }
 
 export function loadTasks(): WorkTask[] {
-  const stored = safeParseArray<WorkTask>(TASK_STORAGE_KEY, INITIAL_TASKS);
+  const stored = safeParseArray<WorkTask>(TASK_STORAGE_KEY, []);
   const clients = loadSessionClients();
   const reconciled = stored.map((task) => reconcileTask(task, clients));
   if (typeof window !== 'undefined' && JSON.stringify(reconciled) !== JSON.stringify(stored)) {
-    try { window.localStorage.setItem(TASK_STORAGE_KEY, JSON.stringify(reconciled)); } catch {}
+    try {
+      window.localStorage.setItem(storageKey(TASK_STORAGE_KEY), JSON.stringify(reconciled));
+    } catch (error) {
+      console.error('[G-KAIS TASK RECONCILE ERROR]', error);
+      emitExpertsPersistenceStatus('error');
+    }
   }
   return reconciled;
 }
@@ -357,23 +333,28 @@ function syncClientOperationalState(clientId: string, tasks: WorkTask[]): void {
   const nextAction = taskAsNextAction(open[0]);
   const nextMeeting = open.filter((task) => task.type === 'meeting').sort((a, b) => dueTimestamp(a) - dueTimestamp(b))[0];
   const nextSession = nextMeetingText(nextMeeting);
+  const persistence: Promise<void>[] = [];
   try {
-    const rawRecords = window.localStorage.getItem(CLIENT_RECORD_STORAGE_KEY);
+    const rawRecords = window.localStorage.getItem(storageKey(CLIENT_RECORD_STORAGE_KEY));
     if (rawRecords) {
       const records = JSON.parse(rawRecords);
       if (Array.isArray(records)) {
         const nextRecords = records.map((record) => record?.id === clientId ? { ...record, nextAction, ...(nextMeeting ? { nextSession } : {}) } : record);
-        window.localStorage.setItem(CLIENT_RECORD_STORAGE_KEY, JSON.stringify(nextRecords));
-        void persistExpertClientRecords(nextRecords);
+        window.localStorage.setItem(storageKey(CLIENT_RECORD_STORAGE_KEY), JSON.stringify(nextRecords));
+        persistence.push(persistExpertClientRecords(nextRecords));
       }
     }
     const sessionClients = loadSessionClients();
     if (sessionClients.some((client) => client.id === clientId)) {
       const nextSessionClients = sessionClients.map((client) => client.id === clientId ? { ...client, nextAction, ...(nextMeeting ? { nextSession } : {}) } : client);
-      window.localStorage.setItem(SESSION_CLIENT_STORAGE_KEY, JSON.stringify(nextSessionClients));
-      void persistExpertSessionClients(nextSessionClients);
+      window.localStorage.setItem(storageKey(SESSION_CLIENT_STORAGE_KEY), JSON.stringify(nextSessionClients));
+      persistence.push(persistExpertSessionClients(nextSessionClients));
     }
-  } catch {}
+  } catch (error) {
+    console.error('[G-KAIS OPERATIONAL SYNC ERROR]', error);
+    emitExpertsPersistenceStatus('error');
+  }
+  if (persistence.length) reportRemotePersistence(Promise.all(persistence));
   emitWorkspaceStateChanged();
 }
 
@@ -384,9 +365,12 @@ export function refreshClientNextAction(clientId: string): void {
 export function saveTasks(tasks: WorkTask[]): void {
   if (typeof window === 'undefined') return;
   try {
-    window.localStorage.setItem(TASK_STORAGE_KEY, JSON.stringify(tasks));
+    window.localStorage.setItem(storageKey(TASK_STORAGE_KEY), JSON.stringify(tasks));
     emitWorkspaceStateChanged();
-  } catch {}
+  } catch (error) {
+    console.error('[G-KAIS TASK SAVE ERROR]', error);
+    emitExpertsPersistenceStatus('error');
+  }
 }
 
 export function addWorkTask(input: Omit<WorkTask, 'id' | 'createdAt' | 'status'> & { status?: WorkTaskStatus }): WorkTask {

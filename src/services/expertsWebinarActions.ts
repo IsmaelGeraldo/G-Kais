@@ -1,9 +1,7 @@
 import {
   doc,
-  getDoc,
-  serverTimestamp,
-  setDoc,
-  updateDoc
+  runTransaction,
+  serverTimestamp
 } from 'firebase/firestore';
 import { firebaseAuth, firestoreDb } from '../lib/firebase';
 import {
@@ -46,6 +44,10 @@ function workspaceDocument(workspaceId: string, collectionName: string, id: stri
   return doc(firestoreDb, 'expert_workspaces', workspaceId, collectionName, id);
 }
 
+function reportSecondaryWriteFailure(label: string, error: unknown): void {
+  console.error(`[G-KAIS ${label}]`, error);
+}
+
 export function webinarWorkActionKind(registration: Pick<WebinarRegistration, 'purchased'>): WebinarWorkActionKind {
   return registration.purchased ? 'enrollment' : 'follow-up';
 }
@@ -84,10 +86,8 @@ export async function createWebinarWorkAction(input: {
     ? input.registration.followUpTaskId!
     : `task-${input.registration.id}-${kind}`;
   const taskRef = workspaceDocument(id, 'work_tasks', taskId);
-  const existingTaskSnapshot = await getDoc(taskRef);
-  const existingTask = existingTaskSnapshot.exists()
-    ? (existingTaskSnapshot.data() as { task?: Record<string, unknown> }).task || {}
-    : {};
+  const registrationRef = workspaceDocument(id, 'webinar_registrations', input.registration.id);
+  const personRef = workspaceDocument(id, 'people', input.person.id);
 
   const offer = input.webinar.offerLabel.trim() || 'programa comprado';
   const title = kind === 'enrollment'
@@ -100,53 +100,63 @@ export async function createWebinarWorkAction(input: {
     : input.registration.status === 'no-show'
       ? `Retomar contacto después de no asistir a ${input.webinar.title}.`
       : `Dar seguimiento después de ${input.webinar.title}; no compró${input.registration.interest !== 'unknown' ? ` · interés ${input.registration.interest}` : ''}.`;
-  const actionType = input.type || (kind === 'enrollment' ? 'task' : 'whatsapp');
-  const dueDate = input.dueDate !== undefined ? input.dueDate : (typeof existingTask.dueDate === 'string' ? existingTask.dueDate : '');
-  const dueTime = input.dueTime !== undefined ? input.dueTime : (typeof existingTask.dueTime === 'string' ? existingTask.dueTime : '');
-  const createdAt = typeof existingTask.createdAt === 'string' ? existingTask.createdAt : new Date().toISOString();
 
-  await setDoc(taskRef, {
-    schemaVersion: 1,
-    task: sanitize({
-      ...existingTask,
-      id: taskId,
-      clientId: '',
-      clientName: input.person.name,
-      personId: input.person.id,
-      title,
-      type: actionType,
-      note: input.note?.trim() || defaultNote,
-      dueDate,
-      dueTime,
-      assignee: input.assignee.displayName || input.assignee.email,
-      assignedToUid: input.assignee.uid,
-      assignedToName: input.assignee.displayName || input.assignee.email,
-      createdByUid: typeof existingTask.createdByUid === 'string' ? existingTask.createdByUid : user.uid,
-      status: 'pending',
-      createdAt,
-      source: 'webinar',
-      sourceId: input.webinar.id,
-      sourceRegistrationId: input.registration.id,
-      sourceActionKind: kind,
-      priority,
-      confirmationEmail: 'not-required'
-    }),
-    updatedAt: serverTimestamp()
-  }, { merge: true });
+  await runTransaction(firestoreDb, async (transaction) => {
+    const [taskSnapshot, registrationSnapshot, personSnapshot] = await Promise.all([
+      transaction.get(taskRef),
+      transaction.get(registrationRef),
+      transaction.get(personRef)
+    ]);
+    if (!registrationSnapshot.exists()) throw new Error('WEBINAR_REGISTRATION_NOT_FOUND');
+    if (!personSnapshot.exists()) throw new Error('PERSON_NOT_FOUND');
 
-  await updateDoc(workspaceDocument(id, 'webinar_registrations', input.registration.id), {
-    followUpTaskId: taskId,
-    followUpStatus: 'created',
-    updatedAt: serverTimestamp()
-  });
-
-  const personRef = workspaceDocument(id, 'people', input.person.id);
-  const personSnapshot = await getDoc(personRef);
-  if (personSnapshot.exists()) {
+    const existingTask = taskSnapshot.exists()
+      ? (taskSnapshot.data() as { task?: Record<string, unknown> }).task || {}
+      : {};
     const currentMemory = personSnapshot.data().outcomeMemory && typeof personSnapshot.data().outcomeMemory === 'object'
       ? personSnapshot.data().outcomeMemory as Record<string, unknown>
       : {};
-    await setDoc(personRef, {
+    const actionType = input.type || (kind === 'enrollment' ? 'task' : 'whatsapp');
+    const dueDate = input.dueDate !== undefined ? input.dueDate : (typeof existingTask.dueDate === 'string' ? existingTask.dueDate : '');
+    const dueTime = input.dueTime !== undefined ? input.dueTime : (typeof existingTask.dueTime === 'string' ? existingTask.dueTime : '');
+    const createdAt = typeof existingTask.createdAt === 'string' ? existingTask.createdAt : new Date().toISOString();
+
+    transaction.set(taskRef, {
+      schemaVersion: 1,
+      task: sanitize({
+        ...existingTask,
+        id: taskId,
+        clientId: '',
+        clientName: input.person.name,
+        personId: input.person.id,
+        title,
+        type: actionType,
+        note: input.note?.trim() || defaultNote,
+        dueDate,
+        dueTime,
+        assignee: input.assignee.displayName || input.assignee.email,
+        assignedToUid: input.assignee.uid,
+        assignedToName: input.assignee.displayName || input.assignee.email,
+        createdByUid: typeof existingTask.createdByUid === 'string' ? existingTask.createdByUid : user.uid,
+        status: 'pending',
+        createdAt,
+        source: 'webinar',
+        sourceId: input.webinar.id,
+        sourceRegistrationId: input.registration.id,
+        sourceActionKind: kind,
+        priority,
+        confirmationEmail: 'not-required'
+      }),
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+
+    transaction.update(registrationRef, {
+      followUpTaskId: taskId,
+      followUpStatus: 'created',
+      updatedAt: serverTimestamp()
+    });
+
+    transaction.set(personRef, {
       outcomeMemory: sanitize({
         ...currentMemory,
         webinarFollowUpStatus: 'created',
@@ -158,7 +168,7 @@ export async function createWebinarWorkAction(input: {
       }),
       updatedAt: serverTimestamp()
     }, { merge: true });
-  }
+  });
 
   await appendExpertRelationshipEvent({
     personId: input.person.id,
@@ -173,7 +183,7 @@ export async function createWebinarWorkAction(input: {
       priority,
       offerLabel: input.webinar.offerLabel
     }
-  }).catch(() => {});
+  }).catch((error) => reportSecondaryWriteFailure('RELATIONSHIP EVENT ERROR', error));
   await appendExpertAuditLog({
     entityType: 'work_task',
     entityId: taskId,
@@ -185,7 +195,7 @@ export async function createWebinarWorkAction(input: {
       priority,
       kind
     }
-  }).catch(() => {});
+  }).catch((error) => reportSecondaryWriteFailure('AUDIT LOG ERROR', error));
   return taskId;
 }
 
@@ -200,57 +210,67 @@ export async function markWebinarWorkActionCompleted(input: {
   if (!user) throw new Error('AUTH_REQUIRED');
   const id = await workspaceId();
   const registrationRef = workspaceDocument(id, 'webinar_registrations', input.registrationId);
-  const snapshot = await getDoc(registrationRef);
-  if (!snapshot.exists()) return;
-  const data = snapshot.data() as Record<string, unknown>;
-  const purchased = Boolean(data.purchased);
-  const kind = input.kind || (purchased ? 'enrollment' : 'follow-up');
+  const personRef = workspaceDocument(id, 'people', input.personId);
   const result = input.result.trim();
-  const trackedTaskId = typeof data.followUpTaskId === 'string' ? data.followUpTaskId : input.taskId || input.registrationId;
 
-  if (data.followUpStatus !== 'completed' || data.followUpResult !== result) {
-    await updateDoc(registrationRef, {
-      followUpStatus: 'completed',
-      followUpResult: result,
-      followUpCompletedAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    });
-  }
+  const completion = await runTransaction(firestoreDb, async (transaction) => {
+    const isOwner = id === user.uid;
+    const [registrationSnapshot, personSnapshot] = await Promise.all([
+      transaction.get(registrationRef),
+      isOwner ? transaction.get(personRef) : Promise.resolve(null)
+    ]);
+    if (!registrationSnapshot.exists()) return null;
 
+    const data = registrationSnapshot.data() as Record<string, unknown>;
+    const purchased = Boolean(data.purchased);
+    const kind = input.kind || (purchased ? 'enrollment' : 'follow-up');
+    const trackedTaskId = typeof data.followUpTaskId === 'string' ? data.followUpTaskId : input.taskId || input.registrationId;
+
+    if (data.followUpStatus !== 'completed' || data.followUpResult !== result) {
+      transaction.update(registrationRef, {
+        followUpStatus: 'completed',
+        followUpResult: result,
+        followUpCompletedAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+    }
+
+    if (isOwner && personSnapshot?.exists()) {
+      const currentMemory = personSnapshot.data().outcomeMemory && typeof personSnapshot.data().outcomeMemory === 'object'
+        ? personSnapshot.data().outcomeMemory as Record<string, unknown>
+        : {};
+      transaction.set(personRef, {
+        outcomeMemory: sanitize({
+          ...currentMemory,
+          webinarFollowUpStatus: 'completed',
+          webinarNextActionKind: kind,
+          lastFollowUpResult: result,
+          lastFollowUpAt: new Date().toISOString(),
+          nextActionType: '',
+          nextActionAt: '',
+          nextActionOwnerUid: '',
+          nextActionLabel: ''
+        }),
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+    }
+
+    return { kind, trackedTaskId };
+  });
+
+  if (!completion) return;
   await appendExpertRelationshipEvent({
     personId: input.personId,
-    type: kind === 'enrollment' ? 'webinar.enrollment_task_completed' : 'webinar.followup_completed',
+    type: completion.kind === 'enrollment' ? 'webinar.enrollment_task_completed' : 'webinar.followup_completed',
     sourceType: 'work_task',
-    sourceId: trackedTaskId,
-    idempotencyKey: `${input.registrationId}:${kind}:completed:${trackedTaskId}`,
+    sourceId: completion.trackedTaskId,
+    idempotencyKey: `${input.registrationId}:${completion.kind}:completed:${completion.trackedTaskId}`,
     metadata: { registrationId: input.registrationId, result }
-  }).catch(() => {});
+  }).catch((error) => reportSecondaryWriteFailure('RELATIONSHIP EVENT ERROR', error));
   await appendExpertAuditLog({
     entityType: 'webinar_registration',
     entityId: input.registrationId,
-    action: kind === 'enrollment' ? 'webinar.enrollment_task_completed' : 'webinar.followup_completed',
-    changes: { personId: input.personId, result, actorUid: user.uid, kind }
-  }).catch(() => {});
-
-  if (id !== user.uid) return;
-  const personRef = workspaceDocument(id, 'people', input.personId);
-  const personSnapshot = await getDoc(personRef);
-  if (!personSnapshot.exists()) return;
-  const currentMemory = personSnapshot.data().outcomeMemory && typeof personSnapshot.data().outcomeMemory === 'object'
-    ? personSnapshot.data().outcomeMemory as Record<string, unknown>
-    : {};
-  await setDoc(personRef, {
-    outcomeMemory: sanitize({
-      ...currentMemory,
-      webinarFollowUpStatus: 'completed',
-      webinarNextActionKind: kind,
-      lastFollowUpResult: result,
-      lastFollowUpAt: new Date().toISOString(),
-      nextActionType: '',
-      nextActionAt: '',
-      nextActionOwnerUid: '',
-      nextActionLabel: ''
-    }),
-    updatedAt: serverTimestamp()
-  }, { merge: true });
+    action: completion.kind === 'enrollment' ? 'webinar.enrollment_task_completed' : 'webinar.followup_completed',
+    changes: { personId: input.personId, result, actorUid: user.uid, kind: completion.kind }
+  }).catch((error) => reportSecondaryWriteFailure('AUDIT LOG ERROR', error));
 }

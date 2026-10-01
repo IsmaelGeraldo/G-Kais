@@ -125,10 +125,13 @@ export function ContinuityWorkspace({ language }: Props) {
   }, [candidates, peopleById]);
 
   const setDraft = (registrationId: string, patch: Partial<Draft>) => {
-    setDrafts((current) => ({
-      ...current,
-      [registrationId]: { reason: 'unknown', path: 'history-only', note: '', ...(current[registrationId] || {}), ...patch }
-    }));
+    setDrafts((current) => {
+      const previous = current[registrationId] ?? { reason: 'unknown' as NoPurchaseReason, path: 'history-only' as ContinuityPath, note: '' };
+      return {
+        ...current,
+        [registrationId]: { ...previous, ...patch }
+      };
+    });
   };
 
   const save = async (registration: WebinarRegistration) => {

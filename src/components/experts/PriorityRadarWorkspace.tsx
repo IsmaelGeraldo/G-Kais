@@ -308,31 +308,29 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
     ['task', typeCounts.task]
   ];
 
-  return <div className="space-y-5">
-    <section className="rounded-2xl border border-black/10 bg-white p-5 md:p-6">
-      <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+  return <div className="space-y-4">
+    <section className="rounded-2xl border border-black/10 bg-white p-4 md:p-5">
+      <div className="flex flex-col justify-between gap-4 xl:flex-row xl:items-center">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#0A3F4D]">PRIORITY WORK</p>
-          <h3 className="mt-2 text-xl font-semibold">{view === 'mine' ? (language === 'es' ? 'Mi trabajo' : 'My work') : (language === 'es' ? 'Trabajo del equipo' : 'Team work')}</h3>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-black/50">{view === 'mine' ? (language === 'es' ? 'Aquí ves únicamente el trabajo asignado a tu cuenta.' : 'This view only shows work assigned to your account.') : (language === 'es' ? 'Supervisa responsables, prioridades y resultados sin mezclar el trabajo de cada persona.' : 'Supervise owners, priorities and outcomes without mixing each person’s work.')}</p>
+          <h3 className="mt-1.5 text-xl font-semibold">{view === 'mine' ? (language === 'es' ? 'Mi trabajo' : 'My work') : (language === 'es' ? 'Trabajo del equipo' : 'Team work')}</h3>
+          <p className="mt-1.5 max-w-xl text-sm leading-5 text-black/50">{view === 'mine' ? (language === 'es' ? 'Aquí ves únicamente el trabajo asignado a tu cuenta.' : 'This view only shows work assigned to your account.') : (language === 'es' ? 'Supervisa responsables, prioridades y resultados sin mezclar el trabajo de cada persona.' : 'Supervise owners, priorities and outcomes without mixing each person’s work.')}</p>
         </div>
-        <div className="flex gap-2">
-          <div className="rounded-xl bg-[#F7F7F5] px-3.5 py-2.5"><p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-black/35">{language === 'es' ? 'ABIERTAS' : 'OPEN'}</p><p className="mt-1 text-lg font-semibold">{pendingCount}</p></div>
-          {view === 'team' && <div className="rounded-xl bg-[#F7F7F5] px-3.5 py-2.5"><p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-black/35">{language === 'es' ? 'DELEGADAS' : 'DELEGATED'}</p><p className="mt-1 text-lg font-semibold">{delegatedCount}</p></div>}
+
+        <div className="flex flex-wrap gap-1.5 xl:justify-end">
+          <div className="min-w-[66px] rounded-lg bg-[#111413] px-2.5 py-1.5 text-white"><p className="text-[8px] font-semibold uppercase tracking-[0.12em] text-white/60">{language === 'es' ? 'TOTAL' : 'TOTAL'}</p><p className="mt-0.5 text-base font-semibold">{pendingCount}</p></div>
+          {typeCards.map(([type, count]) => <div key={type} className="min-w-[72px] rounded-lg border border-black/7 bg-[#FAFAF8] px-2.5 py-1.5"><div className="flex items-center gap-1.5 text-black/40"><ActionIcon kind={type} /><p className="truncate text-[8px] font-semibold uppercase tracking-[0.08em]">{actionLabel(type, language)}</p></div><p className="mt-0.5 text-sm font-semibold">{count}</p></div>)}
+          {view === 'team' && <div className="min-w-[72px] rounded-lg border border-black/7 bg-[#FAFAF8] px-2.5 py-1.5"><p className="text-[8px] font-semibold uppercase tracking-[0.1em] text-black/35">{language === 'es' ? 'DELEGADAS' : 'DELEGATED'}</p><p className="mt-0.5 text-sm font-semibold">{delegatedCount}</p></div>}
         </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-2 border-t border-black/5 pt-4 sm:grid-cols-5">
-        {typeCards.map(([type, count]) => <div key={type} className="rounded-xl border border-black/7 bg-[#FAFAF8] px-3 py-2.5"><div className="flex items-center gap-2 text-black/45"><ActionIcon kind={type} /><p className="text-[9px] font-semibold uppercase tracking-[0.1em]">{actionLabel(type, language)}</p></div><p className="mt-1 text-lg font-semibold">{count}</p></div>)}
-      </div>
-
-      <div className="mt-4 flex flex-col gap-3 border-t border-black/5 pt-4 lg:flex-row lg:items-center lg:justify-between">
+      <div className="mt-3 flex flex-col gap-2 border-t border-black/5 pt-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="inline-flex w-fit rounded-full border border-black/10 bg-[#F7F7F5] p-1">
           <button type="button" onClick={() => setView('mine')} className={`rounded-full px-4 py-2 text-xs font-semibold ${view === 'mine' ? 'bg-[#111413] text-white' : 'text-black/45'}`}>{language === 'es' ? 'Mi trabajo' : 'My work'}</button>
           {canReadTeam && <button type="button" onClick={() => setView('team')} className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold ${view === 'team' ? 'bg-[#111413] text-white' : 'text-black/45'}`}><UsersRound className="h-3.5 w-3.5" />{language === 'es' ? 'Trabajo del equipo' : 'Team work'}</button>}
         </div>
         <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-          <label className="relative block w-full sm:max-w-[360px]"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-black/30" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={language === 'es' ? 'Buscar tarea, persona, responsable o tipo…' : 'Search task, person, assignee or type…'} className="w-full rounded-xl border border-black/10 bg-[#FAFAF8] py-2.5 pl-9 pr-3 text-sm" /></label>
+          <label className="relative block w-full sm:max-w-[360px]"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-black/30" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={language === 'es' ? 'Buscar tarea, persona, responsable o tipo…' : 'Search task, person, assignee or type…'} className="w-full rounded-xl border border-black/10 bg-[#FAFAF8] py-2 pl-9 pr-3 text-sm" /></label>
           <label className="flex shrink-0 items-center gap-2 text-xs text-black/45"><input type="checkbox" checked={showDone} onChange={(event) => setShowDone(event.target.checked)} />{language === 'es' ? 'Mostrar historial' : 'Show history'}</label>
         </div>
       </div>
@@ -341,23 +339,23 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
     {view === 'team' && canReadTeam && <section className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">{teamCounts.map(({ member, count }) => <div key={member.uid} className="rounded-xl border border-black/8 bg-white p-3"><p className="truncate text-xs font-semibold">{memberLabel(member)}</p><p className="mt-1 text-[10px] uppercase tracking-[0.1em] text-black/35">{count} {language === 'es' ? 'pendientes' : 'open'}</p></div>)}</section>}
 
     <section className="overflow-hidden rounded-2xl border border-black/10 bg-white shadow-[0_10px_30px_rgba(10,10,10,0.025)]">
-      <div className="hidden grid-cols-[minmax(240px,1.25fr)_90px_105px_145px_170px_100px] gap-3 border-b border-black/7 bg-[#FAFAF8] px-4 py-3 text-[9px] font-semibold uppercase tracking-[0.13em] text-black/35 lg:grid"><span>{language === 'es' ? 'Trabajo' : 'Work'}</span><span>{language === 'es' ? 'Prioridad' : 'Priority'}</span><span>{language === 'es' ? 'Tipo' : 'Type'}</span><span>{language === 'es' ? 'Cuándo' : 'When'}</span><span>{language === 'es' ? 'Responsable' : 'Assignee'}</span><span /></div>
-      <div className="max-h-[560px] divide-y divide-black/5 overflow-y-auto">
+      <div className="hidden grid-cols-[minmax(240px,1.25fr)_90px_105px_145px_170px_100px] gap-3 border-b border-black/7 bg-[#FAFAF8] px-4 py-2.5 text-[9px] font-semibold uppercase tracking-[0.13em] text-black/35 lg:grid"><span>{language === 'es' ? 'Trabajo' : 'Work'}</span><span>{language === 'es' ? 'Prioridad' : 'Priority'}</span><span>{language === 'es' ? 'Tipo' : 'Type'}</span><span>{language === 'es' ? 'Cuándo' : 'When'}</span><span>{language === 'es' ? 'Responsable' : 'Assignee'}</span><span /></div>
+      <div className="max-h-[540px] divide-y divide-black/5 overflow-y-auto">
         {openTasks.map((task) => {
           const priority = priorityMeta(task, language);
           const opened = activeTaskId === task.id;
           const taskCanWork = canWork(task);
-          return <div key={task.id} className="grid gap-3 px-4 py-4 lg:grid-cols-[minmax(240px,1.25fr)_90px_105px_145px_170px_100px] lg:items-center">
+          return <div key={task.id} className="grid gap-3 px-4 py-3 lg:grid-cols-[minmax(240px,1.25fr)_90px_105px_145px_170px_100px] lg:items-center">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2"><p className="text-sm font-semibold">{task.title}</p>{task.source === 'session' && <span className="rounded-full bg-[#4556A6]/8 px-2 py-0.5 text-[9px] font-semibold text-[#4556A6]">{language === 'es' ? 'DESDE SESIÓN' : 'FROM SESSION'}</span>}</div>
-              {isOwner && task.clientId ? <button type="button" onClick={() => onOpenClient(task.clientId)} className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-[#0A3F4D] hover:underline">{task.clientName}<ChevronRight className="h-3 w-3" /></button> : <p className="mt-1 text-xs font-medium text-[#0A3F4D]">{task.clientName}</p>}
-              {task.note && <p className="mt-1 line-clamp-2 text-xs leading-5 text-black/45">{task.note}</p>}
+              {isOwner && task.clientId ? <button type="button" onClick={() => onOpenClient(task.clientId)} className="mt-0.5 inline-flex items-center gap-1 text-xs font-medium text-[#0A3F4D] hover:underline">{task.clientName}<ChevronRight className="h-3 w-3" /></button> : <p className="mt-0.5 text-xs font-medium text-[#0A3F4D]">{task.clientName}</p>}
+              {task.note && <p className="mt-0.5 line-clamp-1 text-xs leading-5 text-black/45">{task.note}</p>}
             </div>
             <span className={`w-fit rounded-full px-2.5 py-1 text-[9px] font-semibold ${priority.className}`}>{priority.label}</span>
             <div className="flex items-center gap-2 text-xs text-black/55"><ActionIcon kind={task.type} /><span>{actionLabel(task.type, language)}</span></div>
             <div className="flex items-center gap-2 text-xs text-black/55"><Clock3 className="h-3.5 w-3.5" /><span>{formatDue(task, language)}</span></div>
-            {canManageTeam || isOwner ? <label className="relative"><UserRoundCheck className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-black/30" /><select value={task.assignedToUid || currentUid} onChange={(event) => setAssignee(task, event.target.value)} className="w-full rounded-lg border border-black/8 bg-white py-2 pl-8 pr-2 text-xs">{activeMembers.map((member) => <option key={member.uid} value={member.uid}>{memberLabel(member)}</option>)}</select></label> : <div className="flex items-center gap-2 text-xs text-black/55"><UserRoundCheck className="h-3.5 w-3.5" /><span className="truncate">{task.assignedToName || task.assignee}</span></div>}
-            <button type="button" disabled={!taskCanWork} onClick={() => toggleWork(task)} className="inline-flex items-center justify-center gap-1.5 rounded-full bg-[#111413] px-3 py-2 text-[10px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-30">{opened ? (language === 'es' ? 'Cerrar' : 'Close') : (language === 'es' ? 'Trabajar' : 'Work')}<ChevronDown className={`h-3 w-3 transition ${opened ? 'rotate-180' : ''}`} /></button>
+            {canManageTeam || isOwner ? <label className="relative"><UserRoundCheck className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-black/30" /><select value={task.assignedToUid || currentUid} onChange={(event) => setAssignee(task, event.target.value)} className="w-full rounded-lg border border-black/8 bg-white py-1.5 pl-8 pr-2 text-xs">{activeMembers.map((member) => <option key={member.uid} value={member.uid}>{memberLabel(member)}</option>)}</select></label> : <div className="flex items-center gap-2 text-xs text-black/55"><UserRoundCheck className="h-3.5 w-3.5" /><span className="truncate">{task.assignedToName || task.assignee}</span></div>}
+            <button type="button" disabled={!taskCanWork} onClick={() => toggleWork(task)} className="inline-flex items-center justify-center gap-1.5 rounded-full bg-[#111413] px-3 py-1.5 text-[10px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-30">{opened ? (language === 'es' ? 'Cerrar' : 'Close') : (language === 'es' ? 'Trabajar' : 'Work')}<ChevronDown className={`h-3 w-3 transition ${opened ? 'rotate-180' : ''}`} /></button>
 
             {opened && taskCanWork && <div className="rounded-xl border border-black/8 bg-[#FAFAF8] p-3 lg:col-span-6">
               <div className="grid gap-4 xl:grid-cols-[0.85fr_1.15fr]">
@@ -380,7 +378,7 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
             </div>}
           </div>;
         })}
-        {openTasks.length === 0 && <div className="grid min-h-[220px] place-items-center p-8 text-center text-sm text-black/40">{search.trim() ? (language === 'es' ? 'No hay tareas que coincidan con la búsqueda.' : 'No tasks match your search.') : (language === 'es' ? 'No hay trabajo pendiente en esta vista.' : 'No pending work in this view.')}</div>}
+        {openTasks.length === 0 && <div className="grid min-h-[200px] place-items-center p-8 text-center text-sm text-black/40">{search.trim() ? (language === 'es' ? 'No hay tareas que coincidan con la búsqueda.' : 'No tasks match your search.') : (language === 'es' ? 'No hay trabajo pendiente en esta vista.' : 'No pending work in this view.')}</div>}
       </div>
     </section>
 

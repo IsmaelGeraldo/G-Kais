@@ -52,6 +52,13 @@ function extractLine(body: string | undefined, labels: string[]): string {
   return colon >= 0 ? line.slice(colon + 1).trim() : line.trim();
 }
 
+function compactEvidence(value: unknown, max = 420): string {
+  if (typeof value !== 'string') return '';
+  const clean = value.replace(/\s+/g, ' ').trim();
+  if (clean.length <= max) return clean;
+  return `${clean.slice(0, max - 1).trim()}…`;
+}
+
 function normalizeSpanishTerms(text: string): string {
   return text
     .replace(/\buna acciones realizadas\b/gi, 'una implementación')
@@ -100,7 +107,9 @@ function cleanGeneratedQuestions(value: unknown, language: 'es' | 'en'): string[
       text = text.replace(/^\?+/, '').replace(/\?+$/, '').trim();
       if (!text.startsWith('¿')) text = `¿${text}`;
       if (!text.endsWith('?')) text = `${text}?`;
-    } else if (!text.endsWith('?')) text = `${text}?`;
+    } else if (!text.endsWith('?')) {
+      text = `${text}?`;
+    }
     return text;
   }).filter(Boolean)));
 }
@@ -109,31 +118,56 @@ function sessionTone(language: 'es' | 'en'): string {
   if (language === 'es') {
     return [
       'Contexto: el contacto es un cliente activo dentro de una mentoría, consultoría o servicio profesional; no es un lead por cerrar.',
-      'Redacta para ayudar al mentor durante una sesión real con el cliente.',
-      'Usa español natural, profesional y sencillo. Cuida tildes, concordancia, puntuación y signos de apertura en preguntas.',
+      'Redacta para ayudar al mentor durante una sesión real con ese cliente específico.',
+      'La respuesta debe cambiar de forma material entre clientes: utiliza nombres de compromisos, objetivos, métricas, decisiones, bloqueos, etapa del programa o hechos recientes cuando existan.',
+      'Cada pregunta debe nacer de evidencia concreta del cliente. Evita preguntas universales como “¿qué cambió?”, “¿qué te bloqueó?” o “¿qué necesitas?” salvo que realmente no exista información más específica.',
+      'En al menos tres de las preguntas, menciona o conecta explícitamente un hecho verificable del contexto: un compromiso, una cifra, una meta, una decisión, un bloqueo, una acción pendiente o un resultado reciente.',
+      'Si faltan datos para una conclusión, dilo y formula una pregunta concreta para obtener ese dato; no rellenes el vacío con consejos genéricos.',
       'Prioriza la información más reciente. Si la revisión actual contradice una brecha histórica, trata la brecha antigua como algo por validar, no como un hecho vigente.',
       'Reconoce avances cuando existan. No inventes un problema nuevo para llenar una sección.',
+      'No repitas la misma idea con palabras distintas entre resumen, riesgos, preguntas, soluciones y plan.',
+      'Las recomendaciones deben conectar la evidencia actual con el objetivo declarado del cliente y terminar en una acción observable.',
+      'Usa español natural, profesional y sencillo. Cuida tildes, concordancia, puntuación y signos de apertura en preguntas.',
       'Evita traducciones literales del inglés, anglicismos innecesarios, frases corporativas y lenguaje de ventas.',
-      'Usa frases breves y directas. Una idea principal por oración.',
-      'No repitas información entre resumen, riesgos, preguntas, soluciones y plan.',
-      'Las preguntas deben poder decirse en voz alta de forma natural y deben ir al grano.',
-      'Las soluciones y planes deben ser concretos, accionables y fáciles de entender para un mentor.'
+      'Usa frases breves y directas. Una idea principal por oración.'
     ].join(' ');
   }
-  return 'Context: this is an active client already receiving a mentoring, consulting or professional service. Prioritize the newest evidence, recognize progress, distinguish historical gaps from current problems, and use concise natural professional language.';
+  return [
+    'Context: this is an active client already receiving mentoring, consulting or a professional service.',
+    'Make the brief materially client-specific by grounding questions and recommendations in named commitments, goals, metrics, decisions, blockers, program stage and recent evidence.',
+    'Avoid universal coaching questions when specific evidence exists.',
+    'At least three questions should explicitly connect to a concrete fact from this client context.',
+    'If evidence is insufficient, state what is missing instead of inventing a generic conclusion.',
+    'Prioritize the newest evidence, recognize progress, distinguish historical gaps from current problems, and use concise natural professional language.'
+  ].join(' ');
 }
 
-function buildSessionOpening(existing: SessionCopilotClient['copilot'], risks: string[], language: 'es' | 'en'): string {
-  const gap = cleanGeneratedText(existing?.gap, language);
+function buildSessionOpening(
+  client: SessionCopilotClient,
+  gap: string,
+  risks: string[],
+  language: 'es' | 'en'
+): string {
+  const cleanGap = cleanGeneratedText(gap, language);
   const firstRisk = cleanGeneratedText(risks[0], language);
+  const priorityCommitment = client.commitments?.find((item) => item.status === 'overdue')
+    || client.commitments?.find((item) => item.status === 'pending');
+  const commitment = cleanGeneratedText(priorityCommitment?.label, language);
+  const goal = cleanGeneratedText(client.goal, language);
+
   if (language === 'es') {
-    if (gap && firstRisk) return `Quiero partir revisando dónde estamos respecto de este punto: ${gap} Después validemos ${firstRisk.toLowerCase()} y cerremos con una próxima acción concreta.`;
-    if (gap) return `Quiero partir revisando dónde estamos respecto de este punto: ${gap} Veamos qué cambió desde la última sesión y cerremos con una próxima acción concreta.`;
-    return 'Quiero partir conectando lo que acordamos con lo que realmente ocurrió desde la última sesión. Revisemos avances, lo que todavía necesita atención y cerremos con una próxima acción concreta.';
+    if (commitment && cleanGap) return `Quiero partir por “${commitment}” y entender qué ocurrió en la práctica. Después conectemos eso con esta brecha: ${cleanGap}`;
+    if (cleanGap && goal) return `Quiero revisar dónde estamos respecto de “${cleanGap}” y cómo está afectando el objetivo de ${goal.toLowerCase()}.`;
+    if (firstRisk && goal) return `Hoy quiero validar este riesgo: ${firstRisk} Veamos si realmente está frenando el objetivo de ${goal.toLowerCase()}.`;
+    if (cleanGap) return `Quiero partir revisando dónde estamos respecto de este punto: ${cleanGap}`;
+    return `Quiero partir por lo más reciente de ${client.name} y definir qué evidencia necesitamos para decidir el siguiente paso.`;
   }
-  if (gap && firstRisk) return `I want to start by reviewing where we are on this point: ${gap} Then let’s validate ${firstRisk.toLowerCase()} and leave with one concrete next action.`;
-  if (gap) return `I want to start by reviewing where we are on this point: ${gap} Let’s see what changed since the last session and close with one concrete next action.`;
-  return 'I want to connect what we agreed with what actually happened since the last session. Let’s review progress, what still needs attention and close with one concrete next action.';
+
+  if (commitment && cleanGap) return `I want to start with “${commitment}” and understand what happened in practice, then connect it to this gap: ${cleanGap}`;
+  if (cleanGap && goal) return `I want to review where we are on “${cleanGap}” and how it is affecting the goal of ${goal.toLowerCase()}.`;
+  if (firstRisk && goal) return `Today I want to validate this risk: ${firstRisk} Let’s see whether it is actually blocking the goal of ${goal.toLowerCase()}.`;
+  if (cleanGap) return `I want to start by reviewing where we are on this point: ${cleanGap}`;
+  return `I want to start with ${client.name}'s most recent evidence and decide what we need to validate next.`;
 }
 
 export async function requestSessionCopilot(client: SessionCopilotClient, journal: SessionJournalEntry[], language: 'es' | 'en'): Promise<SessionCopilotResult> {
@@ -166,8 +200,26 @@ export async function requestSessionCopilot(client: SessionCopilotClient, journa
     .map((item) => cleanGeneratedText(item, language))
     .filter(Boolean)
     .join(' · ');
+  const recentEvidence = journal
+    .slice(0, 8)
+    .map((entry) => [entry.title, compactEvidence(entry.body, 300)].filter(Boolean).join(': '))
+    .filter(Boolean)
+    .join(' | ');
 
-  const response = await fetch('/api/admin/ai/lead-brief', {
+  const evidenceContext = [
+    client.program && `${language === 'es' ? 'Programa' : 'Program'}: ${client.program}`,
+    client.week && `${language === 'es' ? 'Momento del programa' : 'Program stage'}: ${client.week}`,
+    client.currentPhase && `${language === 'es' ? 'Fase actual' : 'Current phase'}: ${client.currentPhase}`,
+    client.goal && `${language === 'es' ? 'Objetivo declarado' : 'Declared goal'}: ${client.goal}`,
+    client.nextAction && `${language === 'es' ? 'Próxima acción vigente' : 'Current next action'}: ${client.nextAction}`,
+    client.planSummary && `${language === 'es' ? 'Plan vigente' : 'Current plan'}: ${client.planSummary}`,
+    commitmentContext && `${language === 'es' ? 'Compromisos con estado' : 'Commitments with status'}: ${commitmentContext}`,
+    blockers.length && `${language === 'es' ? 'Bloqueos registrados' : 'Recorded blockers'}: ${blockers.join(' · ')}`,
+    review?.body && `${language === 'es' ? 'Revisión más reciente' : 'Latest review'}: ${review.body}`,
+    diagnosis?.body && `${language === 'es' ? 'Diagnóstico más reciente' : 'Latest diagnosis'}: ${diagnosis.body}`
+  ].filter(Boolean).join(' | ');
+
+  const response = await fetch('/api/workspace/ai/session-brief', {
     method: 'POST',
     headers: { Authorization: `Bearer ${idToken}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -183,19 +235,15 @@ export async function requestSessionCopilot(client: SessionCopilotClient, journa
       nextAction: client.nextAction || '',
       businessKnowledge: {
         businessDescription: language === 'es'
-          ? 'G-KAIS prepara y acompaña una sesión de seguimiento para un cliente activo. El objetivo es entender qué cambió, reconocer avances, validar problemas o bloqueos todavía vigentes y definir el siguiente plan sin arrastrar supuestos antiguos.'
-          : 'G-KAIS prepares and supports a follow-up session for an active client. The goal is to understand what changed, recognize progress, validate only still-active problems or blockers and define the next plan without carrying old assumptions forward.',
+          ? `G-KAIS prepara una sesión de seguimiento para ${client.name}. El análisis debe apoyarse en evidencia concreta de esta persona y evitar respuestas intercambiables con otros clientes.`
+          : `G-KAIS is preparing a follow-up session for ${client.name}. The analysis must be grounded in this person's concrete evidence and avoid interchangeable client responses.`,
         tone: sessionTone(language)
       },
-      intakeContext: [
-        client.week && `${language === 'es' ? 'Momento del programa' : 'Program stage'}: ${client.week}`,
-        review?.body && `${language === 'es' ? 'Revisión más reciente' : 'Latest review'}: ${review.body}`,
-        commitmentContext && `${language === 'es' ? 'Compromisos' : 'Commitments'}: ${commitmentContext}`
-      ].filter(Boolean).join(' · '),
-      internalNotes: [
+      intakeContext: compactEvidence(evidenceContext, 2750),
+      internalNotes: compactEvidence([
         historicalContext && `${language === 'es' ? 'Contexto histórico, no asumir vigente' : 'Historical context, do not assume current'}: ${historicalContext}`,
-        diagnosis?.body && `${language === 'es' ? 'Diagnóstico más reciente' : 'Latest diagnosis'}: ${diagnosis.body}`
-      ].filter(Boolean).join(' · '),
+        recentEvidence && `${language === 'es' ? 'Evidencia reciente de bitácora' : 'Recent journal evidence'}: ${recentEvidence}`
+      ].filter(Boolean).join(' | '), 2750),
       notes: journal.slice(0, 16).map((entry) => ({
         title: entry.title || (language === 'es' ? 'Bitácora del cliente' : 'Client journal'),
         body: entry.body || '',
@@ -238,7 +286,7 @@ export async function requestSessionCopilot(client: SessionCopilotClient, journa
   const aiOpening = cleanGeneratedText(typeof brief.callPositioning === 'string' ? brief.callPositioning : '', language);
   const callOpening = aiOpening && !/agendar|te escribo|te envío|próxima llamada|next call|schedule/i.test(aiOpening)
     ? aiOpening
-    : buildSessionOpening({ ...existing, gap }, risks, language);
+    : buildSessionOpening(client, gap, risks, language);
 
   return { summary, gap, known, risks, questions, howHelp, plan, callOpening };
 }

@@ -1,6 +1,5 @@
 import { getApps, initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
-import { getFirestore } from 'firebase-admin/firestore';
 import firebaseAppletConfig from '../../../firebase-applet-config.json';
 
 export type WorkspaceAiIdentity = {
@@ -9,6 +8,15 @@ export type WorkspaceAiIdentity = {
   name?: string;
   workspaceId: string;
   permissions: string[];
+};
+
+type FirestoreRestValue = {
+  stringValue?: string;
+  arrayValue?: { values?: FirestoreRestValue[] };
+};
+
+type FirestoreRestDocument = {
+  fields?: Record<string, FirestoreRestValue>;
 };
 
 function getAdminApp() {
@@ -21,9 +29,52 @@ function getAdminApp() {
       });
 }
 
+function configuredProjectId(): string {
+  return process.env.FIREBASE_PROJECT_ID?.trim() || firebaseAppletConfig.projectId?.trim() || '';
+}
+
+function configuredDatabaseId(): string {
+  return process.env.FIRESTORE_DATABASE_ID?.trim() || firebaseAppletConfig.firestoreDatabaseId?.trim() || '(default)';
+}
+
 function hasPermission(permissions: unknown, requiredPermission: string): permissions is string[] {
   return Array.isArray(permissions) && permissions.every((item) => typeof item === 'string') &&
     (permissions.includes('*') || permissions.includes(requiredPermission));
+}
+
+function restString(fields: Record<string, FirestoreRestValue> | undefined, key: string): string {
+  const value = fields?.[key]?.stringValue;
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function restStringList(fields: Record<string, FirestoreRestValue> | undefined, key: string): string[] {
+  const values = fields?.[key]?.arrayValue?.values;
+  if (!Array.isArray(values)) return [];
+  return values
+    .map((value) => typeof value?.stringValue === 'string' ? value.stringValue : '')
+    .filter(Boolean);
+}
+
+async function fetchUserScopedDocument(path: string, idToken: string): Promise<FirestoreRestDocument | null> {
+  const projectId = configuredProjectId();
+  if (!projectId) throw new Error('FIREBASE_PROJECT_ID_REQUIRED');
+  const databaseId = configuredDatabaseId();
+  const encodedPath = path.split('/').map((segment) => encodeURIComponent(segment)).join('/');
+  const url = `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(projectId)}/databases/${encodeURIComponent(databaseId)}/documents/${encodedPath}`;
+  const response = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${idToken}`,
+      Accept: 'application/json'
+    }
+  });
+
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    const detail = (await response.text().catch(() => '')).slice(0, 600);
+    throw new Error(`WORKSPACE_FIRESTORE_LOOKUP_${response.status}${detail ? `: ${detail}` : ''}`);
+  }
+
+  return await response.json() as FirestoreRestDocument;
 }
 
 export async function verifyWorkspaceBearerToken(
@@ -36,32 +87,40 @@ export async function verifyWorkspaceBearerToken(
 
   const app = getAdminApp();
   const decoded = await getAuth(app).verifyIdToken(idToken);
-  const dbId = process.env.FIRESTORE_DATABASE_ID?.trim() || firebaseAppletConfig.firestoreDatabaseId?.trim();
-  const db = dbId ? getFirestore(app, dbId) : getFirestore(app);
 
-  const userSnapshot = await db.collection('users').doc(decoded.uid).get();
-  const userData = userSnapshot.exists ? userSnapshot.data() : undefined;
-  const workspaceId = typeof userData?.activeWorkspaceId === 'string'
-    ? userData.activeWorkspaceId.trim()
-    : '';
+  // Use the caller's Firebase ID token for Firestore authorization. This keeps
+  // Workspace checks aligned with the published Firestore rules and avoids
+  // depending on AI Studio's server runtime having Datastore IAM access to the
+  // app's named Firestore database.
+  const userDocument = await fetchUserScopedDocument(`users/${decoded.uid}`, idToken);
+  const workspaceId = restString(userDocument?.fields, 'activeWorkspaceId');
   if (!workspaceId) return null;
 
-  const [workspaceSnapshot, memberSnapshot] = await Promise.all([
-    db.collection('expert_workspaces').doc(workspaceId).get(),
-    db.collection('expert_workspaces').doc(workspaceId).collection('members').doc(decoded.uid).get()
-  ]);
+  const workspaceDocument = await fetchUserScopedDocument(`expert_workspaces/${workspaceId}`, idToken);
+  if (!workspaceDocument) return null;
+  const workspaceStatus = restString(workspaceDocument.fields, 'status');
+  if (workspaceStatus && workspaceStatus !== 'active') return null;
 
-  if (!workspaceSnapshot.exists || !memberSnapshot.exists) return null;
-  const workspace = workspaceSnapshot.data();
-  const member = memberSnapshot.data();
-  if (workspace?.status && workspace.status !== 'active') return null;
-  if (member?.status !== 'active') return null;
-  if (!hasPermission(member?.permissions, requiredPermission)) return null;
+  let permissions: string[] = [];
+  const ownerUid = restString(workspaceDocument.fields, 'ownerUid');
+  if (decoded.uid === workspaceId && (!ownerUid || ownerUid === decoded.uid)) {
+    permissions = ['*'];
+  } else {
+    const memberDocument = await fetchUserScopedDocument(
+      `expert_workspaces/${workspaceId}/members/${decoded.uid}`,
+      idToken
+    );
+    if (!memberDocument) return null;
+    if (restString(memberDocument.fields, 'status') !== 'active') return null;
+    permissions = restStringList(memberDocument.fields, 'permissions');
+  }
+
+  if (!hasPermission(permissions, requiredPermission)) return null;
 
   return {
     uid: decoded.uid,
     workspaceId,
-    permissions: member.permissions,
+    permissions,
     ...(typeof decoded.email === 'string' ? { email: decoded.email } : {}),
     ...(typeof decoded.name === 'string' ? { name: decoded.name } : {})
   };

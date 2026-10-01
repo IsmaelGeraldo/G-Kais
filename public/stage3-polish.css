@@ -155,15 +155,15 @@ html.gkais-surface-dark [class~="mt-6"][class*="xl:grid-cols-[1.45fr_0.8fr]"] > 
     top: 12px;
     left: 12px;
     width: 276px;
-    height: 36px;
+    height: 46px;
     margin: 0 !important;
     pointer-events: none;
   }
 
   [class*="lg:pl-[245px]"] > main > div > [class~="mb-4"][class~="justify-end"]:has(+ [class*="xl:grid-cols-[300px_minmax(0,1fr)]"]) > button {
     width: 276px;
-    height: 36px;
-    min-height: 36px;
+    height: 46px;
+    min-height: 46px;
     justify-content: center;
     padding: 0 1rem;
     border-radius: 9999px;

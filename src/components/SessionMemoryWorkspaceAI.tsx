@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Sparkles } from 'lucide-react';
 import { SessionMemoryWorkspace } from './SessionMemoryWorkspace';
 import { useLanguage } from '../i18n/LanguageContext';
@@ -134,6 +134,9 @@ export function SessionMemoryWorkspaceAI({ onBack }: Props) {
   const [workspaceRevision, setWorkspaceRevision] = useState(0);
   const [analyzing, setAnalyzing] = useState(true);
   const [usingAI, setUsingAI] = useState(false);
+  const [showFallbackNotice, setShowFallbackNotice] = useState(false);
+  const fallbackNoticeShownRef = useRef(false);
+  const fallbackNoticeTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     const refresh = () => setWorkspaceRevision((value) => value + 1);
@@ -145,6 +148,10 @@ export function SessionMemoryWorkspaceAI({ onBack }: Props) {
     };
   }, []);
 
+  useEffect(() => () => {
+    if (fallbackNoticeTimerRef.current !== null) window.clearTimeout(fallbackNoticeTimerRef.current);
+  }, []);
+
   const clients = useMemo(() => loadClients(), [workspaceRevision]);
   const requestedClientId = new URLSearchParams(window.location.search).get('client') || '';
   const clientId = clients.some((item) => item.id === requestedClientId)
@@ -154,6 +161,17 @@ export function SessionMemoryWorkspaceAI({ onBack }: Props) {
   useEffect(() => {
     let cancelled = false;
     let runId = 0;
+
+    const showInitialFallbackNotice = () => {
+      if (fallbackNoticeShownRef.current) return;
+      fallbackNoticeShownRef.current = true;
+      setShowFallbackNotice(true);
+      if (fallbackNoticeTimerRef.current !== null) window.clearTimeout(fallbackNoticeTimerRef.current);
+      fallbackNoticeTimerRef.current = window.setTimeout(() => {
+        setShowFallbackNotice(false);
+        fallbackNoticeTimerRef.current = null;
+      }, 4500);
+    };
 
     const hydrate = async () => {
       const thisRun = ++runId;
@@ -181,8 +199,13 @@ export function SessionMemoryWorkspaceAI({ onBack }: Props) {
           currentGap: brief.gap || item.currentGap
         }));
         setUsingAI(true);
-      } catch {
-        if (!cancelled && thisRun === runId) setUsingAI(false);
+        setShowFallbackNotice(false);
+      } catch (error) {
+        console.error('[G-KAIS SESSION COPILOT ERROR]', error);
+        if (!cancelled && thisRun === runId) {
+          setUsingAI(false);
+          showInitialFallbackNotice();
+        }
       } finally {
         if (!cancelled && thisRun === runId) setAnalyzing(false);
       }
@@ -199,7 +222,7 @@ export function SessionMemoryWorkspaceAI({ onBack }: Props) {
       cancelled = true;
       window.removeEventListener(SESSION_STAGE_EVENT, onStageCompleted as EventListener);
     };
-  }, [clientId, language, workspaceRevision]);
+  }, [clientId, language]);
 
   if (!clients.length) {
     return (
@@ -233,7 +256,7 @@ export function SessionMemoryWorkspaceAI({ onBack }: Props) {
           {language === 'es' ? 'Copilot actualizando esta etapa…' : 'Copilot updating this stage…'}
         </div>
       )}
-      {!analyzing && !usingAI && (
+      {!analyzing && !usingAI && showFallbackNotice && (
         <div className="fixed bottom-4 right-4 z-[95] max-w-[280px] rounded-xl border border-black/10 bg-white/95 px-3 py-2 text-[10px] leading-4 text-black/45 shadow-lg backdrop-blur">
           {language === 'es' ? 'Usando el último contexto disponible. Gemini se activa cuando existe una sesión autenticada.' : 'Using the latest available context. Gemini activates when an authenticated session exists.'}
         </div>

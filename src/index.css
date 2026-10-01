@@ -29,10 +29,12 @@
 html.gkais-window-surface [class*="lg:pl-[245px]"] section.bg-white,
 html.gkais-window-surface [class*="lg:pl-[245px]"] article.bg-white,
 html.gkais-window-surface [class*="lg:pl-[245px]"] aside.bg-white {
-  background: var(--gkais-window-surface, rgba(255,255,255,0.72)) !important;
+  background: var(--gkais-window-surface, #ffffff) !important;
   border-color: var(--gkais-window-border, rgba(10,10,10,0.10)) !important;
-  -webkit-backdrop-filter: blur(var(--gkais-window-blur, 18px));
-  backdrop-filter: blur(var(--gkais-window-blur, 18px));
+  box-shadow: var(--gkais-window-shadow, 0 10px 30px rgba(10,10,10,0.035)) !important;
+  -webkit-backdrop-filter: blur(var(--gkais-window-blur, 0px)) saturate(var(--gkais-window-saturate, 1));
+  backdrop-filter: blur(var(--gkais-window-blur, 0px)) saturate(var(--gkais-window-saturate, 1));
+  transition: background 180ms ease, border-color 180ms ease, box-shadow 180ms ease, color 180ms ease;
 }
 
 html.gkais-surface-dark [class*="lg:pl-[245px]"] section.bg-white,

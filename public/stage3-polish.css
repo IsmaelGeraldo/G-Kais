@@ -58,11 +58,23 @@
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  max-width: min(52vw, 640px);
+  max-width: min(60vw, 720px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
   text-align: center;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+}
+
+[class*="lg:pl-[245px]"] > header > div > div:first-child > div:last-child::before,
+[class*="lg:pl-[245px]"] > header > div > div:first-child > div:last-child::after {
+  content: "";
+  display: block;
+  width: 30px;
+  height: 1px;
+  flex: 0 0 30px;
+  background: rgba(17, 20, 19, 0.18);
 }
 
 [class*="lg:pl-[245px]"] > header > div > div:first-child > div:last-child > p {
@@ -70,6 +82,9 @@
 }
 
 [class*="lg:pl-[245px]"] > header > div > div:first-child > div:last-child > h1 {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-size: 0.95rem;
   line-height: 1.25rem;
   font-weight: 600;
@@ -80,9 +95,21 @@
   display: none;
 }
 
-/* Dashboard keeps its question + explanatory sentence in place; only its eyebrow moves upstairs. */
+/* Dashboard keeps its question + explanatory sentence, but starts closer to the top. */
+[class*="lg:pl-[245px]"] > main > div > [class~="mb-7"]:has(> p:nth-child(3)) {
+  margin-bottom: 1.15rem !important;
+}
+
 [class*="lg:pl-[245px]"] > main > div > [class~="mb-7"]:has(> p:nth-child(3)) > p:first-child {
-  visibility: hidden;
+  display: none;
+}
+
+[class*="lg:pl-[245px]"] > main > div > [class~="mb-7"]:has(> p:nth-child(3)) > h2 {
+  margin-top: 0 !important;
+}
+
+[class*="lg:pl-[245px]"] > main:has(> div > [class~="mb-7"]:has(> p:nth-child(3))) {
+  padding-top: 1.25rem !important;
 }
 
 [class*="lg:pl-[245px]"]:has(> main > div > [class~="mb-7"]:has(> p:nth-child(3))) > header > div > div:first-child > div:last-child > h1 {
@@ -98,7 +125,16 @@
   color: #0A3F4D;
 }
 
-/* Clients: visually integrate Nuevo cliente inside the Clientes activos card. */
+/* Dashboard > Por hacer hoy: remove the redundant EJECUCIÓN eyebrow. */
+[class~="mt-6"][class*="xl:grid-cols-[1.45fr_0.8fr]"] > section:first-child > div:first-child > div:first-child > p:first-child {
+  display: none;
+}
+
+[class~="mt-6"][class*="xl:grid-cols-[1.45fr_0.8fr]"] > section:first-child > div:first-child > div:first-child > h2 {
+  margin-top: 0 !important;
+}
+
+/* Clients: clear three-level header inside the active-client card. */
 @media (min-width: 1280px) {
   [class*="lg:pl-[245px]"] > main > div {
     position: relative;
@@ -107,27 +143,48 @@
   [class*="lg:pl-[245px]"] > main > div > [class~="mb-4"][class~="justify-end"]:has(+ [class*="xl:grid-cols-[300px_minmax(0,1fr)]"]) {
     position: absolute;
     z-index: 4;
-    top: 8px;
-    left: 164px;
-    width: 124px;
+    top: 12px;
+    left: 12px;
+    width: 276px;
     height: 38px;
     margin: 0 !important;
     pointer-events: none;
   }
 
   [class*="lg:pl-[245px]"] > main > div > [class~="mb-4"][class~="justify-end"]:has(+ [class*="xl:grid-cols-[300px_minmax(0,1fr)]"]) > button {
-    width: 124px;
+    width: 100%;
     min-height: 36px;
     justify-content: center;
-    padding: 0.45rem 0.65rem;
-    border-radius: 0.7rem;
-    font-size: 0.72rem;
+    padding: 0.5rem 0.8rem;
+    border-radius: 0.75rem;
+    font-size: 0.78rem;
     line-height: 1rem;
     pointer-events: auto;
   }
 
+  [class*="lg:pl-[245px]"] > main > div > [class~="mb-4"][class~="justify-end"] + [class*="xl:grid-cols-[300px_minmax(0,1fr)]"] > aside {
+    padding-top: 4.25rem !important;
+  }
+
   [class*="lg:pl-[245px]"] > main > div > [class~="mb-4"][class~="justify-end"] + [class*="xl:grid-cols-[300px_minmax(0,1fr)]"] > aside > div:first-child {
-    min-height: 64px;
-    padding-right: 8.25rem;
+    min-height: auto;
+    padding: 0.15rem 0.75rem 0.5rem !important;
+  }
+
+  [class*="lg:pl-[245px]"] > main > div > [class~="mb-4"][class~="justify-end"] + [class*="xl:grid-cols-[300px_minmax(0,1fr)]"] > aside > div:first-child > p {
+    white-space: nowrap;
+    font-size: 0.7rem;
+    line-height: 1rem;
+  }
+
+  [class*="lg:pl-[245px]"] > main > div > [class~="mb-4"][class~="justify-end"] + [class*="xl:grid-cols-[300px_minmax(0,1fr)]"] > aside > div:first-child > h3 {
+    margin-top: 0.15rem !important;
+    font-size: 0.95rem;
+    line-height: 1.25rem;
+  }
+
+  /* Soft visual separator between clients. */
+  [class*="lg:pl-[245px]"] > main > div > [class~="mb-4"][class~="justify-end"] + [class*="xl:grid-cols-[300px_minmax(0,1fr)]"] > aside > div[class~="mt-2"] > button + button {
+    box-shadow: inset 0 1px 0 rgba(10, 10, 10, 0.055);
   }
 }

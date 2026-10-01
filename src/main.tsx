@@ -6,6 +6,7 @@ import './services/expertsClientReconstruction';
 import './services/expertsRelationshipAuthBridge';
 import './services/expertsRelationshipFoundation';
 import './services/expertsTaskMemory';
+import './services/expertsWebinarTaskBridge';
 import './services/expertsWorkspaceCore';
 import './services/expertsWorkspaceSettings';
 

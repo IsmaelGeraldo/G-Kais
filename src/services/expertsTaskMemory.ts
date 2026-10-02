@@ -128,6 +128,17 @@ function fingerprint(tasks: StoredTask[]): string {
   return JSON.stringify(tasks);
 }
 
+/**
+ * Formation plans/metadata reuse work_tasks for existing permissions and sync,
+ * but they are not actionable work. Keep them out of the local operational
+ * task cache so Dashboard/Priority Work never count them as open work.
+ */
+function isOperationalLocalTask(task: StoredTask): boolean {
+  const workstream = typeof task.workstream === 'string' ? task.workstream : '';
+  const actionKind = typeof task.sourceActionKind === 'string' ? task.sourceActionKind : '';
+  return !workstream.startsWith('formation-') && !actionKind.startsWith('formation-');
+}
+
 async function restoredUser(): Promise<User | null> {
   if (firebaseAuth.currentUser) return firebaseAuth.currentUser;
   return new Promise((resolve) => {
@@ -209,7 +220,7 @@ async function syncOwnerLegacyTasksFromLocal(): Promise<void> {
   const workspaceId = await resolveActiveExpertWorkspaceId(user);
   if (!workspaceId || workspaceId !== user.uid) return;
 
-  const local = withOwnerAssignment(readLocalTasks(), user);
+  const local = withOwnerAssignment(readLocalTasks().filter(isOperationalLocalTask), user);
   const nextFingerprint = fingerprint(local);
   if (!local.length || nextFingerprint === lastOwnerLocalFingerprint) return;
 
@@ -244,14 +255,15 @@ export async function hydrateExpertsTaskMemory(): Promise<'firestore' | 'local'>
     }
 
     const snapshot = await getDocs(readable.ref);
-    let remote = snapshot.docs
+    const allRemote = snapshot.docs
       .map((item) => (item.data() as TaskEnvelope).task)
       .filter((item): item is StoredTask => Boolean(item?.id))
       .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+    let remote = allRemote.filter(isOperationalLocalTask);
     const isOwnerWorkspace = readable.workspaceId === user.uid;
 
-    if (isOwnerWorkspace && remote.length === 0) {
-      let local = readLocalTasks();
+    if (isOwnerWorkspace && allRemote.length === 0) {
+      let local = readLocalTasks().filter(isOperationalLocalTask);
       if (!local.length) local = PILOT_TASKS;
       local = withOwnerAssignment(local, user);
       if (local.length) await writeTaskBatch(readable.workspaceId, local, true);
@@ -288,6 +300,7 @@ async function startTaskSubscription(): Promise<void> {
     const remote = snapshot.docs
       .map((item) => (item.data() as TaskEnvelope).task)
       .filter((item): item is StoredTask => Boolean(item?.id))
+      .filter(isOperationalLocalTask)
       .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
     writeLocalTasks(remote);
     if (readable.workspaceId === user.uid) lastOwnerLocalFingerprint = fingerprint(remote);

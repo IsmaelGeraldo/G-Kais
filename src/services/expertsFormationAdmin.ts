@@ -27,13 +27,28 @@ function workspaceDocument(workspaceId: string, collectionName: string, id: stri
   return doc(firestoreDb, 'expert_workspaces', workspaceId, collectionName, id);
 }
 
+async function deleteCohortMemory(workspace: string, cohortId: string) {
+  const planSnapshot = await getDocs(query(
+    workspaceCollection(workspace, 'work_tasks'),
+    where('task.cohortId', '==', cohortId)
+  ));
+  await Promise.all([
+    ...planSnapshot.docs.map((item) => deleteDoc(item.ref)),
+    deleteDoc(workspaceDocument(workspace, 'work_tasks', `cohort-meta-${cohortId}`)).catch(() => {})
+  ]);
+}
+
 export async function deleteEmptyFormation(formationId: string): Promise<void> {
   const workspace = await workspaceId();
   const enrollmentSnapshot = await getDocs(query(workspaceCollection(workspace, 'enrollments'), where('formationId', '==', formationId)));
   if (!enrollmentSnapshot.empty) throw new Error('FORMATION_HAS_ENROLLMENTS');
 
   const cohortSnapshot = await getDocs(query(workspaceCollection(workspace, 'cohorts'), where('formationId', '==', formationId)));
-  await Promise.all(cohortSnapshot.docs.map((item) => deleteDoc(item.ref)));
+  await Promise.all(cohortSnapshot.docs.map(async (item) => {
+    await deleteCohortMemory(workspace, item.id);
+    await deleteDoc(item.ref);
+  }));
+  await deleteDoc(workspaceDocument(workspace, 'work_tasks', `formation-meta-${formationId}`)).catch(() => {});
   await deleteDoc(workspaceDocument(workspace, 'formations', formationId));
   await appendExpertAuditLog({
     entityType: 'formation',
@@ -47,6 +62,7 @@ export async function deleteEmptyCohort(cohortId: string): Promise<void> {
   const workspace = await workspaceId();
   const enrollmentSnapshot = await getDocs(query(workspaceCollection(workspace, 'enrollments'), where('cohortId', '==', cohortId)));
   if (!enrollmentSnapshot.empty) throw new Error('COHORT_HAS_ENROLLMENTS');
+  await deleteCohortMemory(workspace, cohortId);
   await deleteDoc(workspaceDocument(workspace, 'cohorts', cohortId));
   await appendExpertAuditLog({
     entityType: 'cohort',

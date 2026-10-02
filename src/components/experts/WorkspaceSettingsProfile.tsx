@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { ImagePlus, Layers3, Palette, UserRound } from 'lucide-react';
 import type { Language } from '../../i18n/LanguageContext';
 
@@ -18,6 +18,8 @@ export const THEME_COLORS = [
 
 const WORKSPACE_COLORS = [{ id: 'white', label: 'Blanco', hex: '#FFFFFF' }, ...THEME_COLORS];
 const WINDOW_COLORS = WORKSPACE_COLORS;
+const INTERNAL_NAV_ACCENT_KEY = 'gkais-internal-nav-accent-v1';
+export const INTERNAL_NAV_ACCENT_EVENT = 'gkais:internal-nav-accent-changed';
 
 export function themeColor(id: string): string {
   if (id === 'white') return '#FFFFFF';
@@ -34,6 +36,11 @@ export function workspaceBackground(color: string, intensity: number): string {
   return `linear-gradient(135deg, color-mix(in srgb, ${color} ${Math.max(3, amount - 8)}%, #FAFAF7) 0%, color-mix(in srgb, ${color} ${amount}%, #F2F2ED) 100%)`;
 }
 
+export function readInternalNavAccent(): 'black' | 'sidebar' {
+  if (typeof window === 'undefined') return 'black';
+  return window.localStorage.getItem(INTERNAL_NAV_ACCENT_KEY) === 'sidebar' ? 'sidebar' : 'black';
+}
+
 export function WorkspaceSettingsProfile({ language, profile, setProfile, appearance, setAppearance }: {
   language: Language;
   profile: WorkspaceProfile;
@@ -42,13 +49,21 @@ export function WorkspaceSettingsProfile({ language, profile, setProfile, appear
   setAppearance: React.Dispatch<React.SetStateAction<WorkspaceAppearance>>;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
+  const [internalNavAccent, setInternalNavAccent] = useState<'black' | 'sidebar'>(readInternalNavAccent);
   const surfaceIndex = Math.max(0, Math.min(WINDOW_COLORS.length - 1, Math.round(appearance.surfaceIntensity ?? 0)));
   const surfaceColorIntensity = appearance.surfaceColorIntensity ?? 3;
+
   const handleFile = (file?: File) => {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => setProfile((current) => ({ ...current, avatar: String(reader.result ?? '') }));
     reader.readAsDataURL(file);
+  };
+
+  const updateInternalNavAccent = (value: 'black' | 'sidebar') => {
+    setInternalNavAccent(value);
+    try { window.localStorage.setItem(INTERNAL_NAV_ACCENT_KEY, value); } catch {}
+    window.dispatchEvent(new CustomEvent(INTERNAL_NAV_ACCENT_EVENT, { detail: value }));
   };
 
   return <div className="space-y-6">
@@ -72,6 +87,7 @@ export function WorkspaceSettingsProfile({ language, profile, setProfile, appear
         <label className="mt-4 flex items-center gap-2 text-xs"><input type="checkbox" checked={appearance.sidebar === 'same'} onChange={(event) => setAppearance((current) => ({ ...current, sidebar: event.target.checked ? 'same' : 'blue' }))} />{language === 'es' ? 'Usar el mismo color del Workspace' : 'Use the same Workspace color'}</label>
         {appearance.sidebar !== 'same' && <div className="mt-4 grid grid-cols-8 gap-2">{THEME_COLORS.map((item) => <button key={item.id} type="button" onClick={() => setAppearance((current) => ({ ...current, sidebar: item.id }))} className={`h-7 w-7 rounded-lg border ${appearance.sidebar === item.id ? 'ring-2 ring-black/20' : ''}`} style={{ background: item.hex }} aria-label={item.label} />)}</div>}
         <div className="mt-5"><div className="flex justify-between text-xs font-semibold"><span>{language === 'es' ? 'Intensidad de selección' : 'Selection intensity'}</span><span>{appearance.sidebarIntensity}/10</span></div><input type="range" min="1" max="10" value={appearance.sidebarIntensity} onChange={(event) => setAppearance((current) => ({ ...current, sidebarIntensity: Number(event.target.value) }))} className="mt-2 w-full" /></div>
+        <div className="mt-5 border-t border-black/7 pt-4"><p className="text-xs font-semibold">{language === 'es' ? 'Color de selección interna' : 'Internal selection color'}</p><p className="mt-1 text-[10px] leading-4 text-black/45">{language === 'es' ? 'Aplica solo a selectores de navegación como Alumnos/Plan, Trabajo activo/Compradores y Personas/Seguimiento.' : 'Only applies to navigation selectors such as Students/Plan, Active Work/Buyers and People/Follow-up.'}</p><div className="mt-3 grid grid-cols-2 gap-2"><button type="button" onClick={() => updateInternalNavAccent('black')} className={`rounded-xl border px-3 py-2.5 text-xs font-semibold ${internalNavAccent === 'black' ? 'border-[#111413] bg-[#111413] text-white' : 'border-black/10 text-black/50'}`}>{language === 'es' ? 'Negro' : 'Black'}</button><button type="button" onClick={() => updateInternalNavAccent('sidebar')} className={`rounded-xl border px-3 py-2.5 text-xs font-semibold ${internalNavAccent === 'sidebar' ? 'border-black/25 bg-[#F7F7F5]' : 'border-black/10 text-black/50'}`}>{language === 'es' ? 'Usar color del sidebar' : 'Use sidebar color'}</button></div></div>
       </section>
 
       <section className="rounded-2xl border border-black/10 bg-white p-5 shadow-[0_10px_30px_rgba(10,10,10,0.035)]">

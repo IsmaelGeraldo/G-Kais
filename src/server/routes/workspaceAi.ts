@@ -45,7 +45,7 @@ async function enrollmentWelcomeHandler(req: Request, res: Response) {
     }
     const result = await sendEnrollmentWelcome({ recipientEmail, personName, formationTitle, cohortTitle, startsAt });
     console.info(`[WORKSPACE ENROLLMENT WELCOME] workspace=${identity.workspaceId} member=${identity.uid} status=${result.status}`);
-    return res.status(result.status === 'FAILED' ? 502 : 200).json({ success: result.success, code: `WELCOME_${result.status}`, ...result });
+    return res.status(result.status === 'FAILED' ? 502 : 200).json({ code: `WELCOME_${result.status}`, ...result });
   } catch (err: unknown) {
     console.error('[WORKSPACE ENROLLMENT WELCOME ERROR]', err);
     return res.status(500).json({ success: false, code: 'WELCOME_ERROR', error: err instanceof Error ? err.message : 'Welcome email failed.' });

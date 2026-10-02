@@ -35,14 +35,18 @@ import {
   type WorkTask,
   type WorkTaskStatus
 } from './workspaceState';
+import { PriorityTaskSpecialPanel } from './PriorityTaskSpecialPanel';
 
-type TeamTask = WorkTask & {
+type TeamTask = Omit<WorkTask, 'source'> & {
+  source?: WorkTask['source'] | 'webinar' | 'webinar-continuity' | 'formation';
   assignedToUid?: string;
   assignedToName?: string;
   createdByUid?: string;
   completedByUid?: string;
   personId?: string;
-  sourceActionKind?: 'follow-up' | 'enrollment';
+  sourceId?: string;
+  sourceRegistrationId?: string;
+  sourceActionKind?: 'follow-up' | 'enrollment' | 'continuity' | 'student-progress' | string;
 };
 
 type TaskView = 'mine' | 'team';
@@ -83,6 +87,10 @@ function priorityMeta(task: WorkTask, language: Language) {
 
 function memberLabel(member?: WorkspaceMember) {
   return member?.displayName || member?.email || 'Sin responsable';
+}
+
+function isSpecialTask(task: TeamTask) {
+  return task.sourceActionKind === 'enrollment' || (task.sourceActionKind === 'follow-up' && task.source === 'webinar');
 }
 
 export function PriorityRadarWorkspace({ language, onOpenClient }: { language: Language; onOpenClient: (id: string) => void }) {
@@ -149,13 +157,8 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
   const openTasks = useMemo(() => {
     const term = search.trim().toLowerCase();
     if (!term) return baseOpenTasks;
-    return baseOpenTasks.filter((task) => [
-      task.title,
-      task.clientName,
-      task.note || '',
-      task.assignedToName || task.assignee || '',
-      actionLabel(task.type, language)
-    ].some((value) => value.toLowerCase().includes(term)));
+    return baseOpenTasks.filter((task) => [task.title, task.clientName, task.note || '', task.assignedToName || task.assignee || '', actionLabel(task.type, language)]
+      .some((value) => value.toLowerCase().includes(term)));
   }, [baseOpenTasks, search, language]);
 
   const historyTasks = useMemo(() => visibleTasks
@@ -175,10 +178,7 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
     count: tasks.filter((task) => task.assignedToUid === member.uid && task.status !== 'done' && !task.deletedAt).length
   })), [activeMembers, tasks]);
 
-  const persistTasks = (next: TeamTask[]) => {
-    setTasks(next);
-    saveTasks(next);
-  };
+  const persistTasks = (next: TeamTask[]) => { setTasks(next); saveTasks(next); };
 
   const patchTask = (task: TeamTask, patch: Partial<TeamTask>) => {
     const normalized: Partial<TeamTask> = { ...patch };
@@ -197,35 +197,29 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
     if (!canManageTeam && !isOwner) return;
     const member = activeMembers.find((item) => item.uid === uid);
     if (!member) return;
-    const updated = patchTask(task, {
-      assignedToUid: member.uid,
-      assignedToName: memberLabel(member),
-      assignee: memberLabel(member)
-    });
+    const updated = patchTask(task, { assignedToUid: member.uid, assignedToName: memberLabel(member), assignee: memberLabel(member) });
     if (isOwner && task.clientId) appendJournal(task.clientId, 'task', language === 'es' ? 'Tarea reasignada' : 'Task reassigned', `${task.title} → ${memberLabel(member)}`);
     void appendExpertAuditLog({ entityType: 'work_task', entityId: task.id, action: 'task.reassigned', changes: { assignedToUid: updated.assignedToUid, assignedToName: updated.assignedToName } }).catch(() => {});
   };
 
   const toggleWork = (task: TeamTask) => {
-    if (activeTaskId === task.id) {
-      setActiveTaskId(null);
-      return;
-    }
+    if (activeTaskId === task.id) { setActiveTaskId(null); return; }
     setActiveTaskId(task.id);
     setResultDraft(task.result || '');
     setNewAssigneeUid(task.assignedToUid || currentUid);
   };
 
-  const completeTask = (task: TeamTask) => {
+  const finishTask = (task: TeamTask, result: string) => {
     if (!canWork(task)) return;
-    const result = resultDraft.trim();
-    const updated = patchTask(task, { status: 'done', result, completedByUid: currentUid });
+    const updated = patchTask(task, { status: 'done', result: result.trim(), completedByUid: currentUid });
     if (isOwner && task.clientId) appendJournal(task.clientId, 'task-result', language === 'es' ? 'Trabajo completado' : 'Work completed', result || task.title);
     void appendExpertAuditLog({ entityType: 'work_task', entityId: task.id, action: 'task.completed', changes: { result, clientId: task.clientId, personId: task.personId || '' } }).catch(() => {});
     if (updated.personId) void appendExpertRelationshipEvent({ personId: updated.personId, type: 'task.completed', sourceType: 'work_task', sourceId: updated.id, metadata: { title: updated.title, result, completedByUid: currentUid } }).catch(() => {});
     setActiveTaskId(null);
     setResultDraft('');
   };
+
+  const completeTask = (task: TeamTask) => finishTask(task, resultDraft.trim());
 
   const removeTask = (task: TeamTask) => {
     if (!canWork(task)) return;
@@ -242,27 +236,14 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
   };
 
   const beginHistoryEdit = (task: TeamTask) => {
-    setEditingHistoryTaskId(task.id);
-    setHistoryTitle(task.title);
-    setHistoryNote(task.note || '');
-    setHistoryResult(task.result || '');
-    setHistoryType(task.type);
-    setHistoryDate(task.dueDate || '');
-    setHistoryTime(task.dueTime || '');
+    setEditingHistoryTaskId(task.id); setHistoryTitle(task.title); setHistoryNote(task.note || ''); setHistoryResult(task.result || ''); setHistoryType(task.type); setHistoryDate(task.dueDate || ''); setHistoryTime(task.dueTime || '');
   };
 
   const saveHistoryEdit = (task: TeamTask) => {
     if (!canWork(task)) return;
     const title = historyTitle.trim();
     if (!title) return;
-    patchTask(task, {
-      title,
-      note: historyNote.trim(),
-      result: historyResult.trim(),
-      type: historyType,
-      dueDate: historyDate,
-      dueTime: historyTime
-    });
+    patchTask(task, { title, note: historyNote.trim(), result: historyResult.trim(), type: historyType, dueDate: historyDate, dueTime: historyTime });
     setEditingHistoryTaskId(null);
   };
 
@@ -289,106 +270,46 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
       source: 'manual',
       confirmationEmail: newType === 'meeting' ? 'queued' : 'not-required'
     };
-    const next = [nextTask, ...tasks];
-    persistTasks(next);
+    persistTasks([nextTask, ...tasks]);
     void persistExpertWorkTask(nextTask);
     void appendExpertAuditLog({ entityType: 'work_task', entityId: nextTask.id, action: 'task.created', changes: { assignedToUid: assignee.uid, clientId: task.clientId, personId: task.personId || '' } }).catch(() => {});
     if (isOwner && task.clientId) appendJournal(task.clientId, 'task', language === 'es' ? 'Nueva acción desde Trabajo prioritario' : 'New action from Priority Work', `${actionLabel(newType, language)} · ${clean} · ${memberLabel(assignee)}`);
-    setNewNote('');
-    setNewDate('');
-    setNewTime('');
+    setNewNote(''); setNewDate(''); setNewTime('');
   };
 
   const pendingCount = baseOpenTasks.length;
   const delegatedCount = baseOpenTasks.filter((task) => task.assignedToUid && task.assignedToUid !== currentUid).length;
-  const typeCards: Array<[WorkActionType, number]> = [
-    ['whatsapp', typeCounts.whatsapp],
-    ['email', typeCounts.email],
-    ['call', typeCounts.call],
-    ['meeting', typeCounts.meeting],
-    ['task', typeCounts.task]
-  ];
+  const typeCards: Array<[WorkActionType, number]> = [['whatsapp', typeCounts.whatsapp], ['email', typeCounts.email], ['call', typeCounts.call], ['meeting', typeCounts.meeting], ['task', typeCounts.task]];
 
   return <div className="space-y-4">
     <section className="rounded-2xl border border-black/10 bg-white p-4 md:p-5">
-      <div className="flex flex-col justify-between gap-4 xl:flex-row xl:items-center">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#0A3F4D]">PRIORITY WORK</p>
-          <h3 className="mt-1.5 text-xl font-semibold">{view === 'mine' ? (language === 'es' ? 'Mi trabajo' : 'My work') : (language === 'es' ? 'Trabajo del equipo' : 'Team work')}</h3>
-          <p className="mt-1.5 max-w-xl text-sm leading-5 text-black/50">{view === 'mine' ? (language === 'es' ? 'Aquí ves únicamente el trabajo asignado a tu cuenta.' : 'This view only shows work assigned to your account.') : (language === 'es' ? 'Supervisa responsables, prioridades y resultados sin mezclar el trabajo de cada persona.' : 'Supervise owners, priorities and outcomes without mixing each person’s work.')}</p>
-        </div>
-
-        <div className="flex flex-wrap gap-1.5 xl:justify-end">
-          <div className="min-w-[66px] rounded-lg bg-[#111413] px-2.5 py-1.5 text-white"><p className="text-[8px] font-semibold uppercase tracking-[0.12em] text-white/60">{language === 'es' ? 'TOTAL' : 'TOTAL'}</p><p className="mt-0.5 text-base font-semibold">{pendingCount}</p></div>
-          {typeCards.map(([type, count]) => <div key={type} className="min-w-[72px] rounded-lg border border-black/7 bg-[#FAFAF8] px-2.5 py-1.5"><div className="flex items-center gap-1.5 text-black/40"><ActionIcon kind={type} /><p className="truncate text-[8px] font-semibold uppercase tracking-[0.08em]">{actionLabel(type, language)}</p></div><p className="mt-0.5 text-sm font-semibold">{count}</p></div>)}
-          {view === 'team' && <div className="min-w-[72px] rounded-lg border border-black/7 bg-[#FAFAF8] px-2.5 py-1.5"><p className="text-[8px] font-semibold uppercase tracking-[0.1em] text-black/35">{language === 'es' ? 'DELEGADAS' : 'DELEGATED'}</p><p className="mt-0.5 text-sm font-semibold">{delegatedCount}</p></div>}
-        </div>
-      </div>
-
-      <div className="mt-3 flex flex-col gap-2 border-t border-black/5 pt-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="inline-flex w-fit rounded-full border border-black/10 bg-[#F7F7F5] p-1">
-          <button type="button" onClick={() => setView('mine')} className={`rounded-full px-4 py-2 text-xs font-semibold ${view === 'mine' ? 'bg-[#111413] text-white' : 'text-black/45'}`}>{language === 'es' ? 'Mi trabajo' : 'My work'}</button>
-          {canReadTeam && <button type="button" onClick={() => setView('team')} className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold ${view === 'team' ? 'bg-[#111413] text-white' : 'text-black/45'}`}><UsersRound className="h-3.5 w-3.5" />{language === 'es' ? 'Trabajo del equipo' : 'Team work'}</button>}
-        </div>
-        <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-          <label className="relative block w-full sm:max-w-[360px]"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-black/30" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={language === 'es' ? 'Buscar tarea, persona, responsable o tipo…' : 'Search task, person, assignee or type…'} className="w-full rounded-xl border border-black/10 bg-[#FAFAF8] py-2 pl-9 pr-3 text-sm" /></label>
-          <label className="flex shrink-0 items-center gap-2 text-xs text-black/45"><input type="checkbox" checked={showDone} onChange={(event) => setShowDone(event.target.checked)} />{language === 'es' ? 'Mostrar historial' : 'Show history'}</label>
-        </div>
-      </div>
+      <div className="flex flex-col justify-between gap-4 xl:flex-row xl:items-center"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#0A3F4D]">PRIORITY WORK</p><h3 className="mt-1.5 text-xl font-semibold">{view === 'mine' ? (language === 'es' ? 'Mi trabajo' : 'My work') : (language === 'es' ? 'Trabajo del equipo' : 'Team work')}</h3><p className="mt-1.5 max-w-xl text-sm leading-5 text-black/50">{view === 'mine' ? (language === 'es' ? 'Aquí ves únicamente el trabajo asignado a tu cuenta.' : 'This view only shows work assigned to your account.') : (language === 'es' ? 'Supervisa responsables, prioridades y resultados sin mezclar el trabajo de cada persona.' : 'Supervise owners, priorities and outcomes without mixing each person’s work.')}</p></div><div className="flex flex-wrap gap-1.5 xl:justify-end"><div className="min-w-[66px] rounded-lg bg-[#111413] px-2.5 py-1.5 text-white"><p className="text-[8px] font-semibold uppercase tracking-[0.12em] text-white/60">TOTAL</p><p className="mt-0.5 text-base font-semibold">{pendingCount}</p></div>{typeCards.map(([type, count]) => <div key={type} className="min-w-[72px] rounded-lg border border-black/7 bg-[#FAFAF8] px-2.5 py-1.5"><div className="flex items-center gap-1.5 text-black/40"><ActionIcon kind={type} /><p className="truncate text-[8px] font-semibold uppercase tracking-[0.08em]">{actionLabel(type, language)}</p></div><p className="mt-0.5 text-sm font-semibold">{count}</p></div>)}{view === 'team' && <div className="min-w-[72px] rounded-lg border border-black/7 bg-[#FAFAF8] px-2.5 py-1.5"><p className="text-[8px] font-semibold uppercase tracking-[0.1em] text-black/35">{language === 'es' ? 'DELEGADAS' : 'DELEGATED'}</p><p className="mt-0.5 text-sm font-semibold">{delegatedCount}</p></div>}</div></div>
+      <div className="mt-3 flex flex-col gap-2 border-t border-black/5 pt-3 lg:flex-row lg:items-center lg:justify-between"><div className="inline-flex w-fit rounded-full border border-black/10 bg-[#F7F7F5] p-1"><button type="button" onClick={() => setView('mine')} className={`rounded-full px-4 py-2 text-xs font-semibold ${view === 'mine' ? 'bg-[#111413] text-white' : 'text-black/45'}`}>{language === 'es' ? 'Mi trabajo' : 'My work'}</button>{canReadTeam && <button type="button" onClick={() => setView('team')} className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold ${view === 'team' ? 'bg-[#111413] text-white' : 'text-black/45'}`}><UsersRound className="h-3.5 w-3.5" />{language === 'es' ? 'Trabajo del equipo' : 'Team work'}</button>}</div><div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:justify-end"><label className="relative block w-full sm:max-w-[360px]"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-black/30" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={language === 'es' ? 'Buscar tarea, persona, responsable o tipo…' : 'Search task, person, assignee or type…'} className="w-full rounded-xl border border-black/10 bg-[#FAFAF8] py-2 pl-9 pr-3 text-sm" /></label><label className="flex shrink-0 items-center gap-2 text-xs text-black/45"><input type="checkbox" checked={showDone} onChange={(event) => setShowDone(event.target.checked)} />{language === 'es' ? 'Mostrar historial' : 'Show history'}</label></div></div>
     </section>
 
     {view === 'team' && canReadTeam && <section className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">{teamCounts.map(({ member, count }) => <div key={member.uid} className="rounded-xl border border-black/8 bg-white p-3"><p className="truncate text-xs font-semibold">{memberLabel(member)}</p><p className="mt-1 text-[10px] uppercase tracking-[0.1em] text-black/35">{count} {language === 'es' ? 'pendientes' : 'open'}</p></div>)}</section>}
 
     <section className="overflow-hidden rounded-2xl border border-black/10 bg-white shadow-[0_10px_30px_rgba(10,10,10,0.025)]">
       <div className="hidden grid-cols-[minmax(240px,1.25fr)_90px_105px_145px_170px_100px] gap-3 border-b border-black/7 bg-[#FAFAF8] px-4 py-2.5 text-[9px] font-semibold uppercase tracking-[0.13em] text-black/35 lg:grid"><span>{language === 'es' ? 'Trabajo' : 'Work'}</span><span>{language === 'es' ? 'Prioridad' : 'Priority'}</span><span>{language === 'es' ? 'Tipo' : 'Type'}</span><span>{language === 'es' ? 'Cuándo' : 'When'}</span><span>{language === 'es' ? 'Responsable' : 'Assignee'}</span><span /></div>
-      <div className="max-h-[540px] divide-y divide-black/5 overflow-y-auto">
+      <div className="max-h-[620px] divide-y divide-black/5 overflow-y-auto">
         {openTasks.map((task) => {
           const priority = priorityMeta(task, language);
           const opened = activeTaskId === task.id;
           const taskCanWork = canWork(task);
+          const specialAssignee = activeMembers.find((member) => member.uid === task.assignedToUid) || team?.currentMember || activeMembers[0];
           return <div key={task.id} className="grid gap-3 px-4 py-3 lg:grid-cols-[minmax(240px,1.25fr)_90px_105px_145px_170px_100px] lg:items-center">
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2"><p className="text-sm font-semibold">{task.title}</p>{task.source === 'session' && <span className="rounded-full bg-[#4556A6]/8 px-2 py-0.5 text-[9px] font-semibold text-[#4556A6]">{language === 'es' ? 'DESDE SESIÓN' : 'FROM SESSION'}</span>}{task.sourceActionKind === 'enrollment' && <span className="rounded-full bg-[#1E7A4D]/10 px-2 py-0.5 text-[9px] font-semibold text-[#17603D]">{language === 'es' ? 'COMPRÓ' : 'PURCHASED'}</span>}</div>
-              {isOwner && task.clientId ? <button type="button" onClick={() => onOpenClient(task.clientId)} className="mt-0.5 inline-flex items-center gap-1 text-xs font-medium text-[#0A3F4D] hover:underline">{task.clientName}<ChevronRight className="h-3 w-3" /></button> : <p className="mt-0.5 text-xs font-medium text-[#0A3F4D]">{task.clientName}</p>}
-              {task.note && <p className="mt-0.5 line-clamp-1 text-xs leading-5 text-black/45">{task.note}</p>}
-            </div>
-            <span className={`w-fit rounded-full px-2.5 py-1 text-[9px] font-semibold ${priority.className}`}>{priority.label}</span>
-            <div className="flex items-center gap-2 text-xs text-black/55"><ActionIcon kind={task.type} /><span>{actionLabel(task.type, language)}</span></div>
-            <div className="flex items-center gap-2 text-xs text-black/55"><Clock3 className="h-3.5 w-3.5" /><span>{formatDue(task, language)}</span></div>
-            {canManageTeam || isOwner ? <label className="relative"><UserRoundCheck className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-black/30" /><select value={task.assignedToUid || currentUid} onChange={(event) => setAssignee(task, event.target.value)} className="w-full rounded-lg border border-black/8 bg-white py-1.5 pl-8 pr-2 text-xs">{activeMembers.map((member) => <option key={member.uid} value={member.uid}>{memberLabel(member)}</option>)}</select></label> : <div className="flex items-center gap-2 text-xs text-black/55"><UserRoundCheck className="h-3.5 w-3.5" /><span className="truncate">{task.assignedToName || task.assignee}</span></div>}
-            <button type="button" disabled={!taskCanWork} onClick={() => toggleWork(task)} className="inline-flex items-center justify-center gap-1.5 rounded-full bg-[#111413] px-3 py-1.5 text-[10px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-30">{opened ? (language === 'es' ? 'Cerrar' : 'Close') : (language === 'es' ? 'Trabajar' : 'Work')}<ChevronDown className={`h-3 w-3 transition ${opened ? 'rotate-180' : ''}`} /></button>
+            <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="text-sm font-semibold">{task.title}</p>{task.source === 'session' && <span className="rounded-full bg-[#4556A6]/8 px-2 py-0.5 text-[9px] font-semibold text-[#4556A6]">{language === 'es' ? 'DESDE SESIÓN' : 'FROM SESSION'}</span>}{task.sourceActionKind === 'enrollment' && <span className="rounded-full bg-[#1E7A4D]/10 px-2 py-0.5 text-[9px] font-semibold text-[#17603D]">{language === 'es' ? 'COMPRÓ' : 'PURCHASED'}</span>}{task.sourceActionKind === 'follow-up' && task.source === 'webinar' && <span className="rounded-full bg-[#A46F16]/10 px-2 py-0.5 text-[9px] font-semibold text-[#82570F]">{language === 'es' ? 'NO COMPRÓ' : 'NO PURCHASE'}</span>}</div>{isOwner && task.clientId ? <button type="button" onClick={() => onOpenClient(task.clientId)} className="mt-0.5 inline-flex items-center gap-1 text-xs font-medium text-[#0A3F4D] hover:underline">{task.clientName}<ChevronRight className="h-3 w-3" /></button> : <p className="mt-0.5 text-xs font-medium text-[#0A3F4D]">{task.clientName}</p>}{task.note && <p className="mt-0.5 line-clamp-1 text-xs leading-5 text-black/45">{task.note}</p>}</div>
+            <span className={`w-fit rounded-full px-2.5 py-1 text-[9px] font-semibold ${priority.className}`}>{priority.label}</span><div className="flex items-center gap-2 text-xs text-black/55"><ActionIcon kind={task.type} /><span>{actionLabel(task.type, language)}</span></div><div className="flex items-center gap-2 text-xs text-black/55"><Clock3 className="h-3.5 w-3.5" /><span>{formatDue(task, language)}</span></div>{canManageTeam || isOwner ? <label className="relative"><UserRoundCheck className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-black/30" /><select value={task.assignedToUid || currentUid} onChange={(event) => setAssignee(task, event.target.value)} className="w-full rounded-lg border border-black/8 bg-white py-1.5 pl-8 pr-2 text-xs">{activeMembers.map((member) => <option key={member.uid} value={member.uid}>{memberLabel(member)}</option>)}</select></label> : <div className="flex items-center gap-2 text-xs text-black/55"><UserRoundCheck className="h-3.5 w-3.5" /><span className="truncate">{task.assignedToName || task.assignee}</span></div>}<button type="button" disabled={!taskCanWork} onClick={() => toggleWork(task)} className="inline-flex items-center justify-center gap-1.5 rounded-full bg-[#111413] px-3 py-1.5 text-[10px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-30">{opened ? (language === 'es' ? 'Cerrar' : 'Close') : (language === 'es' ? 'Trabajar' : 'Work')}<ChevronDown className={`h-3 w-3 transition ${opened ? 'rotate-180' : ''}`} /></button>
 
-            {opened && taskCanWork && <div className="rounded-xl border border-black/8 bg-[#FAFAF8] p-3 lg:col-span-6">
-              <div className="grid gap-4 xl:grid-cols-[0.85fr_1.15fr]">
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black/38">{language === 'es' ? 'EJECUTAR TAREA' : 'EXECUTE TASK'}</p>
-                  <label className="mt-2 block"><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'RESULTADO / NOTA' : 'RESULT / NOTE'}</span><textarea value={resultDraft} onChange={(event) => setResultDraft(event.target.value)} rows={3} className="w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm" /></label>
-                  <div className="mt-2 flex flex-wrap gap-2"><button type="button" onClick={() => completeTask(task)} className="inline-flex items-center gap-1.5 rounded-full bg-[#111413] px-4 py-2 text-xs font-semibold text-white"><CheckCircle2 className="h-3.5 w-3.5" />{language === 'es' ? 'Guardar y completar' : 'Save & complete'}</button><button type="button" onClick={() => removeTask(task)} className="inline-flex items-center gap-1.5 rounded-full border border-[#A23A32]/15 bg-white px-4 py-2 text-xs font-semibold text-[#8D332C]"><Trash2 className="h-3.5 w-3.5" />{language === 'es' ? 'Enviar al historial' : 'Move to history'}</button></div>
-                </div>
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#0A3F4D]">{language === 'es' ? 'NUEVA ACCIÓN SI SE REQUIERE' : 'NEW ACTION IF NEEDED'}</p>
-                  <div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                    <select value={newType} onChange={(event) => setNewType(event.target.value as WorkActionType)} className="rounded-lg border border-black/10 bg-white px-3 py-2 text-sm"><option value="whatsapp">WhatsApp</option><option value="email">Email</option><option value="call">{language === 'es' ? 'Llamada' : 'Call'}</option><option value="meeting">{language === 'es' ? 'Reunión' : 'Meeting'}</option><option value="task">{language === 'es' ? 'Tarea interna' : 'Internal task'}</option></select>
-                    <select value={newAssigneeUid || currentUid} disabled={!canManageTeam && !isOwner} onChange={(event) => setNewAssigneeUid(event.target.value)} className="rounded-lg border border-black/10 bg-white px-3 py-2 text-sm disabled:bg-black/[0.03]">{activeMembers.map((member) => <option key={member.uid} value={member.uid}>{memberLabel(member)}</option>)}</select>
-                    <input type="date" value={newDate} onChange={(event) => setNewDate(event.target.value)} className="rounded-lg border border-black/10 bg-white px-3 py-2 text-sm" />
-                    <input type="time" value={newTime} onChange={(event) => setNewTime(event.target.value)} className="rounded-lg border border-black/10 bg-white px-3 py-2 text-sm" />
-                  </div>
-                  <div className="mt-2 flex gap-2"><input value={newNote} onChange={(event) => setNewNote(event.target.value)} placeholder={language === 'es' ? 'Qué debe hacerse' : 'What needs to be done'} className="min-w-0 flex-1 rounded-lg border border-black/10 bg-white px-3 py-2 text-sm" /><button type="button" onClick={() => createFollowUp(task)} className="shrink-0 rounded-full bg-[#0A3F4D] px-4 py-2 text-xs font-semibold text-white">{language === 'es' ? 'Agregar acción' : 'Add action'}</button></div>
-                </div>
-              </div>
-            </div>}
+            {opened && taskCanWork && isSpecialTask(task) && specialAssignee && <div className="lg:col-span-6"><PriorityTaskSpecialPanel task={task} language={language} assignee={specialAssignee} onCompleted={(result) => finishTask(task, result)} /></div>}
+
+            {opened && taskCanWork && !isSpecialTask(task) && <div className="rounded-xl border border-black/8 bg-[#FAFAF8] p-3 lg:col-span-6"><div className="grid gap-4 xl:grid-cols-[0.85fr_1.15fr]"><div><p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black/38">{language === 'es' ? 'EJECUTAR TAREA' : 'EXECUTE TASK'}</p><label className="mt-2 block"><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'RESULTADO / NOTA' : 'RESULT / NOTE'}</span><textarea value={resultDraft} onChange={(event) => setResultDraft(event.target.value)} rows={3} className="w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm" /></label><div className="mt-2 flex flex-wrap gap-2"><button type="button" onClick={() => completeTask(task)} className="inline-flex items-center gap-1.5 rounded-full bg-[#111413] px-4 py-2 text-xs font-semibold text-white"><CheckCircle2 className="h-3.5 w-3.5" />{language === 'es' ? 'Guardar y completar' : 'Save & complete'}</button><button type="button" onClick={() => removeTask(task)} className="inline-flex items-center gap-1.5 rounded-full border border-[#A23A32]/15 bg-white px-4 py-2 text-xs font-semibold text-[#8D332C]"><Trash2 className="h-3.5 w-3.5" />{language === 'es' ? 'Enviar al historial' : 'Move to history'}</button></div></div><div><p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#0A3F4D]">{language === 'es' ? 'NUEVA ACCIÓN SI SE REQUIERE' : 'NEW ACTION IF NEEDED'}</p><div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-4"><select value={newType} onChange={(event) => setNewType(event.target.value as WorkActionType)} className="rounded-lg border border-black/10 bg-white px-3 py-2 text-sm"><option value="whatsapp">WhatsApp</option><option value="email">Email</option><option value="call">{language === 'es' ? 'Llamada' : 'Call'}</option><option value="meeting">{language === 'es' ? 'Reunión' : 'Meeting'}</option><option value="task">{language === 'es' ? 'Tarea interna' : 'Internal task'}</option></select><select value={newAssigneeUid || currentUid} disabled={!canManageTeam && !isOwner} onChange={(event) => setNewAssigneeUid(event.target.value)} className="rounded-lg border border-black/10 bg-white px-3 py-2 text-sm disabled:bg-black/[0.03]">{activeMembers.map((member) => <option key={member.uid} value={member.uid}>{memberLabel(member)}</option>)}</select><input type="date" value={newDate} onChange={(event) => setNewDate(event.target.value)} className="rounded-lg border border-black/10 bg-white px-3 py-2 text-sm" /><input type="time" value={newTime} onChange={(event) => setNewTime(event.target.value)} className="rounded-lg border border-black/10 bg-white px-3 py-2 text-sm" /></div><div className="mt-2 flex gap-2"><input value={newNote} onChange={(event) => setNewNote(event.target.value)} placeholder={language === 'es' ? 'Qué debe hacerse' : 'What needs to be done'} className="min-w-0 flex-1 rounded-lg border border-black/10 bg-white px-3 py-2 text-sm" /><button type="button" onClick={() => createFollowUp(task)} className="shrink-0 rounded-full bg-[#0A3F4D] px-4 py-2 text-xs font-semibold text-white">{language === 'es' ? 'Agregar acción' : 'Add action'}</button></div></div></div></div>}
           </div>;
         })}
         {openTasks.length === 0 && <div className="grid min-h-[200px] place-items-center p-8 text-center text-sm text-black/40">{search.trim() ? (language === 'es' ? 'No hay tareas que coincidan con la búsqueda.' : 'No tasks match your search.') : (language === 'es' ? 'No hay trabajo pendiente en esta vista.' : 'No pending work in this view.')}</div>}
       </div>
     </section>
 
-    {showDone && <section className="rounded-2xl border border-black/10 bg-white p-5 md:p-6">
-      <div className="flex items-center justify-between"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-black/40">{language === 'es' ? 'HISTORIAL DE TAREAS' : 'TASK HISTORY'}</p><h3 className="mt-2 text-lg font-semibold">{language === 'es' ? 'Completadas y eliminadas' : 'Completed and removed'}</h3></div><span className="rounded-full bg-[#0A3F4D]/8 px-3 py-1.5 text-xs font-semibold text-[#0A3F4D]">{historyTasks.length}</span></div>
-      <div className="mt-4 max-h-[430px] overflow-y-auto rounded-xl border border-black/7"><div className="divide-y divide-black/5">{historyTasks.map((task) => {
-        const editing = editingHistoryTaskId === task.id;
-        return <div key={task.id} className="p-4"><div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_120px_150px_auto] md:items-center"><div><div className="flex flex-wrap items-center gap-2"><p className="text-sm font-semibold">{task.title}</p>{task.sourceActionKind === 'enrollment' && <span className="rounded-full bg-[#1E7A4D]/10 px-2 py-0.5 text-[9px] font-semibold text-[#17603D]">{language === 'es' ? 'COMPRÓ' : 'PURCHASED'}</span>}<span className={`rounded-full px-2 py-0.5 text-[9px] font-semibold ${task.deletedAt ? 'bg-[#A23A32]/9 text-[#8D332C]' : 'bg-[#0A3F4D]/8 text-[#0A3F4D]'}`}>{task.deletedAt ? (language === 'es' ? 'ELIMINADA' : 'REMOVED') : (language === 'es' ? 'COMPLETADA' : 'COMPLETED')}</span></div><p className="mt-1 text-xs text-black/45">{task.clientName}{task.result ? ` · ${task.result}` : ''}</p></div><span className="text-xs text-black/50">{task.assignedToName || task.assignee}</span><span className="text-xs text-black/45">{formatDue(task, language)}</span><div className="flex flex-wrap justify-end gap-2">{task.deletedAt ? <button type="button" disabled={!canWork(task)} onClick={() => recoverTask(task)} className="inline-flex items-center gap-1.5 rounded-full border border-[#0A3F4D]/15 bg-white px-3 py-2 text-[10px] font-semibold text-[#0A3F4D] disabled:opacity-30"><RotateCcw className="h-3.5 w-3.5" />{language === 'es' ? 'Recuperar' : 'Recover'}</button> : <button type="button" disabled={!canWork(task)} onClick={() => editing ? setEditingHistoryTaskId(null) : beginHistoryEdit(task)} className="rounded-full border border-black/10 bg-white px-3 py-2 text-[10px] font-semibold text-black/55 disabled:opacity-30">{editing ? (language === 'es' ? 'Cerrar' : 'Close') : (language === 'es' ? 'Editar' : 'Edit')}</button>}</div></div>{editing && !task.deletedAt && <div className="mt-3 rounded-xl border border-black/8 bg-[#FAFAF8] p-3"><div className="grid gap-2 md:grid-cols-2 xl:grid-cols-[minmax(220px,1.5fr)_130px_130px_105px_auto] xl:items-end"><label><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'TAREA' : 'TASK'}</span><input value={historyTitle} onChange={(event) => setHistoryTitle(event.target.value)} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm" /></label><label><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'TIPO' : 'TYPE'}</span><select value={historyType} onChange={(event) => setHistoryType(event.target.value as WorkActionType)} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm"><option value="whatsapp">WhatsApp</option><option value="email">Email</option><option value="call">{language === 'es' ? 'Llamada' : 'Call'}</option><option value="meeting">{language === 'es' ? 'Reunión' : 'Meeting'}</option><option value="task">{language === 'es' ? 'Tarea interna' : 'Internal task'}</option></select></label><input type="date" value={historyDate} onChange={(event) => setHistoryDate(event.target.value)} className="rounded-lg border border-black/10 bg-white px-3 py-2 text-sm" /><input type="time" value={historyTime} onChange={(event) => setHistoryTime(event.target.value)} className="rounded-lg border border-black/10 bg-white px-3 py-2 text-sm" /><button type="button" onClick={() => saveHistoryEdit(task)} className="rounded-lg bg-[#111413] px-4 py-2 text-xs font-semibold text-white">{language === 'es' ? 'Guardar' : 'Save'}</button><label className="md:col-span-1 xl:col-span-2"><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'NOTA' : 'NOTE'}</span><textarea value={historyNote} onChange={(event) => setHistoryNote(event.target.value)} rows={1} className="w-full resize-none rounded-lg border border-black/10 bg-white px-3 py-2 text-sm" /></label><label className="md:col-span-1 xl:col-span-3"><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'RESULTADO' : 'RESULT'}</span><textarea value={historyResult} onChange={(event) => setHistoryResult(event.target.value)} rows={1} className="w-full resize-none rounded-lg border border-black/10 bg-white px-3 py-2 text-sm" /></label></div></div>}</div>;
-      })}{historyTasks.length === 0 && <div className="p-6 text-center text-sm text-black/40">{language === 'es' ? 'Aún no hay tareas en el historial.' : 'No task history yet.'}</div>}</div></div>
-    </section>}
+    {showDone && <section className="rounded-2xl border border-black/10 bg-white p-5 md:p-6"><div className="flex items-center justify-between"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-black/40">{language === 'es' ? 'HISTORIAL DE TAREAS' : 'TASK HISTORY'}</p><h3 className="mt-2 text-lg font-semibold">{language === 'es' ? 'Completadas y eliminadas' : 'Completed and removed'}</h3></div><span className="rounded-full bg-[#0A3F4D]/8 px-3 py-1.5 text-xs font-semibold text-[#0A3F4D]">{historyTasks.length}</span></div><div className="mt-4 max-h-[430px] overflow-y-auto rounded-xl border border-black/7"><div className="divide-y divide-black/5">{historyTasks.map((task) => { const editing = editingHistoryTaskId === task.id; return <div key={task.id} className="p-4"><div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_120px_150px_auto] md:items-center"><div><div className="flex flex-wrap items-center gap-2"><p className="text-sm font-semibold">{task.title}</p>{task.sourceActionKind === 'enrollment' && <span className="rounded-full bg-[#1E7A4D]/10 px-2 py-0.5 text-[9px] font-semibold text-[#17603D]">{language === 'es' ? 'COMPRÓ' : 'PURCHASED'}</span>}<span className={`rounded-full px-2 py-0.5 text-[9px] font-semibold ${task.deletedAt ? 'bg-[#A23A32]/9 text-[#8D332C]' : 'bg-[#0A3F4D]/8 text-[#0A3F4D]'}`}>{task.deletedAt ? (language === 'es' ? 'ELIMINADA' : 'REMOVED') : (language === 'es' ? 'COMPLETADA' : 'COMPLETED')}</span></div><p className="mt-1 text-xs text-black/45">{task.clientName}{task.result ? ` · ${task.result}` : ''}</p></div><span className="text-xs text-black/50">{task.assignedToName || task.assignee}</span><span className="text-xs text-black/45">{formatDue(task, language)}</span><div className="flex flex-wrap justify-end gap-2">{task.deletedAt ? <button type="button" disabled={!canWork(task)} onClick={() => recoverTask(task)} className="inline-flex items-center gap-1.5 rounded-full border border-[#0A3F4D]/15 bg-white px-3 py-2 text-[10px] font-semibold text-[#0A3F4D] disabled:opacity-30"><RotateCcw className="h-3.5 w-3.5" />{language === 'es' ? 'Recuperar' : 'Recover'}</button> : <button type="button" disabled={!canWork(task)} onClick={() => editing ? setEditingHistoryTaskId(null) : beginHistoryEdit(task)} className="rounded-full border border-black/10 bg-white px-3 py-2 text-[10px] font-semibold text-black/55 disabled:opacity-30">{editing ? (language === 'es' ? 'Cerrar' : 'Close') : (language === 'es' ? 'Editar' : 'Edit')}</button>}</div></div>{editing && !task.deletedAt && <div className="mt-3 rounded-xl border border-black/8 bg-[#FAFAF8] p-3"><div className="grid gap-2 md:grid-cols-2 xl:grid-cols-[minmax(220px,1.5fr)_130px_130px_105px_auto] xl:items-end"><label><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'TAREA' : 'TASK'}</span><input value={historyTitle} onChange={(event) => setHistoryTitle(event.target.value)} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm" /></label><label><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'TIPO' : 'TYPE'}</span><select value={historyType} onChange={(event) => setHistoryType(event.target.value as WorkActionType)} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm"><option value="whatsapp">WhatsApp</option><option value="email">Email</option><option value="call">{language === 'es' ? 'Llamada' : 'Call'}</option><option value="meeting">{language === 'es' ? 'Reunión' : 'Meeting'}</option><option value="task">{language === 'es' ? 'Tarea interna' : 'Internal task'}</option></select></label><input type="date" value={historyDate} onChange={(event) => setHistoryDate(event.target.value)} className="rounded-lg border border-black/10 bg-white px-3 py-2 text-sm" /><input type="time" value={historyTime} onChange={(event) => setHistoryTime(event.target.value)} className="rounded-lg border border-black/10 bg-white px-3 py-2 text-sm" /><button type="button" onClick={() => saveHistoryEdit(task)} className="rounded-lg bg-[#111413] px-4 py-2 text-xs font-semibold text-white">{language === 'es' ? 'Guardar' : 'Save'}</button><label className="md:col-span-1 xl:col-span-2"><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'NOTA' : 'NOTE'}</span><textarea value={historyNote} onChange={(event) => setHistoryNote(event.target.value)} rows={1} className="w-full resize-none rounded-lg border border-black/10 bg-white px-3 py-2 text-sm" /></label><label className="md:col-span-1 xl:col-span-3"><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'RESULTADO' : 'RESULT'}</span><textarea value={historyResult} onChange={(event) => setHistoryResult(event.target.value)} rows={1} className="w-full resize-none rounded-lg border border-black/10 bg-white px-3 py-2 text-sm" /></label></div></div>}</div>; })}{historyTasks.length === 0 && <div className="p-6 text-center text-sm text-black/40">{language === 'es' ? 'Aún no hay tareas en el historial.' : 'No task history yet.'}</div>}</div></div></section>}
   </div>;
 }

@@ -1,4 +1,4 @@
-import { collection, deleteDoc, doc, onSnapshot, query, serverTimestamp, setDoc, where, type Unsubscribe } from 'firebase/firestore';
+import { collection, deleteDoc, doc, getDoc, onSnapshot, query, serverTimestamp, setDoc, where, type Unsubscribe } from 'firebase/firestore';
 import { firebaseAuth, firestoreDb } from '../lib/firebase';
 import { appendExpertAuditLog, resolveActiveExpertWorkspaceId } from './expertsWorkspaceCore';
 
@@ -88,11 +88,17 @@ export async function saveFormationPlanClass(input: {
   const workspace = await workspaceId();
   const classNumber = Math.max(1, Math.round(input.classNumber));
   const id = input.id || `formation-plan-${input.cohortId}-${classNumber}`;
+  const ref = doc(firestoreDb, 'expert_workspaces', workspace, 'work_tasks', id);
+  const previous = await getDoc(ref);
+  const previousTask = previous.exists() && previous.data().task && typeof previous.data().task === 'object'
+    ? previous.data().task as Record<string, unknown>
+    : {};
   const now = new Date().toISOString();
   const planTitle = input.title.trim() || `Clase ${classNumber}`;
-  await setDoc(doc(firestoreDb, 'expert_workspaces', workspace, 'work_tasks', id), {
+  await setDoc(ref, {
     schemaVersion: 1,
     task: {
+      ...previousTask,
       id,
       clientId: '',
       clientName: input.cohortTitle,
@@ -105,9 +111,9 @@ export async function saveFormationPlanClass(input: {
       assignee: 'Formación',
       assignedToUid: user.uid,
       assignedToName: user.displayName || user.email || 'Mentor',
-      createdByUid: user.uid,
+      createdByUid: typeof previousTask.createdByUid === 'string' ? previousTask.createdByUid : user.uid,
       status: input.status || 'pending',
-      createdAt: now,
+      createdAt: typeof previousTask.createdAt === 'string' ? previousTask.createdAt : now,
       source: 'formation',
       sourceId: input.cohortId,
       sourceActionKind: 'formation-plan',
@@ -150,19 +156,40 @@ export async function ensureFormationClassPlan(input: {
   cohortTitle: string;
   dates: string[];
 }): Promise<void> {
-  await Promise.all(input.dates.map((date, index) => saveFormationPlanClass({
-    id: `formation-plan-${input.cohortId}-${index + 1}`,
-    formationId: input.formationId,
-    cohortId: input.cohortId,
-    cohortTitle: input.cohortTitle,
-    classNumber: index + 1,
-    title: `Clase ${index + 1}`,
-    teachingItems: [],
-    date,
-    mentorNotes: '',
-    faq: '',
-    status: 'pending'
-  })));
+  const workspace = await workspaceId();
+  await Promise.all(input.dates.map(async (date, index) => {
+    const id = `formation-plan-${input.cohortId}-${index + 1}`;
+    const ref = doc(firestoreDb, 'expert_workspaces', workspace, 'work_tasks', id);
+    const existing = await getDoc(ref);
+    if (existing.exists()) {
+      await setDoc(ref, {
+        task: {
+          dueDate: date,
+          classNumber: index + 1,
+          dayNumber: index + 1,
+          clientName: input.cohortTitle,
+          formationId: input.formationId,
+          cohortId: input.cohortId,
+          updatedAt: new Date().toISOString()
+        },
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+      return;
+    }
+    await saveFormationPlanClass({
+      id,
+      formationId: input.formationId,
+      cohortId: input.cohortId,
+      cohortTitle: input.cohortTitle,
+      classNumber: index + 1,
+      title: `Clase ${index + 1}`,
+      teachingItems: [],
+      date,
+      mentorNotes: '',
+      faq: '',
+      status: 'pending'
+    });
+  }));
 }
 
 export async function deleteFormationPlanDay(id: string) {

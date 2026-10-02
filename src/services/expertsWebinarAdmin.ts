@@ -29,7 +29,7 @@ function phone(value: string) {
 }
 
 async function assertIdentityAvailable(workspace: string, personId: string, normalizedEmail: string, normalizedPhone: string) {
-  const checks = [] as Promise<ReturnType<typeof getDocs>>[];
+  const checks: Array<ReturnType<typeof getDocs>> = [];
   if (normalizedEmail) checks.push(getDocs(query(
     collection(firestoreDb, 'expert_workspaces', workspace, 'people'),
     where('normalizedEmail', '==', normalizedEmail)

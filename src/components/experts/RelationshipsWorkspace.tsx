@@ -9,11 +9,9 @@ type RelationshipTab = 'people' | 'follow-up';
 type Props = {
   language: Language;
   initialTab?: RelationshipTab;
-  onIntegrateFormation: (personId: string) => void;
-  onStartMentoring: (personId: string) => void;
 };
 
-export function RelationshipsWorkspace({ language, initialTab = 'people', onIntegrateFormation, onStartMentoring }: Props) {
+export function RelationshipsWorkspace({ language, initialTab = 'people' }: Props) {
   const [tab, setTab] = useState<RelationshipTab>(initialTab);
 
   return <div className="space-y-5">
@@ -33,8 +31,6 @@ export function RelationshipsWorkspace({ language, initialTab = 'people', onInte
       </div>
     </section>
 
-    {tab === 'people'
-      ? <PeopleWorkspace language={language} onIntegrateFormation={onIntegrateFormation} onStartMentoring={onStartMentoring} />
-      : <ContinuityWorkspace language={language} />}
+    {tab === 'people' ? <PeopleWorkspace language={language} /> : <ContinuityWorkspace language={language} />}
   </div>;
 }

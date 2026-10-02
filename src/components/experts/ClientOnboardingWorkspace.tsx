@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import type { Language } from '../../i18n/LanguageContext';
+import { subscribeExpertPeople } from '../../services/expertsAcquisition';
 import { hydrateExpertsClientMemory, persistExpertClientRecord } from '../../services/expertsClientMemory';
 import { emitExpertsPersistenceStatus } from '../../services/expertsPersistenceStatus';
+import { linkMentoringClientToPerson } from '../../services/expertsRelationshipFoundation';
 import { scopedWorkspaceStorageKey } from '../../services/expertsWorkspaceStorage';
 import {
   appendJournal,
@@ -85,8 +87,10 @@ function TextArea({ label, value, onChange, placeholder = '', required = false, 
 }
 
 export function ClientOnboardingWorkspace({ language, selectedId, onSelectedId, onStartSession, onOpenPriority }: Props) {
+  const requestedPersonId = new URLSearchParams(window.location.search).get('person') || '';
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
+  const [linkedPersonId, setLinkedPersonId] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [recordsRevision, setRecordsRevision] = useState(0);
@@ -101,10 +105,40 @@ export function ClientOnboardingWorkspace({ language, selectedId, onSelectedId, 
     };
   }, []);
 
+  useEffect(() => {
+    if (!requestedPersonId) return;
+    let stop: (() => void) | undefined;
+    let applied = false;
+    void subscribeExpertPeople((people) => {
+      if (applied) return;
+      const person = people.find((item) => item.id === requestedPersonId);
+      if (!person) return;
+      applied = true;
+      setLinkedPersonId(person.id);
+      setDraft((current) => ({
+        ...current,
+        name: person.name,
+        email: person.email,
+        phone: person.phone,
+        currentPhase: language === 'es' ? 'Onboarding mentoría 1:1' : '1:1 mentoring onboarding'
+      }));
+      setError('');
+      setOpen(true);
+    }).then((unsubscribe) => { stop = unsubscribe; }).catch(() => {});
+    return () => stop?.();
+  }, [language, requestedPersonId]);
+
   const hasClients = useMemo(() => readClientRecords().length > 0, [recordsRevision]);
   const requiredReady = useMemo(() => Boolean(draft.name.trim() && draft.program.trim() && draft.primaryGoal.trim() && draft.startingPoint.trim() && draft.expectedOutcome.trim() && draft.nextAction.trim()), [draft]);
   const update = (key: keyof Draft, value: string) => setDraft((current) => ({ ...current, [key]: value }));
   const close = () => { if (!saving) { setOpen(false); setError(''); } };
+
+  const openBlankClient = () => {
+    setLinkedPersonId('');
+    setDraft(EMPTY_DRAFT);
+    setError('');
+    setOpen(true);
+  };
 
   const createClient = async () => {
     if (!requiredReady || saving) return;
@@ -121,9 +155,11 @@ export function ClientOnboardingWorkspace({ language, selectedId, onSelectedId, 
         return Boolean((normalizedEmail && existingEmail === normalizedEmail) || (phoneDigits && existingPhone === phoneDigits));
       });
       if (duplicate) {
-        setError(language === 'es'
-          ? 'Ya existe un cliente con ese email o teléfono. Abre su ficha en lugar de crear otra identidad.'
-          : 'A client with that email or phone already exists. Open their record instead of creating another identity.');
+        if (linkedPersonId) await linkMentoringClientToPerson(duplicate.id, linkedPersonId);
+        setOpen(false);
+        setDraft(EMPTY_DRAFT);
+        setLinkedPersonId('');
+        onSelectedId(duplicate.id);
         return;
       }
 
@@ -132,6 +168,7 @@ export function ClientOnboardingWorkspace({ language, selectedId, onSelectedId, 
       const commitments = splitLines(draft.commitments).map((label) => ({ label, status: 'pending' as const }));
       const record = {
         id,
+        ...(linkedPersonId ? { personId: linkedPersonId } : {}),
         name: draft.name.trim(),
         initials: initials(draft.name),
         company: draft.company.trim(),
@@ -161,6 +198,7 @@ export function ClientOnboardingWorkspace({ language, selectedId, onSelectedId, 
       window.localStorage.setItem(scopedWorkspaceStorageKey(CLIENT_STORAGE_KEY), JSON.stringify([record, ...existing.filter((item) => item.id !== id)]));
       emitExpertsPersistenceStatus('saving');
       await persistExpertClientRecord(record);
+      if (linkedPersonId) await linkMentoringClientToPerson(id, linkedPersonId);
       emitExpertsPersistenceStatus('saved');
 
       const sessionClients = loadSessionClients();
@@ -183,6 +221,7 @@ export function ClientOnboardingWorkspace({ language, selectedId, onSelectedId, 
       appendJournal(id, 'onboarding', language === 'es' ? 'Cliente creado' : 'Client created', language === 'es' ? `Onboarding iniciado · ${record.program} · Objetivo: ${record.primaryGoal}` : `Onboarding started · ${record.program} · Goal: ${record.primaryGoal}`);
       window.dispatchEvent(new CustomEvent(WORKSPACE_STATE_EVENT));
       setDraft(EMPTY_DRAFT);
+      setLinkedPersonId('');
       setOpen(false);
       onSelectedId(id);
     } catch (caught) {
@@ -195,18 +234,18 @@ export function ClientOnboardingWorkspace({ language, selectedId, onSelectedId, 
   };
 
   return <>
-    <div className="mb-4 flex justify-end"><button type="button" onClick={() => setOpen(true)} className="inline-flex items-center gap-2 rounded-xl bg-[#111413] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-black"><Plus className="h-4 w-4" />{language === 'es' ? 'Nuevo cliente' : 'New client'}</button></div>
+    <div className="mb-4 flex justify-end"><button type="button" onClick={openBlankClient} className="inline-flex items-center gap-2 rounded-xl bg-[#111413] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-black"><Plus className="h-4 w-4" />{language === 'es' ? 'Nuevo cliente 1:1' : 'New 1:1 client'}</button></div>
     {hasClients
       ? <ClientWorkspaceEnhanced language={language} selectedId={selectedId} onSelectedId={onSelectedId} onStartSession={onStartSession} onOpenPriority={onOpenPriority} />
       : <div className="rounded-2xl border border-dashed border-black/12 bg-white px-6 py-14 text-center shadow-[0_10px_30px_rgba(10,10,10,0.025)]">
-          <p className="text-lg font-semibold text-black/75">{language === 'es' ? 'Todavía no hay clientes reales' : 'There are no real clients yet'}</p>
-          <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-black/45">{language === 'es' ? 'Crea el primer cliente para iniciar su Outcome Memory, próximas acciones y sesiones. Los datos de demostración ya no se mezclan con la operación.' : 'Create the first client to start their Outcome Memory, next actions and sessions. Demo data is no longer mixed with live operations.'}</p>
-          <button type="button" onClick={() => setOpen(true)} className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#111413] px-4 py-2.5 text-sm font-semibold text-white"><Plus className="h-4 w-4" />{language === 'es' ? 'Crear primer cliente' : 'Create first client'}</button>
+          <p className="text-lg font-semibold text-black/75">{language === 'es' ? 'Todavía no hay clientes 1:1 reales' : 'There are no real 1:1 clients yet'}</p>
+          <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-black/45">{language === 'es' ? 'Inicia una relación de mentoría desde una persona existente o crea un cliente nuevo.' : 'Start a mentoring relationship from an existing person or create a new client.'}</p>
+          <button type="button" onClick={openBlankClient} className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#111413] px-4 py-2.5 text-sm font-semibold text-white"><Plus className="h-4 w-4" />{language === 'es' ? 'Crear primer cliente' : 'Create first client'}</button>
         </div>}
 
     {open && <div className="fixed inset-0 z-[80] flex items-start justify-center overflow-y-auto bg-black/35 px-4 py-8 backdrop-blur-[2px] md:py-12">
       <div className="w-full max-w-4xl rounded-3xl border border-black/10 bg-[#FAFAF8] shadow-[0_30px_90px_rgba(0,0,0,0.22)]">
-        <div className="flex items-start justify-between border-b border-black/8 px-5 py-5 md:px-7"><div><p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#0A3F4D]">G-KAIS · ONBOARDING</p><h3 className="mt-1 text-2xl font-semibold tracking-[-0.025em]">{language === 'es' ? 'Nuevo cliente' : 'New client'}</h3><p className="mt-1 max-w-2xl text-sm leading-6 text-black/50">{language === 'es' ? 'Crea la memoria inicial de la relación: quién es, qué quiere conseguir, desde dónde parte y cuál es el primer plan de trabajo.' : 'Create the initial relationship memory: who they are, what they want, where they start and the first working plan.'}</p></div><button type="button" onClick={close} className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-black/10 bg-white text-black/55"><X className="h-4 w-4" /></button></div>
+        <div className="flex items-start justify-between border-b border-black/8 px-5 py-5 md:px-7"><div><p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#0A3F4D]">G-KAIS · ONBOARDING 1:1</p><h3 className="mt-1 text-2xl font-semibold tracking-[-0.025em]">{linkedPersonId ? (language === 'es' ? 'Continuar relación como Cliente 1:1' : 'Continue relationship as 1:1 client') : (language === 'es' ? 'Nuevo cliente 1:1' : 'New 1:1 client')}</h3><p className="mt-1 max-w-2xl text-sm leading-6 text-black/50">{linkedPersonId ? (language === 'es' ? 'Nombre, email y teléfono vienen de la ficha existente. Completa únicamente el contexto específico de la mentoría.' : 'Name, email and phone come from the existing person record. Complete only the mentoring-specific context.') : (language === 'es' ? 'Crea la memoria inicial de la relación 1:1.' : 'Create the initial 1:1 relationship memory.')}</p></div><button type="button" onClick={close} className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-black/10 bg-white text-black/55"><X className="h-4 w-4" /></button></div>
 
         <div className="space-y-7 px-5 py-6 md:px-7">
           <section><p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-black/40">{language === 'es' ? '1. Cliente y servicio' : '1. Client and service'}</p><div className="grid gap-4 md:grid-cols-2">
@@ -238,7 +277,7 @@ export function ClientOnboardingWorkspace({ language, selectedId, onSelectedId, 
           {error && <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
         </div>
 
-        <div className="flex flex-col-reverse gap-3 border-t border-black/8 px-5 py-4 sm:flex-row sm:justify-end md:px-7"><button type="button" onClick={close} className="rounded-xl border border-black/10 bg-white px-4 py-2.5 text-sm font-semibold text-black/60">{language === 'es' ? 'Cancelar' : 'Cancel'}</button><button type="button" disabled={!requiredReady || saving} onClick={() => void createClient()} className="rounded-xl bg-[#111413] px-5 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-35">{saving ? (language === 'es' ? 'Creando…' : 'Creating…') : (language === 'es' ? 'Crear cliente' : 'Create client')}</button></div>
+        <div className="flex flex-col-reverse gap-3 border-t border-black/8 px-5 py-4 sm:flex-row sm:justify-end md:px-7"><button type="button" onClick={close} className="rounded-xl border border-black/10 bg-white px-4 py-2.5 text-sm font-semibold text-black/60">{language === 'es' ? 'Cancelar' : 'Cancel'}</button><button type="button" disabled={!requiredReady || saving} onClick={() => void createClient()} className="rounded-xl bg-[#111413] px-5 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-35">{saving ? (language === 'es' ? 'Creando…' : 'Creating…') : linkedPersonId ? (language === 'es' ? 'Iniciar Cliente 1:1' : 'Start 1:1 client') : (language === 'es' ? 'Crear cliente' : 'Create client')}</button></div>
       </div>
     </div>}
   </>;

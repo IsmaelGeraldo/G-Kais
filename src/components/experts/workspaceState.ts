@@ -26,7 +26,7 @@ export type WorkTask = {
   deletedAt?: string;
   deletedFromStatus?: WorkTaskStatus;
   result?: string;
-  source?: 'attention' | 'session' | 'manual';
+  source?: 'attention' | 'session' | 'manual' | 'people' | 'webinar' | 'webinar-continuity' | 'formation' | 'nurture';
   sourceCommitmentLabel?: string;
   confirmationEmail?: 'not-required' | 'queued' | 'sent';
 };

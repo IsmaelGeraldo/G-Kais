@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { GoogleAuthProvider, onAuthStateChanged, signInWithPopup } from 'firebase/auth';
+import { GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signInWithRedirect } from 'firebase/auth';
 import { CheckCircle2, LogIn, ShieldCheck } from 'lucide-react';
 import { firebaseAuth } from '../../lib/firebase';
 import {
@@ -7,6 +7,20 @@ import {
   getExpertWorkspaceInvite,
   type WorkspaceInvite
 } from '../../services/expertsWorkspaceCore';
+
+function friendlyError(value: string) {
+  if (value === 'INVITE_EMAIL_MISMATCH') return 'La cuenta iniciada no coincide con el email de la invitación.';
+  if (value === 'INVITE_EXPIRED') return 'La invitación venció. Solicita una nueva invitación al administrador del Workspace.';
+  if (value === 'INVITE_NOT_FOUND') return 'La invitación ya no existe o el enlace no es válido.';
+  if (value.includes('auth/unauthorized-domain')) return 'Este dominio todavía no está autorizado para iniciar sesión. Usa el enlace público de G-Kais o solicita uno nuevo.';
+  if (value.includes('auth/popup-closed-by-user')) return 'El inicio de sesión fue cancelado antes de completarse.';
+  return value;
+}
+
+function preferRedirectLogin() {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
+  return window.matchMedia('(max-width: 768px)').matches || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+}
 
 export function WorkspaceInviteGate({ token }: { token: string }) {
   const [userReady, setUserReady] = useState(Boolean(firebaseAuth.currentUser));
@@ -31,9 +45,26 @@ export function WorkspaceInviteGate({ token }: { token: string }) {
 
   const login = async () => {
     setError('');
+    const provider = new GoogleAuthProvider();
     try {
-      await signInWithPopup(firebaseAuth, new GoogleAuthProvider());
+      if (preferRedirectLogin()) {
+        await signInWithRedirect(firebaseAuth, provider);
+        return;
+      }
+      await signInWithPopup(firebaseAuth, provider);
     } catch (err) {
+      const code = err && typeof err === 'object' && 'code' in err
+        ? String((err as { code?: unknown }).code || '')
+        : '';
+      if (['auth/popup-blocked', 'auth/cancelled-popup-request', 'auth/operation-not-supported-in-this-environment'].includes(code)) {
+        try {
+          await signInWithRedirect(firebaseAuth, provider);
+          return;
+        } catch (redirectError) {
+          setError(redirectError instanceof Error ? redirectError.message : 'LOGIN_FAILED');
+          return;
+        }
+      }
       setError(err instanceof Error ? err.message : 'LOGIN_FAILED');
     }
   };
@@ -59,13 +90,13 @@ export function WorkspaceInviteGate({ token }: { token: string }) {
       <p className="mt-6 text-xs font-semibold uppercase tracking-[0.18em] text-[#0A3F4D]">G-KAIS WORKSPACE</p>
       <h1 className="mt-2 text-2xl font-semibold tracking-[-0.03em]">Invitación al equipo</h1>
       {!userReady ? <>
-        <p className="mt-3 text-sm leading-6 text-black/50">Inicia sesión con la cuenta de Google que recibió la invitación. G-KAIS verificará el email antes de conceder acceso al Workspace.</p>
+        <p className="mt-3 text-sm leading-6 text-black/50">Inicia sesión con la cuenta de Google que recibió la invitación. En celulares G-Kais usa un redireccionamiento seguro para evitar bloqueos de ventanas emergentes.</p>
         <button type="button" onClick={() => void login()} className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#111413] px-5 py-3 text-sm font-semibold text-white"><LogIn className="h-4 w-4" />Continuar con Google</button>
       </> : <>
         {invite && <div className="mt-5 rounded-2xl bg-[#F7F7F5] p-4"><p className="text-sm font-semibold">{invite.displayName}</p><p className="mt-1 text-xs text-black/45">{invite.email}</p><p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-black/35">Rol asignado</p><p className="mt-1 text-sm font-medium">{invite.roleId}</p></div>}
         {status === 'accepted' ? <div className="mt-5 flex items-center gap-2 rounded-2xl bg-[#0A3F4D]/8 p-4 text-sm font-medium text-[#0A3F4D]"><CheckCircle2 className="h-5 w-5" />Invitación aceptada. Abriendo tu Workspace…</div> : <button type="button" disabled={!invite || status === 'loading'} onClick={() => void accept()} className="mt-6 w-full rounded-full bg-[#111413] px-5 py-3 text-sm font-semibold text-white disabled:opacity-40">{status === 'loading' ? 'Verificando…' : 'Aceptar y entrar al Workspace'}</button>}
       </>}
-      {error && <p className="mt-4 rounded-xl bg-[#A23A32]/8 px-3 py-2 text-xs text-[#8D332C]">{error === 'INVITE_EMAIL_MISMATCH' ? 'La cuenta iniciada no coincide con el email de la invitación.' : error}</p>}
+      {error && <p className="mt-4 rounded-xl bg-[#A23A32]/8 px-3 py-2 text-xs text-[#8D332C]">{friendlyError(error)}</p>}
     </div>
   </div>;
 }

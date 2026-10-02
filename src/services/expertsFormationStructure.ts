@@ -3,6 +3,9 @@ import { firebaseAuth, firestoreDb } from '../lib/firebase';
 import { resolveActiveExpertWorkspaceId } from './expertsWorkspaceCore';
 
 export type FormationStructure = {
+  learning: string;
+  expectedOutcome: string;
+  /** Compatibility with the previous single-description model. */
   description: string;
 };
 
@@ -11,7 +14,7 @@ export type CohortStructure = {
   classDays: number[];
 };
 
-const EMPTY_FORMATION: FormationStructure = { description: '' };
+const EMPTY_FORMATION: FormationStructure = { learning: '', expectedOutcome: '', description: '' };
 const EMPTY_COHORT: CohortStructure = { classesPerWeek: 1, classDays: [] };
 
 async function workspaceId(): Promise<string> {
@@ -42,20 +45,28 @@ export async function subscribeFormationStructure(
   return onSnapshot(taskDocument(workspace, formationMetaId(formationId)), (snapshot) => {
     if (!snapshot.exists()) return callback(EMPTY_FORMATION);
     const task = snapshot.data().task as Record<string, unknown> | undefined;
-    callback({ description: typeof task?.description === 'string' ? task.description : '' });
+    const legacyDescription = typeof task?.description === 'string' ? task.description : '';
+    const learning = typeof task?.learning === 'string' ? task.learning : legacyDescription;
+    const expectedOutcome = typeof task?.expectedOutcome === 'string' ? task.expectedOutcome : '';
+    callback({ learning, expectedOutcome, description: legacyDescription || learning });
   }, () => callback(EMPTY_FORMATION));
 }
 
 export async function saveFormationStructure(input: {
   formationId: string;
   formationTitle: string;
-  description: string;
+  learning?: string;
+  expectedOutcome?: string;
+  /** Compatibility with Stage 4.5D callers. */
+  description?: string;
 }): Promise<void> {
   const user = firebaseAuth.currentUser;
   if (!user) throw new Error('AUTH_REQUIRED');
   const workspace = await workspaceId();
   const id = formationMetaId(input.formationId);
   const now = new Date().toISOString();
+  const learning = (input.learning ?? input.description ?? '').trim();
+  const expectedOutcome = (input.expectedOutcome ?? '').trim();
   await setDoc(taskDocument(workspace, id), {
     schemaVersion: 1,
     task: {
@@ -65,7 +76,7 @@ export async function saveFormationStructure(input: {
       personId: '',
       title: `Estructura · ${input.formationTitle}`,
       type: 'task',
-      note: input.description.trim(),
+      note: [learning, expectedOutcome].filter(Boolean).join('\n\n'),
       dueDate: '',
       dueTime: '',
       assignee: 'Formación',
@@ -79,7 +90,9 @@ export async function saveFormationStructure(input: {
       sourceId: input.formationId,
       sourceActionKind: 'formation-meta',
       workstream: 'formation-meta',
-      description: input.description.trim(),
+      description: learning,
+      learning,
+      expectedOutcome,
       confirmationEmail: 'not-required'
     },
     updatedAt: serverTimestamp()

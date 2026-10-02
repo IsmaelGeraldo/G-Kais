@@ -1,4 +1,13 @@
-import { collection, deleteDoc, doc, getDoc, getDocs, query, serverTimestamp, updateDoc, where } from 'firebase/firestore';
+import {
+  collection,
+  doc,
+  getDocs,
+  query,
+  runTransaction,
+  serverTimestamp,
+  where,
+  writeBatch
+} from 'firebase/firestore';
 import { firebaseAuth, firestoreDb } from '../lib/firebase';
 import type { WebinarAttendanceStatus, WebinarInterest } from './expertsAcquisition';
 import { appendExpertAuditLog, resolveActiveExpertWorkspaceId } from './expertsWorkspaceCore';
@@ -19,37 +28,120 @@ function phone(value: string) {
   return value.replace(/\D/g, '');
 }
 
-export async function updateWebinarParticipantIdentity(
-  personId: string,
-  input: { name: string; email: string; phone: string }
-) {
+async function assertIdentityAvailable(workspace: string, personId: string, normalizedEmail: string, normalizedPhone: string) {
+  const checks: Array<ReturnType<typeof getDocs>> = [];
+  if (normalizedEmail) checks.push(getDocs(query(
+    collection(firestoreDb, 'expert_workspaces', workspace, 'people'),
+    where('normalizedEmail', '==', normalizedEmail)
+  )));
+  if (normalizedPhone) checks.push(getDocs(query(
+    collection(firestoreDb, 'expert_workspaces', workspace, 'people'),
+    where('normalizedPhone', '==', normalizedPhone)
+  )));
+  const results = await Promise.all(checks);
+  if (results.some((snapshot) => snapshot.docs.some((item) => item.id !== personId))) throw new Error('IDENTITY_CONFLICT');
+}
+
+export async function updateWebinarParticipant(input: {
+  registrationId: string;
+  personId: string;
+  name: string;
+  email: string;
+  phone: string;
+  status: WebinarAttendanceStatus;
+  attendanceMinutes: number;
+  interest: WebinarInterest;
+  purchased: boolean;
+}) {
   const workspace = await workspaceId();
   const normalizedEmail = email(input.email);
   const normalizedPhone = phone(input.phone);
   if (!input.name.trim() || (!normalizedEmail && !normalizedPhone)) throw new Error('IDENTITY_REQUIRED');
+  await assertIdentityAvailable(workspace, input.personId, normalizedEmail, normalizedPhone);
 
-  if (normalizedEmail) {
-    const hit = await getDocs(query(
-      collection(firestoreDb, 'expert_workspaces', workspace, 'people'),
-      where('normalizedEmail', '==', normalizedEmail)
-    ));
-    if (hit.docs.some((item) => item.id !== personId)) throw new Error('IDENTITY_CONFLICT');
-  }
-  if (normalizedPhone) {
-    const hit = await getDocs(query(
-      collection(firestoreDb, 'expert_workspaces', workspace, 'people'),
-      where('normalizedPhone', '==', normalizedPhone)
-    ));
-    if (hit.docs.some((item) => item.id !== personId)) throw new Error('IDENTITY_CONFLICT');
-  }
+  const registrationRef = doc(firestoreDb, 'expert_workspaces', workspace, 'webinar_registrations', input.registrationId);
+  const personRef = doc(firestoreDb, 'expert_workspaces', workspace, 'people', input.personId);
+  const attendanceMinutes = Math.max(0, Math.min(10000, Math.round(input.attendanceMinutes || 0)));
 
-  await updateDoc(doc(firestoreDb, 'expert_workspaces', workspace, 'people', personId), {
-    name: input.name.trim(),
-    email: input.email.trim(),
-    phone: input.phone.trim(),
-    normalizedEmail,
-    normalizedPhone,
-    updatedAt: serverTimestamp()
+  const previous = await runTransaction(firestoreDb, async (transaction) => {
+    const [registrationSnapshot, personSnapshot] = await Promise.all([
+      transaction.get(registrationRef),
+      transaction.get(personRef)
+    ]);
+    if (!registrationSnapshot.exists()) throw new Error('REGISTRATION_NOT_FOUND');
+    if (!personSnapshot.exists()) throw new Error('PERSON_NOT_FOUND');
+    const registration = registrationSnapshot.data() as { purchased?: boolean; followUpStatus?: string };
+    const followUpStatus = input.purchased
+      ? 'not-needed'
+      : registration.followUpStatus === 'created' || registration.followUpStatus === 'completed'
+        ? registration.followUpStatus
+        : input.status === 'attended' || input.status === 'no-show' ? 'needed' : 'not-needed';
+    const currentMemory = personSnapshot.data().outcomeMemory && typeof personSnapshot.data().outcomeMemory === 'object'
+      ? personSnapshot.data().outcomeMemory as Record<string, unknown>
+      : {};
+
+    transaction.update(personRef, {
+      name: input.name.trim(),
+      email: input.email.trim(),
+      phone: input.phone.trim(),
+      normalizedEmail,
+      normalizedPhone,
+      outcomeMemory: {
+        ...currentMemory,
+        lastWebinarStatus: input.status,
+        lastWebinarAttendanceMinutes: attendanceMinutes,
+        lastWebinarPurchased: input.purchased,
+        lastWebinarInterest: input.interest,
+        webinarFollowUpStatus: followUpStatus
+      },
+      updatedAt: serverTimestamp()
+    });
+    transaction.update(registrationRef, {
+      status: input.status,
+      attendanceMinutes,
+      interest: input.interest,
+      purchased: input.purchased,
+      followUpStatus,
+      updatedAt: serverTimestamp()
+    });
+    return { purchased: Boolean(registration.purchased) };
+  });
+
+  await appendExpertAuditLog({
+    entityType: 'webinar_registration',
+    entityId: input.registrationId,
+    action: 'webinar.registration_edited',
+    changes: {
+      personId: input.personId,
+      status: input.status,
+      attendanceMinutes,
+      interest: input.interest,
+      purchased: input.purchased,
+      purchaseChanged: previous.purchased !== input.purchased
+    }
+  }).catch(() => {});
+  return previous;
+}
+
+/** Compatibility wrappers retained for older callers. */
+export async function updateWebinarParticipantIdentity(personId: string, input: { name: string; email: string; phone: string }) {
+  const workspace = await workspaceId();
+  const normalizedEmail = email(input.email);
+  const normalizedPhone = phone(input.phone);
+  if (!input.name.trim() || (!normalizedEmail && !normalizedPhone)) throw new Error('IDENTITY_REQUIRED');
+  await assertIdentityAvailable(workspace, personId, normalizedEmail, normalizedPhone);
+  await runTransaction(firestoreDb, async (transaction) => {
+    const personRef = doc(firestoreDb, 'expert_workspaces', workspace, 'people', personId);
+    const snapshot = await transaction.get(personRef);
+    if (!snapshot.exists()) throw new Error('PERSON_NOT_FOUND');
+    transaction.update(personRef, {
+      name: input.name.trim(),
+      email: input.email.trim(),
+      phone: input.phone.trim(),
+      normalizedEmail,
+      normalizedPhone,
+      updatedAt: serverTimestamp()
+    });
   });
 }
 
@@ -64,72 +156,89 @@ export async function updateWebinarRegistration(input: {
   const workspace = await workspaceId();
   const registrationRef = doc(firestoreDb, 'expert_workspaces', workspace, 'webinar_registrations', input.registrationId);
   const personRef = doc(firestoreDb, 'expert_workspaces', workspace, 'people', input.personId);
-  const registrationSnapshot = await getDoc(registrationRef);
-  if (!registrationSnapshot.exists()) throw new Error('REGISTRATION_NOT_FOUND');
-  const previous = registrationSnapshot.data() as { purchased?: boolean; followUpStatus?: string };
-  const followUpStatus = input.purchased
-    ? 'not-needed'
-    : previous.followUpStatus === 'created' || previous.followUpStatus === 'completed'
-      ? previous.followUpStatus
-      : input.status === 'attended' || input.status === 'no-show' ? 'needed' : undefined;
-
-  const registrationPatch: Record<string, unknown> = {
-    status: input.status,
-    attendanceMinutes: Math.max(0, Math.min(10000, Math.round(input.attendanceMinutes || 0))),
-    interest: input.interest,
-    purchased: input.purchased,
-    updatedAt: serverTimestamp()
-  };
-  if (followUpStatus) registrationPatch.followUpStatus = followUpStatus;
-
-  await updateDoc(registrationRef, registrationPatch);
-  await updateDoc(personRef, {
-    'outcomeMemory.lastWebinarStatus': input.status,
-    'outcomeMemory.lastWebinarAttendanceMinutes': registrationPatch.attendanceMinutes,
-    'outcomeMemory.lastWebinarPurchased': input.purchased,
-    'outcomeMemory.lastWebinarInterest': input.interest,
-    'outcomeMemory.webinarFollowUpStatus': followUpStatus || 'not-needed',
-    updatedAt: serverTimestamp()
-  });
-
-  await appendExpertAuditLog({
-    entityType: 'webinar_registration',
-    entityId: input.registrationId,
-    action: 'webinar.registration_edited',
-    changes: {
-      personId: input.personId,
+  const attendanceMinutes = Math.max(0, Math.min(10000, Math.round(input.attendanceMinutes || 0)));
+  await runTransaction(firestoreDb, async (transaction) => {
+    const [registrationSnapshot, personSnapshot] = await Promise.all([
+      transaction.get(registrationRef),
+      transaction.get(personRef)
+    ]);
+    if (!registrationSnapshot.exists()) throw new Error('REGISTRATION_NOT_FOUND');
+    if (!personSnapshot.exists()) throw new Error('PERSON_NOT_FOUND');
+    const previous = registrationSnapshot.data() as { followUpStatus?: string };
+    const followUpStatus = input.purchased
+      ? 'not-needed'
+      : previous.followUpStatus === 'created' || previous.followUpStatus === 'completed'
+        ? previous.followUpStatus
+        : input.status === 'attended' || input.status === 'no-show' ? 'needed' : 'not-needed';
+    const currentMemory = personSnapshot.data().outcomeMemory && typeof personSnapshot.data().outcomeMemory === 'object'
+      ? personSnapshot.data().outcomeMemory as Record<string, unknown>
+      : {};
+    transaction.update(registrationRef, {
       status: input.status,
-      attendanceMinutes: registrationPatch.attendanceMinutes,
+      attendanceMinutes,
       interest: input.interest,
       purchased: input.purchased,
-      purchaseChanged: Boolean(previous.purchased) !== input.purchased
-    }
-  }).catch(() => {});
+      followUpStatus,
+      updatedAt: serverTimestamp()
+    });
+    transaction.update(personRef, {
+      outcomeMemory: {
+        ...currentMemory,
+        lastWebinarStatus: input.status,
+        lastWebinarAttendanceMinutes: attendanceMinutes,
+        lastWebinarPurchased: input.purchased,
+        lastWebinarInterest: input.interest,
+        webinarFollowUpStatus: followUpStatus
+      },
+      updatedAt: serverTimestamp()
+    });
+  });
 }
 
 export async function deleteWebinarRegistration(registrationId: string) {
   const workspace = await workspaceId();
-  await deleteDoc(doc(firestoreDb, 'expert_workspaces', workspace, 'webinar_registrations', registrationId));
+  const registrationRef = doc(firestoreDb, 'expert_workspaces', workspace, 'webinar_registrations', registrationId);
+  const registrationSnapshot = await runTransaction(firestoreDb, async (transaction) => transaction.get(registrationRef));
+  if (!registrationSnapshot.exists()) return;
+  const followUpTaskId = typeof registrationSnapshot.data().followUpTaskId === 'string' ? registrationSnapshot.data().followUpTaskId : '';
+  const batch = writeBatch(firestoreDb);
+  batch.delete(registrationRef);
+  if (followUpTaskId) batch.delete(doc(firestoreDb, 'expert_workspaces', workspace, 'work_tasks', followUpTaskId));
+  await batch.commit();
   await appendExpertAuditLog({
     entityType: 'webinar_registration',
     entityId: registrationId,
     action: 'webinar.registration_deleted',
-    changes: {}
+    changes: { followUpTaskId }
   }).catch(() => {});
 }
 
 export async function deleteWebinarCascade(webinarId: string) {
   const workspace = await workspaceId();
-  const registrations = await getDocs(query(
-    collection(firestoreDb, 'expert_workspaces', workspace, 'webinar_registrations'),
-    where('webinarId', '==', webinarId)
-  ));
-  await Promise.all(registrations.docs.map((item) => deleteDoc(item.ref)));
-  await deleteDoc(doc(firestoreDb, 'expert_workspaces', workspace, 'webinars', webinarId));
+  const [registrations, tasks] = await Promise.all([
+    getDocs(query(
+      collection(firestoreDb, 'expert_workspaces', workspace, 'webinar_registrations'),
+      where('webinarId', '==', webinarId)
+    )),
+    getDocs(query(
+      collection(firestoreDb, 'expert_workspaces', workspace, 'work_tasks'),
+      where('task.sourceId', '==', webinarId)
+    ))
+  ]);
+  const refs = [
+    ...registrations.docs.map((item) => item.ref),
+    ...tasks.docs.map((item) => item.ref),
+    doc(firestoreDb, 'expert_workspaces', workspace, 'webinars', webinarId)
+  ];
+  for (let index = 0; index < refs.length; index += 400) {
+    const batch = writeBatch(firestoreDb);
+    refs.slice(index, index + 400).forEach((ref) => batch.delete(ref));
+    await batch.commit();
+  }
   await appendExpertAuditLog({
     entityType: 'webinar',
     entityId: webinarId,
     action: 'webinar.deleted',
-    changes: { registrationCount: registrations.size }
+    changes: { registrationCount: registrations.size, taskCount: tasks.size }
   }).catch(() => {});
 }

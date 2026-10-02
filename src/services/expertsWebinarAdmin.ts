@@ -1,0 +1,9 @@
+import { collection, deleteDoc, doc, getDocs, query, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore';
+import { firebaseAuth, firestoreDb } from '../lib/firebase';
+import { appendExpertAuditLog, resolveActiveExpertWorkspaceId } from './expertsWorkspaceCore';
+
+async function workspaceId(){const user=firebaseAuth.currentUser;if(!user)throw new Error('AUTH_REQUIRED');const id=await resolveActiveExpertWorkspaceId(user);if(!id)throw new Error('WORKSPACE_REQUIRED');return id;}
+export async function deleteWebinarRegistration(registrationId:string){const w=await workspaceId();await deleteDoc(doc(firestoreDb,'expert_workspaces',w,'webinar_registrations',registrationId));await appendExpertAuditLog({entityType:'webinar_registration',entityId:registrationId,action:'webinar.registration_deleted',changes:{}}).catch(()=>{});}
+export async function deleteWebinarCascade(webinarId:string){const w=await workspaceId();const regs=await getDocs(query(collection(firestoreDb,'expert_workspaces',w,'webinar_registrations'),where('webinarId','==',webinarId)));await Promise.all(regs.docs.map(x=>deleteDoc(x.ref)));await deleteDoc(doc(firestoreDb,'expert_workspaces',w,'webinars',webinarId));await appendExpertAuditLog({entityType:'webinar',entityId:webinarId,action:'webinar.deleted',changes:{registrationCount:regs.size}}).catch(()=>{});}
+export async function markWebinarAutomationState(webinarId:string,state:'open'|'processing'|'distributed'){const w=await workspaceId();await updateDoc(doc(firestoreDb,'expert_workspaces',w,'webinars',webinarId),{automationState:state,updatedAt:serverTimestamp()});}
+export async function saveWebinarDistributionSummary(webinarId:string,summary:Record<string,unknown>){const w=await workspaceId();await setDoc(doc(firestoreDb,'expert_workspaces',w,'webinar_distributions',webinarId),{schemaVersion:1,webinarId,...summary,updatedAt:serverTimestamp()},{merge:true});}

@@ -34,6 +34,9 @@ function mapClass(id: string, data: Record<string, unknown>): FormationPlanClass
   const classNumber = typeof task.classNumber === 'number'
     ? task.classNumber
     : typeof task.dayNumber === 'number' ? task.dayNumber : 0;
+  const planStatus = task.planStatus === 'done' || task.planStatus === 'pending'
+    ? task.planStatus
+    : task.status === 'done' ? 'done' : 'pending';
   return {
     id,
     formationId: typeof task.formationId === 'string' ? task.formationId : '',
@@ -47,7 +50,7 @@ function mapClass(id: string, data: Record<string, unknown>): FormationPlanClass
     date: typeof task.dueDate === 'string' ? task.dueDate : '',
     mentorNotes: typeof task.mentorNotes === 'string' ? task.mentorNotes : '',
     faq: typeof task.faq === 'string' ? task.faq : '',
-    status: task.status === 'done' ? 'done' : 'pending',
+    status: planStatus,
     createdAt: typeof task.createdAt === 'string' ? task.createdAt : '',
     updatedAt: typeof task.updatedAt === 'string' ? task.updatedAt : undefined
   };
@@ -112,7 +115,10 @@ export async function saveFormationPlanClass(input: {
       assignedToUid: user.uid,
       assignedToName: user.displayName || user.email || 'Mentor',
       createdByUid: typeof previousTask.createdByUid === 'string' ? previousTask.createdByUid : user.uid,
-      status: input.status || 'pending',
+      // Operational task stays done so class planning never inflates Priority Work/Dashboard metrics.
+      status: 'done',
+      planStatus: input.status || 'pending',
+      completedAt: typeof previousTask.completedAt === 'string' ? previousTask.completedAt : now,
       createdAt: typeof previousTask.createdAt === 'string' ? previousTask.createdAt : now,
       source: 'formation',
       sourceId: input.cohortId,
@@ -162,14 +168,22 @@ export async function ensureFormationClassPlan(input: {
     const ref = doc(firestoreDb, 'expert_workspaces', workspace, 'work_tasks', id);
     const existing = await getDoc(ref);
     if (existing.exists()) {
+      const existingTask = existing.data().task && typeof existing.data().task === 'object'
+        ? existing.data().task as Record<string, unknown>
+        : {};
       await setDoc(ref, {
+        schemaVersion: 1,
         task: {
+          ...existingTask,
           dueDate: date,
           classNumber: index + 1,
           dayNumber: index + 1,
           clientName: input.cohortTitle,
           formationId: input.formationId,
           cohortId: input.cohortId,
+          status: 'done',
+          planStatus: existingTask.planStatus === 'done' ? 'done' : 'pending',
+          completedAt: typeof existingTask.completedAt === 'string' ? existingTask.completedAt : new Date().toISOString(),
           updatedAt: new Date().toISOString()
         },
         updatedAt: serverTimestamp()

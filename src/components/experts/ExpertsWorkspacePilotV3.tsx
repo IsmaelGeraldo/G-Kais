@@ -26,7 +26,9 @@ import { TeamWorkspace } from './TeamWorkspace';
 import { WebinarsWorkspace } from './WebinarsWorkspace';
 import { WorkspaceInviteGate } from './WorkspaceInviteGate';
 import {
+  INTERNAL_NAV_ACCENT_EVENT,
   WorkspaceSettingsProfile,
+  readInternalNavAccent,
   type WorkspaceProfile,
   type WorkspaceAppearance,
   themeColor,
@@ -50,7 +52,6 @@ type WorkspaceAccess = {
   currentMember: WorkspaceMember | null;
   isOwner: boolean;
 };
-
 type RelationshipTab = 'people' | 'follow-up';
 
 const NAV: NavItem[] = [
@@ -119,6 +120,7 @@ function ExpertsWorkspaceShell({ onExit }: Props) {
   const [relationshipTab, setRelationshipTab] = useState<RelationshipTab>(initial.relationshipTab);
   const [profile, setProfile] = useState<WorkspaceProfile>(loadProfile);
   const [appearance, setAppearance] = useState<WorkspaceAppearance>(loadAppearance);
+  const [internalNavAccent, setInternalNavAccent] = useState<'black' | 'sidebar'>(readInternalNavAccent);
   const [access, setAccess] = useState<WorkspaceAccess>({
     ready: false,
     workspaceId: '',
@@ -130,6 +132,14 @@ function ExpertsWorkspaceShell({ onExit }: Props) {
 
   useEffect(() => { try { localStorage.setItem(PROFILE_KEY, JSON.stringify(profile)); } catch {} }, [profile]);
   useEffect(() => { try { localStorage.setItem(APPEARANCE_KEY, JSON.stringify(appearance)); } catch {} }, [appearance]);
+  useEffect(() => {
+    const syncInternalAccent = (event: Event) => {
+      const detail = (event as CustomEvent<'black' | 'sidebar'>).detail;
+      setInternalNavAccent(detail === 'sidebar' ? 'sidebar' : detail === 'black' ? 'black' : readInternalNavAccent());
+    };
+    window.addEventListener(INTERNAL_NAV_ACCENT_EVENT, syncInternalAccent);
+    return () => window.removeEventListener(INTERNAL_NAV_ACCENT_EVENT, syncInternalAccent);
+  }, []);
 
   useEffect(() => {
     const onPop = () => {
@@ -239,6 +249,8 @@ function ExpertsWorkspaceShell({ onExit }: Props) {
   const accent = themeColor(appearance.sidebar === 'same' ? appearance.theme : appearance.sidebar);
   const selectedBackground = `color-mix(in srgb, ${accent} ${Math.min(94, 40 + appearance.sidebarIntensity * 5)}%, white)`;
   const selectedText = accent !== '#FFFFFF' && appearance.sidebarIntensity >= 6 ? '#FFFFFF' : '#111413';
+  const internalAccent = internalNavAccent === 'sidebar' ? selectedBackground : '#111413';
+  const internalAccentText = internalNavAccent === 'sidebar' ? selectedText : '#FFFFFF';
   const workspaceAccent = themeColor(appearance.theme);
   const darkWorkspace = appearance.theme === 'black' && appearance.intensity > 7;
   const blackSurfaceMix = appearance.theme === 'black' ? Math.max(0, (appearance.intensity - 4) * 2) : 0;
@@ -288,7 +300,12 @@ function ExpertsWorkspaceShell({ onExit }: Props) {
 
   return <div
     className={`min-h-screen text-[#0A0A0A] ${appearance.theme === 'black' ? 'gkais-black-surface' : ''}`}
-    style={{ background: workspaceBackground(workspaceAccent, appearance.intensity), '--gkais-card-surface': cardSurface } as React.CSSProperties}
+    style={{
+      background: workspaceBackground(workspaceAccent, appearance.intensity),
+      '--gkais-card-surface': cardSurface,
+      '--gkais-internal-accent': internalAccent,
+      '--gkais-internal-accent-text': internalAccentText
+    } as React.CSSProperties}
   >
     <aside className="fixed inset-y-0 left-0 z-30 hidden w-[245px] border-r border-black/10 bg-[#111413] text-white lg:flex lg:flex-col">
       <div className="border-b border-white/10 px-5 py-5">

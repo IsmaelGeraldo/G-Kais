@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   CalendarDays,
+  CheckCircle2,
   ExternalLink,
   FileUp,
   Plus,
@@ -23,15 +24,15 @@ import {
   type WebinarInterest,
   type WebinarRegistration
 } from '../../services/expertsAcquisition';
+import { persistExpertWorkTask } from '../../services/expertsTaskMemory';
 import { subscribeWebinarRegistrationsNewest } from '../../services/expertsWebinarRegistrationFeed';
 import {
   createWebinarWorkAction,
-  webinarNeedsWorkAction,
-  webinarWorkActionKind,
   webinarWorkPriority,
   type WebinarWorkActionType
 } from '../../services/expertsWebinarActions';
 import { loadExpertWorkspaceTeam, type WorkspaceMember } from '../../services/expertsWorkspaceCore';
+import { loadTasks, saveTasks, type WorkTask } from './workspaceState';
 
 type ParticipantDraft = { name: string; email: string; phone: string };
 type CsvRow = Record<string, string>;
@@ -114,6 +115,13 @@ function localDate() {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 }
 
+function needsNonBuyerFollowUp(registration: WebinarRegistration) {
+  return !registration.purchased
+    && (registration.status === 'attended' || registration.status === 'no-show')
+    && registration.followUpStatus !== 'created'
+    && registration.followUpStatus !== 'completed';
+}
+
 export function WebinarsWorkspace({ language }: { language: Language }) {
   const [webinars, setWebinars] = useState<ExpertWebinar[]>([]);
   const [people, setPeople] = useState<ExpertPerson[]>([]);
@@ -154,7 +162,7 @@ export function WebinarsWorkspace({ language }: { language: Language }) {
 
   useEffect(() => {
     if (!message) return;
-    const timer = window.setTimeout(() => setMessage(''), 4200);
+    const timer = window.setTimeout(() => setMessage(''), 5000);
     return () => window.clearTimeout(timer);
   }, [message]);
 
@@ -183,7 +191,7 @@ export function WebinarsWorkspace({ language }: { language: Language }) {
     attended: registrations.filter((item) => item.status === 'attended').length,
     noShow: registrations.filter((item) => item.status === 'no-show').length,
     purchased: registrations.filter((item) => item.purchased).length,
-    pendingActions: registrations.filter(webinarNeedsWorkAction).length
+    followUpPending: registrations.filter(needsNonBuyerFollowUp).length
   }), [registrations]);
 
   const selectedAssignee = () => members.find((member) => member.uid === currentUid) || members[0];
@@ -201,8 +209,8 @@ export function WebinarsWorkspace({ language }: { language: Language }) {
     } finally { setBusy(false); }
   };
 
-  const ensureWorkAction = async (registration: WebinarRegistration, person: ExpertPerson, options?: { type?: WebinarWorkActionType; dueDate?: string; dueTime?: string }) => {
-    if (!selected) return;
+  const ensureFollowUpAction = async (registration: WebinarRegistration, person: ExpertPerson, options?: { type?: WebinarWorkActionType; dueDate?: string; dueTime?: string }) => {
+    if (!selected || registration.purchased) return;
     const assignee = selectedAssignee();
     if (!assignee) return;
     await createWebinarWorkAction({
@@ -210,10 +218,10 @@ export function WebinarsWorkspace({ language }: { language: Language }) {
       person,
       webinar: selected,
       assignee,
-      type: options?.type || (registration.purchased ? 'task' : 'whatsapp'),
+      type: options?.type || 'whatsapp',
       dueDate: options?.dueDate,
       dueTime: options?.dueTime,
-      kind: webinarWorkActionKind(registration),
+      kind: 'follow-up',
       priority: webinarWorkPriority(registration)
     });
   };
@@ -229,7 +237,7 @@ export function WebinarsWorkspace({ language }: { language: Language }) {
       await recordOperationalWebinarRegistration({ webinarId: selected.id, name: participant.name, email: participant.email, phone: participant.phone, status: 'registered' });
       setParticipant(EMPTY_PARTICIPANT);
       setShowParticipant(false);
-      setMessage(language === 'es' ? 'Persona registrada para asistir. La compra se detecta como un evento separado.' : 'Person registered to attend. Purchase is detected as a separate event.');
+      setMessage(language === 'es' ? 'Persona registrada para asistir. Compra y asistencia se registran después como señales separadas.' : 'Person registered to attend. Purchase and attendance are recorded later as separate signals.');
     } catch (error) {
       setMessage(error instanceof Error && error.message === 'IDENTITY_CONFLICT'
         ? (language === 'es' ? 'Existe un conflicto de identidad por email/teléfono.' : 'There is an email/phone identity conflict.')
@@ -252,12 +260,25 @@ export function WebinarsWorkspace({ language }: { language: Language }) {
         attendanceMinutes: next.attendanceMinutes,
         interest: next.interest
       });
-      if (!next.purchased && (next.status === 'attended' || next.status === 'no-show') && next.followUpStatus !== 'created' && next.followUpStatus !== 'completed') {
-        await ensureWorkAction(next, person, { type: 'whatsapp', dueDate: localDate() });
-      }
+      if (needsNonBuyerFollowUp(next)) await ensureFollowUpAction(next, person, { dueDate: localDate() });
     } catch {
       setMessage(language === 'es' ? 'No se pudo actualizar la asistencia.' : 'Could not update attendance.');
     }
+  };
+
+  const closeLegacyFollowUpTask = async (registration: WebinarRegistration) => {
+    if (!registration.followUpTaskId) return;
+    const tasks = loadTasks();
+    const task = tasks.find((item) => item.id === registration.followUpTaskId);
+    if (!task || task.status === 'done') return;
+    const updated: WorkTask = {
+      ...task,
+      status: 'done',
+      result: language === 'es' ? 'Compra detectada; sale de Seguimiento y pasa a Compradores.' : 'Purchase detected; moved from Follow-up to Buyers.',
+      completedAt: new Date().toISOString()
+    };
+    saveTasks(tasks.map((item) => item.id === updated.id ? updated : item));
+    await persistExpertWorkTask(updated);
   };
 
   const registerPurchase = async (registration: WebinarRegistration) => {
@@ -276,9 +297,10 @@ export function WebinarsWorkspace({ language }: { language: Language }) {
         interest: registration.interest,
         purchased: true
       });
-      const purchased: WebinarRegistration = { ...registration, purchased: true, followUpStatus: 'not-needed' };
-      await ensureWorkAction(purchased, person, { type: 'task', dueDate: localDate() });
-      setMessage(language === 'es' ? 'Compra registrada como evento separado · integración enviada a Trabajo prioritario.' : 'Purchase recorded as a separate event · enrollment sent to Priority Work.');
+      await closeLegacyFollowUpTask(registration);
+      setMessage(language === 'es'
+        ? 'Compra detectada. La persona aparece en Priority Work → Compradores; no se crea una tarea individual de matrícula.'
+        : 'Purchase detected. The person now appears in Priority Work → Buyers; no individual enrollment task was created.');
     } catch {
       setMessage(language === 'es' ? 'No se pudo registrar la compra.' : 'Could not record purchase.');
     } finally { setBusy(false); }
@@ -308,20 +330,45 @@ export function WebinarsWorkspace({ language }: { language: Language }) {
           if (status === 'attended' || status === 'no-show') {
             const person: ExpertPerson = { id: result.personId, name, email, phone, firstSource: 'webinar', latestSource: 'webinar', currentStage: 'webinar', outcomeMemory: {} };
             const registration: WebinarRegistration = { id: result.registrationId, personId: result.personId, webinarId: selected.id, status, attendanceMinutes, purchased: false, interest, followUpStatus: 'needed' };
-            await ensureWorkAction(registration, person, { type: 'whatsapp', dueDate: localDate() });
+            await ensureFollowUpAction(registration, person, { dueDate: localDate() });
             followUps += 1;
           }
         } catch { skipped += 1; }
       }
       setMessage(language === 'es'
-        ? `CSV procesado: ${imported} registros${followUps ? ` · ${followUps} seguimientos creados` : ''}${skipped ? ` · ${skipped} omitidos` : ''}. Las compras no se importan desde esta lista.`
-        : `CSV processed: ${imported} registrations${followUps ? ` · ${followUps} follow-ups created` : ''}${skipped ? ` · ${skipped} skipped` : ''}. Purchases are not imported from this attendee list.`);
+        ? `CSV procesado: ${imported} registros · ${followUps} enviados a Seguimiento${skipped ? ` · ${skipped} omitidos` : ''}. Las compras llegan por una señal separada.`
+        : `CSV processed: ${imported} registrations · ${followUps} sent to Follow-up${skipped ? ` · ${skipped} skipped` : ''}. Purchases arrive as a separate signal.`);
     } catch {
       setMessage(language === 'es' ? 'No se pudo procesar el CSV.' : 'Could not process CSV.');
     } finally {
       setImporting(false);
       if (fileInput.current) fileInput.current.value = '';
     }
+  };
+
+  const closeAndDistribute = async () => {
+    if (!selected) return;
+    setBusy(true);
+    let followUps = 0;
+    let buyers = 0;
+    let missingAttendance = 0;
+    try {
+      for (const registration of registrations) {
+        if (registration.purchased) { buyers += 1; continue; }
+        if (registration.status === 'registered') { missingAttendance += 1; continue; }
+        if (!needsNonBuyerFollowUp(registration)) continue;
+        const person = peopleById.get(registration.personId);
+        if (!person) continue;
+        await ensureFollowUpAction(registration, person, { dueDate: localDate() });
+        followUps += 1;
+      }
+      await updateOperationalWebinar(selected.id, { status: 'completed' });
+      setMessage(language === 'es'
+        ? `Webinar distribuido: ${buyers} compradores disponibles en Priority Work → Compradores · ${followUps} no compradores enviados a Seguimiento${missingAttendance ? ` · ${missingAttendance} aún sin datos de asistencia` : ''}.`
+        : `Webinar distributed: ${buyers} buyers available in Priority Work → Buyers · ${followUps} non-buyers sent to Follow-up${missingAttendance ? ` · ${missingAttendance} still missing attendance data` : ''}.`);
+    } catch {
+      setMessage(language === 'es' ? 'No se pudo completar la distribución del webinar.' : 'Could not complete webinar distribution.');
+    } finally { setBusy(false); }
   };
 
   const updateWebinarStatus = async (status: ExpertWebinarStatus) => {
@@ -331,24 +378,54 @@ export function WebinarsWorkspace({ language }: { language: Language }) {
 
   return <div className="space-y-5">
     <section className="rounded-2xl border border-black/10 bg-white p-5 md:p-6">
-      <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-end"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#0A3F4D]">WEBINARS</p><h3 className="mt-2 text-2xl font-semibold">{language === 'es' ? 'Registro, asistencia y compra son eventos distintos' : 'Registration, attendance and purchase are separate events'}</h3><p className="mt-2 max-w-3xl text-sm leading-6 text-black/50">{language === 'es' ? 'Aquí administras quién se registró y qué ocurrió en el evento. Una compra posterior no se declara al inscribir a la persona: llega como una señal independiente y activa su integración.' : 'Manage who registered and what happened at the event. A later purchase is not declared at registration: it arrives as a separate signal and triggers enrollment.'}</p></div><button type="button" onClick={() => setShowCreate((value) => !value)} className="inline-flex items-center justify-center gap-2 rounded-full bg-[#111413] px-4 py-2.5 text-xs font-semibold text-white"><Plus className="h-4 w-4" />{language === 'es' ? 'Nuevo webinar' : 'New webinar'}</button></div>
+      <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
+        <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#0A3F4D]">WEBINARS</p><h3 className="mt-2 text-2xl font-semibold">{language === 'es' ? 'Registro, asistencia y compra son eventos distintos' : 'Registration, attendance and purchase are separate events'}</h3><p className="mt-2 max-w-3xl text-sm leading-6 text-black/50">{language === 'es' ? 'Inscribimos personas antes del evento. Después sincronizamos asistencia y compras: compradores pasan a Compradores y no compradores a Seguimiento.' : 'Register people before the event. Afterwards, sync attendance and purchases: buyers go to Buyers and non-buyers to Follow-up.'}</p></div>
+        <button type="button" onClick={() => setShowCreate((value) => !value)} className="inline-flex items-center justify-center gap-2 rounded-full bg-[#111413] px-4 py-2.5 text-xs font-semibold text-white"><Plus className="h-4 w-4" />{language === 'es' ? 'Nuevo webinar' : 'New webinar'}</button>
+      </div>
 
-      {showCreate && <div className="mt-5 grid gap-3 rounded-xl border border-black/8 bg-[#FAFAF8] p-4 md:grid-cols-2 xl:grid-cols-3"><label><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'NOMBRE' : 'TITLE'}</span><input value={title} onChange={(event) => setTitle(event.target.value)} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2.5 text-sm" /></label><label><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'FECHA Y HORA' : 'DATE & TIME'}</span><input type="datetime-local" value={startsAt} onChange={(event) => setStartsAt(event.target.value)} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2.5 text-sm" /></label><label><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'PLATAFORMA' : 'PLATFORM'}</span><input value={platform} onChange={(event) => setPlatform(event.target.value)} placeholder="Zoom" className="w-full rounded-lg border border-black/10 bg-white px-3 py-2.5 text-sm" /></label><label><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'ENLACE DEL EVENTO' : 'EVENT LINK'}</span><input value={externalUrl} onChange={(event) => setExternalUrl(event.target.value)} placeholder="https://…" className="w-full rounded-lg border border-black/10 bg-white px-3 py-2.5 text-sm" /></label><label><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'ORIGEN / CAMPAÑA' : 'SOURCE / CAMPAIGN'}</span><input value={source} onChange={(event) => setSource(event.target.value)} placeholder="Instagram / Meta Ads" className="w-full rounded-lg border border-black/10 bg-white px-3 py-2.5 text-sm" /></label><label><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'OFERTA ASOCIADA' : 'RELATED OFFER'}</span><input value={offerLabel} onChange={(event) => setOfferLabel(event.target.value)} placeholder={language === 'es' ? 'Formación Escala' : 'Scale Program'} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2.5 text-sm" /></label><div className="flex gap-2 md:col-span-2 xl:col-span-3"><button type="button" disabled={busy || !title.trim()} onClick={() => void createWebinar()} className="rounded-full bg-[#111413] px-4 py-2.5 text-xs font-semibold text-white disabled:opacity-40">{language === 'es' ? 'Guardar webinar' : 'Save webinar'}</button><button type="button" onClick={() => setShowCreate(false)} className="rounded-full border border-black/10 bg-white px-4 py-2.5 text-xs font-semibold text-black/55">{language === 'es' ? 'Cancelar' : 'Cancel'}</button></div></div>}
+      {showCreate && <div className="mt-5 grid gap-3 rounded-xl border border-black/8 bg-[#FAFAF8] p-4 md:grid-cols-2 xl:grid-cols-3">
+        <Field label={language === 'es' ? 'NOMBRE' : 'TITLE'} value={title} onChange={setTitle} />
+        <Field label={language === 'es' ? 'FECHA Y HORA' : 'DATE & TIME'} value={startsAt} onChange={setStartsAt} type="datetime-local" />
+        <Field label={language === 'es' ? 'PLATAFORMA' : 'PLATFORM'} value={platform} onChange={setPlatform} placeholder="Zoom" />
+        <Field label={language === 'es' ? 'ENLACE DEL EVENTO' : 'EVENT LINK'} value={externalUrl} onChange={setExternalUrl} placeholder="https://…" />
+        <Field label={language === 'es' ? 'ORIGEN / CAMPAÑA' : 'SOURCE / CAMPAIGN'} value={source} onChange={setSource} placeholder="Instagram / Meta Ads" />
+        <Field label={language === 'es' ? 'OFERTA ASOCIADA' : 'RELATED OFFER'} value={offerLabel} onChange={setOfferLabel} placeholder={language === 'es' ? 'Formación Escala' : 'Scale Program'} />
+        <div className="flex gap-2 md:col-span-2 xl:col-span-3"><button type="button" disabled={busy || !title.trim()} onClick={() => void createWebinar()} className="rounded-full bg-[#111413] px-4 py-2.5 text-xs font-semibold text-white disabled:opacity-40">{language === 'es' ? 'Guardar webinar' : 'Save webinar'}</button><button type="button" onClick={() => setShowCreate(false)} className="rounded-full border border-black/10 bg-white px-4 py-2.5 text-xs font-semibold text-black/55">{language === 'es' ? 'Cancelar' : 'Cancel'}</button></div>
+      </div>}
     </section>
 
     <div className="grid gap-5 xl:grid-cols-[300px_minmax(0,1fr)]">
       <section className="overflow-hidden rounded-2xl border border-black/10 bg-white"><div className="border-b border-black/7 p-4"><p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/40">{language === 'es' ? 'EVENTOS' : 'EVENTS'}</p></div><div className="max-h-[720px] divide-y divide-black/5 overflow-y-auto">{webinars.map((webinar) => <button key={webinar.id} type="button" onClick={() => setSelectedId(webinar.id)} className={`w-full p-4 text-left ${selectedId === webinar.id ? 'bg-[#F7F7F5]' : 'hover:bg-black/[0.015]'}`}><div className="flex items-start gap-3"><Presentation className="mt-0.5 h-4 w-4 text-[#0A3F4D]" /><div className="min-w-0"><p className="truncate text-sm font-semibold">{webinar.title}</p><p className="mt-1 text-xs text-black/40">{formatWebinarDate(webinar.startsAt, language)}</p><p className="mt-1 truncate text-[10px] uppercase tracking-[0.08em] text-black/30">{webinar.platform || '—'} · {webinar.status}</p></div></div></button>)}{webinars.length === 0 && <div className="p-7 text-center text-sm text-black/35">{language === 'es' ? 'Aún no hay webinars.' : 'No webinars yet.'}</div>}</div></section>
 
       {selected ? <div className="space-y-5">
-        <section className="rounded-2xl border border-black/10 bg-white p-5"><div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start"><div><div className="flex flex-wrap items-center gap-2"><h4 className="text-xl font-semibold">{selected.title}</h4><select value={selected.status} onChange={(event) => void updateWebinarStatus(event.target.value as ExpertWebinarStatus)} className="rounded-full border border-black/10 bg-white px-2.5 py-1 text-[10px] font-semibold"><option value="draft">Draft</option><option value="scheduled">{language === 'es' ? 'Programado' : 'Scheduled'}</option><option value="completed">{language === 'es' ? 'Completado' : 'Completed'}</option><option value="cancelled">{language === 'es' ? 'Cancelado' : 'Cancelled'}</option></select></div><p className="mt-2 text-sm text-black/45"><CalendarDays className="mr-1.5 inline h-4 w-4" />{formatWebinarDate(selected.startsAt, language)} · {selected.platform || '—'}</p>{selected.offerLabel && <p className="mt-1 text-xs text-black/40">{language === 'es' ? 'Oferta: ' : 'Offer: '}{selected.offerLabel}</p>}{selected.externalUrl && <a href={selected.externalUrl} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[#0A3F4D]">{language === 'es' ? 'Abrir plataforma' : 'Open platform'}<ExternalLink className="h-3.5 w-3.5" /></a>}</div><div className="flex flex-wrap gap-2"><input ref={fileInput} type="file" accept=".csv,text/csv" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importCsv(file); }} /><button type="button" disabled={importing} onClick={() => fileInput.current?.click()} className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-4 py-2.5 text-xs font-semibold text-black/60 disabled:opacity-40"><FileUp className="h-4 w-4" />{importing ? (language === 'es' ? 'Importando…' : 'Importing…') : 'Importar CSV'}</button><button type="button" onClick={() => setShowParticipant((value) => !value)} className="inline-flex items-center gap-2 rounded-full bg-[#111413] px-4 py-2.5 text-xs font-semibold text-white"><Plus className="h-4 w-4" />{language === 'es' ? 'Añadir inscrito' : 'Add registrant'}</button></div></div>
-          <div className="mt-5 grid grid-cols-2 gap-2 border-t border-black/6 pt-4 sm:grid-cols-5">{[[language === 'es' ? 'Registrados' : 'Registered', metrics.registered],[language === 'es' ? 'Asistieron' : 'Attended', metrics.attended],['No-show', metrics.noShow],[language === 'es' ? 'Compras detectadas' : 'Purchases detected', metrics.purchased],[language === 'es' ? 'Acciones pendientes' : 'Pending actions', metrics.pendingActions]].map(([label, value]) => <div key={String(label)} className="rounded-xl bg-[#F7F7F5] p-3"><p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-black/35">{label}</p><p className="mt-1 text-xl font-semibold">{value}</p></div>)}</div>
-          {showParticipant && <div className="mt-4 rounded-xl border border-black/8 bg-[#FAFAF8] p-4"><div className="grid gap-3 md:grid-cols-3"><label><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'NOMBRE Y APELLIDOS' : 'FULL NAME'}</span><input value={participant.name} onChange={(event) => setParticipant((current) => ({ ...current, name: event.target.value }))} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2.5 text-sm" /></label><label><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">EMAIL</span><input value={participant.email} onChange={(event) => setParticipant((current) => ({ ...current, email: event.target.value }))} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2.5 text-sm" /></label><label><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'TELÉFONO' : 'PHONE'}</span><input value={participant.phone} onChange={(event) => setParticipant((current) => ({ ...current, phone: event.target.value }))} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2.5 text-sm" /></label></div><div className="mt-3 flex items-center justify-between gap-3"><p className="text-[10px] leading-4 text-black/40">{language === 'es' ? 'Solo registra intención de asistir. Compra, asistencia e interés se actualizan después como eventos distintos.' : 'This only records intent to attend. Purchase, attendance and interest are updated later as separate events.'}</p><button type="button" disabled={busy} onClick={() => void addParticipant()} className="shrink-0 rounded-full bg-[#111413] px-4 py-2.5 text-xs font-semibold text-white disabled:opacity-40">{language === 'es' ? 'Registrar' : 'Register'}</button></div></div>}
+        <section className="rounded-2xl border border-black/10 bg-white p-5">
+          <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
+            <div><div className="flex flex-wrap items-center gap-2"><h4 className="text-xl font-semibold">{selected.title}</h4><select value={selected.status} onChange={(event) => void updateWebinarStatus(event.target.value as ExpertWebinarStatus)} className="rounded-full border border-black/10 bg-white px-2.5 py-1 text-[10px] font-semibold"><option value="draft">Draft</option><option value="scheduled">{language === 'es' ? 'Programado' : 'Scheduled'}</option><option value="completed">{language === 'es' ? 'Completado' : 'Completed'}</option><option value="cancelled">{language === 'es' ? 'Cancelado' : 'Cancelled'}</option></select></div><p className="mt-2 text-sm text-black/45"><CalendarDays className="mr-1.5 inline h-4 w-4" />{formatWebinarDate(selected.startsAt, language)} · {selected.platform || '—'}</p>{selected.offerLabel && <p className="mt-1 text-xs text-black/40">{language === 'es' ? 'Oferta: ' : 'Offer: '}{selected.offerLabel}</p>}{selected.externalUrl && <a href={selected.externalUrl} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[#0A3F4D]">{language === 'es' ? 'Abrir plataforma' : 'Open platform'}<ExternalLink className="h-3.5 w-3.5" /></a>}</div>
+            <div className="flex flex-wrap gap-2"><input ref={fileInput} type="file" accept=".csv,text/csv" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importCsv(file); }} /><button type="button" disabled={importing} onClick={() => fileInput.current?.click()} className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-4 py-2.5 text-xs font-semibold text-black/60 disabled:opacity-40"><FileUp className="h-4 w-4" />{importing ? (language === 'es' ? 'Importando…' : 'Importing…') : 'Importar asistencia CSV'}</button><button type="button" disabled={busy} onClick={() => void closeAndDistribute()} className="inline-flex items-center gap-2 rounded-full border border-[#0A3F4D]/15 bg-white px-4 py-2.5 text-xs font-semibold text-[#0A3F4D] disabled:opacity-40"><CheckCircle2 className="h-4 w-4" />{language === 'es' ? 'Cerrar y distribuir' : 'Close & distribute'}</button><button type="button" onClick={() => setShowParticipant((value) => !value)} className="inline-flex items-center gap-2 rounded-full bg-[#111413] px-4 py-2.5 text-xs font-semibold text-white"><Plus className="h-4 w-4" />{language === 'es' ? 'Añadir inscrito' : 'Add registrant'}</button></div>
+          </div>
+          <div className="mt-5 grid grid-cols-2 gap-2 border-t border-black/6 pt-4 sm:grid-cols-5">{[[language === 'es' ? 'Registrados' : 'Registered', metrics.registered],[language === 'es' ? 'Asistieron' : 'Attended', metrics.attended],['No-show', metrics.noShow],[language === 'es' ? 'Compras detectadas' : 'Purchases detected', metrics.purchased],[language === 'es' ? 'Seguimientos pendientes' : 'Follow-ups pending', metrics.followUpPending]].map(([label, value]) => <Metric key={String(label)} label={String(label)} value={Number(value)} />)}</div>
+          {showParticipant && <div className="mt-4 rounded-xl border border-black/8 bg-[#FAFAF8] p-4"><div className="grid gap-3 md:grid-cols-3"><Field label={language === 'es' ? 'NOMBRE Y APELLIDOS' : 'FULL NAME'} value={participant.name} onChange={(value) => setParticipant((current) => ({ ...current, name: value }))} /><Field label="EMAIL" value={participant.email} onChange={(value) => setParticipant((current) => ({ ...current, email: value }))} /><Field label={language === 'es' ? 'TELÉFONO' : 'PHONE'} value={participant.phone} onChange={(value) => setParticipant((current) => ({ ...current, phone: value }))} /></div><div className="mt-3 flex items-center justify-between gap-3"><p className="text-[10px] leading-4 text-black/40">{language === 'es' ? 'Solo registra intención de asistir. Compra, asistencia e interés se actualizan después como eventos distintos.' : 'Only intent to attend is recorded here. Purchase, attendance and interest are updated later as separate events.'}</p><button type="button" disabled={busy} onClick={() => void addParticipant()} className="shrink-0 rounded-full bg-[#111413] px-4 py-2.5 text-xs font-semibold text-white disabled:opacity-40">{language === 'es' ? 'Registrar' : 'Register'}</button></div></div>}
         </section>
 
-        <section className="overflow-hidden rounded-2xl border border-black/10 bg-white"><div className="flex flex-col gap-3 border-b border-black/7 p-4 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-center gap-2"><Users className="h-4 w-4 text-[#0A3F4D]" /><p className="text-sm font-semibold">{language === 'es' ? 'Personas inscritas' : 'Registered people'}</p></div><label className="relative block sm:w-[330px]"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-black/30" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={language === 'es' ? 'Buscar persona…' : 'Search person…'} className="w-full rounded-xl border border-black/10 bg-[#FAFAF8] py-2 pl-9 pr-3 text-sm" /></label></div><div className="max-h-[720px] divide-y divide-black/5 overflow-y-auto">{filteredRegistrations.map((registration) => { const person = peopleById.get(registration.personId); if (!person) return null; return <div key={registration.id} className="p-4"><div className="grid gap-3 xl:grid-cols-[minmax(220px,1fr)_150px_130px_120px_150px_auto] xl:items-center"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="truncate text-sm font-semibold">{person.name}</p>{registration.purchased && <span className="rounded-full bg-[#1E7A4D]/10 px-2 py-0.5 text-[9px] font-semibold text-[#17603D]">{language === 'es' ? 'COMPRA DETECTADA' : 'PURCHASE DETECTED'}</span>}</div><p className="mt-1 truncate text-xs text-black/40">{person.email || person.phone || '—'}</p></div><select value={registration.status} onChange={(event) => void updateRegistration(registration, { status: event.target.value as WebinarAttendanceStatus })} className="rounded-lg border border-black/10 bg-white px-2.5 py-2 text-xs"><option value="registered">{statusLabel('registered', language)}</option><option value="attended">{statusLabel('attended', language)}</option><option value="no-show">No-show</option></select><label className="flex items-center gap-2"><input type="number" min={0} max={10000} value={registration.attendanceMinutes} onChange={(event) => void updateRegistration(registration, { attendanceMinutes: Number(event.target.value) || 0 })} className="w-20 rounded-lg border border-black/10 bg-white px-2 py-2 text-xs" /><span className="text-[10px] text-black/35">min</span></label><select value={registration.interest} onChange={(event) => void updateRegistration(registration, { interest: event.target.value as WebinarInterest })} className="rounded-lg border border-black/10 bg-white px-2.5 py-2 text-xs"><option value="unknown">{interestLabel('unknown', language)}</option><option value="low">{interestLabel('low', language)}</option><option value="medium">{interestLabel('medium', language)}</option><option value="high">{interestLabel('high', language)}</option></select><div className="text-xs text-black/45">{registration.followUpStatus === 'created' ? (language === 'es' ? 'En Priority Work' : 'In Priority Work') : registration.followUpStatus === 'completed' ? (language === 'es' ? 'Gestionado' : 'Handled') : registration.purchased ? (language === 'es' ? 'Integración pendiente/creada' : 'Enrollment pending/created') : '—'}</div><div className="flex flex-wrap justify-end gap-2">{!registration.purchased && <button type="button" disabled={busy} onClick={() => void registerPurchase(registration)} className="inline-flex items-center gap-1.5 rounded-full border border-[#1E7A4D]/15 bg-white px-3 py-2 text-[10px] font-semibold text-[#17603D]"><ShoppingBag className="h-3.5 w-3.5" />{language === 'es' ? 'Registrar compra*' : 'Record purchase*'}</button>}{webinarNeedsWorkAction(registration) && !registration.purchased && <button type="button" onClick={() => void ensureWorkAction(registration, person, { type: 'whatsapp', dueDate: localDate() })} className="rounded-full bg-[#111413] px-3 py-2 text-[10px] font-semibold text-white">{language === 'es' ? 'Enviar a Priority' : 'Send to Priority'}</button>}</div></div>{!registration.purchased && <p className="mt-2 text-[9px] leading-4 text-black/30">* {language === 'es' ? 'Fallback manual para pruebas. En producción este evento vendrá del webhook de la pasarela de pago.' : 'Manual fallback for testing. In production this event will come from the payment provider webhook.'}</p>}</div>; })}{filteredRegistrations.length === 0 && <div className="p-9 text-center text-sm text-black/35">{language === 'es' ? 'Aún no hay personas registradas en este webinar.' : 'No one is registered for this webinar yet.'}</div>}</div></section>
+        <section className="overflow-hidden rounded-2xl border border-black/10 bg-white">
+          <div className="flex flex-col gap-3 border-b border-black/7 p-4 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-center gap-2"><Users className="h-4 w-4 text-[#0A3F4D]" /><p className="text-sm font-semibold">{language === 'es' ? 'Personas inscritas' : 'Registered people'}</p></div><label className="relative block sm:w-[330px]"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-black/30" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={language === 'es' ? 'Buscar persona…' : 'Search person…'} className="w-full rounded-xl border border-black/10 bg-[#FAFAF8] py-2 pl-9 pr-3 text-sm" /></label></div>
+          <div className="max-h-[720px] divide-y divide-black/5 overflow-y-auto">{filteredRegistrations.map((registration) => {
+            const person = peopleById.get(registration.personId);
+            if (!person) return null;
+            return <div key={registration.id} className="p-4"><div className="grid gap-3 xl:grid-cols-[minmax(220px,1fr)_150px_130px_120px_170px_auto] xl:items-center"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="truncate text-sm font-semibold">{person.name}</p>{registration.purchased && <span className="rounded-full bg-[#1E7A4D]/10 px-2 py-0.5 text-[9px] font-semibold text-[#17603D]">{language === 'es' ? 'COMPRA DETECTADA' : 'PURCHASE DETECTED'}</span>}</div><p className="mt-1 truncate text-xs text-black/40">{person.email || person.phone || '—'}</p></div><select value={registration.status} onChange={(event) => void updateRegistration(registration, { status: event.target.value as WebinarAttendanceStatus })} className="rounded-lg border border-black/10 bg-white px-2.5 py-2 text-xs"><option value="registered">{statusLabel('registered', language)}</option><option value="attended">{statusLabel('attended', language)}</option><option value="no-show">No-show</option></select><label className="flex items-center gap-2"><input type="number" min={0} max={10000} value={registration.attendanceMinutes} onChange={(event) => void updateRegistration(registration, { attendanceMinutes: Number(event.target.value) || 0 })} className="w-20 rounded-lg border border-black/10 bg-white px-2 py-2 text-xs" /><span className="text-[10px] text-black/35">min</span></label><select value={registration.interest} onChange={(event) => void updateRegistration(registration, { interest: event.target.value as WebinarInterest })} className="rounded-lg border border-black/10 bg-white px-2.5 py-2 text-xs"><option value="unknown">{interestLabel('unknown', language)}</option><option value="low">{interestLabel('low', language)}</option><option value="medium">{interestLabel('medium', language)}</option><option value="high">{interestLabel('high', language)}</option></select><div className="text-xs text-black/45">{registration.purchased ? (language === 'es' ? 'Priority → Compradores' : 'Priority → Buyers') : registration.followUpStatus === 'created' ? (language === 'es' ? 'En Seguimiento' : 'In Follow-up') : registration.followUpStatus === 'completed' ? (language === 'es' ? 'Gestionado' : 'Handled') : '—'}</div><div className="flex flex-wrap justify-end gap-2">{!registration.purchased && <button type="button" disabled={busy} onClick={() => void registerPurchase(registration)} className="inline-flex items-center gap-1.5 rounded-full border border-[#1E7A4D]/15 bg-white px-3 py-2 text-[10px] font-semibold text-[#17603D]"><ShoppingBag className="h-3.5 w-3.5" />{language === 'es' ? 'Registrar compra*' : 'Record purchase*'}</button>}{needsNonBuyerFollowUp(registration) && <button type="button" onClick={() => void ensureFollowUpAction(registration, person, { dueDate: localDate() })} className="rounded-full bg-[#111413] px-3 py-2 text-[10px] font-semibold text-white">{language === 'es' ? 'Enviar a Seguimiento' : 'Send to Follow-up'}</button>}</div></div>{!registration.purchased && <p className="mt-2 text-[9px] leading-4 text-black/30">* {language === 'es' ? 'Fallback manual de prueba. En producción la compra vendrá del webhook de la pasarela. Asistencia/minutos vendrán de la plataforma del Webinar o de su archivo de asistencia.' : 'Testing fallback. In production purchases come from the payment webhook. Attendance/minutes come from the webinar platform or its attendance file.'}</p>}</div>;
+          })}{filteredRegistrations.length === 0 && <div className="p-9 text-center text-sm text-black/35">{language === 'es' ? 'Aún no hay personas registradas en este webinar.' : 'No one is registered for this webinar yet.'}</div>}</div>
+        </section>
       </div> : <div className="rounded-2xl border border-dashed border-black/10 bg-white p-10 text-center text-sm text-black/35">{language === 'es' ? 'Selecciona o crea un webinar.' : 'Select or create a webinar.'}</div>}
     </div>
 
-    {message && <div className="fixed bottom-5 right-5 z-50 max-w-sm rounded-xl bg-[#111413] px-4 py-3 text-xs font-medium text-white shadow-xl">{message}</div>}
+    {message && <div className="fixed bottom-5 right-5 z-50 max-w-md rounded-xl bg-[#111413] px-4 py-3 text-xs font-medium text-white shadow-xl">{message}</div>}
   </div>;
+}
+
+function Field({ label, value, onChange, type = 'text', placeholder = '' }: { label: string; value: string; onChange: (value: string) => void; type?: string; placeholder?: string }) {
+  return <label><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">{label}</span><input type={type} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2.5 text-sm" /></label>;
+}
+
+function Metric({ label, value }: { label: string; value: number }) {
+  return <div className="rounded-xl bg-[#F7F7F5] p-3"><p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-black/35">{label}</p><p className="mt-1 text-xl font-semibold">{value}</p></div>;
 }

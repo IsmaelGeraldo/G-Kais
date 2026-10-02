@@ -67,7 +67,7 @@ function actionLabel(type: WorkActionType, language: Language): string {
   return language === 'es' ? 'Tarea interna' : 'Internal task';
 }
 
-function formatDue(task: WorkTask, language: Language): string {
+function formatDue(task: Pick<WorkTask, 'dueDate' | 'dueTime'>, language: Language): string {
   if (!task.dueDate) return language === 'es' ? 'Sin fecha' : 'No date';
   try {
     const date = new Date(`${task.dueDate}T${task.dueTime || '12:00'}:00`);
@@ -78,8 +78,8 @@ function formatDue(task: WorkTask, language: Language): string {
   }
 }
 
-function priorityMeta(task: WorkTask, language: Language) {
-  const priority = getWorkPriority(task);
+function priorityMeta(task: TeamTask, language: Language) {
+  const priority = getWorkPriority(task as WorkTask);
   if (priority === 'high') return { label: language === 'es' ? 'Alta' : 'High', className: 'bg-[#A23A32]/9 text-[#8D332C]' };
   if (priority === 'medium') return { label: language === 'es' ? 'Media' : 'Medium', className: 'bg-[#A46F16]/10 text-[#82570F]' };
   return { label: 'Normal', className: 'bg-[#0A3F4D]/8 text-[#0A3F4D]' };
@@ -178,7 +178,7 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
     count: tasks.filter((task) => task.assignedToUid === member.uid && task.status !== 'done' && !task.deletedAt).length
   })), [activeMembers, tasks]);
 
-  const persistTasks = (next: TeamTask[]) => { setTasks(next); saveTasks(next); };
+  const persistTasks = (next: TeamTask[]) => { setTasks(next); saveTasks(next as WorkTask[]); };
 
   const patchTask = (task: TeamTask, patch: Partial<TeamTask>) => {
     const normalized: Partial<TeamTask> = { ...patch };

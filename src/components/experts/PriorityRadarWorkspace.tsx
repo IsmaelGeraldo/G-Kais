@@ -6,24 +6,295 @@ import { appendExpertAuditLog, appendExpertRelationshipEvent, hasWorkspacePermis
 import { appendJournal, getWorkPriority, loadTasks, saveTasks, WORKSPACE_STATE_EVENT, type WorkActionType, type WorkTask } from './workspaceState';
 import { BuyerQueueWorkspaceV2 } from './BuyerQueueWorkspaceV2';
 
-type Interaction='queue'|'waiting-reply'|'reply-received'; type Lane='queue'|'waiting'|'replied'; type View='mine'|'team'; type MainTab='active'|'buyers';
-type TeamTask=WorkTask&{assignedToUid?:string;assignedToName?:string;createdByUid?:string;completedByUid?:string;personId?:string;sourceId?:string;sourceRegistrationId?:string;sourceActionKind?:string;workstream?:string;interactionState?:Interaction;awaitingReplySince?:string;replyReceivedAt?:string;lastInteractionNote?:string;};
-function stateOf(t:TeamTask):Interaction{return t.interactionState==='waiting-reply'||t.interactionState==='reply-received'?t.interactionState:'queue';} function isFollowUp(t:TeamTask){return t.workstream==='follow-up'||t.sourceActionKind==='continuity'||(t.source==='webinar'&&t.sourceActionKind==='follow-up');} function isBuyer(t:TeamTask){return t.source==='webinar'&&t.sourceActionKind==='enrollment';} function isInternalAutomation(t:TeamTask){return t.workstream==='formation-plan'||t.sourceActionKind==='formation-plan'||/^confirmar acceso y onboarding/i.test(t.title||'');}
-function memberLabel(m?:WorkspaceMember){return m?.displayName||m?.email||m?.uid||'';} function actionLabel(t:WorkActionType,l:Language){if(t==='whatsapp')return'WhatsApp';if(t==='email')return'Email';if(t==='call')return l==='es'?'Llamada':'Call';if(t==='meeting')return l==='es'?'Reunión':'Meeting';return l==='es'?'Tarea':'Task';} function ActionIcon({type}:{type:WorkActionType}){if(type==='email')return<Mail className="h-4 w-4"/>;if(type==='whatsapp')return<MessageCircle className="h-4 w-4"/>;if(type==='call')return<Phone className="h-4 w-4"/>;if(type==='meeting')return<CalendarCheck2 className="h-4 w-4"/>;return<ListTodo className="h-4 w-4"/>;}
-function due(t:TeamTask,l:Language){if(!t.dueDate)return l==='es'?'Sin fecha':'No date';const d=new Date(`${t.dueDate}T${t.dueTime||'12:00'}:00`);return Number.isFinite(d.getTime())?`${new Intl.DateTimeFormat(l==='es'?'es-CL':'en-US',{day:'2-digit',month:'short'}).format(d)}${t.dueTime?` · ${t.dueTime}`:''}`:t.dueDate;}
-function priority(t:TeamTask,l:Language){const p=getWorkPriority(t);if(p==='high')return{rank:0,label:l==='es'?'Alta':'High',cls:'bg-[#A23A32]/9 text-[#8D332C]'};if(p==='medium')return{rank:1,label:l==='es'?'Media':'Medium',cls:'bg-[#A46F16]/10 text-[#82570F]'};return{rank:2,label:'Normal',cls:'bg-[#0A3F4D]/8 text-[#0A3F4D]'};}
+type Interaction = 'queue' | 'waiting-reply' | 'reply-received';
+type Lane = 'queue' | 'waiting' | 'replied';
+type View = 'mine' | 'team';
+type MainTab = 'active' | 'buyers';
+type TeamTask = WorkTask & {
+  assignedToUid?: string;
+  assignedToName?: string;
+  createdByUid?: string;
+  completedByUid?: string;
+  personId?: string;
+  sourceId?: string;
+  sourceRegistrationId?: string;
+  sourceActionKind?: string;
+  workstream?: string;
+  interactionState?: Interaction;
+  awaitingReplySince?: string;
+  replyReceivedAt?: string;
+  lastInteractionNote?: string;
+};
 
-export function PriorityRadarWorkspace({language,onOpenClient}:{language:Language;onOpenClient:(id:string)=>void}){
- const[mainTab,setMainTab]=useState<MainTab>('active');const[tasks,setTasks]=useState<TeamTask[]>(()=>loadTasks() as TeamTask[]);const[team,setTeam]=useState<WorkspaceTeamState|null>(null);const[view,setView]=useState<View>('mine');const[lane,setLane]=useState<Lane>('queue');const[search,setSearch]=useState('');const[showHistory,setShowHistory]=useState(false);const[activeId,setActiveId]=useState('');const[result,setResult]=useState('');const[nextType,setNextType]=useState<WorkActionType>('whatsapp');const[nextAssignee,setNextAssignee]=useState('');const[nextDate,setNextDate]=useState('');const[nextTime,setNextTime]=useState('');const[nextNote,setNextNote]=useState('');const[editingId,setEditingId]=useState('');const[editNote,setEditNote]=useState('');const[editResult,setEditResult]=useState('');const[editType,setEditType]=useState<WorkActionType>('task');const[editDate,setEditDate]=useState('');const[editTime,setEditTime]=useState('');
- useEffect(()=>{void loadExpertWorkspaceTeam().then(t=>{setTeam(t);setNextAssignee(t.currentUid);}).catch(()=>{});void hydrateExpertsTaskMemory().then(()=>setTasks(loadTasks() as TeamTask[]));const refresh=()=>setTasks(loadTasks() as TeamTask[]);window.addEventListener(WORKSPACE_STATE_EVENT,refresh);return()=>window.removeEventListener(WORKSPACE_STATE_EVENT,refresh);},[]);
- const currentUid=team?.currentUid||'';const isOwner=!!team&&team.workspaceId===team.currentUid;const canReadTeam=!!team&&hasWorkspacePermission(team.currentMember.permissions,'tasks.read.team');const canManageTeam=!!team&&hasWorkspacePermission(team.currentMember.permissions,'tasks.manage');const canManageOwn=!!team&&hasWorkspacePermission(team.currentMember.permissions,'tasks.manage.own');const members=useMemo(()=>(team?.members||[]).filter(m=>m.status==='active'),[team]);
- const visible=useMemo(()=>{const src=view==='team'&&canReadTeam?tasks:tasks.filter(t=>t.assignedToUid===currentUid||(!t.assignedToUid&&isOwner));return src.filter(t=>!isFollowUp(t)&&!isBuyer(t)&&!isInternalAutomation(t));},[tasks,view,canReadTeam,currentUid,isOwner]);const active=visible.filter(t=>t.status!=='done'&&!t.deletedAt);const sort=(a:TeamTask,b:TeamTask)=>`${a.dueDate||'9999-12-31'}${a.dueTime||'23:59'}`.localeCompare(`${b.dueDate||'9999-12-31'}${b.dueTime||'23:59'}`)||priority(a,language).rank-priority(b,language).rank;const queues={queue:active.filter(t=>stateOf(t)==='queue').sort(sort),waiting:active.filter(t=>stateOf(t)==='waiting-reply').sort(sort),replied:active.filter(t=>stateOf(t)==='reply-received').sort(sort)};const rows=queues[lane].filter(t=>{const q=search.trim().toLowerCase();return!q||[t.clientName,t.title,t.note,t.assignedToName||t.assignee].some(v=>String(v||'').toLowerCase().includes(q));});const history=visible.filter(t=>t.status==='done'||!!t.deletedAt).sort((a,b)=>(b.deletedAt||b.completedAt||b.createdAt).localeCompare(a.deletedAt||a.completedAt||a.createdAt));
- const persist=(next:TeamTask[])=>{setTasks(next);saveTasks(next as WorkTask[]);};const patch=(t:TeamTask,change:Partial<TeamTask>)=>{const u={...t,...change} as TeamTask;if(change.status==='done'&&!u.completedAt)u.completedAt=new Date().toISOString();persist(tasks.map(x=>x.id===t.id?u:x));void persistExpertWorkTask(u);return u;};const canWork=(t:TeamTask)=>canManageTeam||isOwner||(canManageOwn&&t.assignedToUid===currentUid);const log=(t:TeamTask,type:string,metadata:Record<string,unknown>)=>{if(t.personId)void appendExpertRelationshipEvent({personId:t.personId,type,sourceType:'work_task',sourceId:t.id,metadata}).catch(()=>{});};
- const complete=(t:TeamTask)=>{const u=patch(t,{status:'done',interactionState:'queue',result:result.trim(),completedByUid:currentUid});if(isOwner&&t.clientId)appendJournal(t.clientId,'task-result',language==='es'?'Trabajo completado':'Work completed',result||t.title);log(u,'task.completed',{result:result.trim()});setActiveId('');setResult('');};const waiting=(t:TeamTask)=>{patch(t,{interactionState:'waiting-reply',awaitingReplySince:new Date().toISOString(),lastInteractionNote:result.trim(),result:result.trim()||t.result,status:'pending'});log(t,'interaction.waiting_reply',{channel:t.type,note:result.trim()});setActiveId('');setResult('');setLane('waiting');};const replied=(t:TeamTask)=>{patch(t,{interactionState:'reply-received',replyReceivedAt:new Date().toISOString(),status:'pending'});setActiveId('');setLane('replied');};const remove=(t:TeamTask)=>{patch(t,{deletedAt:new Date().toISOString(),deletedFromStatus:t.status});setActiveId('');setResult('');};
- const createNext=(t:TeamTask)=>{if(!nextNote.trim()||!team)return;const a=members.find(m=>m.uid===nextAssignee)||team.currentMember;const nt:TeamTask={id:`task-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,clientId:t.clientId,clientName:t.clientName,personId:t.personId,title:`${actionLabel(nextType,language)} · ${t.clientName}`,type:nextType,note:nextNote.trim(),dueDate:nextDate,dueTime:nextTime,assignee:memberLabel(a),assignedToUid:a.uid,assignedToName:memberLabel(a),createdByUid:currentUid,status:'pending',createdAt:new Date().toISOString(),source:'manual',interactionState:'queue',confirmationEmail:nextType==='meeting'?'queued':'not-required'};persist([nt,...tasks]);void persistExpertWorkTask(nt);setNextNote('');setNextDate('');setNextTime('');};
- const beginEdit=(t:TeamTask)=>{setEditingId(t.id);setEditNote(t.note||'');setEditResult(t.result||'');setEditType(t.type);setEditDate(t.dueDate||'');setEditTime(t.dueTime||'');};const saveEdit=(t:TeamTask)=>{patch(t,{note:editNote.trim(),result:editResult.trim(),type:editType,dueDate:editDate,dueTime:editTime});void appendExpertAuditLog({entityType:'work_task',entityId:t.id,action:'task.history_edited',changes:{note:editNote,type:editType,dueDate:editDate,dueTime:editTime}}).catch(()=>{});setEditingId('');};
- return <div className="space-y-4"><section className="rounded-2xl border border-black/10 bg-white p-4 md:p-5"><div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#0A3F4D]">PRIORITY WORK</p><h3 className="mt-1.5 text-xl font-semibold">{language==='es'?'Trabajo operativo principal':'Primary operating work'}</h3><p className="mt-1.5 max-w-2xl text-sm leading-5 text-black/50">{language==='es'?'Alumnos, clientes 1:1 y relaciones activas. No compradores se trabajan en Relaciones → Seguimiento.':'Students, 1:1 clients and active relationships. Non-buyers live in Relationships → Follow-up.'}</p></div><div className="inline-flex rounded-xl bg-[#F7F7F5] p-1"><button onClick={()=>setMainTab('active')} className={`inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-xs font-semibold ${mainTab==='active'?'bg-[#111413] text-white':'text-black/50'}`}><ListTodo className="h-4 w-4"/>{language==='es'?'Trabajo activo':'Active work'}</button><button onClick={()=>setMainTab('buyers')} className={`inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-xs font-semibold ${mainTab==='buyers'?'bg-[#111413] text-white':'text-black/50'}`}><ShoppingBag className="h-4 w-4"/>{language==='es'?'Compradores':'Buyers'}</button></div></div>{mainTab==='active'&&<div className="mt-4 flex flex-col gap-3 border-t border-black/5 pt-4 xl:flex-row xl:items-center xl:justify-between"><div className="flex flex-wrap gap-2"><div className="inline-flex rounded-xl bg-[#F7F7F5] p-1"><button onClick={()=>setView('mine')} className={`rounded-lg px-3 py-2 text-xs font-semibold ${view==='mine'?'bg-white shadow-sm':'text-black/45'}`}>{language==='es'?'Mi trabajo':'My work'}</button>{canReadTeam&&<button onClick={()=>setView('team')} className={`inline-flex items-center gap-1 rounded-lg px-3 py-2 text-xs font-semibold ${view==='team'?'bg-white shadow-sm':'text-black/45'}`}><UsersRound className="h-3.5 w-3.5"/>{language==='es'?'Equipo':'Team'}</button>}</div><div className="inline-flex rounded-xl border border-black/8 p-1"><LaneButton active={lane==='queue'} onClick={()=>setLane('queue')} icon={ListTodo} label={language==='es'?'Por hacer':'To do'} count={queues.queue.length}/><LaneButton active={lane==='waiting'} onClick={()=>setLane('waiting')} icon={Inbox} label={language==='es'?'Interacciones activas':'Active interactions'} count={queues.waiting.length}/><LaneButton active={lane==='replied'} onClick={()=>setLane('replied')} icon={BellRing} label={language==='es'?'Respondieron':'Replied'} count={queues.replied.length}/></div></div><div className="flex gap-3"><label className="relative block min-w-[280px]"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-black/30"/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder={language==='es'?'Buscar tarea o persona…':'Search task or person…'} className="w-full rounded-xl border border-black/10 py-2 pl-9 pr-3 text-sm"/></label><label className="flex items-center gap-2 text-xs text-black/45"><input type="checkbox" checked={showHistory} onChange={e=>setShowHistory(e.target.checked)}/>{language==='es'?'Historial':'History'}</label></div></div>}</section>
- {mainTab==='buyers'?<BuyerQueueWorkspaceV2 language={language}/>:<><section className="overflow-hidden rounded-2xl border border-black/10 bg-white"><div className="max-h-[700px] divide-y divide-black/5 overflow-y-auto">{rows.map(t=>{const opened=activeId===t.id,state=stateOf(t),p=priority(t,language);return <div key={t.id} className="p-4"><div className="grid gap-3 lg:grid-cols-[1fr_90px_105px_145px_170px_auto] lg:items-center"><div><p className="text-sm font-semibold">{t.title}</p>{(t.personId||t.clientId)&&isOwner?<button onClick={()=>onOpenClient(t.personId||t.clientId)} className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-[#0A3F4D]">{t.clientName}<ChevronRight className="h-3 w-3"/></button>:<p className="mt-1 text-xs font-medium text-[#0A3F4D]">{t.clientName}</p>}<p className="mt-1 line-clamp-1 text-xs text-black/40">{t.note}</p></div><span className={`w-fit rounded-full px-2.5 py-1 text-[9px] font-semibold ${p.cls}`}>{p.label}</span><div className="flex items-center gap-2 text-xs text-black/55"><ActionIcon type={t.type}/>{actionLabel(t.type,language)}</div><div className="flex items-center gap-1.5 text-xs text-black/50"><Clock3 className="h-3.5 w-3.5"/>{due(t,language)}</div>{canManageTeam||isOwner?<label className="relative"><UserRoundCheck className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-black/30"/><select value={t.assignedToUid||currentUid} onChange={e=>{const m=members.find(x=>x.uid===e.target.value);if(m)patch(t,{assignedToUid:m.uid,assignedToName:memberLabel(m),assignee:memberLabel(m)});}} className="w-full rounded-lg border border-black/8 bg-white py-1.5 pl-8 pr-2 text-xs">{members.map(m=><option key={m.uid} value={m.uid}>{memberLabel(m)}</option>)}</select></label>:<span className="text-xs text-black/50">{t.assignedToName||t.assignee}</span>}<button disabled={!canWork(t)} onClick={()=>{setActiveId(opened?'':t.id);setResult(t.result||t.lastInteractionNote||'');}} className="inline-flex items-center justify-center gap-1 rounded-full bg-[#111413] px-3 py-2 text-[10px] font-semibold text-white disabled:opacity-30">{opened?(language==='es'?'Cerrar':'Close'):(language==='es'?'Trabajar':'Work')}<ChevronDown className={`h-3 w-3 ${opened?'rotate-180':''}`}/></button></div>{opened&&canWork(t)&&state==='waiting-reply'&&<div className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-[#FAFAF8] p-3"><div><p className="text-xs font-semibold">{language==='es'?'Esperando respuesta':'Waiting for reply'}</p><p className="mt-1 text-xs text-black/45">{t.lastInteractionNote||t.note}</p></div><div className="flex gap-2"><button onClick={()=>replied(t)} className="rounded-full bg-[#111413] px-4 py-2 text-xs font-semibold text-white">{language==='es'?'Marcar respuesta recibida':'Mark reply received'}</button><button onClick={()=>patch(t,{interactionState:'queue'})} className="rounded-full border border-black/10 bg-white px-4 py-2 text-xs font-semibold">{language==='es'?'Volver a por hacer':'Return to queue'}</button></div></div>}{opened&&canWork(t)&&state!=='waiting-reply'&&<div className="mt-3 grid gap-3 rounded-xl bg-[#FAFAF8] p-3 xl:grid-cols-[0.9fr_1.1fr]"><div><p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-black/40">{language==='es'?'NOTAS / RESULTADO':'NOTES / RESULT'}</p><textarea rows={3} value={result} onChange={e=>setResult(e.target.value)} className="mt-2 w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm"/><div className="mt-2 flex flex-wrap gap-2"><button onClick={()=>complete(t)} className="inline-flex items-center gap-1 rounded-full bg-[#111413] px-4 py-2 text-xs font-semibold text-white"><CheckCircle2 className="h-3.5 w-3.5"/>{language==='es'?'Completar':'Complete'}</button>{(t.type==='whatsapp'||t.type==='email')&&<button onClick={()=>waiting(t)} className="rounded-full border border-[#0A3F4D]/15 bg-white px-4 py-2 text-xs font-semibold text-[#0A3F4D]">{language==='es'?'En espera de respuesta':'Waiting for reply'}</button>}<button onClick={()=>remove(t)} className="inline-flex items-center gap-1 rounded-full border border-[#A23A32]/15 bg-white px-4 py-2 text-xs font-semibold text-[#8D332C]"><Trash2 className="h-3.5 w-3.5"/>{language==='es'?'Eliminar':'Remove'}</button></div></div><div><p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#0A3F4D]">{language==='es'?'SIGUIENTE ACCIÓN':'NEXT ACTION'}</p><div className="mt-2 grid gap-2 sm:grid-cols-2"><select value={nextType} onChange={e=>setNextType(e.target.value as WorkActionType)} className="rounded-lg border border-black/10 bg-white px-3 py-2 text-xs"><option value="whatsapp">WhatsApp</option><option value="email">Email</option><option value="call">{language==='es'?'Llamada':'Call'}</option><option value="meeting">{language==='es'?'Reunión':'Meeting'}</option><option value="task">{language==='es'?'Tarea':'Task'}</option></select><select value={nextAssignee||currentUid} onChange={e=>setNextAssignee(e.target.value)} className="rounded-lg border border-black/10 bg-white px-3 py-2 text-xs">{members.map(m=><option key={m.uid} value={m.uid}>{memberLabel(m)}</option>)}</select><input type="date" value={nextDate} onChange={e=>setNextDate(e.target.value)} className="rounded-lg border border-black/10 bg-white px-3 py-2 text-xs"/><input type="time" value={nextTime} onChange={e=>setNextTime(e.target.value)} className="rounded-lg border border-black/10 bg-white px-3 py-2 text-xs"/></div><div className="mt-2 flex gap-2"><input value={nextNote} onChange={e=>setNextNote(e.target.value)} placeholder={language==='es'?'Pequeña nota / qué hacer':'Short note / what to do'} className="min-w-0 flex-1 rounded-lg border border-black/10 bg-white px-3 py-2 text-xs"/><button onClick={()=>createNext(t)} className="rounded-full bg-[#0A3F4D] px-4 py-2 text-xs font-semibold text-white">{language==='es'?'Agregar':'Add'}</button></div></div></div>}</div>})}{!rows.length&&<div className="p-10 text-center text-sm text-black/40">{language==='es'?'No hay trabajo en esta vista.':'No work in this view.'}</div>}</div></section>{showHistory&&<section className="rounded-2xl border border-black/10 bg-white p-4"><p className="text-xs font-semibold uppercase tracking-[0.12em] text-black/40">{language==='es'?'HISTORIAL':'HISTORY'}</p><div className="mt-3 divide-y divide-black/5">{history.map(t=><div key={t.id} className="py-3">{editingId===t.id?<div className="grid gap-3 rounded-xl bg-[#FAFAF8] p-3 xl:grid-cols-[0.9fr_1.1fr]"><div><p className="text-sm font-semibold">{t.clientName}</p><p className="mt-1 text-xs text-black/50">{t.title}</p><textarea rows={2} value={editNote} onChange={e=>setEditNote(e.target.value)} placeholder={language==='es'?'Nota':'Note'} className="mt-2 w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-xs"/><textarea rows={2} value={editResult} onChange={e=>setEditResult(e.target.value)} placeholder={language==='es'?'Resultado':'Result'} className="mt-2 w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-xs"/></div><div><div className="grid gap-2 sm:grid-cols-3"><select value={editType} onChange={e=>setEditType(e.target.value as WorkActionType)} className="rounded-lg border border-black/10 bg-white px-3 py-2 text-xs"><option value="whatsapp">WhatsApp</option><option value="email">Email</option><option value="call">{language==='es'?'Llamada':'Call'}</option><option value="meeting">{language==='es'?'Reunión':'Meeting'}</option><option value="task">{language==='es'?'Tarea':'Task'}</option></select><input type="date" value={editDate} onChange={e=>setEditDate(e.target.value)} className="rounded-lg border border-black/10 px-3 py-2 text-xs"/><input type="time" value={editTime} onChange={e=>setEditTime(e.target.value)} className="rounded-lg border border-black/10 px-3 py-2 text-xs"/></div><div className="mt-3 flex gap-2"><button onClick={()=>saveEdit(t)} className="rounded-full bg-[#111413] px-4 py-2 text-xs font-semibold text-white">{language==='es'?'Guardar cambios':'Save changes'}</button><button onClick={()=>setEditingId('')} className="rounded-full border border-black/10 px-4 py-2 text-xs">{language==='es'?'Cancelar':'Cancel'}</button></div></div></div>:<div className="grid gap-2 md:grid-cols-[1fr_150px_auto] md:items-center"><div><p className="text-sm font-semibold">{t.clientName}</p><p className="mt-1 text-xs text-black/45">{t.title}{t.result?` · ${t.result}`:''}</p></div><span className="text-xs text-black/40">{due(t,language)}</span><button onClick={()=>beginEdit(t)} className="inline-flex items-center gap-1 rounded-full border border-black/10 px-3 py-2 text-[10px] font-semibold"><Pencil className="h-3.5 w-3.5"/>{language==='es'?'Editar':'Edit'}</button></div>}</div>)}</div></section>}</>}
- </div>;
+function stateOf(task: TeamTask): Interaction {
+  return task.interactionState === 'waiting-reply' || task.interactionState === 'reply-received' ? task.interactionState : 'queue';
 }
-function LaneButton({active,onClick,icon:Icon,label,count}:{active:boolean;onClick:()=>void;icon:React.ComponentType<{className?:string}>;label:string;count:number}){return <button onClick={onClick} className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold ${active?'bg-[#111413] text-white':'text-black/45'}`}><Icon className="h-3.5 w-3.5"/>{label}<span>{count}</span></button>;}
+
+function isFollowUp(task: TeamTask) {
+  return task.workstream === 'follow-up' || task.sourceActionKind === 'continuity' || (task.source === 'webinar' && task.sourceActionKind === 'follow-up');
+}
+
+function isBuyer(task: TeamTask) {
+  return task.source === 'webinar' && task.sourceActionKind === 'enrollment';
+}
+
+function isInternalAutomation(task: TeamTask) {
+  return Boolean(task.workstream?.startsWith('formation-')) ||
+    Boolean(task.sourceActionKind?.startsWith('formation-')) ||
+    /^confirmar acceso y onboarding/i.test(task.title || '');
+}
+
+function memberLabel(member?: WorkspaceMember) {
+  return member?.displayName || member?.email || member?.uid || '';
+}
+
+function actionLabel(type: WorkActionType, language: Language) {
+  if (type === 'whatsapp') return 'WhatsApp';
+  if (type === 'email') return 'Email';
+  if (type === 'call') return language === 'es' ? 'Llamada' : 'Call';
+  if (type === 'meeting') return language === 'es' ? 'Reunión' : 'Meeting';
+  return language === 'es' ? 'Tarea' : 'Task';
+}
+
+function ActionIcon({ type }: { type: WorkActionType }) {
+  if (type === 'email') return <Mail className="h-4 w-4" />;
+  if (type === 'whatsapp') return <MessageCircle className="h-4 w-4" />;
+  if (type === 'call') return <Phone className="h-4 w-4" />;
+  if (type === 'meeting') return <CalendarCheck2 className="h-4 w-4" />;
+  return <ListTodo className="h-4 w-4" />;
+}
+
+function due(task: TeamTask, language: Language) {
+  if (!task.dueDate) return language === 'es' ? 'Sin fecha' : 'No date';
+  const date = new Date(`${task.dueDate}T${task.dueTime || '12:00'}:00`);
+  return Number.isFinite(date.getTime())
+    ? `${new Intl.DateTimeFormat(language === 'es' ? 'es-CL' : 'en-US', { day: '2-digit', month: 'short' }).format(date)}${task.dueTime ? ` · ${task.dueTime}` : ''}`
+    : task.dueDate;
+}
+
+function priority(task: TeamTask, language: Language) {
+  const value = getWorkPriority(task);
+  if (value === 'high') return { rank: 0, label: language === 'es' ? 'Alta' : 'High', cls: 'bg-[#A23A32]/9 text-[#8D332C]' };
+  if (value === 'medium') return { rank: 1, label: language === 'es' ? 'Media' : 'Medium', cls: 'bg-[#A46F16]/10 text-[#82570F]' };
+  return { rank: 2, label: 'Normal', cls: 'bg-[#0A3F4D]/8 text-[#0A3F4D]' };
+}
+
+function internalActiveStyle(active: boolean): React.CSSProperties | undefined {
+  return active ? {
+    background: 'var(--gkais-internal-accent, #111413)',
+    color: 'var(--gkais-internal-accent-text, #ffffff)'
+  } : undefined;
+}
+
+export function PriorityRadarWorkspace({ language, onOpenClient }: { language: Language; onOpenClient: (id: string) => void }) {
+  const [mainTab, setMainTab] = useState<MainTab>('active');
+  const [tasks, setTasks] = useState<TeamTask[]>(() => loadTasks() as TeamTask[]);
+  const [team, setTeam] = useState<WorkspaceTeamState | null>(null);
+  const [view, setView] = useState<View>('mine');
+  const [lane, setLane] = useState<Lane>('queue');
+  const [search, setSearch] = useState('');
+  const [showHistory, setShowHistory] = useState(false);
+  const [activeId, setActiveId] = useState('');
+  const [result, setResult] = useState('');
+  const [nextType, setNextType] = useState<WorkActionType>('whatsapp');
+  const [nextAssignee, setNextAssignee] = useState('');
+  const [nextDate, setNextDate] = useState('');
+  const [nextTime, setNextTime] = useState('');
+  const [nextNote, setNextNote] = useState('');
+  const [editingId, setEditingId] = useState('');
+  const [editNote, setEditNote] = useState('');
+  const [editResult, setEditResult] = useState('');
+  const [editType, setEditType] = useState<WorkActionType>('task');
+  const [editAssignee, setEditAssignee] = useState('');
+  const [editDate, setEditDate] = useState('');
+  const [editTime, setEditTime] = useState('');
+
+  useEffect(() => {
+    void loadExpertWorkspaceTeam().then((state) => {
+      setTeam(state);
+      setNextAssignee(state.currentUid);
+    }).catch(() => {});
+    void hydrateExpertsTaskMemory().then(() => setTasks(loadTasks() as TeamTask[]));
+    const refresh = () => setTasks(loadTasks() as TeamTask[]);
+    window.addEventListener(WORKSPACE_STATE_EVENT, refresh);
+    return () => window.removeEventListener(WORKSPACE_STATE_EVENT, refresh);
+  }, []);
+
+  const currentUid = team?.currentUid || '';
+  const isOwner = Boolean(team && team.workspaceId === team.currentUid);
+  const canReadTeam = Boolean(team && hasWorkspacePermission(team.currentMember.permissions, 'tasks.read.team'));
+  const canManageTeam = Boolean(team && hasWorkspacePermission(team.currentMember.permissions, 'tasks.manage'));
+  const canManageOwn = Boolean(team && hasWorkspacePermission(team.currentMember.permissions, 'tasks.manage.own'));
+  const members = useMemo(() => (team?.members || []).filter((member) => member.status === 'active'), [team]);
+
+  const visible = useMemo(() => {
+    const source = view === 'team' && canReadTeam
+      ? tasks
+      : tasks.filter((task) => task.assignedToUid === currentUid || (!task.assignedToUid && isOwner));
+    return source.filter((task) => !isFollowUp(task) && !isBuyer(task) && !isInternalAutomation(task));
+  }, [tasks, view, canReadTeam, currentUid, isOwner]);
+
+  const active = visible.filter((task) => task.status !== 'done' && !task.deletedAt);
+  const sort = (left: TeamTask, right: TeamTask) =>
+    `${left.dueDate || '9999-12-31'}${left.dueTime || '23:59'}`.localeCompare(`${right.dueDate || '9999-12-31'}${right.dueTime || '23:59'}`) ||
+    priority(left, language).rank - priority(right, language).rank;
+  const queues = {
+    queue: active.filter((task) => stateOf(task) === 'queue').sort(sort),
+    waiting: active.filter((task) => stateOf(task) === 'waiting-reply').sort(sort),
+    replied: active.filter((task) => stateOf(task) === 'reply-received').sort(sort)
+  };
+  const rows = queues[lane].filter((task) => {
+    const term = search.trim().toLowerCase();
+    return !term || [task.clientName, task.title, task.note, task.assignedToName || task.assignee]
+      .some((value) => String(value || '').toLowerCase().includes(term));
+  });
+  const history = visible
+    .filter((task) => task.status === 'done' || Boolean(task.deletedAt))
+    .sort((left, right) => (right.deletedAt || right.completedAt || right.createdAt).localeCompare(left.deletedAt || left.completedAt || left.createdAt));
+
+  const persist = (next: TeamTask[]) => { setTasks(next); saveTasks(next as WorkTask[]); };
+  const patch = (task: TeamTask, change: Partial<TeamTask>) => {
+    const updated = { ...task, ...change } as TeamTask;
+    if (change.status === 'done' && !updated.completedAt) updated.completedAt = new Date().toISOString();
+    persist(tasks.map((item) => item.id === task.id ? updated : item));
+    void persistExpertWorkTask(updated);
+    return updated;
+  };
+  const canWork = (task: TeamTask) => canManageTeam || isOwner || (canManageOwn && task.assignedToUid === currentUid);
+  const log = (task: TeamTask, type: string, metadata: Record<string, unknown>) => {
+    if (task.personId) void appendExpertRelationshipEvent({ personId: task.personId, type, sourceType: 'work_task', sourceId: task.id, metadata }).catch(() => {});
+  };
+
+  const complete = (task: TeamTask) => {
+    const updated = patch(task, { status: 'done', interactionState: 'queue', result: result.trim(), completedByUid: currentUid });
+    if (isOwner && task.clientId) appendJournal(task.clientId, 'task-result', language === 'es' ? 'Trabajo completado' : 'Work completed', result || task.title);
+    log(updated, 'task.completed', { result: result.trim() });
+    setActiveId('');
+    setResult('');
+  };
+
+  const waiting = (task: TeamTask) => {
+    patch(task, { interactionState: 'waiting-reply', awaitingReplySince: new Date().toISOString(), lastInteractionNote: result.trim(), result: result.trim() || task.result, status: 'pending' });
+    log(task, 'interaction.waiting_reply', { channel: task.type, note: result.trim() });
+    setActiveId('');
+    setResult('');
+    setLane('waiting');
+  };
+
+  const replied = (task: TeamTask) => {
+    patch(task, { interactionState: 'reply-received', replyReceivedAt: new Date().toISOString(), status: 'pending' });
+    setActiveId('');
+    setLane('replied');
+  };
+
+  const remove = (task: TeamTask) => {
+    patch(task, { deletedAt: new Date().toISOString(), deletedFromStatus: task.status });
+    setActiveId('');
+    setResult('');
+  };
+
+  const createNext = (task: TeamTask) => {
+    if (!nextNote.trim() || !team) return;
+    const assigned = members.find((member) => member.uid === nextAssignee) || team.currentMember;
+    const next: TeamTask = {
+      id: `task-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      clientId: task.clientId,
+      clientName: task.clientName,
+      personId: task.personId,
+      title: `${actionLabel(nextType, language)} · ${task.clientName}`,
+      type: nextType,
+      note: nextNote.trim(),
+      dueDate: nextDate,
+      dueTime: nextTime,
+      assignee: memberLabel(assigned),
+      assignedToUid: assigned.uid,
+      assignedToName: memberLabel(assigned),
+      createdByUid: currentUid,
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+      source: 'manual',
+      interactionState: 'queue',
+      confirmationEmail: nextType === 'meeting' ? 'queued' : 'not-required'
+    };
+    persist([next, ...tasks]);
+    void persistExpertWorkTask(next);
+    setNextNote('');
+    setNextDate('');
+    setNextTime('');
+  };
+
+  const beginEdit = (task: TeamTask) => {
+    setEditingId(task.id);
+    setEditNote(task.note || '');
+    setEditResult(task.result || '');
+    setEditType(task.type);
+    setEditAssignee(task.assignedToUid || currentUid);
+    setEditDate(task.dueDate || '');
+    setEditTime(task.dueTime || '');
+  };
+
+  const saveEdit = (task: TeamTask) => {
+    const assigned = members.find((member) => member.uid === editAssignee);
+    patch(task, {
+      note: editNote.trim(),
+      result: editResult.trim(),
+      type: editType,
+      dueDate: editDate,
+      dueTime: editTime,
+      ...(assigned ? { assignedToUid: assigned.uid, assignedToName: memberLabel(assigned), assignee: memberLabel(assigned) } : {})
+    });
+    void appendExpertAuditLog({
+      entityType: 'work_task',
+      entityId: task.id,
+      action: 'task.history_edited',
+      changes: { note: editNote, result: editResult, type: editType, assignedToUid: editAssignee, dueDate: editDate, dueTime: editTime }
+    }).catch(() => {});
+    setEditingId('');
+  };
+
+  return <div className="space-y-4">
+    <section className="rounded-2xl border border-black/10 bg-white p-4 md:p-5">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+        <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#0A3F4D]">PRIORITY WORK</p><h3 className="mt-1.5 text-xl font-semibold">{language === 'es' ? 'Trabajo operativo principal' : 'Primary operating work'}</h3><p className="mt-1.5 max-w-2xl text-sm leading-5 text-black/50">{language === 'es' ? 'Alumnos, clientes 1:1 y relaciones activas. No compradores se trabajan en Relaciones → Seguimiento.' : 'Students, 1:1 clients and active relationships. Non-buyers live in Relationships → Follow-up.'}</p></div>
+        <div className="inline-flex rounded-xl bg-[#F7F7F5] p-1"><button type="button" onClick={() => setMainTab('active')} className={`inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-xs font-semibold ${mainTab === 'active' ? '' : 'text-black/50'}`} style={internalActiveStyle(mainTab === 'active')}><ListTodo className="h-4 w-4" />{language === 'es' ? 'Trabajo activo' : 'Active work'}</button><button type="button" onClick={() => setMainTab('buyers')} className={`inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-xs font-semibold ${mainTab === 'buyers' ? '' : 'text-black/50'}`} style={internalActiveStyle(mainTab === 'buyers')}><ShoppingBag className="h-4 w-4" />{language === 'es' ? 'Compradores' : 'Buyers'}</button></div>
+      </div>
+      {mainTab === 'active' && <div className="mt-4 flex flex-col gap-3 border-t border-black/5 pt-4 xl:flex-row xl:items-center xl:justify-between">
+        <div className="flex flex-wrap gap-2">
+          <div className="inline-flex rounded-xl bg-[#F7F7F5] p-1"><button type="button" onClick={() => setView('mine')} className={`rounded-lg px-3 py-2 text-xs font-semibold ${view === 'mine' ? '' : 'text-black/45'}`} style={internalActiveStyle(view === 'mine')}>{language === 'es' ? 'Mi trabajo' : 'My work'}</button>{canReadTeam && <button type="button" onClick={() => setView('team')} className={`inline-flex items-center gap-1 rounded-lg px-3 py-2 text-xs font-semibold ${view === 'team' ? '' : 'text-black/45'}`} style={internalActiveStyle(view === 'team')}><UsersRound className="h-3.5 w-3.5" />{language === 'es' ? 'Equipo' : 'Team'}</button>}</div>
+          <div className="inline-flex rounded-xl border border-black/8 p-1"><LaneButton active={lane === 'queue'} onClick={() => setLane('queue')} icon={ListTodo} label={language === 'es' ? 'Por hacer' : 'To do'} count={queues.queue.length} /><LaneButton active={lane === 'waiting'} onClick={() => setLane('waiting')} icon={Inbox} label={language === 'es' ? 'Interacciones activas' : 'Active interactions'} count={queues.waiting.length} /><LaneButton active={lane === 'replied'} onClick={() => setLane('replied')} icon={BellRing} label={language === 'es' ? 'Respondieron' : 'Replied'} count={queues.replied.length} /></div>
+        </div>
+        <div className="flex gap-3"><label className="relative block min-w-[280px]"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-black/30" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={language === 'es' ? 'Buscar tarea o persona…' : 'Search task or person…'} className="w-full rounded-xl border border-black/10 py-2 pl-9 pr-3 text-sm" /></label><label className="flex items-center gap-2 text-xs text-black/45"><input type="checkbox" checked={showHistory} onChange={(event) => setShowHistory(event.target.checked)} />{language === 'es' ? 'Historial' : 'History'}</label></div>
+      </div>}
+    </section>
+
+    {mainTab === 'buyers' ? <BuyerQueueWorkspaceV2 language={language} /> : <>
+      <section className="overflow-hidden rounded-2xl border border-black/10 bg-white"><div className="max-h-[700px] divide-y divide-black/5 overflow-y-auto">{rows.map((task) => {
+        const opened = activeId === task.id;
+        const state = stateOf(task);
+        const taskPriority = priority(task, language);
+        return <div key={task.id} className="p-4">
+          <div className="grid gap-3 lg:grid-cols-[1fr_90px_105px_145px_170px_auto] lg:items-center"><div><p className="text-sm font-semibold">{task.title}</p>{(task.personId || task.clientId) && isOwner ? <button type="button" onClick={() => onOpenClient(task.personId || task.clientId)} className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-[#0A3F4D]">{task.clientName}<ChevronRight className="h-3 w-3" /></button> : <p className="mt-1 text-xs font-medium text-[#0A3F4D]">{task.clientName}</p>}<p className="mt-1 line-clamp-1 text-xs text-black/40">{task.note}</p></div><span className={`w-fit rounded-full px-2.5 py-1 text-[9px] font-semibold ${taskPriority.cls}`}>{taskPriority.label}</span><div className="flex items-center gap-2 text-xs text-black/55"><ActionIcon type={task.type} />{actionLabel(task.type, language)}</div><div className="flex items-center gap-1.5 text-xs text-black/50"><Clock3 className="h-3.5 w-3.5" />{due(task, language)}</div>{canManageTeam || isOwner ? <label className="relative"><UserRoundCheck className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-black/30" /><select value={task.assignedToUid || currentUid} onChange={(event) => { const member = members.find((item) => item.uid === event.target.value); if (member) patch(task, { assignedToUid: member.uid, assignedToName: memberLabel(member), assignee: memberLabel(member) }); }} className="w-full rounded-lg border border-black/8 bg-white py-1.5 pl-8 pr-2 text-xs">{members.map((member) => <option key={member.uid} value={member.uid}>{memberLabel(member)}</option>)}</select></label> : <span className="text-xs text-black/50">{task.assignedToName || task.assignee}</span>}<button type="button" disabled={!canWork(task)} onClick={() => { setActiveId(opened ? '' : task.id); setResult(task.result || task.lastInteractionNote || ''); }} className="inline-flex items-center justify-center gap-1 rounded-full bg-[#111413] px-3 py-2 text-[10px] font-semibold text-white disabled:opacity-30">{opened ? (language === 'es' ? 'Cerrar' : 'Close') : (language === 'es' ? 'Trabajar' : 'Work')}<ChevronDown className={`h-3 w-3 ${opened ? 'rotate-180' : ''}`} /></button></div>
+
+          {opened && canWork(task) && state === 'waiting-reply' && <div className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-[#FAFAF8] p-3"><div><p className="text-xs font-semibold">{language === 'es' ? 'Esperando respuesta' : 'Waiting for reply'}</p><p className="mt-1 text-xs text-black/45">{task.lastInteractionNote || task.note}</p></div><div className="flex gap-2"><button type="button" onClick={() => replied(task)} className="rounded-full bg-[#111413] px-4 py-2 text-xs font-semibold text-white">{language === 'es' ? 'Marcar respuesta recibida' : 'Mark reply received'}</button><button type="button" onClick={() => patch(task, { interactionState: 'queue' })} className="rounded-full border border-black/10 bg-white px-4 py-2 text-xs font-semibold">{language === 'es' ? 'Volver a por hacer' : 'Return to queue'}</button></div></div>}
+
+          {opened && canWork(task) && state !== 'waiting-reply' && <div className="mt-3 grid gap-3 rounded-xl bg-[#FAFAF8] p-3 xl:grid-cols-[0.9fr_1.1fr]">
+            <div><p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-black/40">{language === 'es' ? 'NOTAS / RESULTADO' : 'NOTES / RESULT'}</p><textarea rows={3} value={result} onChange={(event) => setResult(event.target.value)} className="mt-2 w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm" /><div className="mt-2 flex flex-wrap gap-2"><button type="button" onClick={() => complete(task)} className="inline-flex items-center gap-1 rounded-full bg-[#111413] px-4 py-2 text-xs font-semibold text-white"><CheckCircle2 className="h-3.5 w-3.5" />{language === 'es' ? 'Completar' : 'Complete'}</button>{(task.type === 'whatsapp' || task.type === 'email') && <button type="button" onClick={() => waiting(task)} className="rounded-full border border-[#0A3F4D]/15 bg-white px-4 py-2 text-xs font-semibold text-[#0A3F4D]">{language === 'es' ? 'En espera de respuesta' : 'Waiting for reply'}</button>}<button type="button" onClick={() => remove(task)} className="inline-flex items-center gap-1 rounded-full border border-[#A23A32]/15 bg-white px-4 py-2 text-xs font-semibold text-[#8D332C]"><Trash2 className="h-3.5 w-3.5" />{language === 'es' ? 'Eliminar' : 'Remove'}</button></div></div>
+            <div><p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#0A3F4D]">{language === 'es' ? 'SIGUIENTE ACCIÓN' : 'NEXT ACTION'}</p><div className="mt-2 grid gap-2 sm:grid-cols-2"><select value={nextType} onChange={(event) => setNextType(event.target.value as WorkActionType)} className="rounded-lg border border-black/10 bg-white px-3 py-2 text-xs"><option value="whatsapp">WhatsApp</option><option value="email">Email</option><option value="call">{language === 'es' ? 'Llamada' : 'Call'}</option><option value="meeting">{language === 'es' ? 'Reunión' : 'Meeting'}</option><option value="task">{language === 'es' ? 'Tarea' : 'Task'}</option></select><select value={nextAssignee || currentUid} onChange={(event) => setNextAssignee(event.target.value)} className="rounded-lg border border-black/10 bg-white px-3 py-2 text-xs">{members.map((member) => <option key={member.uid} value={member.uid}>{memberLabel(member)}</option>)}</select><input type="date" value={nextDate} onChange={(event) => setNextDate(event.target.value)} className="rounded-lg border border-black/10 bg-white px-3 py-2 text-xs" /><input type="time" value={nextTime} onChange={(event) => setNextTime(event.target.value)} className="rounded-lg border border-black/10 bg-white px-3 py-2 text-xs" /></div><div className="mt-2 flex gap-2"><input value={nextNote} onChange={(event) => setNextNote(event.target.value)} placeholder={language === 'es' ? 'Pequeña nota / qué hacer' : 'Short note / what to do'} className="min-w-0 flex-1 rounded-lg border border-black/10 bg-white px-3 py-2 text-xs" /><button type="button" onClick={() => createNext(task)} className="rounded-full bg-[#0A3F4D] px-4 py-2 text-xs font-semibold text-white">{language === 'es' ? 'Agregar' : 'Add'}</button></div></div>
+          </div>}
+        </div>;
+      })}
+      {!rows.length && <div className="p-10 text-center text-sm text-black/40">{view === 'team'
+        ? (language === 'es' ? 'No hay trabajo asignado a otros miembros del equipo en esta vista.' : 'No work is assigned to other team members in this view.')
+        : (language === 'es' ? 'No hay trabajo en esta vista.' : 'No work in this view.')}</div>}</div></section>
+
+      {showHistory && <section className="rounded-2xl border border-black/10 bg-white p-4"><p className="text-xs font-semibold uppercase tracking-[0.12em] text-black/40">{language === 'es' ? 'HISTORIAL' : 'HISTORY'}</p><div className="mt-3 divide-y divide-black/5">{history.map((task) => <div key={task.id} className="py-3">{editingId === task.id ? <div className="grid gap-3 rounded-xl bg-[#FAFAF8] p-3 xl:grid-cols-[0.9fr_1.1fr]">
+        <div><p className="text-sm font-semibold">{task.clientName}</p><p className="mt-1 text-xs text-black/50">{task.title}</p><p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-black/40">{language === 'es' ? 'NOTAS / RESULTADO' : 'NOTES / RESULT'}</p><textarea rows={2} value={editNote} onChange={(event) => setEditNote(event.target.value)} placeholder={language === 'es' ? 'Nota' : 'Note'} className="mt-2 w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-xs" /><textarea rows={2} value={editResult} onChange={(event) => setEditResult(event.target.value)} placeholder={language === 'es' ? 'Resultado' : 'Result'} className="mt-2 w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-xs" /><div className="mt-2 flex gap-2"><button type="button" onClick={() => saveEdit(task)} className="rounded-full bg-[#111413] px-4 py-2 text-xs font-semibold text-white">{language === 'es' ? 'Guardar cambios' : 'Save changes'}</button><button type="button" onClick={() => setEditingId('')} className="rounded-full border border-black/10 px-4 py-2 text-xs">{language === 'es' ? 'Cancelar' : 'Cancel'}</button></div></div>
+        <div><p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#0A3F4D]">{language === 'es' ? 'ACCIÓN REGISTRADA' : 'RECORDED ACTION'}</p><div className="mt-2 grid gap-2 sm:grid-cols-2"><select value={editType} onChange={(event) => setEditType(event.target.value as WorkActionType)} className="rounded-lg border border-black/10 bg-white px-3 py-2 text-xs"><option value="whatsapp">WhatsApp</option><option value="email">Email</option><option value="call">{language === 'es' ? 'Llamada' : 'Call'}</option><option value="meeting">{language === 'es' ? 'Reunión' : 'Meeting'}</option><option value="task">{language === 'es' ? 'Tarea' : 'Task'}</option></select><select value={editAssignee || currentUid} onChange={(event) => setEditAssignee(event.target.value)} className="rounded-lg border border-black/10 bg-white px-3 py-2 text-xs">{members.map((member) => <option key={member.uid} value={member.uid}>{memberLabel(member)}</option>)}</select><input type="date" value={editDate} onChange={(event) => setEditDate(event.target.value)} className="rounded-lg border border-black/10 px-3 py-2 text-xs" /><input type="time" value={editTime} onChange={(event) => setEditTime(event.target.value)} className="rounded-lg border border-black/10 px-3 py-2 text-xs" /></div><div className="mt-2 rounded-lg bg-white px-3 py-2 text-xs text-black/45">{language === 'es' ? 'Edita el registro si la acción, responsable, fecha, hora, nota o resultado fueron ingresados incorrectamente.' : 'Correct the recorded action, owner, date, time, note or result if needed.'}</div></div>
+      </div> : <div className="grid gap-2 md:grid-cols-[1fr_150px_auto] md:items-center"><div><p className="text-sm font-semibold">{task.clientName}</p><p className="mt-1 text-xs text-black/45">{task.title}{task.result ? ` · ${task.result}` : ''}</p></div><span className="text-xs text-black/40">{due(task, language)}</span><button type="button" onClick={() => beginEdit(task)} className="inline-flex items-center gap-1 rounded-full bg-[#111413] px-3 py-2 text-[10px] font-semibold text-white"><Pencil className="h-3.5 w-3.5" />{language === 'es' ? 'Editar' : 'Edit'}</button></div>}</div>)}</div></section>}
+    </>}
+  </div>;
+}
+
+function LaneButton({ active, onClick, icon: Icon, label, count }: { active: boolean; onClick: () => void; icon: React.ComponentType<{ className?: string }>; label: string; count: number }) {
+  return <button type="button" onClick={onClick} className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold ${active ? 'bg-[#111413] text-white' : 'text-black/45'}`}><Icon className="h-3.5 w-3.5" />{label}<span>{count}</span></button>;
+}

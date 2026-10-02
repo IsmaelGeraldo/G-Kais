@@ -1,11 +1,11 @@
 import {
   collection,
-  deleteDoc,
   doc,
   getDocs,
   query,
   where,
-  writeBatch
+  writeBatch,
+  type DocumentReference
 } from 'firebase/firestore';
 import { firebaseAuth, firestoreDb } from '../lib/firebase';
 import { upsertExpertPerson } from './expertsRelationshipFoundation';
@@ -28,10 +28,11 @@ function workspaceDocument(workspaceId: string, collectionName: string, id: stri
   return doc(firestoreDb, 'expert_workspaces', workspaceId, collectionName, id);
 }
 
-async function commitDeletes(refs: Array<ReturnType<typeof doc>>) {
-  for (let index = 0; index < refs.length; index += 400) {
+async function commitDeletes(refs: DocumentReference[]) {
+  const unique = Array.from(new Map(refs.map((ref) => [ref.path, ref])).values());
+  for (let index = 0; index < unique.length; index += 400) {
     const batch = writeBatch(firestoreDb);
-    refs.slice(index, index + 400).forEach((ref) => batch.delete(ref));
+    unique.slice(index, index + 400).forEach((ref) => batch.delete(ref));
     await batch.commit();
   }
 }
@@ -41,9 +42,7 @@ async function cohortMemoryRefs(workspace: string, cohortId: string) {
     workspaceCollection(workspace, 'work_tasks'),
     where('task.cohortId', '==', cohortId)
   ));
-  const refs = snapshot.docs.map((item) => item.ref);
-  refs.push(workspaceDocument(workspace, 'work_tasks', `cohort-meta-${cohortId}`));
-  return refs;
+  return snapshot.docs.map((item) => item.ref);
 }
 
 export async function deleteCohortCascade(cohortId: string): Promise<{ enrollmentCount: number }> {

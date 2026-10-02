@@ -1,4 +1,17 @@
-import { collection, deleteDoc, doc, getDoc, onSnapshot, query, serverTimestamp, setDoc, where, type Unsubscribe } from 'firebase/firestore';
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  onSnapshot,
+  query,
+  serverTimestamp,
+  setDoc,
+  where,
+  writeBatch,
+  type Unsubscribe
+} from 'firebase/firestore';
 import { firebaseAuth, firestoreDb } from '../lib/firebase';
 import { appendExpertAuditLog, resolveActiveExpertWorkspaceId } from './expertsWorkspaceCore';
 
@@ -14,6 +27,7 @@ export type FormationPlanClass = {
   date: string;
   mentorNotes: string;
   faq: string;
+  closingNotes: string;
   status: 'pending' | 'done';
   createdAt: string;
   updatedAt?: string;
@@ -50,6 +64,7 @@ function mapClass(id: string, data: Record<string, unknown>): FormationPlanClass
     date: typeof task.dueDate === 'string' ? task.dueDate : '',
     mentorNotes: typeof task.mentorNotes === 'string' ? task.mentorNotes : '',
     faq: typeof task.faq === 'string' ? task.faq : '',
+    closingNotes: typeof task.closingNotes === 'string' ? task.closingNotes : '',
     status: planStatus,
     createdAt: typeof task.createdAt === 'string' ? task.createdAt : '',
     updatedAt: typeof task.updatedAt === 'string' ? task.updatedAt : undefined
@@ -63,12 +78,12 @@ export async function subscribeFormationPlan(
   const workspace = await workspaceId();
   const planQuery = query(
     collection(firestoreDb, 'expert_workspaces', workspace, 'work_tasks'),
-    where('task.workstream', '==', 'formation-plan')
+    where('task.cohortId', '==', cohortId)
   );
   return onSnapshot(planQuery, (snapshot) => {
     callback(snapshot.docs
+      .filter((item) => item.id.startsWith('formation-plan-'))
       .map((item) => mapClass(item.id, item.data() as Record<string, unknown>))
-      .filter((item) => item.cohortId === cohortId)
       .sort((a, b) => a.classNumber - b.classNumber || a.date.localeCompare(b.date)));
   }, () => callback([]));
 }
@@ -84,6 +99,7 @@ export async function saveFormationPlanClass(input: {
   date?: string;
   mentorNotes?: string;
   faq?: string;
+  closingNotes?: string;
   status?: 'pending' | 'done';
 }): Promise<string> {
   const user = firebaseAuth.currentUser;
@@ -115,7 +131,7 @@ export async function saveFormationPlanClass(input: {
       assignedToUid: user.uid,
       assignedToName: user.displayName || user.email || 'Mentor',
       createdByUid: typeof previousTask.createdByUid === 'string' ? previousTask.createdByUid : user.uid,
-      // Operational task stays done so class planning never inflates Priority Work/Dashboard metrics.
+      // Class plans are memory, not operational work.
       status: 'done',
       planStatus: input.status || 'pending',
       completedAt: typeof previousTask.completedAt === 'string' ? previousTask.completedAt : now,
@@ -130,8 +146,9 @@ export async function saveFormationPlanClass(input: {
       dayNumber: classNumber,
       planTitle,
       teachingItems: input.teachingItems.map((value) => value.trim()).filter(Boolean),
-      mentorNotes: (input.mentorNotes || '').trim(),
-      faq: (input.faq || '').trim(),
+      mentorNotes: (input.mentorNotes ?? (typeof previousTask.mentorNotes === 'string' ? previousTask.mentorNotes : '')).trim(),
+      faq: (input.faq ?? (typeof previousTask.faq === 'string' ? previousTask.faq : '')).trim(),
+      closingNotes: (input.closingNotes ?? (typeof previousTask.closingNotes === 'string' ? previousTask.closingNotes : '')).trim(),
       updatedAt: now,
       confirmationEmail: 'not-required'
     },
@@ -162,48 +179,73 @@ export async function ensureFormationClassPlan(input: {
   cohortTitle: string;
   dates: string[];
 }): Promise<void> {
+  const user = firebaseAuth.currentUser;
+  if (!user) throw new Error('AUTH_REQUIRED');
   const workspace = await workspaceId();
-  await Promise.all(input.dates.map(async (date, index) => {
-    const id = `formation-plan-${input.cohortId}-${index + 1}`;
-    const ref = doc(firestoreDb, 'expert_workspaces', workspace, 'work_tasks', id);
-    const existing = await getDoc(ref);
-    if (existing.exists()) {
-      const existingTask = existing.data().task && typeof existing.data().task === 'object'
-        ? existing.data().task as Record<string, unknown>
-        : {};
-      await setDoc(ref, {
-        schemaVersion: 1,
-        task: {
-          ...existingTask,
-          dueDate: date,
-          classNumber: index + 1,
-          dayNumber: index + 1,
-          clientName: input.cohortTitle,
-          formationId: input.formationId,
-          cohortId: input.cohortId,
-          status: 'done',
-          planStatus: existingTask.planStatus === 'done' ? 'done' : 'pending',
-          completedAt: typeof existingTask.completedAt === 'string' ? existingTask.completedAt : new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        },
-        updatedAt: serverTimestamp()
-      }, { merge: true });
-      return;
-    }
-    await saveFormationPlanClass({
-      id,
-      formationId: input.formationId,
-      cohortId: input.cohortId,
-      cohortTitle: input.cohortTitle,
-      classNumber: index + 1,
-      title: `Clase ${index + 1}`,
-      teachingItems: [],
-      date,
-      mentorNotes: '',
-      faq: '',
-      status: 'pending'
-    });
-  }));
+  const taskCollection = collection(firestoreDb, 'expert_workspaces', workspace, 'work_tasks');
+  const currentSnapshot = await getDocs(query(taskCollection, where('task.cohortId', '==', input.cohortId)));
+  const current = new Map(
+    currentSnapshot.docs
+      .filter((item) => item.id.startsWith('formation-plan-'))
+      .map((item) => [item.id, (item.data().task || {}) as Record<string, unknown>])
+  );
+  const wantedIds = new Set(input.dates.map((_, index) => `formation-plan-${input.cohortId}-${index + 1}`));
+  const batch = writeBatch(firestoreDb);
+  const now = new Date().toISOString();
+
+  input.dates.forEach((date, index) => {
+    const classNumber = index + 1;
+    const id = `formation-plan-${input.cohortId}-${classNumber}`;
+    const previous = current.get(id) || {};
+    const planTitle = typeof previous.planTitle === 'string' && previous.planTitle.trim()
+      ? previous.planTitle
+      : `Clase ${classNumber}`;
+    batch.set(doc(taskCollection, id), {
+      schemaVersion: 1,
+      task: {
+        ...previous,
+        id,
+        clientId: '',
+        clientName: input.cohortTitle,
+        personId: '',
+        title: `Clase ${classNumber} · ${planTitle}`,
+        type: 'task',
+        note: typeof previous.note === 'string' ? previous.note : '',
+        dueDate: date,
+        dueTime: '',
+        assignee: typeof previous.assignee === 'string' ? previous.assignee : 'Formación',
+        assignedToUid: typeof previous.assignedToUid === 'string' ? previous.assignedToUid : user.uid,
+        assignedToName: typeof previous.assignedToName === 'string' ? previous.assignedToName : (user.displayName || user.email || 'Mentor'),
+        createdByUid: typeof previous.createdByUid === 'string' ? previous.createdByUid : user.uid,
+        status: 'done',
+        planStatus: previous.planStatus === 'done' ? 'done' : 'pending',
+        completedAt: typeof previous.completedAt === 'string' ? previous.completedAt : now,
+        createdAt: typeof previous.createdAt === 'string' ? previous.createdAt : now,
+        source: 'formation',
+        sourceId: input.cohortId,
+        sourceActionKind: 'formation-plan',
+        workstream: 'formation-plan',
+        formationId: input.formationId,
+        cohortId: input.cohortId,
+        classNumber,
+        dayNumber: classNumber,
+        planTitle,
+        teachingItems: Array.isArray(previous.teachingItems) ? previous.teachingItems : [],
+        mentorNotes: typeof previous.mentorNotes === 'string' ? previous.mentorNotes : '',
+        faq: typeof previous.faq === 'string' ? previous.faq : '',
+        closingNotes: typeof previous.closingNotes === 'string' ? previous.closingNotes : '',
+        updatedAt: now,
+        confirmationEmail: 'not-required'
+      },
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+  });
+
+  currentSnapshot.docs
+    .filter((item) => item.id.startsWith('formation-plan-') && !wantedIds.has(item.id))
+    .forEach((item) => batch.delete(item.ref));
+
+  await batch.commit();
 }
 
 export async function deleteFormationPlanDay(id: string) {

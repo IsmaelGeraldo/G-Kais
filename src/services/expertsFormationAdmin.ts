@@ -4,7 +4,8 @@ import {
   doc,
   getDocs,
   query,
-  where
+  where,
+  writeBatch
 } from 'firebase/firestore';
 import { firebaseAuth, firestoreDb } from '../lib/firebase';
 import { upsertExpertPerson } from './expertsRelationshipFoundation';
@@ -27,49 +28,82 @@ function workspaceDocument(workspaceId: string, collectionName: string, id: stri
   return doc(firestoreDb, 'expert_workspaces', workspaceId, collectionName, id);
 }
 
-async function deleteCohortMemory(workspace: string, cohortId: string) {
-  const planSnapshot = await getDocs(query(
+async function commitDeletes(refs: Array<ReturnType<typeof doc>>) {
+  for (let index = 0; index < refs.length; index += 400) {
+    const batch = writeBatch(firestoreDb);
+    refs.slice(index, index + 400).forEach((ref) => batch.delete(ref));
+    await batch.commit();
+  }
+}
+
+async function cohortMemoryRefs(workspace: string, cohortId: string) {
+  const snapshot = await getDocs(query(
     workspaceCollection(workspace, 'work_tasks'),
     where('task.cohortId', '==', cohortId)
   ));
-  await Promise.all([
-    ...planSnapshot.docs.map((item) => deleteDoc(item.ref)),
-    deleteDoc(workspaceDocument(workspace, 'work_tasks', `cohort-meta-${cohortId}`)).catch(() => {})
-  ]);
+  const refs = snapshot.docs.map((item) => item.ref);
+  refs.push(workspaceDocument(workspace, 'work_tasks', `cohort-meta-${cohortId}`));
+  return refs;
 }
 
-export async function deleteEmptyFormation(formationId: string): Promise<void> {
+export async function deleteCohortCascade(cohortId: string): Promise<{ enrollmentCount: number }> {
   const workspace = await workspaceId();
-  const enrollmentSnapshot = await getDocs(query(workspaceCollection(workspace, 'enrollments'), where('formationId', '==', formationId)));
-  if (!enrollmentSnapshot.empty) throw new Error('FORMATION_HAS_ENROLLMENTS');
+  const [enrollmentSnapshot, memoryRefs] = await Promise.all([
+    getDocs(query(workspaceCollection(workspace, 'enrollments'), where('cohortId', '==', cohortId))),
+    cohortMemoryRefs(workspace, cohortId)
+  ]);
+  await commitDeletes([
+    ...enrollmentSnapshot.docs.map((item) => item.ref),
+    ...memoryRefs,
+    workspaceDocument(workspace, 'cohorts', cohortId)
+  ]);
+  await appendExpertAuditLog({
+    entityType: 'cohort',
+    entityId: cohortId,
+    action: 'cohort.deleted',
+    changes: { enrollmentCount: enrollmentSnapshot.size }
+  }).catch((error) => console.error('[G-KAIS COHORT DELETE AUDIT]', error));
+  return { enrollmentCount: enrollmentSnapshot.size };
+}
 
-  const cohortSnapshot = await getDocs(query(workspaceCollection(workspace, 'cohorts'), where('formationId', '==', formationId)));
-  await Promise.all(cohortSnapshot.docs.map(async (item) => {
-    await deleteCohortMemory(workspace, item.id);
-    await deleteDoc(item.ref);
-  }));
-  await deleteDoc(workspaceDocument(workspace, 'work_tasks', `formation-meta-${formationId}`)).catch(() => {});
-  await deleteDoc(workspaceDocument(workspace, 'formations', formationId));
+export async function deleteFormationCascade(formationId: string): Promise<{ cohortCount: number; enrollmentCount: number }> {
+  const workspace = await workspaceId();
+  const [cohortSnapshot, enrollmentSnapshot, formationMemorySnapshot] = await Promise.all([
+    getDocs(query(workspaceCollection(workspace, 'cohorts'), where('formationId', '==', formationId))),
+    getDocs(query(workspaceCollection(workspace, 'enrollments'), where('formationId', '==', formationId))),
+    getDocs(query(workspaceCollection(workspace, 'work_tasks'), where('task.formationId', '==', formationId)))
+  ]);
+
+  const refs = [
+    ...enrollmentSnapshot.docs.map((item) => item.ref),
+    ...formationMemorySnapshot.docs.map((item) => item.ref),
+    ...cohortSnapshot.docs.map((item) => item.ref),
+    workspaceDocument(workspace, 'work_tasks', `formation-meta-${formationId}`),
+    workspaceDocument(workspace, 'formations', formationId)
+  ];
+  await commitDeletes(refs);
   await appendExpertAuditLog({
     entityType: 'formation',
     entityId: formationId,
     action: 'formation.deleted',
-    changes: { deletedCohortCount: cohortSnapshot.size }
+    changes: { cohortCount: cohortSnapshot.size, enrollmentCount: enrollmentSnapshot.size }
   }).catch((error) => console.error('[G-KAIS FORMATION DELETE AUDIT]', error));
+  return { cohortCount: cohortSnapshot.size, enrollmentCount: enrollmentSnapshot.size };
+}
+
+/** Compatibility wrappers retained for older callers. */
+export async function deleteEmptyFormation(formationId: string): Promise<void> {
+  const workspace = await workspaceId();
+  const enrollmentSnapshot = await getDocs(query(workspaceCollection(workspace, 'enrollments'), where('formationId', '==', formationId)));
+  if (!enrollmentSnapshot.empty) throw new Error('FORMATION_HAS_ENROLLMENTS');
+  await deleteFormationCascade(formationId);
 }
 
 export async function deleteEmptyCohort(cohortId: string): Promise<void> {
   const workspace = await workspaceId();
   const enrollmentSnapshot = await getDocs(query(workspaceCollection(workspace, 'enrollments'), where('cohortId', '==', cohortId)));
   if (!enrollmentSnapshot.empty) throw new Error('COHORT_HAS_ENROLLMENTS');
-  await deleteCohortMemory(workspace, cohortId);
-  await deleteDoc(workspaceDocument(workspace, 'cohorts', cohortId));
-  await appendExpertAuditLog({
-    entityType: 'cohort',
-    entityId: cohortId,
-    action: 'cohort.deleted',
-    changes: {}
-  }).catch((error) => console.error('[G-KAIS COHORT DELETE AUDIT]', error));
+  await deleteCohortCascade(cohortId);
 }
 
 export async function createBuyerAndEnroll(input: {

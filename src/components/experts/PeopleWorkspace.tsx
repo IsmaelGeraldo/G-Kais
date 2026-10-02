@@ -3,6 +3,7 @@ import {
   CalendarClock,
   CheckCircle2,
   Clock3,
+  GraduationCap,
   History,
   Mail,
   MessageCircle,
@@ -10,7 +11,8 @@ import {
   Plus,
   Search,
   UserRound,
-  Users
+  Users,
+  UsersRound
 } from 'lucide-react';
 import type { Language } from '../../i18n/LanguageContext';
 import { subscribeExpertPeople, type ExpertPerson } from '../../services/expertsAcquisition';
@@ -36,16 +38,17 @@ function stageLabel(stage: ExpertPerson['currentStage'], language: Language) {
 
 function memoryText(person: ExpertPerson, language: Language): string {
   const memory = person.outcomeMemory || {};
-  const status = typeof memory.lastWebinarStatus === 'string' ? memory.lastWebinarStatus : '';
-  const purchased = memory.lastWebinarPurchased === true;
-  const interest = typeof memory.lastWebinarInterest === 'string' ? memory.lastWebinarInterest : '';
-  const followUp = typeof memory.webinarFollowUpStatus === 'string' ? memory.webinarFollowUpStatus : '';
   const nextAction = typeof memory.nextActionLabel === 'string' ? memory.nextActionLabel : '';
+  const formationStatus = typeof memory.currentEnrollmentStatus === 'string' ? memory.currentEnrollmentStatus : '';
+  const formationProgress = typeof memory.currentFormationProgress === 'number' ? memory.currentFormationProgress : null;
+  const followUp = typeof memory.nurtureStatus === 'string' ? memory.nurtureStatus : typeof memory.continuityStatus === 'string' ? memory.continuityStatus : '';
+  const purchased = memory.lastWebinarPurchased === true;
+  const status = typeof memory.lastWebinarStatus === 'string' ? memory.lastWebinarStatus : '';
   if (nextAction) return language === 'es' ? `Próxima acción: ${nextAction}` : `Next action: ${nextAction}`;
-  if (purchased) return language === 'es' ? 'Compra registrada después del último webinar.' : 'Purchase recorded after the last webinar.';
-  if (followUp === 'created') return language === 'es' ? 'Seguimiento creado y pendiente.' : 'Follow-up created and pending.';
-  if (followUp === 'completed') return language === 'es' ? 'Seguimiento completado.' : 'Follow-up completed.';
-  if (status) return `${language === 'es' ? 'Último webinar' : 'Last webinar'}: ${status}${interest && interest !== 'unknown' ? ` · ${language === 'es' ? 'interés' : 'interest'} ${interest}` : ''}`;
+  if (formationStatus) return `${language === 'es' ? 'Formación' : 'Program'}: ${formationStatus}${formationProgress !== null ? ` · ${formationProgress}%` : ''}`;
+  if (followUp === 'active') return language === 'es' ? 'Relación activa en seguimiento.' : 'Relationship active in follow-up.';
+  if (purchased) return language === 'es' ? 'Compra registrada y pendiente de continuidad operativa.' : 'Purchase recorded and awaiting operational continuation.';
+  if (status) return `${language === 'es' ? 'Último webinar' : 'Last webinar'}: ${status}`;
   return language === 'es' ? 'Sin señales recientes registradas.' : 'No recent signals recorded.';
 }
 
@@ -81,7 +84,12 @@ function eventLabel(event: PersonRelationshipEvent, language: Language): string 
     'webinar.followup_completed': ['Seguimiento completado', 'Follow-up completed'],
     'webinar.enrollment_task_created': ['Integración a formación creada', 'Program enrollment created'],
     'webinar.enrollment_task_completed': ['Integración a formación completada', 'Program enrollment completed'],
-    'person.action_created': ['Acción creada desde Personas', 'Action created from People'],
+    'formation.enrolled': ['Ingresó a una formación', 'Enrolled in a program'],
+    'formation.completed': ['Completó una formación', 'Completed a program'],
+    'formation.progress_updated': ['Progreso de formación actualizado', 'Program progress updated'],
+    'person.action_created': ['Acción creada desde su ficha', 'Action created from person record'],
+    'interaction.waiting_reply': ['Contacto enviado · esperando respuesta', 'Contact sent · waiting for reply'],
+    'interaction.reply_received': ['Respuesta recibida', 'Reply received'],
     'task.completed': ['Acción completada', 'Action completed']
   };
   const pair = labels[event.type];
@@ -95,12 +103,21 @@ function dueText(task: PersonWorkTask, language: Language): string {
 
 type DetailTab = 'summary' | 'action';
 
+function navigateWorkspace(view: string, personId: string) {
+  const params = new URLSearchParams();
+  params.set('view', view);
+  params.set('person', personId);
+  window.history.pushState({}, '', `/workspace/experts?${params.toString()}`);
+  window.dispatchEvent(new PopStateEvent('popstate'));
+}
+
 export function PeopleWorkspace({ language }: { language: Language }) {
+  const requestedPersonId = new URLSearchParams(window.location.search).get('person') || '';
   const [people, setPeople] = useState<ExpertPerson[]>([]);
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [currentUid, setCurrentUid] = useState('');
   const [query, setQuery] = useState('');
-  const [selectedId, setSelectedId] = useState<string>('');
+  const [selectedId, setSelectedId] = useState<string>(requestedPersonId);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<DetailTab>('summary');
   const [history, setHistory] = useState<PersonHistorySnapshot>({ events: [], tasks: [] });
@@ -120,7 +137,11 @@ export function PeopleWorkspace({ language }: { language: Language }) {
     void subscribeExpertPeople((next) => {
       setPeople(next);
       setLoading(false);
-      setSelectedId((current) => current || next[0]?.id || '');
+      setSelectedId((current) => {
+        if (current && next.some((person) => person.id === current)) return current;
+        if (requestedPersonId && next.some((person) => person.id === requestedPersonId)) return requestedPersonId;
+        return next[0]?.id || '';
+      });
     }).then((stop) => { unsubscribe = stop; }).catch(() => setLoading(false));
     void loadExpertWorkspaceTeam().then((team) => {
       const active = team.members.filter((member) => member.status === 'active');
@@ -129,7 +150,13 @@ export function PeopleWorkspace({ language }: { language: Language }) {
       setActionAssigneeUid(team.currentUid);
     }).catch(() => {});
     return () => unsubscribe?.();
-  }, []);
+  }, [requestedPersonId]);
+
+  useEffect(() => {
+    if (!message) return;
+    const timer = window.setTimeout(() => setMessage(''), 4000);
+    return () => window.clearTimeout(timer);
+  }, [message]);
 
   const filtered = useMemo(() => {
     const term = query.trim().toLowerCase();
@@ -174,8 +201,7 @@ export function PeopleWorkspace({ language }: { language: Language }) {
   };
 
   const createAction = async () => {
-    if (!selected) return;
-    if (!actionTitle.trim()) {
+    if (!selected || !actionTitle.trim()) {
       setMessage(language === 'es' ? 'Indica qué acción debe realizarse.' : 'Describe the action to perform.');
       return;
     }
@@ -188,7 +214,6 @@ export function PeopleWorkspace({ language }: { language: Language }) {
     }
 
     setSavingAction(true);
-    setMessage('');
     try {
       await createPersonWorkAction({
         person: selected,
@@ -212,50 +237,43 @@ export function PeopleWorkspace({ language }: { language: Language }) {
   };
 
   const timeline = useMemo(() => {
-    const taskItems = history.tasks.map((task) => ({
-      key: `task-${task.id}`,
-      date: task.completedAt || task.createdAt,
-      kind: 'task' as const,
-      task
-    }));
-    const eventItems = history.events.map((event) => ({
-      key: `event-${event.id}`,
-      date: event.occurredAt,
-      kind: 'event' as const,
-      event
-    }));
-    return [...taskItems, ...eventItems]
-      .sort((a, b) => (b.date || '').localeCompare(a.date || ''))
-      .slice(0, 80);
+    const taskItems = history.tasks.map((task) => ({ key: `task-${task.id}`, date: task.completedAt || task.createdAt, kind: 'task' as const, task }));
+    const eventItems = history.events.map((event) => ({ key: `event-${event.id}`, date: event.occurredAt, kind: 'event' as const, event }));
+    return [...taskItems, ...eventItems].sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, 100);
   }, [history]);
 
   return <div className="space-y-5">
     <section className="rounded-2xl border border-black/10 bg-white p-5 md:p-6">
       <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#0A3F4D]">PEOPLE</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#0A3F4D]">{language === 'es' ? 'PERSONAS' : 'PEOPLE'}</p>
           <h3 className="mt-2 text-2xl font-semibold">{language === 'es' ? 'Una persona, una sola historia' : 'One person, one continuous history'}</h3>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-black/50">{language === 'es' ? 'Aquí vive la identidad continua de cada relación. Lead, webinar, alumno y mentoría no crean personas distintas.' : 'This is the continuous identity layer. Lead, webinar, student and mentoring do not create separate people.'}</p>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-black/50">{language === 'es'
+            ? 'Esta es la ficha maestra. Webinar, formación, seguimiento y mentoría son relaciones distintas de la misma persona.'
+            : 'This is the master record. Webinar, program, follow-up and mentoring are different relationships of the same person.'}</p>
         </div>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {[['Total', counts.total], ['Webinar', counts.webinar], [language === 'es' ? 'Alumnos' : 'Students', counts.student], [language === 'es' ? 'Mentoría' : 'Mentoring', counts.mentoring]].map(([label, value]) => <div key={String(label)} className="min-w-[90px] rounded-xl bg-[#F7F7F5] px-3 py-2.5"><p className="text-[9px] font-semibold uppercase tracking-[0.13em] text-black/35">{label}</p><p className="mt-1 text-lg font-semibold">{value}</p></div>)}
-        </div>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{[
+          ['Total', counts.total],
+          ['Webinar', counts.webinar],
+          [language === 'es' ? 'Alumnos' : 'Students', counts.student],
+          [language === 'es' ? 'Mentoría' : 'Mentoring', counts.mentoring]
+        ].map(([label, value]) => <div key={String(label)} className="min-w-[90px] rounded-xl bg-[#F7F7F5] px-3 py-2.5"><p className="text-[9px] font-semibold uppercase tracking-[0.13em] text-black/35">{label}</p><p className="mt-1 text-lg font-semibold">{value}</p></div>)}</div>
       </div>
     </section>
 
     <div className="grid gap-5 xl:grid-cols-[1.08fr_0.92fr]">
       <section className="overflow-hidden rounded-2xl border border-black/10 bg-white">
         <div className="flex flex-col gap-3 border-b border-black/7 p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2"><Users className="h-4 w-4 text-[#0A3F4D]" /><p className="text-sm font-semibold">{language === 'es' ? 'Personas' : 'People'}</p></div>
-          <label className="relative block sm:w-[340px]"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-black/30" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={language === 'es' ? 'Buscar por nombre, email o teléfono…' : 'Search by name, email or phone…'} className="w-full rounded-xl border border-black/10 bg-[#FAFAF8] py-2.5 pl-9 pr-3 text-sm outline-none focus:border-black/20" /></label>
+          <div className="flex items-center gap-2"><Users className="h-4 w-4 text-[#0A3F4D]" /><p className="text-sm font-semibold">{language === 'es' ? 'Directorio de personas' : 'People directory'}</p></div>
+          <label className="relative block sm:w-[340px]"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-black/30" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={language === 'es' ? 'Buscar por nombre, email o teléfono…' : 'Search by name, email or phone…'} className="w-full rounded-xl border border-black/10 bg-[#FAFAF8] py-2.5 pl-9 pr-3 text-sm outline-none" /></label>
         </div>
-        <div className="max-h-[660px] divide-y divide-black/5 overflow-y-auto">
+        <div className="max-h-[720px] divide-y divide-black/5 overflow-y-auto">
           {filtered.map((person) => <button key={person.id} type="button" onClick={() => { setSelectedId(person.id); setTab('summary'); }} className={`grid w-full gap-2 px-4 py-4 text-left transition md:grid-cols-[minmax(220px,1fr)_140px_180px] md:items-center ${selected?.id === person.id ? 'bg-[#F7F7F5]' : 'hover:bg-black/[0.015]'}`}>
             <div className="min-w-0"><p className="truncate text-sm font-semibold">{person.name}</p><p className="mt-1 truncate text-xs text-black/45">{person.email || person.phone || '—'}</p></div>
             <span className="w-fit rounded-full bg-[#0A3F4D]/8 px-2.5 py-1 text-[10px] font-semibold text-[#0A3F4D]">{stageLabel(person.currentStage, language)}</span>
             <p className="truncate text-xs text-black/45">{person.latestSource || person.firstSource || (language === 'es' ? 'Sin origen' : 'No source')}</p>
           </button>)}
-          {!loading && filtered.length === 0 && <div className="p-10 text-center text-sm text-black/40">{language === 'es' ? 'No hay personas que coincidan con la búsqueda.' : 'No people match your search.'}</div>}
+          {!loading && filtered.length === 0 && <div className="p-10 text-center text-sm text-black/40">{language === 'es' ? 'No hay personas que coincidan con la búsqueda.' : 'No people match the search.'}</div>}
           {loading && <div className="p-10 text-center text-sm text-black/40">{language === 'es' ? 'Cargando personas…' : 'Loading people…'}</div>}
         </div>
       </section>
@@ -271,26 +289,34 @@ export function PeopleWorkspace({ language }: { language: Language }) {
           </div>
 
           {tab === 'summary' ? <div className="space-y-3 border-t border-black/6 p-4">
-            <div className="grid gap-2 sm:grid-cols-2">
-              <div className="rounded-xl border border-black/7 p-3"><p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-black/35">EMAIL</p><p className="mt-1 truncate text-sm">{selected.email || '—'}</p></div>
-              <div className="rounded-xl border border-black/7 p-3"><p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-black/35">{language === 'es' ? 'TELÉFONO' : 'PHONE'}</p><p className="mt-1 truncate text-sm">{selected.phone || '—'}</p></div>
+            <div className="grid gap-2 sm:grid-cols-2"><div className="rounded-xl border border-black/7 p-3"><p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-black/35">EMAIL</p><p className="mt-1 truncate text-sm">{selected.email || '—'}</p></div><div className="rounded-xl border border-black/7 p-3"><p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-black/35">{language === 'es' ? 'TELÉFONO' : 'PHONE'}</p><p className="mt-1 truncate text-sm">{selected.phone || '—'}</p></div></div>
+            <div className="rounded-xl bg-[#F7F7F5] p-3.5"><p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[#0A3F4D]">OUTCOME MEMORY</p><p className="mt-2 text-sm leading-6 text-black/60">{memoryText(selected, language)}</p></div>
+          </div> : <div className="space-y-4 border-t border-black/6 p-4">
+            <div>
+              <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-black/35">{language === 'es' ? 'CAMBIO DE RELACIÓN' : 'RELATIONSHIP TRANSITION'}</p>
+              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                <button type="button" onClick={() => navigateWorkspace('formations', selected.id)} className="flex items-center gap-3 rounded-xl border border-black/8 bg-[#FAFAF8] p-3 text-left transition hover:border-black/18"><div className="grid h-9 w-9 place-items-center rounded-lg bg-[#111413] text-white"><GraduationCap className="h-4 w-4" /></div><div><p className="text-xs font-semibold">{language === 'es' ? 'Integrar a formación' : 'Enroll in program'}</p><p className="mt-0.5 text-[10px] text-black/40">{language === 'es' ? 'Elegir formación y cohorte.' : 'Choose program and cohort.'}</p></div></button>
+                <button type="button" onClick={() => navigateWorkspace('clients', selected.id)} className="flex items-center gap-3 rounded-xl border border-black/8 bg-[#FAFAF8] p-3 text-left transition hover:border-black/18"><div className="grid h-9 w-9 place-items-center rounded-lg bg-[#111413] text-white"><UsersRound className="h-4 w-4" /></div><div><p className="text-xs font-semibold">{language === 'es' ? 'Iniciar Cliente 1:1' : 'Start 1:1 client'}</p><p className="mt-0.5 text-[10px] text-black/40">{language === 'es' ? 'Continuar con la misma identidad.' : 'Continue with the same identity.'}</p></div></button>
+              </div>
             </div>
-            <div className="rounded-xl bg-[#F7F7F5] p-3.5"><p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[#0A3F4D]">OUTCOME MEMORY</p><p className="mt-2 text-sm leading-6 text-black/60">{memoryText(selected, language)}</p>{typeof selected.outcomeMemory.lastFollowUpResult === 'string' && selected.outcomeMemory.lastFollowUpResult && <p className="mt-2 text-xs leading-5 text-black/45">{language === 'es' ? 'Último resultado: ' : 'Latest result: '}{selected.outcomeMemory.lastFollowUpResult}</p>}</div>
-          </div> : <div className="space-y-3 border-t border-black/6 p-4">
-            <label><span className="mb-1 block text-[9px] font-semibold uppercase tracking-[0.12em] text-black/35">{language === 'es' ? 'ACCIÓN' : 'ACTION'}</span><input value={actionTitle} onChange={(event) => setActionTitle(event.target.value)} placeholder={language === 'es' ? 'Ej. Integrar a Formación Escala' : 'E.g. Enroll in Scale Program'} className="w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm" /></label>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <label><span className="mb-1 block text-[9px] font-semibold uppercase tracking-[0.12em] text-black/35">{language === 'es' ? 'TIPO' : 'TYPE'}</span><select value={actionType} onChange={(event) => setActionType(event.target.value as PersonActionType)} className="w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm"><option value="whatsapp">WhatsApp</option><option value="email">Email</option><option value="call">{language === 'es' ? 'Llamada' : 'Call'}</option><option value="meeting">{language === 'es' ? 'Reunión' : 'Meeting'}</option><option value="task">{language === 'es' ? 'Tarea interna' : 'Internal task'}</option></select></label>
-              <label><span className="mb-1 block text-[9px] font-semibold uppercase tracking-[0.12em] text-black/35">{language === 'es' ? 'RESPONSABLE' : 'ASSIGNEE'}</span><select value={actionAssigneeUid} onChange={(event) => setActionAssigneeUid(event.target.value)} className="w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm">{members.map((member) => <option key={member.uid} value={member.uid}>{memberLabel(member)}</option>)}</select></label>
-              <label><span className="mb-1 block text-[9px] font-semibold uppercase tracking-[0.12em] text-black/35">{language === 'es' ? 'FECHA' : 'DATE'}</span><input type="date" value={actionDate} onChange={(event) => setActionDate(event.target.value)} className="w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm" /></label>
-              <label><span className="mb-1 block text-[9px] font-semibold uppercase tracking-[0.12em] text-black/35">{language === 'es' ? 'HORA' : 'TIME'}</span><input type="time" value={actionTime} onChange={(event) => setActionTime(event.target.value)} className="w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm" /></label>
+
+            <div className="border-t border-black/6 pt-4">
+              <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-black/35">{language === 'es' ? 'CREAR TAREA / CONTACTO' : 'CREATE TASK / CONTACT'}</p>
+              <label className="mt-2 block"><span className="mb-1 block text-[9px] font-semibold uppercase tracking-[0.12em] text-black/35">{language === 'es' ? 'ACCIÓN' : 'ACTION'}</span><input value={actionTitle} onChange={(event) => setActionTitle(event.target.value)} placeholder={language === 'es' ? 'Ej. Confirmar interés y próximo paso' : 'E.g. Confirm interest and next step'} className="w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm" /></label>
+              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                <select value={actionType} onChange={(event) => setActionType(event.target.value as PersonActionType)} className="w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm"><option value="whatsapp">WhatsApp</option><option value="email">Email</option><option value="call">{language === 'es' ? 'Llamada' : 'Call'}</option><option value="meeting">{language === 'es' ? 'Reunión' : 'Meeting'}</option><option value="task">{language === 'es' ? 'Tarea interna' : 'Internal task'}</option></select>
+                <select value={actionAssigneeUid} onChange={(event) => setActionAssigneeUid(event.target.value)} className="w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm">{members.map((member) => <option key={member.uid} value={member.uid}>{memberLabel(member)}</option>)}</select>
+                <input type="date" value={actionDate} onChange={(event) => setActionDate(event.target.value)} className="w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm" />
+                <input type="time" value={actionTime} onChange={(event) => setActionTime(event.target.value)} className="w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm" />
+              </div>
+              <textarea rows={2} value={actionNote} onChange={(event) => setActionNote(event.target.value)} placeholder={language === 'es' ? 'Contexto / nota' : 'Context / note'} className="mt-2 w-full resize-none rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm" />
+              <div className="mt-2 flex gap-2"><button type="button" disabled={savingAction} onClick={() => void createAction()} className="inline-flex items-center gap-1.5 rounded-full bg-[#0A3F4D] px-4 py-2.5 text-xs font-semibold text-white disabled:opacity-40"><Plus className="h-3.5 w-3.5" />{savingAction ? (language === 'es' ? 'Creando…' : 'Creating…') : (language === 'es' ? 'Crear acción' : 'Create action')}</button><button type="button" onClick={resetAction} className="rounded-full border border-black/10 px-4 py-2.5 text-xs font-semibold text-black/50">{language === 'es' ? 'Limpiar' : 'Clear'}</button></div>
             </div>
-            <label><span className="mb-1 block text-[9px] font-semibold uppercase tracking-[0.12em] text-black/35">{language === 'es' ? 'CONTEXTO / NOTA' : 'CONTEXT / NOTE'}</span><textarea rows={2} value={actionNote} onChange={(event) => setActionNote(event.target.value)} placeholder={language === 'es' ? 'Ej. Ahora dispone del dinero y quiere entrar a la formación.' : 'E.g. Now has the budget and wants to join the program.'} className="w-full resize-none rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm" /></label>
-            <div className="flex gap-2"><button type="button" disabled={savingAction} onClick={() => void createAction()} className="inline-flex items-center gap-1.5 rounded-full bg-[#0A3F4D] px-4 py-2.5 text-xs font-semibold text-white disabled:opacity-40"><Plus className="h-3.5 w-3.5" />{savingAction ? (language === 'es' ? 'Creando…' : 'Creating…') : (language === 'es' ? 'Crear acción' : 'Create action')}</button><button type="button" onClick={resetAction} className="rounded-full border border-black/10 px-4 py-2.5 text-xs font-semibold text-black/50">{language === 'es' ? 'Limpiar' : 'Clear'}</button></div>
           </div>}
 
           <div className="border-t border-black/6">
-            <div className="flex items-center justify-between border-b border-black/6 bg-[#FAFAF8] px-4 py-3"><div className="flex items-center gap-2"><History className="h-4 w-4 text-[#0A3F4D]" /><p className="text-xs font-semibold">{language === 'es' ? 'Historial' : 'History'}</p></div><span className="text-[10px] text-black/35">{timeline.length}</span></div>
-            <div className="max-h-[320px] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-black/6 bg-[#FAFAF8] px-4 py-3"><div className="flex items-center gap-2"><History className="h-4 w-4 text-[#0A3F4D]" /><p className="text-xs font-semibold">{language === 'es' ? 'Historial de relación' : 'Relationship history'}</p></div><span className="text-[10px] text-black/35">{timeline.length}</span></div>
+            <div className="max-h-[340px] overflow-y-auto">
               {historyLoading && <div className="p-8 text-center text-sm text-black/35">{language === 'es' ? 'Cargando historial…' : 'Loading history…'}</div>}
               {!historyLoading && timeline.length === 0 && <div className="p-8 text-center text-sm text-black/35">{language === 'es' ? 'Aún no hay acciones o eventos para esta persona.' : 'No actions or events for this person yet.'}</div>}
               <div className="divide-y divide-black/5">{timeline.map((item) => item.kind === 'task' ? <TaskHistoryRow key={item.key} task={item.task} language={language} /> : <EventHistoryRow key={item.key} event={item.event} language={language} />)}</div>
@@ -308,24 +334,11 @@ function TaskHistoryRow({ task, language }: { task: PersonWorkTask; language: La
   const icon = task.type === 'email' ? Mail : task.type === 'whatsapp' ? MessageCircle : task.type === 'call' ? Phone : CalendarClock;
   const Icon = icon;
   const done = task.status === 'done';
-  return <div className="p-4">
-    <div className="flex items-start gap-3">
-      <div className={`mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full ${done ? 'bg-[#0A3F4D]/8 text-[#0A3F4D]' : 'bg-black/5 text-black/45'}`}>{done ? <CheckCircle2 className="h-4 w-4" /> : <Icon className="h-4 w-4" />}</div>
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-semibold">{task.title}</p><span className="text-[9px] font-semibold uppercase tracking-[0.1em] text-black/35">{done ? (language === 'es' ? 'Completada' : 'Done') : task.status === 'in-progress' ? (language === 'es' ? 'En curso' : 'In progress') : (language === 'es' ? 'Pendiente' : 'Pending')}</span></div>
-        <p className="mt-1 text-[11px] text-black/45">{taskTypeLabel(task.type, language)} · {language === 'es' ? 'Responsable' : 'Assignee'}: {task.assignedToName || '—'}</p>
-        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-black/35"><span className="inline-flex items-center gap-1"><Clock3 className="h-3 w-3" />{language === 'es' ? 'Creada' : 'Created'}: {formatDateTime(task.createdAt, language)}</span><span>{language === 'es' ? 'Fecha objetivo' : 'Due'}: {dueText(task, language)}</span></div>
-        {task.note && <p className="mt-2 text-xs leading-5 text-black/50">{task.note}</p>}
-        {task.result && <div className="mt-2 rounded-lg bg-[#F7F7F5] px-3 py-2 text-xs leading-5 text-black/60"><span className="font-semibold">{language === 'es' ? 'Resultado: ' : 'Result: '}</span>{task.result}</div>}
-      </div>
-    </div>
-  </div>;
+  return <div className="p-4"><div className="flex items-start gap-3"><div className={`mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full ${done ? 'bg-[#0A3F4D]/8 text-[#0A3F4D]' : 'bg-black/5 text-black/45'}`}>{done ? <CheckCircle2 className="h-4 w-4" /> : <Icon className="h-4 w-4" />}</div><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-semibold">{task.title}</p><span className="text-[9px] font-semibold uppercase tracking-[0.1em] text-black/35">{done ? (language === 'es' ? 'Completada' : 'Done') : task.status === 'in-progress' ? (language === 'es' ? 'En curso' : 'In progress') : (language === 'es' ? 'Pendiente' : 'Pending')}</span></div><p className="mt-1 text-[11px] text-black/45">{taskTypeLabel(task.type, language)} · {language === 'es' ? 'Responsable' : 'Assignee'}: {task.assignedToName || '—'}</p><div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-black/35"><span className="inline-flex items-center gap-1"><Clock3 className="h-3 w-3" />{language === 'es' ? 'Creada' : 'Created'}: {formatDateTime(task.createdAt, language)}</span><span>{language === 'es' ? 'Fecha objetivo' : 'Due'}: {dueText(task, language)}</span></div>{task.note && <p className="mt-2 text-xs leading-5 text-black/50">{task.note}</p>}{task.result && <div className="mt-2 rounded-lg bg-[#F7F7F5] px-3 py-2 text-xs leading-5 text-black/60"><span className="font-semibold">{language === 'es' ? 'Resultado: ' : 'Result: '}</span>{task.result}</div>}</div></div></div>;
 }
 
 function EventHistoryRow({ event, language }: { event: PersonRelationshipEvent; language: Language }) {
   const assignedToName = typeof event.metadata.assignedToName === 'string' ? event.metadata.assignedToName : '';
   const result = typeof event.metadata.result === 'string' ? event.metadata.result : '';
-  return <div className="p-4">
-    <div className="flex items-start gap-3"><div className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-[#0A3F4D]/45" /><div className="min-w-0"><p className="text-xs font-semibold">{eventLabel(event, language)}</p><p className="mt-1 text-[10px] text-black/35">{formatDateTime(event.occurredAt, language)}{assignedToName ? ` · ${language === 'es' ? 'Responsable' : 'Assignee'}: ${assignedToName}` : ''}</p>{result && <p className="mt-1 text-xs text-black/50">{language === 'es' ? 'Resultado: ' : 'Result: '}{result}</p>}</div></div>
-  </div>;
+  return <div className="p-4"><div className="flex items-start gap-3"><div className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-[#0A3F4D]/45" /><div className="min-w-0"><p className="text-xs font-semibold">{eventLabel(event, language)}</p><p className="mt-1 text-[10px] text-black/35">{formatDateTime(event.occurredAt, language)}{assignedToName ? ` · ${language === 'es' ? 'Responsable' : 'Assignee'}: ${assignedToName}` : ''}</p>{result && <p className="mt-1 text-xs text-black/50">{language === 'es' ? 'Resultado: ' : 'Result: '}{result}</p>}</div></div></div>;
 }

@@ -123,7 +123,7 @@ html.gkais-surface-dark [class*="lg:pl-[245px]"] aside.bg-white textarea::placeh
 }
 
 /* Experts interaction system: main workspace plus mentoring and formation session modes. */
-.gkais-experts-interactions button:not(:disabled) {
+.gkais-experts-interactions button:not(:disabled):not([data-gkais-static-interaction="true"]) {
   transition-property: transform, box-shadow, background-color, border-color, color, opacity;
   transition-duration: 180ms;
   transition-timing-function: cubic-bezier(.2,.8,.2,1);
@@ -131,45 +131,59 @@ html.gkais-surface-dark [class*="lg:pl-[245px]"] aside.bg-white textarea::placeh
   will-change: transform;
 }
 
-.gkais-experts-interactions button:not(:disabled):hover,
-.gkais-experts-interactions button:not(:disabled):focus-visible {
+.gkais-experts-interactions button:not(:disabled):not([data-gkais-static-interaction="true"]):hover,
+.gkais-experts-interactions button:not(:disabled):not([data-gkais-static-interaction="true"]):focus-visible {
   transform: translateY(-2px);
   box-shadow: 0 9px 22px rgba(17,20,19,0.12);
 }
 
-.gkais-experts-interactions button:not(:disabled):active {
+.gkais-experts-interactions button:not(:disabled):not([data-gkais-static-interaction="true"]):active {
   transform: translateY(0) scale(0.985);
   box-shadow: 0 4px 12px rgba(17,20,19,0.10);
 }
 
-/* Solid black buttons keep their existing black surface and receive the approved light sweep. */
-.gkais-experts-interactions button[class*="bg-[#111413]"]:not(:disabled) {
+/* Solid black actions are intentionally more prominent than white controls. */
+.gkais-experts-interactions button[class*="bg-[#111413]"]:not(:disabled):not([data-gkais-static-interaction="true"]) {
   position: relative;
   isolation: isolate;
   overflow: hidden;
   background-color: #111413 !important;
+  box-shadow: 0 6px 16px rgba(17,20,19,0.17);
 }
 
-.gkais-experts-interactions button[class*="bg-[#111413]"]:not(:disabled)::before {
+.gkais-experts-interactions button[class*="bg-[#111413]"]:not(:disabled):not([data-gkais-static-interaction="true"])::before {
   content: "";
   position: absolute;
   z-index: -1;
   inset: 0;
   pointer-events: none;
-  background: linear-gradient(110deg, transparent 15%, rgba(255,255,255,0.18) 46%, transparent 70%);
+  background: linear-gradient(110deg, transparent 12%, rgba(255,255,255,0.28) 46%, transparent 72%);
   transform: translateX(-125%);
   transition: transform 420ms cubic-bezier(.2,.8,.2,1);
 }
 
-.gkais-experts-interactions button[class*="bg-[#111413]"]:not(:disabled):hover,
-.gkais-experts-interactions button[class*="bg-[#111413]"]:not(:disabled):focus-visible,
-.gkais-experts-interactions button[class*="bg-[#111413]"]:not(:disabled):active {
+.gkais-experts-interactions button[class*="bg-[#111413]"]:not(:disabled):not([data-gkais-static-interaction="true"]):hover,
+.gkais-experts-interactions button[class*="bg-[#111413]"]:not(:disabled):not([data-gkais-static-interaction="true"]):focus-visible {
+  transform: translateY(-2px);
   background-color: #111413 !important;
+  box-shadow: 0 14px 30px rgba(17,20,19,0.28), 0 3px 10px rgba(17,20,19,0.16);
 }
 
-.gkais-experts-interactions button[class*="bg-[#111413]"]:not(:disabled):hover::before,
-.gkais-experts-interactions button[class*="bg-[#111413]"]:not(:disabled):focus-visible::before {
+.gkais-experts-interactions button[class*="bg-[#111413]"]:not(:disabled):not([data-gkais-static-interaction="true"]):active {
+  transform: translateY(0) scale(0.985);
+  background-color: #111413 !important;
+  box-shadow: 0 5px 14px rgba(17,20,19,0.18);
+}
+
+.gkais-experts-interactions button[class*="bg-[#111413]"]:not(:disabled):not([data-gkais-static-interaction="true"]):hover::before,
+.gkais-experts-interactions button[class*="bg-[#111413]"]:not(:disabled):not([data-gkais-static-interaction="true"]):focus-visible::before {
   transform: translateX(125%);
+}
+
+/* Expansion/disclosure controls should stay visually attached to their card. */
+.gkais-experts-interactions button[data-gkais-static-interaction="true"] {
+  transform: none !important;
+  box-shadow: none !important;
 }
 
 /* Preserve the Priority Work arrow, but it has no independent motion from its label. */
@@ -193,15 +207,85 @@ html.gkais-surface-dark [class*="lg:pl-[245px]"] aside.bg-white textarea::placeh
   margin-top: auto;
 }
 
+/* Consistent action feedback. Copilot notices intentionally do not use these selectors. */
+.gkais-action-toast,
+.gkais-experts-interactions p[class*="border-red-200"][class*="bg-red-50"],
+.gkais-experts-interactions p[class*="bg-[#A23A32]/8"][class*="text-[#8D332C]"],
+.gkais-experts-interactions main p[class*="mt-5"][class*="rounded-xl"][class*="bg-white"][class*="text-black/55"] {
+  position: fixed !important;
+  right: 24px !important;
+  bottom: 24px !important;
+  top: auto !important;
+  z-index: 160 !important;
+  width: max-content;
+  max-width: min(380px, calc(100vw - 48px));
+  border: 1px solid rgba(255,255,255,0.08) !important;
+  border-radius: 14px !important;
+  background: #111413 !important;
+  color: #ffffff !important;
+  padding: 12px 16px !important;
+  box-shadow: 0 16px 44px rgba(0,0,0,0.20) !important;
+  font-size: 12px !important;
+  line-height: 1.45 !important;
+}
+
+/* Session completion is action feedback too: compact it instead of blocking the full screen. */
+.gkais-experts-interactions div[class*="fixed"][class*="inset-0"][class*="z-[120]"][class*="bg-black/20"] {
+  inset: auto 24px 24px auto !important;
+  display: block !important;
+  width: auto !important;
+  max-width: min(380px, calc(100vw - 48px));
+  background: transparent !important;
+  padding: 0 !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+.gkais-experts-interactions div[class*="fixed"][class*="inset-0"][class*="z-[120]"][class*="bg-black/20"] > div {
+  border: 1px solid rgba(255,255,255,0.08) !important;
+  border-radius: 14px !important;
+  background: #111413 !important;
+  color: #ffffff !important;
+  padding: 14px 16px !important;
+  text-align: left !important;
+  box-shadow: 0 16px 44px rgba(0,0,0,0.20) !important;
+}
+
+.gkais-experts-interactions div[class*="fixed"][class*="inset-0"][class*="z-[120]"][class*="bg-black/20"] > div [class*="text-black/"] {
+  color: rgba(255,255,255,0.64) !important;
+}
+
+.gkais-experts-interactions div[class*="fixed"][class*="inset-0"][class*="z-[120]"][class*="bg-black/20"] > div svg {
+  margin-left: 0 !important;
+  color: #ffffff !important;
+}
+
+@media (max-width: 640px) {
+  .gkais-action-toast,
+  .gkais-experts-interactions p[class*="border-red-200"][class*="bg-red-50"],
+  .gkais-experts-interactions p[class*="bg-[#A23A32]/8"][class*="text-[#8D332C]"],
+  .gkais-experts-interactions main p[class*="mt-5"][class*="rounded-xl"][class*="bg-white"][class*="text-black/55"] {
+    right: 16px !important;
+    bottom: 16px !important;
+    max-width: calc(100vw - 32px);
+  }
+
+  .gkais-experts-interactions div[class*="fixed"][class*="inset-0"][class*="z-[120]"][class*="bg-black/20"] {
+    right: 16px !important;
+    bottom: 16px !important;
+    max-width: calc(100vw - 32px);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .gkais-experts-interactions button:not(:disabled),
-  .gkais-experts-interactions button[class*="bg-[#111413]"]:not(:disabled)::before {
+  .gkais-experts-interactions button:not(:disabled):not([data-gkais-static-interaction="true"]),
+  .gkais-experts-interactions button[class*="bg-[#111413]"]:not(:disabled):not([data-gkais-static-interaction="true"])::before {
     transition: none;
   }
 
-  .gkais-experts-interactions button:not(:disabled):hover,
-  .gkais-experts-interactions button:not(:disabled):focus-visible,
-  .gkais-experts-interactions button:not(:disabled):active {
+  .gkais-experts-interactions button:not(:disabled):not([data-gkais-static-interaction="true"]):hover,
+  .gkais-experts-interactions button:not(:disabled):not([data-gkais-static-interaction="true"]):focus-visible,
+  .gkais-experts-interactions button:not(:disabled):not([data-gkais-static-interaction="true"]):active {
     transform: none;
   }
 }

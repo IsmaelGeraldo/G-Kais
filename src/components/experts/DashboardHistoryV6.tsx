@@ -51,6 +51,8 @@ type MetricCardProps = {
   onToggle?: () => void;
 };
 type MapHover = { country: string; formation: number; mentoring: number; total: number; x: number; y: number };
+type FollowUpSegment = 'leads' | 'nurture';
+type FollowUpLane = 'queue' | 'waiting' | 'replied';
 
 const FLAG_SVGS = FlagSvgStrings as unknown as Record<string, string>;
 
@@ -177,7 +179,7 @@ function MetricCard({ label, value, detail, ringValue, ringTotal, colors, detail
       <MetricRing value={ringValue} total={ringTotal} colors={colors} />
     </div>
     {expandable
-      ? <button type="button" onClick={onToggle} className="mt-4 flex w-full items-center justify-between border-t border-black/5 pt-3 text-left text-xs text-black/55"><span>{expanded ? 'Ocultar histórico' : 'Ver histórico'}</span><ChevronDown className={`h-3.5 w-3.5 transition ${expanded ? 'rotate-180' : ''}`} /></button>
+      ? <button type="button" data-gkais-static-interaction="true" onClick={onToggle} className="mt-4 flex w-full items-center justify-between border-t border-black/5 pt-3 text-left text-xs text-black/55"><span>{expanded ? 'Ocultar histórico' : 'Ver histórico'}</span><ChevronDown className={`h-3.5 w-3.5 transition ${expanded ? 'rotate-180' : ''}`} /></button>
       : <div className="mt-4 border-t border-black/5 pt-3 text-xs text-black/45">{detail}</div>}
   </article>;
 }
@@ -220,13 +222,13 @@ function TrendChart({ kind, dates, range, setRange, language, comparison }: { ki
   const [hovered, setHovered] = useState<number | null>(null);
   const points = buildTrend(dates, range, language);
   const copy = metricCopy(kind, language);
-  const width = 720, height = 150, padX = 48, padR = 14, padY = 16;
+  const width = 720, plotHeight = 150, height = 176, padX = 48, padR = 14, padY = 16;
   const max = Math.max(1, ...points.map((point) => point.value));
-  const chartW = width - padX - padR, chartH = height - padY * 2;
-  const plotted = points.map((point, index) => ({ x: padX + (index / Math.max(1, points.length - 1)) * chartW, y: height - padY - (point.value / max) * chartH }));
+  const chartW = width - padX - padR, chartH = plotHeight - padY * 2;
+  const plotted = points.map((point, index) => ({ x: padX + (index / Math.max(1, points.length - 1)) * chartW, y: plotHeight - padY - (point.value / max) * chartH }));
   const color = kind === 'buyers' ? '#8B5E34' : kind === 'clients' ? '#0A6B66' : '#5357A6';
   const line = smoothPath(plotted);
-  const area = plotted.length ? `${line} L ${plotted.at(-1)?.x} ${height - padY} L ${plotted[0].x} ${height - padY} Z` : '';
+  const area = plotted.length ? `${line} L ${plotted.at(-1)?.x} ${plotHeight - padY} L ${plotted[0].x} ${plotHeight - padY} Z` : '';
   const selected = hovered === null ? null : points[hovered];
   const selectedPoint = hovered === null ? null : plotted[hovered];
   const total = points.reduce((sum, point) => sum + point.value, 0);
@@ -252,14 +254,14 @@ function TrendChart({ kind, dates, range, setRange, language, comparison }: { ki
         </div>
       </aside>
       <div className="min-w-0 overflow-hidden">
-        <svg viewBox={`0 0 ${width} ${height}`} className="h-[150px] w-full" onMouseLeave={() => setHovered(null)}>
+        <svg viewBox={`0 0 ${width} ${height}`} className="h-[176px] w-full" onMouseLeave={() => setHovered(null)}>
           <defs><linearGradient id={`dashboard-trend-v6-${kind}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={color} stopOpacity=".18" /><stop offset="100%" stopColor={color} stopOpacity="0" /></linearGradient></defs>
-          {ticks.map((tick) => { const y = height - padY - (tick / max) * chartH; return <g key={tick}><line x1={padX} y1={y} x2={width - padR} y2={y} stroke="rgba(0,0,0,.07)" strokeWidth="1" /><text x={padX - 9} y={y + 3} textAnchor="end" fontSize="9" fill="rgba(0,0,0,.38)">{tick}</text></g>; })}
+          {ticks.map((tick) => { const y = plotHeight - padY - (tick / max) * chartH; return <g key={tick}><line x1={padX} y1={y} x2={width - padR} y2={y} stroke="rgba(0,0,0,.07)" strokeWidth="1" /><text x={padX - 9} y={y + 3} textAnchor="end" fontSize="9" fill="rgba(0,0,0,.38)">{tick}</text></g>; })}
           <path d={area} fill={`url(#dashboard-trend-v6-${kind})`} /><path d={line} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" />
           {plotted.map((point, index) => <g key={`${points[index].fullLabel}-${index}`} onMouseEnter={() => setHovered(index)}><circle cx={point.x} cy={point.y} r="11" fill="transparent" /><circle cx={point.x} cy={point.y} r={hovered === index ? 4 : 2.5} fill="white" stroke={color} strokeWidth="2" /></g>)}
+          {points.map((point, index) => <text key={`axis-${point.fullLabel}-${index}`} x={plotted[index].x} y={height - 6} textAnchor="middle" fontSize="8" fill="rgba(0,0,0,.34)">{point.label}</text>)}
           {selected && selectedPoint && <g pointerEvents="none"><rect x={Math.max(8, Math.min(width - 150, selectedPoint.x - 70))} y={Math.max(6, selectedPoint.y - 43)} width="140" height="34" rx="8" fill="#111413" /><text x={Math.max(18, Math.min(width - 140, selectedPoint.x - 60))} y={Math.max(20, selectedPoint.y - 29)} fill="white" fontSize="9" fontWeight="600">{selected.fullLabel}</text><text x={Math.max(18, Math.min(width - 140, selectedPoint.x - 60))} y={Math.max(32, selectedPoint.y - 17)} fill="rgba(255,255,255,.68)" fontSize="9">{selected.value}</text></g>}
         </svg>
-        <div className="flex justify-between pl-[48px] pr-3 text-[8px] text-black/30">{points.map((point, index) => <span key={`${point.label}-${index}`}>{point.label}</span>)}</div>
       </div>
     </div>
   </section>;
@@ -333,7 +335,7 @@ function WorldReach({ rows, language }: { rows: ReachRow[]; language: Language }
 }
 
 export function DashboardHistoryV6({ language, onNavigate, onOpenClient, onStartSession }: Props) {
-  void onOpenClient;
+  void onStartSession;
   const [people, setPeople] = useState<ExpertPerson[]>([]);
   const [profiles, setProfiles] = useState<ExpertPersonProfileMeta[]>([]);
   const [formations, setFormations] = useState<ExpertFormation[]>([]);
@@ -399,7 +401,16 @@ export function DashboardHistoryV6({ language, onNavigate, onOpenClient, onStart
     const clientRows = clients.filter((c) => (c.nextSession || '').trim()).slice(0, 5).map((c) => ({ kind: 'client' as const, id: c.id, title: c.name, subtitle: c.nextSession || '', client: c }));
     return [...clientRows, ...classRows].slice(0, 9);
   }, [activeClasses, formationById, cohortById, clients, language]);
-  const radar = useMemo(() => { const follow = tasks.filter((t) => t.status !== 'done' && !t.deletedAt && !isHiddenWork(t) && isFollowUpWork(t)); return [{ label: language === 'es' ? 'Respondieron' : 'Replied', value: follow.filter((t) => t.interactionState === 'reply-received').length, detail: language === 'es' ? 'Necesitan revisión y siguiente decisión.' : 'Need review and a next decision.' }, { label: language === 'es' ? 'Esperando respuesta' : 'Waiting for reply', value: follow.filter((t) => t.interactionState === 'waiting-reply').length, detail: language === 'es' ? 'Interacciones activas en seguimiento.' : 'Active follow-up interactions.' }, { label: language === 'es' ? 'Leads por atender' : 'Leads to review', value: follow.filter((t) => t.interactionState === 'queue').length, detail: language === 'es' ? 'Motivo, contexto y continuidad por definir.' : 'Reason, context and continuity to define.' }]; }, [tasks, language]);
+  const radar = useMemo(() => {
+    const follow = tasks.filter((t) => t.status !== 'done' && !t.deletedAt && !isHiddenWork(t) && isFollowUpWork(t));
+    const leadFollow = follow.filter((t) => t.source === 'webinar' && t.sourceActionKind === 'follow-up');
+    const nurtureFollow = follow.filter((t) => !(t.source === 'webinar' && t.sourceActionKind === 'follow-up'));
+    return [
+      { label: language === 'es' ? 'Respondieron' : 'Replied', value: nurtureFollow.filter((t) => t.interactionState === 'reply-received').length, detail: language === 'es' ? 'Necesitan revisión y siguiente decisión.' : 'Need review and a next decision.', segment: 'nurture' as FollowUpSegment, lane: 'replied' as FollowUpLane },
+      { label: language === 'es' ? 'Esperando respuesta' : 'Waiting for reply', value: nurtureFollow.filter((t) => t.interactionState === 'waiting-reply').length, detail: language === 'es' ? 'Interacciones activas en seguimiento.' : 'Active follow-up interactions.', segment: 'nurture' as FollowUpSegment, lane: 'waiting' as FollowUpLane },
+      { label: language === 'es' ? 'Leads por atender' : 'Leads to review', value: leadFollow.filter((t) => !t.interactionState || t.interactionState === 'queue').length, detail: language === 'es' ? 'Motivo, contexto y continuidad por definir.' : 'Reason, context and continuity to define.', segment: 'leads' as FollowUpSegment, lane: 'queue' as FollowUpLane }
+    ];
+  }, [tasks, language]);
   const reach = useMemo<ReachRow[]>(() => {
     const rows = new Map<string, { country: string; formation: Set<string>; mentoring: Set<string> }>();
     people.forEach((person) => {
@@ -412,7 +423,28 @@ export function DashboardHistoryV6({ language, onNavigate, onOpenClient, onStart
     });
     return [...rows.entries()].map(([key, value]) => ({ country: value.country, code: key.length === 2 ? key.toUpperCase() : '', formation: value.formation.size, mentoring: value.mentoring.size, total: new Set([...value.formation, ...value.mentoring]).size })).sort((a, b) => b.total - a.total || a.country.localeCompare(b.country));
   }, [people, formationPersonIds, profileById]);
-  const openClass = (item: DashboardFormationClass) => { const q = new URLSearchParams({ formation: item.formationId, cohort: item.cohortId, class: item.id }); window.history.pushState({}, '', `/workspace/experts/formations/session?${q.toString()}`); window.dispatchEvent(new PopStateEvent('popstate')); };
+
+  const openAgendaClient = (client: SharedSessionClient) => {
+    const directPersonId = typeof client.personId === 'string' ? client.personId : '';
+    const matchedPersonId = directPersonId || people.find((person) => person.name.trim().toLowerCase() === client.name.trim().toLowerCase())?.id || '';
+    if (matchedPersonId) {
+      onOpenClient(matchedPersonId);
+      return;
+    }
+    const query = new URLSearchParams({ view: 'clients', client: client.id });
+    window.history.pushState({}, '', `/workspace/experts?${query.toString()}`);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  };
+  const openClassPlan = (item: DashboardFormationClass) => {
+    const query = new URLSearchParams({ view: 'formations', formation: item.formationId, cohort: item.cohortId, tab: 'plan', class: item.id });
+    window.history.pushState({}, '', `/workspace/experts?${query.toString()}`);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  };
+  const openFollowUp = (segment: FollowUpSegment, lane: FollowUpLane) => {
+    const query = new URLSearchParams({ view: 'relationships', tab: 'follow-up', segment, lane });
+    window.history.pushState({}, '', `/workspace/experts?${query.toString()}`);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  };
   const chartDates = expanded === 'buyers' ? buyerDates : expanded === 'clients' ? clientDates : leadDates;
 
   return <div className="space-y-6">
@@ -426,8 +458,8 @@ export function DashboardHistoryV6({ language, onNavigate, onOpenClient, onStart
     <div className="grid gap-6 xl:grid-cols-[1.35fr_.85fr]">
       <section className="rounded-2xl border border-black/10 bg-white p-5 md:p-6"><div className="flex flex-col items-start justify-between gap-3 sm:flex-row"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#0A3F4D]">{language === 'es' ? 'EJECUCIÓN' : 'EXECUTION'}</p><h2 className="mt-2 text-xl font-semibold">{language === 'es' ? 'Por hacer hoy' : 'Due today'}</h2><p className="mt-1 text-sm text-black/45">{language === 'es' ? 'Solo trabajo abierto real; las tareas automáticas no aparecen aquí.' : 'Only real open work; automated tasks do not appear here.'}</p></div><button onClick={() => onNavigate('priority')} className="shrink-0 whitespace-nowrap rounded-full bg-[#111413] px-4 py-2.5 text-xs font-semibold text-white">{language === 'es' ? 'Trabajo prioritario' : 'Priority Work'}</button></div><div className="mt-4 border-t border-black/7 pt-1"><div className="divide-y divide-black/5">{dueToday.slice(0, 7).map((task) => <div key={task.id} className="grid gap-2 py-3 md:grid-cols-[1fr_auto] md:items-center"><div><p className="text-sm font-semibold">{task.title || task.clientName}</p><p className="mt-1 text-xs text-black/42">{task.clientName} · {taskLabel(task.type, language)} · {task.assignee || '—'}</p></div><div className="text-xs text-black/45 md:text-right"><p>{task.dueTime || '—'}</p><p className="mt-1 text-[10px]">{task.dueDate || today}</p></div></div>)}{dueToday.length === 0 && <p className="py-7 text-center text-sm text-black/40">{language === 'es' ? 'No hay acciones pendientes para hoy.' : 'No actions pending for today.'}</p>}</div></div></section>
       <div className="grid content-start gap-6">
-        <section className="rounded-2xl border border-black/10 bg-white p-5"><div className="flex items-center justify-between"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-black/40">AGENDA</p><h2 className="mt-2 text-lg font-semibold">{language === 'es' ? 'Próximas sesiones y clases' : 'Upcoming sessions and classes'}</h2></div><CalendarDays className="h-5 w-5 text-[#0A3F4D]" /></div><div className="mt-4 max-h-[360px] space-y-2 overflow-y-auto pr-1">{agenda.map((item) => <button key={`${item.kind}-${item.id}`} onClick={() => item.kind === 'client' ? onStartSession(item.id) : openClass(item.classItem)} className="flex w-full items-center gap-3 rounded-xl border border-black/6 p-3 text-left transition hover:bg-[#F7F7F5]"><span className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${item.kind === 'client' ? 'bg-[#0A3F4D]/8 text-[#0A3F4D]' : 'bg-black/5 text-black/55'}`}>{item.kind === 'client' ? <UsersRound className="h-4 w-4" /> : <CalendarDays className="h-4 w-4" />}</span><span className="min-w-0 flex-1"><span className="block truncate text-xs font-semibold">{item.title}</span><span className="mt-1 block truncate text-[10px] text-black/40">{item.subtitle}</span></span><ChevronRight className="h-3.5 w-3.5 text-black/25" /></button>)}{agenda.length === 0 && <p className="py-6 text-center text-sm text-black/40">{language === 'es' ? 'No hay sesiones o clases próximas.' : 'No upcoming sessions or classes.'}</p>}</div></section>
-        <section className="rounded-2xl border border-black/10 bg-white p-5"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#A46F16]">THE RADAR</p><h2 className="mt-2 text-lg font-semibold">{language === 'es' ? 'Relaciones y seguimiento' : 'Relationships and follow-up'}</h2></div><button onClick={() => onNavigate('relationships')} className="whitespace-nowrap rounded-full border border-black/10 px-3 py-2 text-[10px] font-semibold">{language === 'es' ? 'Abrir' : 'Open'}</button></div><div className="mt-4 space-y-2">{radar.map((item, index) => <button key={item.label} onClick={() => onNavigate('relationships')} className="flex w-full items-center gap-3 rounded-xl border border-black/6 p-3 text-left hover:bg-[#FAFAF8]"><span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#A46F16]/9 text-[#82570F]">{index === 0 ? <MessageCircleReply className="h-4 w-4" /> : index === 1 ? <Radio className="h-4 w-4" /> : <ListTodo className="h-4 w-4" />}</span><span className="min-w-0 flex-1"><span className="block text-xs font-semibold">{item.label}</span><span className="mt-1 block text-[10px] leading-4 text-black/40">{item.detail}</span></span><strong className="text-xl font-semibold">{item.value}</strong></button>)}</div></section>
+        <section className="rounded-2xl border border-black/10 bg-white p-5"><div className="flex items-center justify-between"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-black/40">AGENDA</p><h2 className="mt-2 text-lg font-semibold">{language === 'es' ? 'Próximas sesiones y clases' : 'Upcoming sessions and classes'}</h2></div><CalendarDays className="h-5 w-5 text-[#0A3F4D]" /></div><div className="mt-4 max-h-[360px] space-y-2 overflow-y-auto pr-1">{agenda.map((item) => <button key={`${item.kind}-${item.id}`} onClick={() => item.kind === 'client' ? openAgendaClient(item.client) : openClassPlan(item.classItem)} className="flex w-full items-center gap-3 rounded-xl border border-black/6 p-3 text-left transition hover:bg-[#F7F7F5]"><span className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${item.kind === 'client' ? 'bg-[#0A3F4D]/8 text-[#0A3F4D]' : 'bg-black/5 text-black/55'}`}>{item.kind === 'client' ? <UsersRound className="h-4 w-4" /> : <CalendarDays className="h-4 w-4" />}</span><span className="min-w-0 flex-1"><span className="block truncate text-xs font-semibold">{item.title}</span><span className="mt-1 block truncate text-[10px] text-black/40">{item.subtitle}</span></span><ChevronRight className="h-3.5 w-3.5 text-black/25" /></button>)}{agenda.length === 0 && <p className="py-6 text-center text-sm text-black/40">{language === 'es' ? 'No hay sesiones o clases próximas.' : 'No upcoming sessions or classes.'}</p>}</div></section>
+        <section className="rounded-2xl border border-black/10 bg-white p-5"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#A46F16]">THE RADAR</p><h2 className="mt-2 text-lg font-semibold">{language === 'es' ? 'Relaciones y seguimiento' : 'Relationships and follow-up'}</h2></div><button onClick={() => openFollowUp('leads', 'queue')} className="whitespace-nowrap rounded-full border border-black/10 px-3 py-2 text-[10px] font-semibold">{language === 'es' ? 'Abrir' : 'Open'}</button></div><div className="mt-4 space-y-2">{radar.map((item, index) => <button key={item.label} onClick={() => openFollowUp(item.segment, item.lane)} className="flex w-full items-center gap-3 rounded-xl border border-black/6 p-3 text-left hover:bg-[#FAFAF8]"><span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#A46F16]/9 text-[#82570F]">{index === 0 ? <MessageCircleReply className="h-4 w-4" /> : index === 1 ? <Radio className="h-4 w-4" /> : <ListTodo className="h-4 w-4" />}</span><span className="min-w-0 flex-1"><span className="block text-xs font-semibold">{item.label}</span><span className="mt-1 block text-[10px] leading-4 text-black/40">{item.detail}</span></span><strong className="text-xl font-semibold">{item.value}</strong></button>)}</div></section>
       </div>
     </div>
     <WorldReach rows={reach} language={language} />

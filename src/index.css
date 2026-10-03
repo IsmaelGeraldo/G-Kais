@@ -91,3 +91,33 @@ html.gkais-surface-dark [class*="lg:pl-[245px]"] aside.bg-white input::placehold
 html.gkais-surface-dark [class*="lg:pl-[245px]"] aside.bg-white textarea::placeholder {
   color: rgba(247,247,245,0.36) !important;
 }
+
+/* Dashboard world map: every country is a real SVG path and lights up on hover/focus. */
+.gkais-world-country {
+  transition: fill 180ms ease, fill-opacity 180ms ease, stroke 180ms ease, filter 180ms ease;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.gkais-world-country:hover,
+.gkais-world-country:focus,
+.gkais-world-country.worldmap__region--hover {
+  fill: #0A3F4D !important;
+  fill-opacity: 1 !important;
+  stroke: #ffffff !important;
+  stroke-width: 1.5 !important;
+  filter: drop-shadow(0 0 6px rgba(10, 63, 77, 0.45));
+  outline: none;
+}
+
+.gkais-world-map .worldmap__figure-container {
+  margin: 0;
+  display: grid;
+  place-items: center;
+}
+
+.gkais-world-map svg {
+  max-width: 100%;
+  height: auto;
+  overflow: visible;
+}

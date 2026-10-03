@@ -138,9 +138,9 @@ function AppContent() {
     setShowAdmin(false);
   };
 
-  if (showFormationClassSession) return <ExpertsSessionRouteGate><FormationClassSessionPage /></ExpertsSessionRouteGate>;
-  if (showSessionMemory) return <ExpertsSessionRouteGate><SessionMemoryWorkspaceAI onBack={backFromSessionMemory} /></ExpertsSessionRouteGate>;
-  if (showExpertsWorkspace) return <ExpertsWorkspace onExit={exitExpertsWorkspace} />;
+  if (showFormationClassSession) return <div className="gkais-experts-interactions"><ExpertsSessionRouteGate><FormationClassSessionPage /></ExpertsSessionRouteGate></div>;
+  if (showSessionMemory) return <div className="gkais-experts-interactions"><ExpertsSessionRouteGate><SessionMemoryWorkspaceAI onBack={backFromSessionMemory} /></ExpertsSessionRouteGate></div>;
+  if (showExpertsWorkspace) return <div className="gkais-experts-interactions"><ExpertsWorkspace onExit={exitExpertsWorkspace} /></div>;
   if (showExpertsDemo) return <ExpertsCommercialDemo onExit={exitExpertsDemo} />;
 
   return showAdmin

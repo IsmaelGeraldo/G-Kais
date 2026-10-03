@@ -121,3 +121,67 @@ html.gkais-surface-dark [class*="lg:pl-[245px]"] aside.bg-white textarea::placeh
   height: auto;
   overflow: visible;
 }
+
+/* Dashboard experiment: modern microinteraction only on Por hacer hoy > Trabajo prioritario. */
+div[class*="xl:grid-cols-[1.35fr_.85fr]"] > section:first-child > div:first-child > button[class*="bg-[#111413]"] {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  box-shadow: 0 5px 14px rgba(17, 20, 19, 0.12);
+  transition: transform 180ms cubic-bezier(.2,.8,.2,1), box-shadow 180ms ease, background-color 180ms ease;
+}
+
+div[class*="xl:grid-cols-[1.35fr_.85fr]"] > section:first-child > div:first-child > button[class*="bg-[#111413]"]::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 15%, rgba(255,255,255,0.18) 46%, transparent 70%);
+  transform: translateX(-125%);
+  transition: transform 420ms cubic-bezier(.2,.8,.2,1);
+}
+
+div[class*="xl:grid-cols-[1.35fr_.85fr]"] > section:first-child > div:first-child > button[class*="bg-[#111413]"]::after {
+  content: "→";
+  display: inline-block;
+  font-size: 0.9rem;
+  line-height: 1;
+  opacity: 0.68;
+  transform: translateX(0);
+  transition: transform 180ms cubic-bezier(.2,.8,.2,1), opacity 180ms ease;
+}
+
+div[class*="xl:grid-cols-[1.35fr_.85fr]"] > section:first-child > div:first-child > button[class*="bg-[#111413]"]:hover,
+div[class*="xl:grid-cols-[1.35fr_.85fr]"] > section:first-child > div:first-child > button[class*="bg-[#111413]"]:focus-visible {
+  transform: translateY(-2px);
+  background-color: #0A3F4D !important;
+  box-shadow: 0 10px 24px rgba(10, 63, 77, 0.24), 0 2px 8px rgba(17, 20, 19, 0.12);
+  outline: none;
+}
+
+div[class*="xl:grid-cols-[1.35fr_.85fr]"] > section:first-child > div:first-child > button[class*="bg-[#111413]"]:hover::before,
+div[class*="xl:grid-cols-[1.35fr_.85fr]"] > section:first-child > div:first-child > button[class*="bg-[#111413]"]:focus-visible::before {
+  transform: translateX(125%);
+}
+
+div[class*="xl:grid-cols-[1.35fr_.85fr]"] > section:first-child > div:first-child > button[class*="bg-[#111413]"]:hover::after,
+div[class*="xl:grid-cols-[1.35fr_.85fr]"] > section:first-child > div:first-child > button[class*="bg-[#111413]"]:focus-visible::after {
+  opacity: 1;
+  transform: translateX(3px);
+}
+
+div[class*="xl:grid-cols-[1.35fr_.85fr]"] > section:first-child > div:first-child > button[class*="bg-[#111413]"]:active {
+  transform: translateY(0) scale(0.985);
+  box-shadow: 0 4px 12px rgba(17, 20, 19, 0.15);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  div[class*="xl:grid-cols-[1.35fr_.85fr]"] > section:first-child > div:first-child > button[class*="bg-[#111413]"],
+  div[class*="xl:grid-cols-[1.35fr_.85fr]"] > section:first-child > div:first-child > button[class*="bg-[#111413]"]::before,
+  div[class*="xl:grid-cols-[1.35fr_.85fr]"] > section:first-child > div:first-child > button[class*="bg-[#111413]"]::after {
+    transition: none;
+  }
+}

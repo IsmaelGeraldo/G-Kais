@@ -1,1 +1,1 @@
-export { DashboardHistoryV2 as DashboardHistory } from './DashboardHistoryV2';
+export { DashboardHistoryV3 as DashboardHistory } from './DashboardHistoryV3';

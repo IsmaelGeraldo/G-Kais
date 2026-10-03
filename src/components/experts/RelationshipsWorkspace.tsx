@@ -60,6 +60,20 @@ export function RelationshipsWorkspace({ language, initialTab = 'people' }: { la
         top:auto !important;
         bottom:24px !important;
       }
+      .gkais-relationships-shell p[class*="text-[10px]"][class*="text-[#8D332C]"] {
+        position:fixed !important;
+        right:24px !important;
+        bottom:24px !important;
+        top:auto !important;
+        z-index:160 !important;
+        max-width:380px;
+        border-radius:14px;
+        background:#111413 !important;
+        color:#fff !important;
+        padding:12px 16px !important;
+        box-shadow:0 16px 44px rgba(0,0,0,.20);
+        font-size:12px !important;
+      }
     `}</style>
     <div className="flex flex-col gap-4 border-b border-black/7 p-4 md:p-5 xl:flex-row xl:items-center xl:justify-between">
       <div>

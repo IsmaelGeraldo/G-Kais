@@ -24,6 +24,7 @@ import { ExpertsCommercialDemo } from './components/ExpertsCommercialDemo.tsx';
 import { ExpertsWorkspace } from './components/ExpertsWorkspace.tsx';
 import { SessionMemoryWorkspaceAI } from './components/SessionMemoryWorkspaceAI.tsx';
 import { ExpertsSessionRouteGate } from './components/experts/ExpertsSessionRouteGate.tsx';
+import { FormationClassSessionPage } from './components/experts/FormationClassSessionPage.tsx';
 import { LanguageProvider } from './i18n/LanguageContext.tsx';
 
 function PublicApp({ onOpenAdmin }: { onOpenAdmin: () => void }) {
@@ -77,11 +78,16 @@ function isSessionMemoryRoute(): boolean {
   return window.location.pathname === '/workspace/experts/sessions' || window.location.pathname.startsWith('/workspace/experts/sessions/');
 }
 
+function isFormationClassSessionRoute(): boolean {
+  return window.location.pathname === '/workspace/experts/formations/session';
+}
+
 function AppContent() {
   const [showAdmin, setShowAdmin] = useState<boolean>(() => isHqRoute() || (import.meta.env.DEV && window.sessionStorage.getItem('gkais-dev-admin') === '1'));
   const [showExpertsDemo, setShowExpertsDemo] = useState<boolean>(() => isExpertsDemoRoute());
   const [showExpertsWorkspace, setShowExpertsWorkspace] = useState<boolean>(() => isExpertsWorkspaceRoute());
   const [showSessionMemory, setShowSessionMemory] = useState<boolean>(() => isSessionMemoryRoute());
+  const [showFormationClassSession, setShowFormationClassSession] = useState<boolean>(() => isFormationClassSessionRoute());
 
   useEffect(() => {
     const handlePopState = () => {
@@ -89,6 +95,7 @@ function AppContent() {
       setShowExpertsDemo(isExpertsDemoRoute());
       setShowExpertsWorkspace(isExpertsWorkspaceRoute());
       setShowSessionMemory(isSessionMemoryRoute());
+      setShowFormationClassSession(isFormationClassSessionRoute());
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
@@ -97,12 +104,12 @@ function AppContent() {
   const openAdmin = () => {
     if (import.meta.env.DEV) window.sessionStorage.setItem('gkais-dev-admin', '1');
     window.history.pushState({}, '', '/hq');
-    setShowExpertsDemo(false); setShowExpertsWorkspace(false); setShowSessionMemory(false); setShowAdmin(true);
+    setShowExpertsDemo(false); setShowExpertsWorkspace(false); setShowSessionMemory(false); setShowFormationClassSession(false); setShowAdmin(true);
   };
 
   const openExpertsWorkspace = () => {
     window.history.pushState({}, '', '/workspace/experts');
-    setShowAdmin(false); setShowExpertsDemo(false); setShowSessionMemory(false); setShowExpertsWorkspace(true);
+    setShowAdmin(false); setShowExpertsDemo(false); setShowSessionMemory(false); setShowFormationClassSession(false); setShowExpertsWorkspace(true);
   };
 
   const exitAdmin = () => {
@@ -113,23 +120,25 @@ function AppContent() {
 
   const exitExpertsDemo = () => {
     window.history.pushState({}, '', '/');
-    setShowExpertsDemo(false); setShowExpertsWorkspace(false); setShowSessionMemory(false); setShowAdmin(false);
+    setShowExpertsDemo(false); setShowExpertsWorkspace(false); setShowSessionMemory(false); setShowFormationClassSession(false); setShowAdmin(false);
   };
 
   const exitExpertsWorkspace = () => {
     window.history.pushState({}, '', '/');
-    setShowExpertsWorkspace(false); setShowSessionMemory(false); setShowExpertsDemo(false); setShowAdmin(false);
+    setShowExpertsWorkspace(false); setShowSessionMemory(false); setShowFormationClassSession(false); setShowExpertsDemo(false); setShowAdmin(false);
   };
 
   const backFromSessionMemory = () => {
     const clientId = new URLSearchParams(window.location.search).get('client') || 'sofia';
     window.history.replaceState({}, '', `/workspace/experts?view=clients&client=${encodeURIComponent(clientId)}`);
     setShowSessionMemory(false);
+    setShowFormationClassSession(false);
     setShowExpertsWorkspace(true);
     setShowExpertsDemo(false);
     setShowAdmin(false);
   };
 
+  if (showFormationClassSession) return <ExpertsSessionRouteGate><FormationClassSessionPage /></ExpertsSessionRouteGate>;
   if (showSessionMemory) return <ExpertsSessionRouteGate><SessionMemoryWorkspaceAI onBack={backFromSessionMemory} /></ExpertsSessionRouteGate>;
   if (showExpertsWorkspace) return <ExpertsWorkspace onExit={exitExpertsWorkspace} />;
   if (showExpertsDemo) return <ExpertsCommercialDemo onExit={exitExpertsDemo} />;

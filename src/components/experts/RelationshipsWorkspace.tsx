@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { HeartHandshake, UsersRound } from 'lucide-react';
 import type { Language } from '../../i18n/LanguageContext';
 import { FollowUpWorkWorkspaceV2 } from './FollowUpWorkWorkspaceV2';
-import { PeopleWorkspaceV2 } from './PeopleWorkspaceV2';
+import { PeopleWorkspaceV3 } from './PeopleWorkspaceV3';
 
 type RelationshipTab = 'people' | 'follow-up';
 
@@ -29,6 +29,6 @@ export function RelationshipsWorkspace({ language, initialTab = 'people' }: { la
         <button type="button" onClick={() => setTab('follow-up')} className={`inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-xs font-semibold ${tab === 'follow-up' ? '' : 'text-black/50'}`} style={activeStyle(tab === 'follow-up')}><HeartHandshake className="h-4 w-4" />{language === 'es' ? 'Seguimiento' : 'Follow-up'}</button>
       </div>
     </div>
-    <div className="bg-[#F7F7F5]/35 p-4 md:p-5">{tab === 'people' ? <PeopleWorkspaceV2 language={language} /> : <FollowUpWorkWorkspaceV2 language={language} />}</div>
+    <div className="bg-[#F7F7F5]/35 p-4 md:p-5">{tab === 'people' ? <PeopleWorkspaceV3 language={language} /> : <FollowUpWorkWorkspaceV2 language={language} />}</div>
   </section>;
 }

@@ -23,12 +23,18 @@ export type FormationPlanClass = {
   /** Compatibility with the Stage 4.5C plan model. */
   dayNumber: number;
   title: string;
+  openingItems: string[];
   teachingItems: string[];
+  closingItems: string[];
   date: string;
   mentorNotes: string;
   faq: string;
   closingNotes: string;
+  assignments: string[];
+  assignmentReview: string;
   status: 'pending' | 'done';
+  deletedAt?: string;
+  deletedReason?: string;
   createdAt: string;
   updatedAt?: string;
 };
@@ -41,6 +47,10 @@ async function workspaceId() {
   const id = await resolveActiveExpertWorkspaceId(user);
   if (!id) throw new Error('WORKSPACE_REQUIRED');
   return id;
+}
+
+function stringList(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
 }
 
 function mapClass(id: string, data: Record<string, unknown>): FormationPlanClass {
@@ -58,21 +68,26 @@ function mapClass(id: string, data: Record<string, unknown>): FormationPlanClass
     classNumber,
     dayNumber: classNumber,
     title: typeof task.planTitle === 'string' ? task.planTitle : (typeof task.title === 'string' ? task.title : ''),
-    teachingItems: Array.isArray(task.teachingItems)
-      ? task.teachingItems.filter((value): value is string => typeof value === 'string')
-      : [],
+    openingItems: stringList(task.openingItems),
+    teachingItems: stringList(task.teachingItems),
+    closingItems: stringList(task.closingItems),
     date: typeof task.dueDate === 'string' ? task.dueDate : '',
     mentorNotes: typeof task.mentorNotes === 'string' ? task.mentorNotes : '',
     faq: typeof task.faq === 'string' ? task.faq : '',
     closingNotes: typeof task.closingNotes === 'string' ? task.closingNotes : '',
+    assignments: stringList(task.assignments),
+    assignmentReview: typeof task.assignmentReview === 'string' ? task.assignmentReview : '',
     status: planStatus,
+    deletedAt: typeof task.deletedAt === 'string' && task.deletedAt ? task.deletedAt : undefined,
+    deletedReason: typeof task.deletedReason === 'string' && task.deletedReason ? task.deletedReason : undefined,
     createdAt: typeof task.createdAt === 'string' ? task.createdAt : '',
     updatedAt: typeof task.updatedAt === 'string' ? task.updatedAt : undefined
   };
 }
 
-export async function subscribeFormationPlan(
+async function subscribePlanByDeletedState(
   cohortId: string,
+  deleted: boolean,
   callback: (items: FormationPlanClass[]) => void
 ): Promise<Unsubscribe> {
   const workspace = await workspaceId();
@@ -84,8 +99,23 @@ export async function subscribeFormationPlan(
     callback(snapshot.docs
       .filter((item) => item.id.startsWith('formation-plan-'))
       .map((item) => mapClass(item.id, item.data() as Record<string, unknown>))
+      .filter((item) => deleted ? Boolean(item.deletedAt) : !item.deletedAt)
       .sort((a, b) => a.classNumber - b.classNumber || a.date.localeCompare(b.date)));
   }, () => callback([]));
+}
+
+export async function subscribeFormationPlan(
+  cohortId: string,
+  callback: (items: FormationPlanClass[]) => void
+): Promise<Unsubscribe> {
+  return subscribePlanByDeletedState(cohortId, false, callback);
+}
+
+export async function subscribeFormationPlanHistory(
+  cohortId: string,
+  callback: (items: FormationPlanClass[]) => void
+): Promise<Unsubscribe> {
+  return subscribePlanByDeletedState(cohortId, true, callback);
 }
 
 export async function saveFormationPlanClass(input: {
@@ -95,11 +125,15 @@ export async function saveFormationPlanClass(input: {
   cohortTitle: string;
   classNumber: number;
   title: string;
-  teachingItems: string[];
+  openingItems?: string[];
+  teachingItems?: string[];
+  closingItems?: string[];
   date?: string;
   mentorNotes?: string;
   faq?: string;
   closingNotes?: string;
+  assignments?: string[];
+  assignmentReview?: string;
   status?: 'pending' | 'done';
 }): Promise<string> {
   const user = firebaseAuth.currentUser;
@@ -114,6 +148,11 @@ export async function saveFormationPlanClass(input: {
     : {};
   const now = new Date().toISOString();
   const planTitle = input.title.trim() || `Clase ${classNumber}`;
+  const openingItems = input.openingItems ?? stringList(previousTask.openingItems);
+  const teachingItems = input.teachingItems ?? stringList(previousTask.teachingItems);
+  const closingItems = input.closingItems ?? stringList(previousTask.closingItems);
+  const assignments = input.assignments ?? stringList(previousTask.assignments);
+
   await setDoc(ref, {
     schemaVersion: 1,
     task: {
@@ -124,7 +163,7 @@ export async function saveFormationPlanClass(input: {
       personId: '',
       title: `Clase ${classNumber} · ${planTitle}`,
       type: 'task',
-      note: input.teachingItems.join('\n'),
+      note: [...openingItems, ...teachingItems, ...closingItems].join('\n'),
       dueDate: input.date || '',
       dueTime: '',
       assignee: 'Formación',
@@ -133,7 +172,7 @@ export async function saveFormationPlanClass(input: {
       createdByUid: typeof previousTask.createdByUid === 'string' ? previousTask.createdByUid : user.uid,
       // Class plans are memory, not operational work.
       status: 'done',
-      planStatus: input.status || 'pending',
+      planStatus: input.status || (previousTask.planStatus === 'done' ? 'done' : 'pending'),
       completedAt: typeof previousTask.completedAt === 'string' ? previousTask.completedAt : now,
       createdAt: typeof previousTask.createdAt === 'string' ? previousTask.createdAt : now,
       source: 'formation',
@@ -145,10 +184,14 @@ export async function saveFormationPlanClass(input: {
       classNumber,
       dayNumber: classNumber,
       planTitle,
-      teachingItems: input.teachingItems.map((value) => value.trim()).filter(Boolean),
+      openingItems: openingItems.map((value) => value.trim()).filter(Boolean),
+      teachingItems: teachingItems.map((value) => value.trim()).filter(Boolean),
+      closingItems: closingItems.map((value) => value.trim()).filter(Boolean),
       mentorNotes: (input.mentorNotes ?? (typeof previousTask.mentorNotes === 'string' ? previousTask.mentorNotes : '')).trim(),
       faq: (input.faq ?? (typeof previousTask.faq === 'string' ? previousTask.faq : '')).trim(),
       closingNotes: (input.closingNotes ?? (typeof previousTask.closingNotes === 'string' ? previousTask.closingNotes : '')).trim(),
+      assignments: assignments.map((value) => value.trim()).filter(Boolean),
+      assignmentReview: (input.assignmentReview ?? (typeof previousTask.assignmentReview === 'string' ? previousTask.assignmentReview : '')).trim(),
       updatedAt: now,
       confirmationEmail: 'not-required'
     },
@@ -230,10 +273,17 @@ export async function ensureFormationClassPlan(input: {
         classNumber,
         dayNumber: classNumber,
         planTitle,
-        teachingItems: Array.isArray(previous.teachingItems) ? previous.teachingItems : [],
+        openingItems: stringList(previous.openingItems),
+        teachingItems: stringList(previous.teachingItems),
+        closingItems: stringList(previous.closingItems),
         mentorNotes: typeof previous.mentorNotes === 'string' ? previous.mentorNotes : '',
         faq: typeof previous.faq === 'string' ? previous.faq : '',
         closingNotes: typeof previous.closingNotes === 'string' ? previous.closingNotes : '',
+        assignments: stringList(previous.assignments),
+        assignmentReview: typeof previous.assignmentReview === 'string' ? previous.assignmentReview : '',
+        // Preserve class history if a class was intentionally archived.
+        deletedAt: typeof previous.deletedAt === 'string' ? previous.deletedAt : '',
+        deletedReason: typeof previous.deletedReason === 'string' ? previous.deletedReason : '',
         updatedAt: now,
         confirmationEmail: 'not-required'
       },
@@ -243,14 +293,59 @@ export async function ensureFormationClassPlan(input: {
 
   currentSnapshot.docs
     .filter((item) => item.id.startsWith('formation-plan-') && !wantedIds.has(item.id))
-    .forEach((item) => batch.delete(item.ref));
+    .forEach((item) => {
+      const previous = (item.data().task || {}) as Record<string, unknown>;
+      if (typeof previous.deletedAt === 'string' && previous.deletedAt) return;
+      batch.set(item.ref, {
+        schemaVersion: 1,
+        task: {
+          ...previous,
+          deletedAt: now,
+          deletedReason: 'schedule-change',
+          updatedAt: now
+        },
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+    });
 
   await batch.commit();
 }
 
-export async function deleteFormationPlanDay(id: string) {
+export async function archiveFormationPlanClass(id: string, reason = 'manual'): Promise<void> {
   const workspace = await workspaceId();
-  await deleteDoc(doc(firestoreDb, 'expert_workspaces', workspace, 'work_tasks', id));
+  const ref = doc(firestoreDb, 'expert_workspaces', workspace, 'work_tasks', id);
+  const snapshot = await getDoc(ref);
+  if (!snapshot.exists()) return;
+  const task = snapshot.data().task && typeof snapshot.data().task === 'object'
+    ? snapshot.data().task as Record<string, unknown>
+    : {};
+  const now = new Date().toISOString();
+  await setDoc(ref, {
+    schemaVersion: 1,
+    task: { ...task, deletedAt: now, deletedReason: reason, updatedAt: now },
+    updatedAt: serverTimestamp()
+  }, { merge: true });
+}
+
+export async function restoreFormationPlanClass(id: string): Promise<void> {
+  const workspace = await workspaceId();
+  const ref = doc(firestoreDb, 'expert_workspaces', workspace, 'work_tasks', id);
+  const snapshot = await getDoc(ref);
+  if (!snapshot.exists()) return;
+  const task = snapshot.data().task && typeof snapshot.data().task === 'object'
+    ? snapshot.data().task as Record<string, unknown>
+    : {};
+  const now = new Date().toISOString();
+  await setDoc(ref, {
+    schemaVersion: 1,
+    task: { ...task, deletedAt: '', deletedReason: '', updatedAt: now },
+    updatedAt: serverTimestamp()
+  }, { merge: true });
+}
+
+/** Compatibility alias. Class deletion is now recoverable. */
+export async function deleteFormationPlanDay(id: string) {
+  await archiveFormationPlanClass(id, 'manual');
 }
 
 export async function deleteEnrollmentRecord(enrollmentId: string) {

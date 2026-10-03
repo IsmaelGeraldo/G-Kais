@@ -41,6 +41,12 @@ export type DashboardFormationClass = {
 };
 
 export type DashboardCohortTime = { cohortId: string; time: string };
+export type DashboardMentoringBuyer = {
+  id: string;
+  personId: string;
+  createdAt: string;
+  startDate: string;
+};
 
 async function workspaceId(): Promise<string> {
   const user = firebaseAuth.currentUser;
@@ -51,6 +57,7 @@ async function workspaceId(): Promise<string> {
 }
 
 function text(value: unknown): string { return typeof value === 'string' ? value : ''; }
+function object(value: unknown): Record<string, unknown> { return value && typeof value === 'object' ? value as Record<string, unknown> : {}; }
 
 export async function subscribeDashboardWorkItems(
   callback: (items: DashboardWorkItem[]) => void
@@ -59,7 +66,7 @@ export async function subscribeDashboardWorkItems(
   return onSnapshot(collection(firestoreDb, 'expert_workspaces', workspace, 'work_tasks'), (snapshot) => {
     callback(snapshot.docs.map((item) => {
       const data = item.data() as Record<string, unknown>;
-      const task = data.task && typeof data.task === 'object' ? data.task as Record<string, unknown> : {};
+      const task = object(data.task);
       const type = ['email', 'whatsapp', 'call', 'meeting', 'task'].includes(text(task.type)) ? text(task.type) as DashboardWorkItem['type'] : 'task';
       const status = ['pending', 'in-progress', 'done'].includes(text(task.status)) ? text(task.status) as DashboardWorkItem['status'] : 'pending';
       const interactionState = ['queue', 'waiting-reply', 'reply-received'].includes(text(task.interactionState)) ? text(task.interactionState) as DashboardWorkItem['interactionState'] : 'queue';
@@ -100,7 +107,7 @@ export async function subscribeDashboardFormationClasses(
     const rows: DashboardFormationClass[] = [];
     snapshot.docs.forEach((item) => {
       const data = item.data() as Record<string, unknown>;
-      const task = data.task && typeof data.task === 'object' ? data.task as Record<string, unknown> : {};
+      const task = object(data.task);
       if (text(task.sourceActionKind) !== 'formation-plan') return;
       rows.push({
         id: item.id,
@@ -127,12 +134,30 @@ export async function subscribeDashboardCohortTimes(
     const rows: DashboardCohortTime[] = [];
     snapshot.docs.forEach((item) => {
       const data = item.data() as Record<string, unknown>;
-      const task = data.task && typeof data.task === 'object' ? data.task as Record<string, unknown> : {};
+      const task = object(data.task);
       if (text(task.sourceActionKind) !== 'cohort-meta') return;
       const cohortId = text(task.cohortId);
       const time = text(task.classTime);
       if (cohortId) rows.push({ cohortId, time });
     });
     callback(rows);
+  }, () => callback([]));
+}
+
+export async function subscribeDashboardMentoringBuyers(
+  callback: (items: DashboardMentoringBuyer[]) => void
+): Promise<Unsubscribe> {
+  const workspace = await workspaceId();
+  return onSnapshot(collection(firestoreDb, 'expert_workspaces', workspace, 'clients'), (snapshot) => {
+    callback(snapshot.docs.map((item) => {
+      const data = item.data() as Record<string, unknown>;
+      const record = object(data.record);
+      return {
+        id: item.id,
+        personId: text(record.personId),
+        createdAt: text(record.createdAt),
+        startDate: text(record.startDate)
+      };
+    }));
   }, () => callback([]));
 }

@@ -1,2 +1,2 @@
 import './dashboardIntlCompat';
-export { DashboardHistoryV3 as DashboardHistory } from './DashboardHistoryV3';
+export { DashboardHistoryV4 as DashboardHistory } from './DashboardHistoryV4';

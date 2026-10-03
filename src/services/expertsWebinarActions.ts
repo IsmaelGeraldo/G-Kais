@@ -102,19 +102,14 @@ export async function createWebinarWorkAction(input: {
       : `Dar seguimiento después de ${input.webinar.title}; no compró${input.registration.interest !== 'unknown' ? ` · interés ${input.registration.interest}` : ''}.`;
 
   await runTransaction(firestoreDb, async (transaction) => {
-    const [taskSnapshot, registrationSnapshot, personSnapshot] = await Promise.all([
+    const [taskSnapshot, registrationSnapshot] = await Promise.all([
       transaction.get(taskRef),
-      transaction.get(registrationRef),
-      transaction.get(personRef)
+      transaction.get(registrationRef)
     ]);
     if (!registrationSnapshot.exists()) throw new Error('WEBINAR_REGISTRATION_NOT_FOUND');
-    if (!personSnapshot.exists()) throw new Error('PERSON_NOT_FOUND');
 
     const existingTask = taskSnapshot.exists()
       ? (taskSnapshot.data() as { task?: Record<string, unknown> }).task || {}
-      : {};
-    const currentMemory = personSnapshot.data().outcomeMemory && typeof personSnapshot.data().outcomeMemory === 'object'
-      ? personSnapshot.data().outcomeMemory as Record<string, unknown>
       : {};
     const actionType = input.type || (kind === 'enrollment' ? 'task' : 'whatsapp');
     const dueDate = input.dueDate !== undefined ? input.dueDate : (typeof existingTask.dueDate === 'string' ? existingTask.dueDate : '');
@@ -156,18 +151,19 @@ export async function createWebinarWorkAction(input: {
       updatedAt: serverTimestamp()
     });
 
-    transaction.set(personRef, {
-      outcomeMemory: sanitize({
-        ...currentMemory,
-        webinarFollowUpStatus: 'created',
-        webinarNextActionKind: kind,
-        nextActionType: actionType,
-        nextActionAt: [dueDate, dueTime].filter(Boolean).join(' '),
-        nextActionOwnerUid: input.assignee.uid,
-        ...(kind === 'enrollment' ? { nextActionLabel: title, purchasedOffer: offer } : {})
-      }),
+    const personPatch: Record<string, unknown> = {
+      'outcomeMemory.webinarFollowUpStatus': 'created',
+      'outcomeMemory.webinarNextActionKind': kind,
+      'outcomeMemory.nextActionType': actionType,
+      'outcomeMemory.nextActionAt': [dueDate, dueTime].filter(Boolean).join(' '),
+      'outcomeMemory.nextActionOwnerUid': input.assignee.uid,
       updatedAt: serverTimestamp()
-    }, { merge: true });
+    };
+    if (kind === 'enrollment') {
+      personPatch['outcomeMemory.nextActionLabel'] = title;
+      personPatch['outcomeMemory.purchasedOffer'] = offer;
+    }
+    transaction.update(personRef, personPatch);
   });
 
   await appendExpertRelationshipEvent({
@@ -215,10 +211,7 @@ export async function markWebinarWorkActionCompleted(input: {
 
   const completion = await runTransaction(firestoreDb, async (transaction) => {
     const isOwner = id === user.uid;
-    const [registrationSnapshot, personSnapshot] = await Promise.all([
-      transaction.get(registrationRef),
-      isOwner ? transaction.get(personRef) : Promise.resolve(null)
-    ]);
+    const registrationSnapshot = await transaction.get(registrationRef);
     if (!registrationSnapshot.exists()) return null;
 
     const data = registrationSnapshot.data() as Record<string, unknown>;
@@ -235,24 +228,18 @@ export async function markWebinarWorkActionCompleted(input: {
       });
     }
 
-    if (isOwner && personSnapshot?.exists()) {
-      const currentMemory = personSnapshot.data().outcomeMemory && typeof personSnapshot.data().outcomeMemory === 'object'
-        ? personSnapshot.data().outcomeMemory as Record<string, unknown>
-        : {};
-      transaction.set(personRef, {
-        outcomeMemory: sanitize({
-          ...currentMemory,
-          webinarFollowUpStatus: 'completed',
-          webinarNextActionKind: kind,
-          lastFollowUpResult: result,
-          lastFollowUpAt: new Date().toISOString(),
-          nextActionType: '',
-          nextActionAt: '',
-          nextActionOwnerUid: '',
-          nextActionLabel: ''
-        }),
+    if (isOwner) {
+      transaction.update(personRef, {
+        'outcomeMemory.webinarFollowUpStatus': 'completed',
+        'outcomeMemory.webinarNextActionKind': kind,
+        'outcomeMemory.lastFollowUpResult': result,
+        'outcomeMemory.lastFollowUpAt': new Date().toISOString(),
+        'outcomeMemory.nextActionType': '',
+        'outcomeMemory.nextActionAt': '',
+        'outcomeMemory.nextActionOwnerUid': '',
+        'outcomeMemory.nextActionLabel': '',
         updatedAt: serverTimestamp()
-      }, { merge: true });
+      });
     }
 
     return { kind, trackedTaskId };

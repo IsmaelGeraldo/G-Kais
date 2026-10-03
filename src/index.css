@@ -122,59 +122,86 @@ html.gkais-surface-dark [class*="lg:pl-[245px]"] aside.bg-white textarea::placeh
   overflow: visible;
 }
 
-/* Dashboard experiment: modern microinteraction only on Por hacer hoy > Trabajo prioritario. */
-div[class*="xl:grid-cols-[1.35fr_.85fr]"] > section:first-child > div:first-child > button[class*="bg-[#111413]"] {
+/* Experts interaction system: main workspace plus mentoring and formation session modes. */
+.gkais-experts-interactions button:not(:disabled) {
+  transition-property: transform, box-shadow, background-color, border-color, color, opacity;
+  transition-duration: 180ms;
+  transition-timing-function: cubic-bezier(.2,.8,.2,1);
+  transform: translateZ(0);
+  will-change: transform;
+}
+
+.gkais-experts-interactions button:not(:disabled):hover,
+.gkais-experts-interactions button:not(:disabled):focus-visible {
+  transform: translateY(-2px);
+  box-shadow: 0 9px 22px rgba(17,20,19,0.12);
+}
+
+.gkais-experts-interactions button:not(:disabled):active {
+  transform: translateY(0) scale(0.985);
+  box-shadow: 0 4px 12px rgba(17,20,19,0.10);
+}
+
+/* Solid black buttons keep their existing black surface and receive the approved light sweep. */
+.gkais-experts-interactions button[class*="bg-[#111413]"]:not(:disabled) {
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
   background-color: #111413 !important;
-  box-shadow: 0 5px 14px rgba(17, 20, 19, 0.12);
-  transition: transform 180ms cubic-bezier(.2,.8,.2,1), box-shadow 180ms ease, background-color 180ms ease;
 }
 
-div[class*="xl:grid-cols-[1.35fr_.85fr]"] > section:first-child > div:first-child > button[class*="bg-[#111413]"]::before {
+.gkais-experts-interactions button[class*="bg-[#111413]"]:not(:disabled)::before {
   content: "";
   position: absolute;
   z-index: -1;
   inset: 0;
+  pointer-events: none;
   background: linear-gradient(110deg, transparent 15%, rgba(255,255,255,0.18) 46%, transparent 70%);
   transform: translateX(-125%);
   transition: transform 420ms cubic-bezier(.2,.8,.2,1);
 }
 
-div[class*="xl:grid-cols-[1.35fr_.85fr]"] > section:first-child > div:first-child > button[class*="bg-[#111413]"]::after {
+.gkais-experts-interactions button[class*="bg-[#111413]"]:not(:disabled):hover,
+.gkais-experts-interactions button[class*="bg-[#111413]"]:not(:disabled):focus-visible,
+.gkais-experts-interactions button[class*="bg-[#111413]"]:not(:disabled):active {
+  background-color: #111413 !important;
+}
+
+.gkais-experts-interactions button[class*="bg-[#111413]"]:not(:disabled):hover::before,
+.gkais-experts-interactions button[class*="bg-[#111413]"]:not(:disabled):focus-visible::before {
+  transform: translateX(125%);
+}
+
+/* Preserve the Priority Work arrow, but it has no independent motion from its label. */
+.gkais-experts-interactions div[class*="xl:grid-cols-[1.35fr_.85fr]"] > section:first-child > div:first-child > button[class*="bg-[#111413]"]::after {
   content: "→";
   display: inline-block;
+  margin-left: 0.45rem;
   font-size: 0.9rem;
   line-height: 1;
   opacity: 0.68;
 }
 
-div[class*="xl:grid-cols-[1.35fr_.85fr]"] > section:first-child > div:first-child > button[class*="bg-[#111413]"]:hover,
-div[class*="xl:grid-cols-[1.35fr_.85fr]"] > section:first-child > div:first-child > button[class*="bg-[#111413]"]:focus-visible {
-  transform: translateY(-2px);
-  background-color: #111413 !important;
-  box-shadow: 0 10px 24px rgba(17, 20, 19, 0.24), 0 2px 8px rgba(17, 20, 19, 0.12);
-  outline: none;
+/* Dashboard top metrics: force the four divider/footer rows onto one baseline. */
+.gkais-experts-interactions main article:has(> div:first-child > div:first-child > strong.text-3xl) {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
 }
 
-div[class*="xl:grid-cols-[1.35fr_.85fr]"] > section:first-child > div:first-child > button[class*="bg-[#111413]"]:hover::before,
-div[class*="xl:grid-cols-[1.35fr_.85fr]"] > section:first-child > div:first-child > button[class*="bg-[#111413]"]:focus-visible::before {
-  transform: translateX(125%);
-}
-
-div[class*="xl:grid-cols-[1.35fr_.85fr]"] > section:first-child > div:first-child > button[class*="bg-[#111413]"]:active {
-  transform: translateY(0) scale(0.985);
-  background-color: #111413 !important;
-  box-shadow: 0 4px 12px rgba(17, 20, 19, 0.15);
+.gkais-experts-interactions main article:has(> div:first-child > div:first-child > strong.text-3xl) > :last-child {
+  margin-top: auto;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  div[class*="xl:grid-cols-[1.35fr_.85fr]"] > section:first-child > div:first-child > button[class*="bg-[#111413]"],
-  div[class*="xl:grid-cols-[1.35fr_.85fr]"] > section:first-child > div:first-child > button[class*="bg-[#111413]"]::before {
+  .gkais-experts-interactions button:not(:disabled),
+  .gkais-experts-interactions button[class*="bg-[#111413]"]:not(:disabled)::before {
     transition: none;
+  }
+
+  .gkais-experts-interactions button:not(:disabled):hover,
+  .gkais-experts-interactions button:not(:disabled):focus-visible,
+  .gkais-experts-interactions button:not(:disabled):active {
+    transform: none;
   }
 }

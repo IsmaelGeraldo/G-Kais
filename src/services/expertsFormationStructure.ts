@@ -12,10 +12,11 @@ export type FormationStructure = {
 export type CohortStructure = {
   classesPerWeek: number;
   classDays: number[];
+  classTime: string;
 };
 
 const EMPTY_FORMATION: FormationStructure = { learning: '', expectedOutcome: '', description: '' };
-const EMPTY_COHORT: CohortStructure = { classesPerWeek: 1, classDays: [] };
+const EMPTY_COHORT: CohortStructure = { classesPerWeek: 1, classDays: [], classTime: '' };
 
 async function workspaceId(): Promise<string> {
   const user = firebaseAuth.currentUser;
@@ -113,7 +114,8 @@ export async function subscribeCohortStructure(
     const classesPerWeek = typeof task?.classesPerWeek === 'number'
       ? Math.max(1, Math.min(7, Math.round(task.classesPerWeek)))
       : Math.max(1, classDays.length || 1);
-    callback({ classesPerWeek, classDays });
+    const classTime = typeof task?.classTime === 'string' ? task.classTime : '';
+    callback({ classesPerWeek, classDays, classTime });
   }, () => callback(EMPTY_COHORT));
 }
 
@@ -123,6 +125,7 @@ export async function saveCohortStructure(input: {
   cohortTitle: string;
   classesPerWeek: number;
   classDays: number[];
+  classTime?: string;
 }): Promise<void> {
   const user = firebaseAuth.currentUser;
   if (!user) throw new Error('AUTH_REQUIRED');
@@ -133,6 +136,7 @@ export async function saveCohortStructure(input: {
     .filter((value) => Number.isInteger(value) && value >= 0 && value <= 6)
     .sort((a, b) => a - b);
   const classesPerWeek = Math.max(1, Math.min(7, Math.round(input.classesPerWeek || classDays.length || 1)));
+  const classTime = (input.classTime || '').trim();
   await setDoc(taskDocument(workspace, id), {
     schemaVersion: 1,
     task: {
@@ -160,6 +164,7 @@ export async function saveCohortStructure(input: {
       cohortId: input.cohortId,
       classesPerWeek,
       classDays,
+      classTime,
       confirmationEmail: 'not-required'
     },
     updatedAt: serverTimestamp()

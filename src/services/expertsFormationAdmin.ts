@@ -51,11 +51,17 @@ export async function deleteCohortCascade(cohortId: string): Promise<{ enrollmen
     getDocs(query(workspaceCollection(workspace, 'enrollments'), where('cohortId', '==', cohortId))),
     cohortMemoryRefs(workspace, cohortId)
   ]);
+
+  // Delete the actual cohort relationship first. Auxiliary memory cleanup must never block the user's delete action.
   await commitDeletes([
     ...enrollmentSnapshot.docs.map((item) => item.ref),
-    ...memoryRefs,
     workspaceDocument(workspace, 'cohorts', cohortId)
   ]);
+
+  await commitDeletes(memoryRefs).catch((error) => {
+    console.error('[G-KAIS COHORT MEMORY CLEANUP]', error);
+  });
+
   await appendExpertAuditLog({
     entityType: 'cohort',
     entityId: cohortId,
@@ -73,14 +79,22 @@ export async function deleteFormationCascade(formationId: string): Promise<{ coh
     getDocs(query(workspaceCollection(workspace, 'work_tasks'), where('task.formationId', '==', formationId)))
   ]);
 
-  const refs = [
+  // Core entities are one atomic logical operation from the user's point of view.
+  await commitDeletes([
     ...enrollmentSnapshot.docs.map((item) => item.ref),
-    ...formationMemorySnapshot.docs.map((item) => item.ref),
     ...cohortSnapshot.docs.map((item) => item.ref),
-    workspaceDocument(workspace, 'work_tasks', `formation-meta-${formationId}`),
     workspaceDocument(workspace, 'formations', formationId)
-  ];
-  await commitDeletes(refs);
+  ]);
+
+  // Supporting plan/meta memory is best-effort. If a stale memory document cannot be removed,
+  // it must not make the formation appear impossible to delete.
+  await commitDeletes([
+    ...formationMemorySnapshot.docs.map((item) => item.ref),
+    workspaceDocument(workspace, 'work_tasks', `formation-meta-${formationId}`)
+  ]).catch((error) => {
+    console.error('[G-KAIS FORMATION MEMORY CLEANUP]', error);
+  });
+
   await appendExpertAuditLog({
     entityType: 'formation',
     entityId: formationId,

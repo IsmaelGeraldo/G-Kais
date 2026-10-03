@@ -186,6 +186,28 @@ html.gkais-surface-dark [class*="lg:pl-[245px]"] aside.bg-white textarea::placeh
   box-shadow: none !important;
 }
 
+/* Mentoring commitments are checklist rows, not action buttons. Keep the row still and emphasize only its status icon. */
+.gkais-experts-interactions button[class*="border-black/7"][class*="p-3"][class*="text-left"]:has(> svg.lucide-circle),
+.gkais-experts-interactions button[class*="border-black/7"][class*="p-3"][class*="text-left"]:has(> svg.lucide-alert-triangle) {
+  transform: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+.gkais-experts-interactions button[class*="border-black/7"][class*="p-3"][class*="text-left"] > svg.lucide-circle,
+.gkais-experts-interactions button[class*="border-black/7"][class*="p-3"][class*="text-left"] > svg.lucide-alert-triangle {
+  transition: transform 160ms ease, filter 160ms ease, opacity 160ms ease;
+  transform-origin: center;
+}
+
+.gkais-experts-interactions button[class*="border-black/7"][class*="p-3"][class*="text-left"]:hover > svg.lucide-circle,
+.gkais-experts-interactions button[class*="border-black/7"][class*="p-3"][class*="text-left"]:focus-visible > svg.lucide-circle,
+.gkais-experts-interactions button[class*="border-black/7"][class*="p-3"][class*="text-left"]:hover > svg.lucide-alert-triangle,
+.gkais-experts-interactions button[class*="border-black/7"][class*="p-3"][class*="text-left"]:focus-visible > svg.lucide-alert-triangle {
+  transform: scale(1.14);
+  filter: drop-shadow(0 2px 3px rgba(17,20,19,0.16));
+}
+
 /* Preserve the Priority Work arrow, but it has no independent motion from its label. */
 .gkais-experts-interactions div[class*="xl:grid-cols-[1.35fr_.85fr]"] > section:first-child > div:first-child > button[class*="bg-[#111413]"]::after {
   content: "→";

@@ -122,9 +122,8 @@ html.gkais-surface-dark [class*="lg:pl-[245px]"] aside.bg-white textarea::placeh
   overflow: visible;
 }
 
-/* Experts Workspace interaction system.
-   The presence of the desktop workspace shell scopes these rules away from the public site. */
-body:has([class*="lg:pl-[245px]"]) button:not(:disabled) {
+/* Experts interaction system: main workspace plus mentoring and formation session modes. */
+.gkais-experts-interactions button:not(:disabled) {
   transition-property: transform, box-shadow, background-color, border-color, color, opacity;
   transition-duration: 180ms;
   transition-timing-function: cubic-bezier(.2,.8,.2,1);
@@ -132,26 +131,26 @@ body:has([class*="lg:pl-[245px]"]) button:not(:disabled) {
   will-change: transform;
 }
 
-body:has([class*="lg:pl-[245px]"]) button:not(:disabled):hover,
-body:has([class*="lg:pl-[245px]"]) button:not(:disabled):focus-visible {
+.gkais-experts-interactions button:not(:disabled):hover,
+.gkais-experts-interactions button:not(:disabled):focus-visible {
   transform: translateY(-2px);
   box-shadow: 0 9px 22px rgba(17,20,19,0.12);
 }
 
-body:has([class*="lg:pl-[245px]"]) button:not(:disabled):active {
+.gkais-experts-interactions button:not(:disabled):active {
   transform: translateY(0) scale(0.985);
   box-shadow: 0 4px 12px rgba(17,20,19,0.10);
 }
 
-/* Solid black buttons keep their existing black surface and receive the light sweep. */
-body:has([class*="lg:pl-[245px]"]) button[class*="bg-[#111413]"]:not(:disabled) {
+/* Solid black buttons keep their existing black surface and receive the approved light sweep. */
+.gkais-experts-interactions button[class*="bg-[#111413]"]:not(:disabled) {
   position: relative;
   isolation: isolate;
   overflow: hidden;
   background-color: #111413 !important;
 }
 
-body:has([class*="lg:pl-[245px]"]) button[class*="bg-[#111413]"]:not(:disabled)::before {
+.gkais-experts-interactions button[class*="bg-[#111413]"]:not(:disabled)::before {
   content: "";
   position: absolute;
   z-index: -1;
@@ -162,19 +161,19 @@ body:has([class*="lg:pl-[245px]"]) button[class*="bg-[#111413]"]:not(:disabled):
   transition: transform 420ms cubic-bezier(.2,.8,.2,1);
 }
 
-body:has([class*="lg:pl-[245px]"]) button[class*="bg-[#111413]"]:not(:disabled):hover,
-body:has([class*="lg:pl-[245px]"]) button[class*="bg-[#111413]"]:not(:disabled):focus-visible,
-body:has([class*="lg:pl-[245px]"]) button[class*="bg-[#111413]"]:not(:disabled):active {
+.gkais-experts-interactions button[class*="bg-[#111413]"]:not(:disabled):hover,
+.gkais-experts-interactions button[class*="bg-[#111413]"]:not(:disabled):focus-visible,
+.gkais-experts-interactions button[class*="bg-[#111413]"]:not(:disabled):active {
   background-color: #111413 !important;
 }
 
-body:has([class*="lg:pl-[245px]"]) button[class*="bg-[#111413]"]:not(:disabled):hover::before,
-body:has([class*="lg:pl-[245px]"]) button[class*="bg-[#111413]"]:not(:disabled):focus-visible::before {
+.gkais-experts-interactions button[class*="bg-[#111413]"]:not(:disabled):hover::before,
+.gkais-experts-interactions button[class*="bg-[#111413]"]:not(:disabled):focus-visible::before {
   transform: translateX(125%);
 }
 
 /* Preserve the Priority Work arrow, but it has no independent motion from its label. */
-body:has([class*="lg:pl-[245px]"]) div[class*="xl:grid-cols-[1.35fr_.85fr]"] > section:first-child > div:first-child > button[class*="bg-[#111413]"]::after {
+.gkais-experts-interactions div[class*="xl:grid-cols-[1.35fr_.85fr]"] > section:first-child > div:first-child > button[class*="bg-[#111413]"]::after {
   content: "→";
   display: inline-block;
   margin-left: 0.45rem;
@@ -184,25 +183,25 @@ body:has([class*="lg:pl-[245px]"]) div[class*="xl:grid-cols-[1.35fr_.85fr]"] > s
 }
 
 /* Dashboard top metrics: force the four divider/footer rows onto one baseline. */
-body:has([class*="lg:pl-[245px]"]) main article:has(> div:first-child > div:first-child > strong.text-3xl) {
+.gkais-experts-interactions main article:has(> div:first-child > div:first-child > strong.text-3xl) {
   display: flex;
   height: 100%;
   flex-direction: column;
 }
 
-body:has([class*="lg:pl-[245px]"]) main article:has(> div:first-child > div:first-child > strong.text-3xl) > :last-child {
+.gkais-experts-interactions main article:has(> div:first-child > div:first-child > strong.text-3xl) > :last-child {
   margin-top: auto;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  body:has([class*="lg:pl-[245px]"]) button:not(:disabled),
-  body:has([class*="lg:pl-[245px]"]) button[class*="bg-[#111413]"]:not(:disabled)::before {
+  .gkais-experts-interactions button:not(:disabled),
+  .gkais-experts-interactions button[class*="bg-[#111413]"]:not(:disabled)::before {
     transition: none;
   }
 
-  body:has([class*="lg:pl-[245px]"]) button:not(:disabled):hover,
-  body:has([class*="lg:pl-[245px]"]) button:not(:disabled):focus-visible,
-  body:has([class*="lg:pl-[245px]"]) button:not(:disabled):active {
+  .gkais-experts-interactions button:not(:disabled):hover,
+  .gkais-experts-interactions button:not(:disabled):focus-visible,
+  .gkais-experts-interactions button:not(:disabled):active {
     transform: none;
   }
 }

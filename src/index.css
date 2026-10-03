@@ -207,8 +207,11 @@ html.gkais-surface-dark [class*="lg:pl-[245px]"] aside.bg-white textarea::placeh
   margin-top: auto;
 }
 
-/* Consistent action feedback. Copilot notices intentionally do not use this class. */
-.gkais-action-toast {
+/* Consistent action feedback. Copilot notices intentionally do not use these selectors. */
+.gkais-action-toast,
+.gkais-experts-interactions p[class*="border-red-200"][class*="bg-red-50"],
+.gkais-experts-interactions p[class*="bg-[#A23A32]/8"][class*="text-[#8D332C]"],
+.gkais-experts-interactions main p[class*="mt-5"][class*="rounded-xl"][class*="bg-white"][class*="text-black/55"] {
   position: fixed !important;
   right: 24px !important;
   bottom: 24px !important;
@@ -226,8 +229,48 @@ html.gkais-surface-dark [class*="lg:pl-[245px]"] aside.bg-white textarea::placeh
   line-height: 1.45 !important;
 }
 
+/* Session completion is action feedback too: compact it instead of blocking the full screen. */
+.gkais-experts-interactions div[class*="fixed"][class*="inset-0"][class*="z-[120]"][class*="bg-black/20"] {
+  inset: auto 24px 24px auto !important;
+  display: block !important;
+  width: auto !important;
+  max-width: min(380px, calc(100vw - 48px));
+  background: transparent !important;
+  padding: 0 !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+.gkais-experts-interactions div[class*="fixed"][class*="inset-0"][class*="z-[120]"][class*="bg-black/20"] > div {
+  border: 1px solid rgba(255,255,255,0.08) !important;
+  border-radius: 14px !important;
+  background: #111413 !important;
+  color: #ffffff !important;
+  padding: 14px 16px !important;
+  text-align: left !important;
+  box-shadow: 0 16px 44px rgba(0,0,0,0.20) !important;
+}
+
+.gkais-experts-interactions div[class*="fixed"][class*="inset-0"][class*="z-[120]"][class*="bg-black/20"] > div [class*="text-black/"] {
+  color: rgba(255,255,255,0.64) !important;
+}
+
+.gkais-experts-interactions div[class*="fixed"][class*="inset-0"][class*="z-[120]"][class*="bg-black/20"] > div svg {
+  margin-left: 0 !important;
+  color: #ffffff !important;
+}
+
 @media (max-width: 640px) {
-  .gkais-action-toast {
+  .gkais-action-toast,
+  .gkais-experts-interactions p[class*="border-red-200"][class*="bg-red-50"],
+  .gkais-experts-interactions p[class*="bg-[#A23A32]/8"][class*="text-[#8D332C]"],
+  .gkais-experts-interactions main p[class*="mt-5"][class*="rounded-xl"][class*="bg-white"][class*="text-black/55"] {
+    right: 16px !important;
+    bottom: 16px !important;
+    max-width: calc(100vw - 32px);
+  }
+
+  .gkais-experts-interactions div[class*="fixed"][class*="inset-0"][class*="z-[120]"][class*="bg-black/20"] {
     right: 16px !important;
     bottom: 16px !important;
     max-width: calc(100vw - 32px);

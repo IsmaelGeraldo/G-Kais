@@ -54,7 +54,13 @@ export function RelationshipsWorkspace({ language, initialTab = 'people' }: { la
     return () => window.cancelAnimationFrame(frame);
   }, [tab]);
 
-  return <section ref={shellRef} className="overflow-hidden rounded-2xl border border-black/10 bg-white">
+  return <section ref={shellRef} className="gkais-relationships-shell overflow-hidden rounded-2xl border border-black/10 bg-white">
+    <style>{`
+      .gkais-relationships-shell div[class*="fixed"][class*="right-6"][class*="top-24"] {
+        top:auto !important;
+        bottom:24px !important;
+      }
+    `}</style>
     <div className="flex flex-col gap-4 border-b border-black/7 p-4 md:p-5 xl:flex-row xl:items-center xl:justify-between">
       <div>
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#0A3F4D]">{language === 'es' ? 'RELACIONES' : 'RELATIONSHIPS'}</p>

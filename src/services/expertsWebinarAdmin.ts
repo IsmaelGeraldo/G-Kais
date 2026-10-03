@@ -201,10 +201,18 @@ export async function deleteWebinarRegistration(registrationId: string) {
   const registrationSnapshot = await runTransaction(firestoreDb, async (transaction) => transaction.get(registrationRef));
   if (!registrationSnapshot.exists()) return;
   const followUpTaskId = typeof registrationSnapshot.data().followUpTaskId === 'string' ? registrationSnapshot.data().followUpTaskId : '';
-  const batch = writeBatch(firestoreDb);
-  batch.delete(registrationRef);
-  if (followUpTaskId) batch.delete(doc(firestoreDb, 'expert_workspaces', workspace, 'work_tasks', followUpTaskId));
-  await batch.commit();
+
+  // The registration itself is the source of truth. A stale follow-up task must not block removal.
+  const coreBatch = writeBatch(firestoreDb);
+  coreBatch.delete(registrationRef);
+  await coreBatch.commit();
+
+  if (followUpTaskId) {
+    const taskBatch = writeBatch(firestoreDb);
+    taskBatch.delete(doc(firestoreDb, 'expert_workspaces', workspace, 'work_tasks', followUpTaskId));
+    await taskBatch.commit().catch((error) => console.error('[G-KAIS WEBINAR PARTICIPANT TASK CLEANUP]', error));
+  }
+
   await appendExpertAuditLog({
     entityType: 'webinar_registration',
     entityId: registrationId,
@@ -223,22 +231,32 @@ export async function deleteWebinarCascade(webinarId: string) {
     getDocs(query(
       collection(firestoreDb, 'expert_workspaces', workspace, 'work_tasks'),
       where('task.sourceId', '==', webinarId)
-    ))
+    )).catch(() => null)
   ]);
-  const refs = [
+
+  // Core deletion first. Related operational tasks are auxiliary and cleaned separately.
+  const coreRefs = [
     ...registrations.docs.map((item) => item.ref),
-    ...tasks.docs.map((item) => item.ref),
     doc(firestoreDb, 'expert_workspaces', workspace, 'webinars', webinarId)
   ];
-  for (let index = 0; index < refs.length; index += 400) {
+  for (let index = 0; index < coreRefs.length; index += 400) {
     const batch = writeBatch(firestoreDb);
-    refs.slice(index, index + 400).forEach((ref) => batch.delete(ref));
+    coreRefs.slice(index, index + 400).forEach((ref) => batch.delete(ref));
     await batch.commit();
   }
+
+  if (tasks) {
+    for (let index = 0; index < tasks.docs.length; index += 400) {
+      const batch = writeBatch(firestoreDb);
+      tasks.docs.slice(index, index + 400).forEach((item) => batch.delete(item.ref));
+      await batch.commit().catch((error) => console.error('[G-KAIS WEBINAR TASK CLEANUP]', error));
+    }
+  }
+
   await appendExpertAuditLog({
     entityType: 'webinar',
     entityId: webinarId,
     action: 'webinar.deleted',
-    changes: { registrationCount: registrations.size, taskCount: tasks.size }
+    changes: { registrationCount: registrations.size, taskCount: tasks?.size || 0 }
   }).catch(() => {});
 }

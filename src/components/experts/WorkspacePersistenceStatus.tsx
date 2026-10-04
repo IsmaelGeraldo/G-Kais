@@ -7,6 +7,7 @@ import {
 } from '../../services/expertsPersistenceStatus';
 
 type ViewState = ExpertsPersistenceDetail | null;
+const WORKSPACE_NOTIFICATION_DURATION_MS = 4000;
 
 export function WorkspacePersistenceStatus() {
   const [state, setState] = useState<ViewState>(null);
@@ -18,10 +19,8 @@ export function WorkspacePersistenceStatus() {
       if (!detail?.status) return;
       if (hideTimer.current !== undefined) window.clearTimeout(hideTimer.current);
       setState(detail);
-      if (detail.status === 'saved') {
-        hideTimer.current = window.setTimeout(() => setState(null), 2600);
-      } else if (detail.status === 'error') {
-        hideTimer.current = window.setTimeout(() => setState(null), 7000);
+      if (detail.status === 'saved' || detail.status === 'error') {
+        hideTimer.current = window.setTimeout(() => setState(null), WORKSPACE_NOTIFICATION_DURATION_MS);
       }
     };
 

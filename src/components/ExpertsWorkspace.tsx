@@ -10,6 +10,8 @@ import {
 import { ExpertsWorkspace as ExpertsWorkspacePilotV3 } from './experts/ExpertsWorkspacePilotV3.tsx';
 import { WorkspacePersistenceStatus } from './experts/WorkspacePersistenceStatus.tsx';
 
+const WORKSPACE_NOTIFICATION_DURATION_MS = 4000;
+
 function WorkspaceNotificationRelay() {
   const [message, setMessage] = useState('');
   const lastMessage = useRef('');
@@ -37,7 +39,7 @@ function WorkspaceNotificationRelay() {
       hideTimer.current = window.setTimeout(() => {
         setMessage('');
         lastMessage.current = '';
-      }, 6000);
+      }, WORKSPACE_NOTIFICATION_DURATION_MS);
     };
 
     const observer = new MutationObserver(sync);

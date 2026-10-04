@@ -8,6 +8,7 @@ import {
   type DocumentReference
 } from 'firebase/firestore';
 import { firebaseAuth, firestoreDb } from '../lib/firebase';
+import { emitExpertsPersistenceStatus } from './expertsPersistenceStatus';
 import { upsertExpertPerson } from './expertsRelationshipFoundation';
 import { enrollExpertPerson } from './expertsFormations';
 import { appendExpertAuditLog, resolveActiveExpertWorkspaceId } from './expertsWorkspaceCore';
@@ -68,6 +69,7 @@ export async function deleteCohortCascade(cohortId: string): Promise<{ enrollmen
     action: 'cohort.deleted',
     changes: { enrollmentCount: enrollmentSnapshot.size }
   }).catch((error) => console.error('[G-KAIS COHORT DELETE AUDIT]', error));
+  emitExpertsPersistenceStatus('saved', 'Cohorte eliminada.');
   return { enrollmentCount: enrollmentSnapshot.size };
 }
 
@@ -101,6 +103,7 @@ export async function deleteFormationCascade(formationId: string): Promise<{ coh
     action: 'formation.deleted',
     changes: { cohortCount: cohortSnapshot.size, enrollmentCount: enrollmentSnapshot.size }
   }).catch((error) => console.error('[G-KAIS FORMATION DELETE AUDIT]', error));
+  emitExpertsPersistenceStatus('saved', 'Formación eliminada.');
   return { cohortCount: cohortSnapshot.size, enrollmentCount: enrollmentSnapshot.size };
 }
 

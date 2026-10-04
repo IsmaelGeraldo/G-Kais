@@ -12,16 +12,38 @@ const WORKSPACE_NOTIFICATION_DURATION_MS = 4000;
 export function WorkspacePersistenceStatus() {
   const [state, setState] = useState<ViewState>(null);
   const hideTimer = useRef<number | undefined>(undefined);
+  const activeTerminalKey = useRef('');
 
   useEffect(() => {
+    const clearTerminalState = () => {
+      hideTimer.current = undefined;
+      activeTerminalKey.current = '';
+      setState(null);
+    };
+
     const onStatus = (event: Event) => {
       const detail = (event as CustomEvent<ExpertsPersistenceDetail>).detail;
       if (!detail?.status) return;
-      if (hideTimer.current !== undefined) window.clearTimeout(hideTimer.current);
-      setState(detail);
-      if (detail.status === 'saved' || detail.status === 'error') {
-        hideTimer.current = window.setTimeout(() => setState(null), WORKSPACE_NOTIFICATION_DURATION_MS);
+
+      if (detail.status === 'saving') {
+        if (hideTimer.current !== undefined) {
+          window.clearTimeout(hideTimer.current);
+          hideTimer.current = undefined;
+        }
+        activeTerminalKey.current = '';
+        setState(detail);
+        return;
       }
+
+      const terminalKey = `${detail.status}:${detail.message || ''}`;
+      if (activeTerminalKey.current === terminalKey && hideTimer.current !== undefined) {
+        return;
+      }
+
+      if (hideTimer.current !== undefined) window.clearTimeout(hideTimer.current);
+      activeTerminalKey.current = terminalKey;
+      setState(detail);
+      hideTimer.current = window.setTimeout(clearTerminalState, WORKSPACE_NOTIFICATION_DURATION_MS);
     };
 
     window.addEventListener(EXPERTS_PERSISTENCE_EVENT, onStatus as EventListener);

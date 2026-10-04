@@ -239,7 +239,7 @@ function TrendChart({ kind, dates, range, setRange, language, comparison }: { ki
   const comparisonClass = comparison?.startsWith('+') ? 'text-[#17603D]' : comparison?.startsWith('-') ? 'text-[#A23A32]' : 'text-black/45';
 
   return <section className="rounded-2xl border border-black/8 bg-white p-3 shadow-[0_8px_24px_rgba(10,10,10,.025)] md:p-4">
-    <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="flex flex-wrap items-center justify-between gap-3">
       <div><p className="text-sm font-semibold">{copy.title}</p><p className="mt-0.5 text-[10px] text-black/40">{copy.description}</p></div>
       <div className="flex flex-col items-end gap-1.5">
         <div className="inline-flex rounded-full border border-black/8 bg-[#F7F7F5] p-1">{(['week', 'month', 'year'] as RangeKey[]).map((item) => <button key={item} onClick={() => setRange(item)} className={`rounded-full px-3 py-1.5 text-[10px] font-semibold ${range === item ? 'bg-[#111413] text-white' : 'text-black/40'}`}>{item === 'week' ? (language === 'es' ? 'Semana' : 'Week') : item === 'month' ? (language === 'es' ? 'Mes' : 'Month') : (language === 'es' ? 'Año' : 'Year')}</button>)}</div>

@@ -218,15 +218,16 @@ export async function markWebinarWorkActionCompleted(input: {
     const purchased = Boolean(data.purchased);
     const kind = input.kind || (purchased ? 'enrollment' : 'follow-up');
     const trackedTaskId = typeof data.followUpTaskId === 'string' ? data.followUpTaskId : input.taskId || input.registrationId;
+    const alreadyCompleted = data.followUpStatus === 'completed' && data.followUpResult === result;
 
-    if (data.followUpStatus !== 'completed' || data.followUpResult !== result) {
-      transaction.update(registrationRef, {
-        followUpStatus: 'completed',
-        followUpResult: result,
-        followUpCompletedAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
-    }
+    if (alreadyCompleted) return { kind, trackedTaskId, changed: false };
+
+    transaction.update(registrationRef, {
+      followUpStatus: 'completed',
+      followUpResult: result,
+      followUpCompletedAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
 
     if (isOwner) {
       transaction.update(personRef, {
@@ -242,10 +243,10 @@ export async function markWebinarWorkActionCompleted(input: {
       });
     }
 
-    return { kind, trackedTaskId };
+    return { kind, trackedTaskId, changed: true };
   });
 
-  if (!completion) return;
+  if (!completion?.changed) return;
   await appendExpertRelationshipEvent({
     personId: input.personId,
     type: completion.kind === 'enrollment' ? 'webinar.enrollment_task_completed' : 'webinar.followup_completed',

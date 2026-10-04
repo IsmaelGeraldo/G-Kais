@@ -187,12 +187,17 @@ function LeadReview({ task, person, assignee, language, onDone }: {
   </div>;
 }
 
-function NurtureReview({ task, person, assignee, language, onDone }: {
+function NurtureReview({ task, person, assignee, language, onDone, contactNote, setContactNote, canWait, onWaiting, onRemove }: {
   task: FollowTask;
   person: ExpertPerson;
   assignee: WorkspaceMember;
   language: Language;
   onDone: (result: string) => void;
+  contactNote: string;
+  setContactNote: (value: string) => void;
+  canWait: boolean;
+  onWaiting: () => void;
+  onRemove: () => void;
 }) {
   const current = useMemo(() => nurtureState(person), [person]);
   const [valueReceived, setValueReceived] = useState<NurtureEngagement>(current.learning);
@@ -200,7 +205,6 @@ function NurtureReview({ task, person, assignee, language, onDone }: {
   const [intent, setIntent] = useState<NurtureEngagement>(current.youtubeActivity);
   const [candidate, setCandidate] = useState<NurtureCandidate>(current.candidate);
   const [note, setNote] = useState(current.reviewNote || '');
-  const [permission, setPermission] = useState<ContactPermission>(current.contactPermission || 'unknown');
   const [type, setType] = useState<FollowUpActionType>(current.nextActionType || 'whatsapp');
   const [date, setDate] = useState(current.nextActionDate || '');
   const [time, setTime] = useState(current.nextActionTime || '');
@@ -224,7 +228,7 @@ function NurtureReview({ task, person, assignee, language, onDone }: {
         youtubeActivity: intent,
         candidate,
         reviewNote: note,
-        contactPermission: permission,
+        contactPermission: current.contactPermission,
         nextActionType: type,
         nextActionDate: date,
         nextActionTime: time,
@@ -253,20 +257,29 @@ function NurtureReview({ task, person, assignee, language, onDone }: {
     }
   };
 
-  return <div className="grid gap-3 xl:grid-cols-[1.15fr_0.85fr]">
+  return <div className="grid gap-3 xl:grid-cols-[1fr_0.92fr] xl:items-start">
     <div>
-      <div className="grid gap-2 sm:grid-cols-3">
-        <label><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'Valor recibido' : 'Value received'}</span><select value={valueReceived} onChange={(event) => setValueReceived(event.target.value as NurtureEngagement)} className="w-full rounded-lg border border-black/10 bg-white px-2 py-2 text-xs">{SIGNALS.map((value) => <option key={value} value={value}>{engagementLabel(value, language)}</option>)}</select></label>
-        <label><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'Nivel de interacción' : 'Interaction level'}</span><select value={interaction} onChange={(event) => setInteraction(event.target.value as NurtureEngagement)} className="w-full rounded-lg border border-black/10 bg-white px-2 py-2 text-xs">{SIGNALS.map((value) => <option key={value} value={value}>{engagementLabel(value, language)}</option>)}</select></label>
-        <label><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'Señales de intención' : 'Intent signals'}</span><select value={intent} onChange={(event) => setIntent(event.target.value as NurtureEngagement)} className="w-full rounded-lg border border-black/10 bg-white px-2 py-2 text-xs">{SIGNALS.map((value) => <option key={value} value={value}>{engagementLabel(value, language)}</option>)}</select></label>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <div className="space-y-2">
+          <label><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'Valor recibido' : 'Value received'}</span><select value={valueReceived} onChange={(event) => setValueReceived(event.target.value as NurtureEngagement)} className="w-full rounded-lg border border-black/10 bg-white px-2 py-2 text-xs">{SIGNALS.map((value) => <option key={value} value={value}>{engagementLabel(value, language)}</option>)}</select></label>
+          <label><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'Nivel de interacción' : 'Interaction level'}</span><select value={interaction} onChange={(event) => setInteraction(event.target.value as NurtureEngagement)} className="w-full rounded-lg border border-black/10 bg-white px-2 py-2 text-xs">{SIGNALS.map((value) => <option key={value} value={value}>{engagementLabel(value, language)}</option>)}</select></label>
+        </div>
+        <div className="space-y-2">
+          <label><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'Señales de intención' : 'Intent signals'}</span><select value={intent} onChange={(event) => setIntent(event.target.value as NurtureEngagement)} className="w-full rounded-lg border border-black/10 bg-white px-2 py-2 text-xs">{SIGNALS.map((value) => <option key={value} value={value}>{engagementLabel(value, language)}</option>)}</select></label>
+          <label><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'Decisión' : 'Decision'}</span><select value={candidate} onChange={(event) => setCandidate(event.target.value as NurtureCandidate)} className="w-full rounded-lg border border-black/10 bg-white px-2 py-2 text-xs">{CANDIDATES.map((value) => <option key={value} value={value}>{candidateLabel(value, language)}</option>)}</select></label>
+        </div>
       </div>
       <label className="mt-2 block"><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'Evidencia / qué cambió' : 'Evidence / what changed'}</span><textarea rows={2} value={note} onChange={(event) => setNote(event.target.value)} placeholder={language === 'es' ? 'Ej. participa semanalmente, vio el contenido y preguntó por la próxima edición.' : 'E.g. participates weekly, consumed content and asked about the next edition.'} className="w-full rounded-lg border border-black/10 px-3 py-2 text-xs" /></label>
     </div>
     <div className="space-y-2">
-      <div className="grid grid-cols-2 gap-2"><label><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'Decisión' : 'Decision'}</span><select value={candidate} onChange={(event) => setCandidate(event.target.value as NurtureCandidate)} className="w-full rounded-lg border border-black/10 bg-white px-2 py-2 text-xs">{CANDIDATES.map((value) => <option key={value} value={value}>{candidateLabel(value, language)}</option>)}</select></label><label><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'Permiso de contacto' : 'Contact permission'}</span><select value={permission} onChange={(event) => setPermission(event.target.value as ContactPermission)} className="w-full rounded-lg border border-black/10 bg-white px-2 py-2 text-xs">{PERMISSIONS.map((value) => <option key={value} value={value}>{contactPermissionLabel(value, language)}</option>)}</select></label></div>
       <div className="rounded-lg bg-white px-3 py-2"><p className="text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'QUÉ PASA DESPUÉS' : 'WHAT HAPPENS NEXT'}</p><p className="mt-1 text-xs font-semibold">{next.title}</p><p className="mt-1 text-[10px] leading-4 text-black/45">{next.note}</p></div>
-      {candidate !== 'not-interested' && <div className="grid grid-cols-3 gap-2"><select value={type} onChange={(event) => setType(event.target.value as FollowUpActionType)} className="rounded-lg border border-black/10 bg-white px-2 py-2 text-xs"><option value="whatsapp">WhatsApp</option><option value="email">Email</option><option value="call">{language === 'es' ? 'Llamada' : 'Call'}</option><option value="meeting">{language === 'es' ? 'Reunión' : 'Meeting'}</option><option value="task">{language === 'es' ? 'Tarea interna' : 'Internal task'}</option></select><input type="date" value={date} onChange={(event) => setDate(event.target.value)} className="rounded-lg border border-black/10 px-2 py-2 text-xs" /><input type="time" value={time} onChange={(event) => setTime(event.target.value)} className="rounded-lg border border-black/10 px-2 py-2 text-xs" /></div>}
-      <button type="button" disabled={busy} onClick={() => void save()} className="w-full rounded-lg bg-[#111413] px-3 py-2 text-xs font-semibold text-white disabled:opacity-40">{language === 'es' ? 'Guardar decisión y próxima acción' : 'Save decision and next action'}</button>
+      {candidate !== 'not-interested' && <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_140px_110px]"><select value={type} onChange={(event) => setType(event.target.value as FollowUpActionType)} className="min-w-0 rounded-lg border border-black/10 bg-white px-2 py-2 text-xs"><option value="whatsapp">WhatsApp</option><option value="email">Email</option><option value="call">{language === 'es' ? 'Llamada' : 'Call'}</option><option value="meeting">{language === 'es' ? 'Reunión' : 'Meeting'}</option><option value="task">{language === 'es' ? 'Tarea interna' : 'Internal task'}</option></select><input type="date" value={date} onChange={(event) => setDate(event.target.value)} className="min-w-0 rounded-lg border border-black/10 px-2 py-2 text-xs" /><input type="time" value={time} onChange={(event) => setTime(event.target.value)} className="min-w-0 rounded-lg border border-black/10 px-2 py-2 text-xs" /></div>}
+      <input value={contactNote} onChange={(event) => setContactNote(event.target.value)} placeholder={language === 'es' ? 'Nota breve de esta interacción' : 'Short interaction note'} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-xs" />
+      <div className={`grid gap-2 ${canWait ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
+        <button type="button" disabled={busy} onClick={() => void save()} className="rounded-lg bg-[#111413] px-3 py-2 text-xs font-semibold text-white disabled:opacity-40">{busy ? (language === 'es' ? 'Guardando…' : 'Saving…') : (language === 'es' ? 'Guardar' : 'Save')}</button>
+        {canWait && <button type="button" onClick={onWaiting} className="rounded-lg border border-[#0A3F4D]/15 bg-white px-3 py-2 text-xs font-semibold text-[#0A3F4D]">{language === 'es' ? 'En espera' : 'Waiting'}</button>}
+        <button type="button" onClick={onRemove} className="inline-flex items-center justify-center gap-1 rounded-lg border border-[#A23A32]/15 bg-white px-3 py-2 text-xs font-semibold text-[#8D332C]"><Trash2 className="h-3.5 w-3.5" />{language === 'es' ? 'Eliminar' : 'Remove'}</button>
+      </div>
       {message && <p className="text-[10px] text-[#8D332C]">{message}</p>}
     </div>
   </div>;
@@ -377,10 +390,10 @@ export function FollowUpWorkWorkspaceV2({ language }: { language: Language }) {
           <div className="grid gap-3 lg:grid-cols-[1fr_120px_150px_auto] lg:items-center"><div><p className="text-sm font-semibold">{task.title}</p><p className="mt-1 text-xs font-medium text-[#0A3F4D]">{task.clientName}</p><p className="mt-1 line-clamp-1 text-xs text-black/40">{task.note}</p></div><div className="flex items-center gap-2 text-xs text-black/50"><ActionIcon type={task.type} />{actionLabel(task.type, language)}</div><span className="text-xs text-black/45">{task.assignedToName || task.assignee}</span><button type="button" onClick={() => { setActiveId(opened ? '' : task.id); setContactNote(task.lastInteractionNote || task.result || ''); }} className="rounded-full bg-[#111413] px-3 py-2 text-[10px] font-semibold text-white">{opened ? (language === 'es' ? 'Cerrar' : 'Close') : (language === 'es' ? 'Trabajar' : 'Work')}</button></div>
           {opened && state === 'waiting-reply' && <div className="mt-3 flex flex-col gap-3 rounded-xl bg-[#FAFAF8] p-3 lg:flex-row lg:items-center lg:justify-between"><div><p className="text-xs font-semibold">{language === 'es' ? 'Esperando respuesta' : 'Waiting for reply'}</p><p className="mt-1 text-xs text-black/45">{task.lastInteractionNote || task.note}</p></div><div className="flex gap-2"><button type="button" onClick={() => markReplied(task)} className="rounded-full bg-[#111413] px-4 py-2 text-xs font-semibold text-white">{language === 'es' ? 'Marcar respuesta recibida' : 'Mark reply received'}</button><button type="button" onClick={() => patch(task, { interactionState: 'queue' })} className="rounded-full border border-black/10 px-4 py-2 text-xs font-semibold">{language === 'es' ? 'Volver a por hacer' : 'Back to to-do'}</button></div></div>}
           {opened && state !== 'waiting-reply' && person && owner && <div className="mt-3 rounded-xl bg-[#FAFAF8] p-3">
-            {segment === 'leads'
-              ? <LeadReview task={task} person={person} assignee={owner} language={language} onDone={(result) => complete(task, result)} />
-              : <NurtureReview task={task} person={person} assignee={owner} language={language} onDone={(result) => complete(task, result)} />}
-            <div className="mt-3 flex flex-wrap gap-2 border-t border-black/5 pt-3"><input value={contactNote} onChange={(event) => setContactNote(event.target.value)} placeholder={language === 'es' ? 'Nota breve de esta interacción' : 'Short interaction note'} className="min-w-[240px] flex-1 rounded-lg border border-black/10 bg-white px-3 py-2 text-xs" />{asyncChannel(task) && <button type="button" onClick={() => markWaiting(task)} className="rounded-full border border-[#0A3F4D]/15 bg-white px-4 py-2 text-xs font-semibold text-[#0A3F4D]">{language === 'es' ? 'En espera de respuesta' : 'Waiting for reply'}</button>}<button type="button" onClick={() => remove(task)} className="inline-flex items-center gap-1 rounded-full border border-[#A23A32]/15 bg-white px-4 py-2 text-xs font-semibold text-[#8D332C]"><Trash2 className="h-3.5 w-3.5" />{language === 'es' ? 'Eliminar' : 'Remove'}</button></div>
+            {segment === 'leads' ? <>
+              <LeadReview task={task} person={person} assignee={owner} language={language} onDone={(result) => complete(task, result)} />
+              <div className="mt-3 flex flex-wrap gap-2 border-t border-black/5 pt-3"><input value={contactNote} onChange={(event) => setContactNote(event.target.value)} placeholder={language === 'es' ? 'Nota breve de esta interacción' : 'Short interaction note'} className="min-w-[240px] flex-1 rounded-lg border border-black/10 bg-white px-3 py-2 text-xs" />{asyncChannel(task) && <button type="button" onClick={() => markWaiting(task)} className="rounded-full border border-[#0A3F4D]/15 bg-white px-4 py-2 text-xs font-semibold text-[#0A3F4D]">{language === 'es' ? 'En espera de respuesta' : 'Waiting for reply'}</button>}<button type="button" onClick={() => remove(task)} className="inline-flex items-center gap-1 rounded-full border border-[#A23A32]/15 bg-white px-4 py-2 text-xs font-semibold text-[#8D332C]"><Trash2 className="h-3.5 w-3.5" />{language === 'es' ? 'Eliminar' : 'Remove'}</button></div>
+            </> : <NurtureReview task={task} person={person} assignee={owner} language={language} onDone={(result) => complete(task, result)} contactNote={contactNote} setContactNote={setContactNote} canWait={asyncChannel(task)} onWaiting={() => markWaiting(task)} onRemove={() => remove(task)} />}
           </div>}
         </div>;
       })}{rows.length === 0 && <div className="p-8 text-center text-sm text-black/40">{segment === 'leads'

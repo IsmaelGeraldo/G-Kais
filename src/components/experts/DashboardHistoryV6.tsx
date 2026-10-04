@@ -241,7 +241,10 @@ function TrendChart({ kind, dates, range, setRange, language, comparison }: { ki
   return <section className="rounded-2xl border border-black/8 bg-white p-3 shadow-[0_8px_24px_rgba(10,10,10,.025)] md:p-4">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div><p className="text-sm font-semibold">{copy.title}</p><p className="mt-0.5 text-[10px] text-black/40">{copy.description}</p></div>
-      <div className="inline-flex rounded-full border border-black/8 bg-[#F7F7F5] p-1">{(['week', 'month', 'year'] as RangeKey[]).map((item) => <button key={item} onClick={() => setRange(item)} className={`rounded-full px-3 py-1.5 text-[10px] font-semibold ${range === item ? 'bg-[#111413] text-white' : 'text-black/40'}`}>{item === 'week' ? (language === 'es' ? 'Semana' : 'Week') : item === 'month' ? (language === 'es' ? 'Mes' : 'Month') : (language === 'es' ? 'Año' : 'Year')}</button>)}</div>
+      <div className="flex flex-col items-end gap-1.5">
+        <div className="inline-flex rounded-full border border-black/8 bg-[#F7F7F5] p-1">{(['week', 'month', 'year'] as RangeKey[]).map((item) => <button key={item} onClick={() => setRange(item)} className={`rounded-full px-3 py-1.5 text-[10px] font-semibold ${range === item ? 'bg-[#111413] text-white' : 'text-black/40'}`}>{item === 'week' ? (language === 'es' ? 'Semana' : 'Week') : item === 'month' ? (language === 'es' ? 'Mes' : 'Month') : (language === 'es' ? 'Año' : 'Year')}</button>)}</div>
+        {kind === 'buyers' && comparison && <p className={`pr-1 text-[10px] font-semibold ${comparisonClass}`}>{comparison}</p>}
+      </div>
     </div>
     <div className="mt-3 grid gap-3 lg:grid-cols-[160px_minmax(0,1fr)]">
       <aside className="rounded-xl bg-[#F7F7F5] p-3">
@@ -250,7 +253,6 @@ function TrendChart({ kind, dates, range, setRange, language, comparison }: { ki
           <div><p className="text-[9px] text-black/40">{language === 'es' ? 'Total' : 'Total'}</p><p className="text-base font-semibold leading-5">{total}</p></div>
           <div><p className="text-[9px] text-black/40">{language === 'es' ? 'Promedio' : 'Average'}</p><p className="text-xs font-semibold">{average.toFixed(1)}</p></div>
           <div><p className="text-[9px] text-black/40">{language === 'es' ? 'Máximo' : 'Peak'}</p><p className="text-xs font-semibold">{best.value} <span className="font-normal text-black/40">· {best.label}</span></p></div>
-          {kind === 'buyers' && comparison && <div><p className="text-[9px] text-black/40">{language === 'es' ? 'Mes anterior' : 'Previous month'}</p><p className={`text-[10px] font-semibold ${comparisonClass}`}>{comparison}</p></div>}
         </div>
       </aside>
       <div className="min-w-0 overflow-hidden">
@@ -327,7 +329,7 @@ function WorldReach({ rows, language }: { rows: ReachRow[]; language: Language }
       <div className="inline-flex rounded-xl bg-[#F7F7F5] p-1"><button onClick={() => setView('map')} className={`rounded-lg px-3 py-2 text-xs font-semibold ${view === 'map' ? 'bg-[#111413] text-white' : 'text-black/45'}`}>{language === 'es' ? 'Mapa' : 'Map'}</button><button onClick={() => setView('list')} className={`rounded-lg px-3 py-2 text-xs font-semibold ${view === 'list' ? 'bg-[#111413] text-white' : 'text-black/45'}`}>{language === 'es' ? 'Países' : 'Countries'}</button></div>
     </div>
     {view === 'map' ? <div ref={mapRef} onPointerMove={moveTooltip} onPointerLeave={() => setHover(null)} className="relative mt-5 overflow-hidden rounded-2xl border border-black/6 bg-[#DCECEF] p-3 md:p-4">
-      <div className="gkais-world-map mx-auto max-w-[800px]"><WorldMap data={mapData} size={760} color="#0A3F4D" backgroundColor="transparent" borderColor="#ffffff" strokeOpacity={1} tooltipTextFunction={() => ''} styleFunction={styleCountry} regionClassName="gkais-world-country-v6" /></div>
+      <div className="gkais-world-map mx-auto max-w-[800px]" style={{ transform: 'scale(1.06)', transformOrigin: 'center' }}><WorldMap data={mapData} size={760} color="#0A3F4D" backgroundColor="transparent" borderColor="#ffffff" strokeOpacity={1} tooltipTextFunction={() => ''} styleFunction={styleCountry} regionClassName="gkais-world-country-v6" /></div>
       {hover && <div className="pointer-events-none absolute z-20 min-w-[170px] rounded-xl bg-[#111413] px-3.5 py-3 text-white shadow-xl" style={{ left: hover.x, top: hover.y }}><p className="text-xs font-semibold">{hover.country}</p><p className="mt-2 text-[10px] text-white/70">{language === 'es' ? 'Formaciones' : 'Programs'}: {hover.formation}</p><p className="mt-1 text-[10px] text-white/70">{language === 'es' ? 'Mentorías' : 'Mentoring'}: {hover.mentoring}</p><p className="mt-1 border-t border-white/10 pt-1.5 text-[10px] font-semibold">Total: {hover.total}</p></div>}
       <div className="mt-1 flex flex-wrap items-center justify-between gap-2 border-t border-black/6 pt-3 text-[10px] text-black/45"><span>{language === 'es' ? 'País con actividad = bandera SVG real.' : 'Active country = real SVG flag.'}</span><span>{rows.reduce((sum, row) => sum + row.total, 0)} {language === 'es' ? 'relaciones geográficas registradas' : 'geographic relationships recorded'}</span></div>
     </div> : rows.length === 0 ? <div className="mt-5 rounded-2xl border border-dashed border-black/10 bg-[#FAFAF8] p-8 text-center"><Globe2 className="mx-auto h-8 w-8 text-black/20" /><p className="mt-3 text-sm font-semibold">{language === 'es' ? 'Todavía no hay países registrados.' : 'No countries recorded yet.'}</p></div> : <div className="mt-5 space-y-3">{rows.map((row) => <div key={`${row.country}-${row.code}`} className="grid gap-3 rounded-xl border border-black/5 px-3 py-3 md:grid-cols-[220px_1fr_70px] md:items-center"><div className="flex items-center gap-3"><FlagMark code={row.code} country={row.country} /><p className="text-sm font-semibold">{row.country}</p></div><div className="h-2.5 overflow-hidden rounded-full bg-black/5"><div className="h-full rounded-full bg-[#111413]" style={{ width: `${Math.max(4, (row.total / max) * 100)}%` }} /></div><p className="text-right text-sm font-semibold">{row.total}</p></div>)}</div>}
@@ -426,6 +428,7 @@ export function DashboardHistoryV6({ language, onNavigate, onOpenClient, onStart
 
   const openAgendaClient = (client: SharedSessionClient) => {
     onOpenClient(client.id);
+    window.requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: 'auto' }));
   };
   const openClassPlan = (item: DashboardFormationClass) => {
     const query = new URLSearchParams({ view: 'formations', formation: item.formationId, cohort: item.cohortId, tab: 'plan', class: item.id });

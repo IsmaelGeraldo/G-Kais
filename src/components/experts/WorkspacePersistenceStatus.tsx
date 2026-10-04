@@ -42,7 +42,7 @@ export function WorkspacePersistenceStatus() {
       : 'Guardado');
 
   return (
-    <div className={`fixed bottom-5 right-5 z-[120] inline-flex max-w-[360px] items-center gap-2 rounded-xl border px-3 py-2 text-xs font-medium shadow-lg backdrop-blur ${isError ? 'border-red-200 bg-white text-red-700' : 'border-black/10 bg-white/95 text-black/60'}`} role={isError ? 'alert' : 'status'}>
+    <div className={`fixed bottom-6 right-6 z-[160] inline-flex max-w-[360px] items-center gap-2 rounded-xl border px-3 py-2 text-xs font-medium shadow-lg backdrop-blur ${isError ? 'border-red-200 bg-white text-red-700' : 'border-black/10 bg-white/95 text-black/60'}`} role={isError ? 'alert' : 'status'}>
       {isSaving ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" /> : isError ? <AlertTriangle className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
       <span>{text}</span>
     </div>

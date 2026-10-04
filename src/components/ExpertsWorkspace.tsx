@@ -28,10 +28,18 @@ function WorkspaceNotificationRelay() {
 
     const sync = () => {
       const nodes = selectors.flatMap((selector) => Array.from(document.querySelectorAll<HTMLElement>(selector)));
-      const source = nodes.find((node) => (node.textContent || '').trim());
+      const source = nodes.find((node) => {
+        const text = (node.textContent || '').trim();
+        return Boolean(text) && node.dataset.gkaisRelayedText !== text;
+      });
       if (!source) return;
       const text = (source.textContent || '').trim();
-      if (!text || text === lastMessage.current) return;
+      if (!text) return;
+
+      source.dataset.gkaisRelayedText = text;
+      source.style.display = 'none';
+      if (text === lastMessage.current) return;
+
       lastMessage.current = text;
       setMessage(text);
       nodes.forEach((node) => { node.style.display = 'none'; });

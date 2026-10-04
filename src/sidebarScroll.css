@@ -1,0 +1,23 @@
+/* Experts workspace sidebar: keep native scrolling, but match the dark navigation surface. */
+aside.fixed.inset-y-0.left-0 nav.overflow-y-auto {
+  scrollbar-color: #2a2c2b #111413;
+  scrollbar-width: thin;
+}
+
+aside.fixed.inset-y-0.left-0 nav.overflow-y-auto::-webkit-scrollbar {
+  width: 8px;
+}
+
+aside.fixed.inset-y-0.left-0 nav.overflow-y-auto::-webkit-scrollbar-track {
+  background: #111413;
+}
+
+aside.fixed.inset-y-0.left-0 nav.overflow-y-auto::-webkit-scrollbar-thumb {
+  border: 2px solid #111413;
+  border-radius: 999px;
+  background: #2a2c2b;
+}
+
+aside.fixed.inset-y-0.left-0 nav.overflow-y-auto::-webkit-scrollbar-thumb:hover {
+  background: #3a3d3b;
+}

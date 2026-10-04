@@ -13,6 +13,7 @@ type WebinarTask = {
 };
 
 const synced = new Set<string>();
+const inFlight = new Set<string>();
 let timer: number | undefined;
 
 function readTasks(): WebinarTask[] {
@@ -34,7 +35,8 @@ async function syncCompletedWebinarTasks() {
 
   for (const task of completed) {
     const key = `${task.id || ''}:${task.sourceRegistrationId}:${task.sourceActionKind || ''}:${task.result || ''}`;
-    if (synced.has(key)) continue;
+    if (synced.has(key) || inFlight.has(key)) continue;
+    inFlight.add(key);
     try {
       await markWebinarWorkActionCompleted({
         registrationId: task.sourceRegistrationId!,
@@ -44,7 +46,10 @@ async function syncCompletedWebinarTasks() {
         taskId: task.id
       });
       synced.add(key);
-    } catch {}
+    } catch {
+    } finally {
+      inFlight.delete(key);
+    }
   }
 }
 

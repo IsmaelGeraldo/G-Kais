@@ -2,6 +2,7 @@ import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
+import './sidebarScroll.css';
 import './services/expertsClientReconstruction';
 import './services/expertsEnrollmentWelcomeBridge';
 import './services/expertsRelationshipAuthBridge';

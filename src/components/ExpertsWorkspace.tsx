@@ -42,6 +42,44 @@ export function ExpertsWorkspace({ onExit }: { onExit: () => void }) {
 
   return (
     <>
+      <style>{`
+        .gkais-experts-interactions .gkais-world-map {
+          transform: scale(1.10) !important;
+          transform-origin: center center !important;
+        }
+
+        .gkais-experts-interactions .gkais-formations-shell > div > p[class*="bg-[#F7F7F5]"],
+        .gkais-experts-interactions .gkais-webinars-shell > div > p[class*="bg-[#F7F7F5]"],
+        .gkais-experts-interactions .gkais-relationships-shell div[class*="fixed"][class*="right-6"][class*="top-24"],
+        .gkais-experts-interactions .gkais-relationships-shell p[class*="text-[10px]"][class*="text-[#8D332C]"] {
+          position: fixed !important;
+          right: 24px !important;
+          bottom: 24px !important;
+          top: auto !important;
+          z-index: 160 !important;
+          width: max-content;
+          max-width: min(380px, calc(100vw - 48px));
+          border: 1px solid rgba(255,255,255,0.08) !important;
+          border-radius: 14px !important;
+          background: #111413 !important;
+          color: #ffffff !important;
+          padding: 12px 16px !important;
+          box-shadow: 0 16px 44px rgba(0,0,0,0.20) !important;
+          font-size: 12px !important;
+          line-height: 1.45 !important;
+        }
+
+        @media (max-width: 640px) {
+          .gkais-experts-interactions .gkais-formations-shell > div > p[class*="bg-[#F7F7F5]"],
+          .gkais-experts-interactions .gkais-webinars-shell > div > p[class*="bg-[#F7F7F5]"],
+          .gkais-experts-interactions .gkais-relationships-shell div[class*="fixed"][class*="right-6"][class*="top-24"],
+          .gkais-experts-interactions .gkais-relationships-shell p[class*="text-[10px]"][class*="text-[#8D332C]"] {
+            right: 16px !important;
+            bottom: 16px !important;
+            max-width: calc(100vw - 32px);
+          }
+        }
+      `}</style>
       <ExpertsWorkspacePilotV3 onExit={onExit} />
       <WorkspacePersistenceStatus />
     </>

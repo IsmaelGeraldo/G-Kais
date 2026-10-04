@@ -58,7 +58,7 @@ const NAV: NavItem[] = [
   { id: 'overview', label: { es: 'Dashboard', en: 'Dashboard' }, icon: LayoutDashboard, section: 'overview' },
   { id: 'webinars', label: { es: 'Webinars', en: 'Webinars' }, icon: Presentation, section: 'programs' },
   { id: 'formations', label: { es: 'Formaciones', en: 'Formations' }, icon: GraduationCap, section: 'programs' },
-  { id: 'clients', label: { es: 'Clientes 1:1', en: '1:1 Clients' }, icon: Users, section: 'programs' },
+  { id: 'clients', label: { es: 'Mentorías', en: 'Mentoring' }, icon: Users, section: 'programs' },
   { id: 'priority', label: { es: 'Trabajo prioritario', en: 'Priority Work' }, icon: ListTodo, section: 'operations' },
   { id: 'relationships', label: { es: 'Relaciones', en: 'Relationships' }, icon: HeartHandshake, section: 'operations' },
   { id: 'team', label: { es: 'Equipo', en: 'Team' }, icon: UsersRound, section: 'operations' },
@@ -240,6 +240,11 @@ function ExpertsWorkspaceShell({ onExit }: Props) {
     navigate('relationships', { personId: id, tab: 'people' });
   };
 
+  const openMentoringClient = (id: string) => {
+    if (!access.isOwner) return;
+    navigate('clients', { clientId: id });
+  };
+
   const goBack = () => active === (access.isOwner ? 'overview' : 'priority') ? onExit() : window.history.back();
 
   if (!access.ready) {
@@ -266,7 +271,7 @@ function ExpertsWorkspaceShell({ onExit }: Props) {
 
   let content: React.ReactNode;
   if (active === 'overview' && access.isOwner) {
-    content = <DashboardHistory language={language} onNavigate={(id) => navigate(id)} onOpenClient={openPerson} onStartSession={startSession} />;
+    content = <DashboardHistory language={language} onNavigate={(id) => navigate(id)} onOpenClient={openMentoringClient} onStartSession={startSession} />;
   } else if (active === 'webinars' && access.isOwner) {
     content = <WebinarsWorkspace language={language} />;
   } else if (active === 'formations' && access.isOwner) {
@@ -379,7 +384,7 @@ function ExpertsWorkspaceShell({ onExit }: Props) {
                 : active === 'relationships' ? (language === 'es' ? 'PERSONAS Y CONTINUIDAD' : 'PEOPLE AND CONTINUITY')
                 : active === 'webinars' ? (language === 'es' ? 'RECORRIDO COMERCIAL' : 'COMMERCIAL JOURNEY')
                 : active === 'formations' ? (language === 'es' ? 'ALUMNOS Y COHORTES' : 'STUDENTS AND COHORTS')
-                : active === 'clients' ? (language === 'es' ? 'MENTORÍA 1:1' : '1:1 MENTORING')
+                : active === 'clients' ? (language === 'es' ? 'MENTORÍAS' : 'MENTORING')
                 : 'G-KAIS WORKSPACE'
             }</p>
             <h2 className={`mt-2 text-3xl font-semibold tracking-[-0.035em] md:text-4xl ${darkWorkspace ? 'text-white' : 'text-[#0A0A0A]'}`}>{active === 'overview' ? (language === 'es' ? '¿Qué necesita tu atención?' : 'What needs your attention?') : activeLabel}</h2>

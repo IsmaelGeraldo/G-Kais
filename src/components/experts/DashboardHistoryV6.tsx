@@ -222,7 +222,7 @@ function TrendChart({ kind, dates, range, setRange, language, comparison }: { ki
   const [hovered, setHovered] = useState<number | null>(null);
   const points = buildTrend(dates, range, language);
   const copy = metricCopy(kind, language);
-  const width = 720, plotHeight = 150, height = 176, padX = 48, padR = 14, padY = 16;
+  const width = 720, plotHeight = 162, height = 176, padX = 48, padR = 14, padY = 10;
   const max = Math.max(1, ...points.map((point) => point.value));
   const chartW = width - padX - padR, chartH = plotHeight - padY * 2;
   const plotted = points.map((point, index) => ({ x: padX + (index / Math.max(1, points.length - 1)) * chartW, y: plotHeight - padY - (point.value / max) * chartH }));
@@ -425,15 +425,7 @@ export function DashboardHistoryV6({ language, onNavigate, onOpenClient, onStart
   }, [people, formationPersonIds, profileById]);
 
   const openAgendaClient = (client: SharedSessionClient) => {
-    const directPersonId = typeof client.personId === 'string' ? client.personId : '';
-    const matchedPersonId = directPersonId || people.find((person) => person.name.trim().toLowerCase() === client.name.trim().toLowerCase())?.id || '';
-    if (matchedPersonId) {
-      onOpenClient(matchedPersonId);
-      return;
-    }
-    const query = new URLSearchParams({ view: 'clients', client: client.id });
-    window.history.pushState({}, '', `/workspace/experts?${query.toString()}`);
-    window.dispatchEvent(new PopStateEvent('popstate'));
+    onOpenClient(client.id);
   };
   const openClassPlan = (item: DashboardFormationClass) => {
     const query = new URLSearchParams({ view: 'formations', formation: item.formationId, cohort: item.cohortId, tab: 'plan', class: item.id });

@@ -21,6 +21,43 @@ export function RelationshipsWorkspace({ language, initialTab = 'people' }: { la
   useEffect(() => { setTab(initialTab); }, [initialTab]);
 
   useEffect(() => {
+    if (tab !== 'people') return;
+    const requestedPersonId = new URLSearchParams(window.location.search).get('person');
+    if (!requestedPersonId) return;
+    const shell = shellRef.current;
+    if (!shell) return;
+
+    let frame = 0;
+    let centered = false;
+    let observer: MutationObserver | undefined;
+    const centerSelectedPerson = () => {
+      if (centered) return;
+      const list = Array.from(shell.querySelectorAll<HTMLElement>('div')).find((element) => {
+        const className = typeof element.className === 'string' ? element.className : '';
+        return className.includes('max-h-[700px]') && className.includes('overflow-y-auto');
+      });
+      if (!list) return;
+      const selectedRow = Array.from(list.querySelectorAll<HTMLElement>('button')).find((button) => {
+        const className = typeof button.className === 'string' ? button.className : '';
+        return className.includes('bg-[#111413]') && className.includes('text-white');
+      });
+      if (!selectedRow) return;
+      const targetTop = selectedRow.offsetTop - ((list.clientHeight - selectedRow.offsetHeight) / 2);
+      list.scrollTo({ top: Math.max(0, targetTop), behavior: 'auto' });
+      centered = true;
+      observer?.disconnect();
+    };
+
+    frame = window.requestAnimationFrame(centerSelectedPerson);
+    observer = new MutationObserver(centerSelectedPerson);
+    observer.observe(shell, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+    return () => {
+      window.cancelAnimationFrame(frame);
+      observer?.disconnect();
+    };
+  }, [tab]);
+
+  useEffect(() => {
     if (tab !== 'follow-up' || deepLinkHandled.current) return;
     const params = new URLSearchParams(window.location.search);
     const requestedSegment = params.get('segment');

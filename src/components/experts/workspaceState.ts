@@ -14,6 +14,7 @@ export type WorkTask = {
   id: string;
   clientId: string;
   clientName: string;
+  personId?: string;
   title: string;
   type: WorkActionType;
   note: string;
@@ -40,6 +41,7 @@ export type SharedCommitment = {
 export type SharedSessionClient = {
   id: string;
   name: string;
+  personId?: string;
   company?: string;
   program?: string;
   week?: string;

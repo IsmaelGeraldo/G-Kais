@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { BellRing, CalendarCheck2, CheckCircle2, ChevronDown, ChevronRight, Clock3, Inbox, ListTodo, Mail, MessageCircle, Pencil, Phone, Search, ShoppingBag, Trash2, UserRoundCheck, UsersRound } from 'lucide-react';
 import type { Language } from '../../i18n/LanguageContext';
+import { loadMentoringClientCache } from '../../services/expertsMentoringClientCache';
 import { hydrateExpertsTaskMemory, persistExpertWorkTask } from '../../services/expertsTaskMemory';
 import { appendExpertAuditLog, appendExpertRelationshipEvent, hasWorkspacePermission, loadExpertWorkspaceTeam, type WorkspaceMember, type WorkspaceTeamState } from '../../services/expertsWorkspaceCore';
-import { appendJournal, getWorkPriority, loadTasks, saveTasks, WORKSPACE_STATE_EVENT, type WorkActionType, type WorkTask } from './workspaceState';
+import { appendJournal, getWorkPriority, loadTasks, refreshClientNextAction, saveTasks, WORKSPACE_STATE_EVENT, type WorkActionType, type WorkTask } from './workspaceState';
 import { BuyerQueueWorkspaceV2 } from './BuyerQueueWorkspaceV2';
 
 type Interaction = 'queue' | 'waiting-reply' | 'reply-received';
@@ -25,6 +26,7 @@ type TeamTask = WorkTask & {
   replyReceivedAt?: string;
   lastInteractionNote?: string;
 };
+type MentoringClientLink = { id: string; personId?: string };
 
 function stateOf(task: TeamTask): Interaction {
   return task.interactionState === 'waiting-reply' || task.interactionState === 'reply-received' ? task.interactionState : 'queue';
@@ -87,6 +89,9 @@ function internalActiveStyle(active: boolean): React.CSSProperties | undefined {
 }
 
 export function PriorityRadarWorkspace({ language, onOpenClient }: { language: Language; onOpenClient: (id: string) => void }) {
+  const requested = new URLSearchParams(window.location.search);
+  const requestedClientId = requested.get('client') || '';
+  const requestedPersonId = requested.get('person') || '';
   const [mainTab, setMainTab] = useState<MainTab>('active');
   const [tasks, setTasks] = useState<TeamTask[]>(() => loadTasks() as TeamTask[]);
   const [team, setTeam] = useState<WorkspaceTeamState | null>(null);
@@ -126,6 +131,8 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
   const canManageTeam = Boolean(team && hasWorkspacePermission(team.currentMember.permissions, 'tasks.manage'));
   const canManageOwn = Boolean(team && hasWorkspacePermission(team.currentMember.permissions, 'tasks.manage.own'));
   const members = useMemo(() => (team?.members || []).filter((member) => member.status === 'active'), [team]);
+  const clientPersonById = useMemo(() => new Map(loadMentoringClientCache<MentoringClientLink>().filter((item) => item.id && item.personId).map((item) => [item.id, item.personId!])), [tasks]);
+  const resolvedPersonId = (task: TeamTask) => task.personId || clientPersonById.get(task.clientId) || '';
 
   const visible = useMemo(() => {
     const source = view === 'team' && canReadTeam
@@ -144,25 +151,33 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
     replied: active.filter((task) => stateOf(task) === 'reply-received').sort(sort)
   };
   const rows = queues[lane].filter((task) => {
+    const focused = !requestedClientId && !requestedPersonId
+      ? true
+      : task.clientId === requestedClientId || resolvedPersonId(task) === requestedPersonId;
+    if (!focused) return false;
     const term = search.trim().toLowerCase();
     return !term || [task.clientName, task.title, task.note, task.assignedToName || task.assignee]
       .some((value) => String(value || '').toLowerCase().includes(term));
   });
   const history = visible
     .filter((task) => task.status === 'done' || Boolean(task.deletedAt))
+    .filter((task) => !requestedClientId && !requestedPersonId || task.clientId === requestedClientId || resolvedPersonId(task) === requestedPersonId)
     .sort((left, right) => (right.deletedAt || right.completedAt || right.createdAt).localeCompare(left.deletedAt || left.completedAt || left.createdAt));
 
   const persist = (next: TeamTask[]) => { setTasks(next); saveTasks(next as WorkTask[]); };
   const patch = (task: TeamTask, change: Partial<TeamTask>) => {
-    const updated = { ...task, ...change } as TeamTask;
+    const linkedPersonId = resolvedPersonId(task);
+    const updated = { ...task, ...change, ...(!task.personId && linkedPersonId ? { personId: linkedPersonId } : {}) } as TeamTask;
     if (change.status === 'done' && !updated.completedAt) updated.completedAt = new Date().toISOString();
     persist(tasks.map((item) => item.id === task.id ? updated : item));
+    if (task.clientId) refreshClientNextAction(task.clientId);
     void persistExpertWorkTask(updated);
     return updated;
   };
   const canWork = (task: TeamTask) => canManageTeam || isOwner || (canManageOwn && task.assignedToUid === currentUid);
   const log = (task: TeamTask, type: string, metadata: Record<string, unknown>) => {
-    if (task.personId) void appendExpertRelationshipEvent({ personId: task.personId, type, sourceType: 'work_task', sourceId: task.id, metadata }).catch(() => {});
+    const personId = resolvedPersonId(task);
+    if (personId) void appendExpertRelationshipEvent({ personId, type, sourceType: 'work_task', sourceId: task.id, metadata }).catch(() => {});
   };
 
   const complete = (task: TeamTask) => {
@@ -200,7 +215,7 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
       id: `task-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       clientId: task.clientId,
       clientName: task.clientName,
-      personId: task.personId,
+      personId: resolvedPersonId(task) || undefined,
       title: `${actionLabel(nextType, language)} · ${task.clientName}`,
       type: nextType,
       note: nextNote.trim(),
@@ -217,6 +232,7 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
       confirmationEmail: nextType === 'meeting' ? 'queued' : 'not-required'
     };
     persist([next, ...tasks]);
+    if (task.clientId) refreshClientNextAction(task.clientId);
     void persistExpertWorkTask(next);
     setNextNote('');
     setNextDate('');
@@ -265,6 +281,7 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
         </div>
         <div className="flex gap-3"><label className="relative block min-w-[280px]"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-black/30" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={language === 'es' ? 'Buscar tarea o persona…' : 'Search task or person…'} className="w-full rounded-xl border border-black/10 py-2 pl-9 pr-3 text-sm" /></label><label className="flex items-center gap-2 text-xs text-black/45"><input type="checkbox" checked={showHistory} onChange={(event) => setShowHistory(event.target.checked)} />{language === 'es' ? 'Historial' : 'History'}</label></div>
       </div>}
+      {mainTab === 'active' && (requestedClientId || requestedPersonId) && <p className="mt-3 text-[10px] font-medium text-[#0A3F4D]">{language === 'es' ? 'Vista filtrada al cliente seleccionado desde Mentorías.' : 'View filtered to the client selected from Mentoring.'}</p>}
     </section>
 
     {mainTab === 'buyers' ? <BuyerQueueWorkspaceV2 language={language} /> : <>
@@ -272,8 +289,9 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
         const opened = activeId === task.id;
         const state = stateOf(task);
         const taskPriority = priority(task, language);
+        const personId = resolvedPersonId(task);
         return <div key={task.id} className="p-4">
-          <div className="grid gap-3 lg:grid-cols-[1fr_90px_105px_145px_170px_auto] lg:items-center"><div><p className="text-sm font-semibold">{task.title}</p>{(task.personId || task.clientId) && isOwner ? <button type="button" onClick={() => onOpenClient(task.personId || task.clientId)} className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-[#0A3F4D]">{task.clientName}<ChevronRight className="h-3 w-3" /></button> : <p className="mt-1 text-xs font-medium text-[#0A3F4D]">{task.clientName}</p>}<p className="mt-1 line-clamp-1 text-xs text-black/40">{task.note}</p></div><span className={`w-fit rounded-full px-2.5 py-1 text-[9px] font-semibold ${taskPriority.cls}`}>{taskPriority.label}</span><div className="flex items-center gap-2 text-xs text-black/55"><ActionIcon type={task.type} />{actionLabel(task.type, language)}</div><div className="flex items-center gap-1.5 text-xs text-black/50"><Clock3 className="h-3.5 w-3.5" />{due(task, language)}</div>{canManageTeam || isOwner ? <label className="relative"><UserRoundCheck className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-black/30" /><select value={task.assignedToUid || currentUid} onChange={(event) => { const member = members.find((item) => item.uid === event.target.value); if (member) patch(task, { assignedToUid: member.uid, assignedToName: memberLabel(member), assignee: memberLabel(member) }); }} className="w-full rounded-lg border border-black/8 bg-white py-1.5 pl-8 pr-2 text-xs">{members.map((member) => <option key={member.uid} value={member.uid}>{memberLabel(member)}</option>)}</select></label> : <span className="text-xs text-black/50">{task.assignedToName || task.assignee}</span>}<button type="button" disabled={!canWork(task)} onClick={() => { setActiveId(opened ? '' : task.id); setResult(task.result || task.lastInteractionNote || ''); }} className="inline-flex items-center justify-center gap-1 rounded-full bg-[#111413] px-3 py-2 text-[10px] font-semibold text-white disabled:opacity-30">{opened ? (language === 'es' ? 'Cerrar' : 'Close') : (language === 'es' ? 'Trabajar' : 'Work')}<ChevronDown className={`h-3 w-3 ${opened ? 'rotate-180' : ''}`} /></button></div>
+          <div className="grid gap-3 lg:grid-cols-[1fr_90px_105px_145px_170px_auto] lg:items-center"><div><p className="text-sm font-semibold">{task.title}</p>{personId && isOwner ? <button type="button" onClick={() => onOpenClient(personId)} className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-[#0A3F4D]">{task.clientName}<ChevronRight className="h-3 w-3" /></button> : <p className="mt-1 text-xs font-medium text-[#0A3F4D]">{task.clientName}</p>}<p className="mt-1 line-clamp-1 text-xs text-black/40">{task.note}</p></div><span className={`w-fit rounded-full px-2.5 py-1 text-[9px] font-semibold ${taskPriority.cls}`}>{taskPriority.label}</span><div className="flex items-center gap-2 text-xs text-black/55"><ActionIcon type={task.type} />{actionLabel(task.type, language)}</div><div className="flex items-center gap-1.5 text-xs text-black/50"><Clock3 className="h-3.5 w-3.5" />{due(task, language)}</div>{canManageTeam || isOwner ? <label className="relative"><UserRoundCheck className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-black/30" /><select value={task.assignedToUid || currentUid} onChange={(event) => { const member = members.find((item) => item.uid === event.target.value); if (member) patch(task, { assignedToUid: member.uid, assignedToName: memberLabel(member), assignee: memberLabel(member) }); }} className="w-full rounded-lg border border-black/8 bg-white py-1.5 pl-8 pr-2 text-xs">{members.map((member) => <option key={member.uid} value={member.uid}>{memberLabel(member)}</option>)}</select></label> : <span className="text-xs text-black/50">{task.assignedToName || task.assignee}</span>}<button type="button" disabled={!canWork(task)} onClick={() => { setActiveId(opened ? '' : task.id); setResult(task.result || task.lastInteractionNote || ''); }} className="inline-flex items-center justify-center gap-1 rounded-full bg-[#111413] px-3 py-2 text-[10px] font-semibold text-white disabled:opacity-30">{opened ? (language === 'es' ? 'Cerrar' : 'Close') : (language === 'es' ? 'Trabajar' : 'Work')}<ChevronDown className={`h-3 w-3 ${opened ? 'rotate-180' : ''}`} /></button></div>
 
           {opened && canWork(task) && state === 'waiting-reply' && <div className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-[#FAFAF8] p-3"><div><p className="text-xs font-semibold">{language === 'es' ? 'Esperando respuesta' : 'Waiting for reply'}</p><p className="mt-1 text-xs text-black/45">{task.lastInteractionNote || task.note}</p></div><div className="flex gap-2"><button type="button" onClick={() => replied(task)} className="rounded-full bg-[#111413] px-4 py-2 text-xs font-semibold text-white">{language === 'es' ? 'Marcar respuesta recibida' : 'Mark reply received'}</button><button type="button" onClick={() => patch(task, { interactionState: 'queue' })} className="rounded-full border border-black/10 bg-white px-4 py-2 text-xs font-semibold">{language === 'es' ? 'Volver a por hacer' : 'Return to queue'}</button></div></div>}
 

@@ -58,45 +58,115 @@ async function workspaceId(): Promise<string> {
 
 function text(value: unknown): string { return typeof value === 'string' ? value : ''; }
 function object(value: unknown): Record<string, unknown> { return value && typeof value === 'object' ? value as Record<string, unknown> : {}; }
+function isoDate(value: unknown): string {
+  if (typeof value === 'string') {
+    const date = new Date(value);
+    return Number.isFinite(date.getTime()) ? date.toISOString() : '';
+  }
+  if (value instanceof Date) return Number.isFinite(value.getTime()) ? value.toISOString() : '';
+  if (value && typeof value === 'object' && 'toDate' in value && typeof (value as { toDate?: unknown }).toDate === 'function') {
+    const date = (value as { toDate: () => Date }).toDate();
+    return Number.isFinite(date.getTime()) ? date.toISOString() : '';
+  }
+  return '';
+}
+
+function dashboardWorkItem(id: string, task: Record<string, unknown>): DashboardWorkItem {
+  const type = ['email', 'whatsapp', 'call', 'meeting', 'task'].includes(text(task.type)) ? text(task.type) as DashboardWorkItem['type'] : 'task';
+  const status = ['pending', 'in-progress', 'done'].includes(text(task.status)) ? text(task.status) as DashboardWorkItem['status'] : 'pending';
+  const interactionState = ['queue', 'waiting-reply', 'reply-received'].includes(text(task.interactionState)) ? text(task.interactionState) as DashboardWorkItem['interactionState'] : 'queue';
+  const priority = ['high', 'medium', 'normal'].includes(text(task.priority)) ? text(task.priority) as DashboardWorkItem['priority'] : 'normal';
+  return {
+    id,
+    clientId: text(task.clientId),
+    clientName: text(task.clientName),
+    personId: text(task.personId),
+    title: text(task.title),
+    type,
+    note: text(task.note),
+    result: text(task.result),
+    dueDate: text(task.dueDate),
+    dueTime: text(task.dueTime),
+    assignee: text(task.assignee),
+    assignedToUid: text(task.assignedToUid),
+    status,
+    interactionState,
+    priority,
+    source: text(task.source),
+    sourceId: text(task.sourceId),
+    sourceActionKind: text(task.sourceActionKind),
+    workstream: text(task.workstream),
+    createdAt: text(task.createdAt),
+    completedAt: text(task.completedAt),
+    deletedAt: text(task.deletedAt)
+  };
+}
+
+function canonicalLeadMetricRows(snapshot: { docs: Array<{ id: string; data: () => unknown }> }): DashboardWorkItem[] {
+  return snapshot.docs.flatMap((item) => {
+    const data = item.data() as Record<string, unknown>;
+    if (text(data.type) !== 'lead_entered') return [];
+    const personId = text(data.personId);
+    const createdAt = isoDate(data.occurredAt);
+    if (!personId || !createdAt) return [];
+    return [{
+      id: `metric-lead-${item.id}`,
+      clientId: '',
+      clientName: '',
+      personId,
+      title: '',
+      type: 'task' as const,
+      note: '',
+      result: '',
+      dueDate: '',
+      dueTime: '',
+      assignee: '',
+      assignedToUid: '',
+      status: 'done' as const,
+      interactionState: 'queue' as const,
+      priority: 'normal' as const,
+      source: 'webinar',
+      sourceId: text(data.sourceId),
+      sourceActionKind: 'follow-up',
+      workstream: 'canonical-lead-event',
+      createdAt,
+      completedAt: createdAt,
+      deletedAt: 'metric-only'
+    }];
+  });
+}
 
 export async function subscribeDashboardWorkItems(
   callback: (items: DashboardWorkItem[]) => void
 ): Promise<Unsubscribe> {
   const workspace = await workspaceId();
-  return onSnapshot(collection(firestoreDb, 'expert_workspaces', workspace, 'work_tasks'), (snapshot) => {
-    callback(snapshot.docs.map((item) => {
+  let workItems: DashboardWorkItem[] = [];
+  let canonicalLeads: DashboardWorkItem[] = [];
+  const emit = () => callback([...workItems, ...canonicalLeads]);
+
+  const unsubscribeTasks = onSnapshot(collection(firestoreDb, 'expert_workspaces', workspace, 'work_tasks'), (snapshot) => {
+    workItems = snapshot.docs.map((item) => {
       const data = item.data() as Record<string, unknown>;
-      const task = object(data.task);
-      const type = ['email', 'whatsapp', 'call', 'meeting', 'task'].includes(text(task.type)) ? text(task.type) as DashboardWorkItem['type'] : 'task';
-      const status = ['pending', 'in-progress', 'done'].includes(text(task.status)) ? text(task.status) as DashboardWorkItem['status'] : 'pending';
-      const interactionState = ['queue', 'waiting-reply', 'reply-received'].includes(text(task.interactionState)) ? text(task.interactionState) as DashboardWorkItem['interactionState'] : 'queue';
-      const priority = ['high', 'medium', 'normal'].includes(text(task.priority)) ? text(task.priority) as DashboardWorkItem['priority'] : 'normal';
-      return {
-        id: item.id,
-        clientId: text(task.clientId),
-        clientName: text(task.clientName),
-        personId: text(task.personId),
-        title: text(task.title),
-        type,
-        note: text(task.note),
-        result: text(task.result),
-        dueDate: text(task.dueDate),
-        dueTime: text(task.dueTime),
-        assignee: text(task.assignee),
-        assignedToUid: text(task.assignedToUid),
-        status,
-        interactionState,
-        priority,
-        source: text(task.source),
-        sourceId: text(task.sourceId),
-        sourceActionKind: text(task.sourceActionKind),
-        workstream: text(task.workstream),
-        createdAt: text(task.createdAt),
-        completedAt: text(task.completedAt),
-        deletedAt: text(task.deletedAt)
-      };
-    }));
-  }, () => callback([]));
+      return dashboardWorkItem(item.id, object(data.task));
+    });
+    emit();
+  }, () => {
+    workItems = [];
+    emit();
+  });
+
+  const unsubscribeEvents = onSnapshot(collection(firestoreDb, 'expert_workspaces', workspace, 'relationship_events'), (snapshot) => {
+    canonicalLeads = canonicalLeadMetricRows(snapshot);
+    emit();
+  }, () => {
+    canonicalLeads = [];
+    emit();
+  });
+
+  return () => {
+    unsubscribeTasks();
+    unsubscribeEvents();
+  };
 }
 
 export async function subscribeDashboardFormationClasses(

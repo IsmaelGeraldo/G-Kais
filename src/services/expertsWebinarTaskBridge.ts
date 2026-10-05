@@ -1,3 +1,4 @@
+import { appendExpertRelationshipEvent } from './expertsWorkspaceCore';
 import { markWebinarWorkActionCompleted, type WebinarWorkActionKind } from './expertsWebinarActions';
 
 const TASK_STORAGE_KEY = 'gkais-experts-work-tasks-v1';
@@ -8,12 +9,16 @@ type WebinarTask = {
   status?: string;
   result?: string;
   personId?: string;
+  sourceId?: string;
   sourceRegistrationId?: string;
   sourceActionKind?: WebinarWorkActionKind;
+  createdAt?: string;
 };
 
 const synced = new Set<string>();
 const inFlight = new Set<string>();
+const leadEventsSynced = new Set<string>();
+const leadEventsInFlight = new Set<string>();
 let timer: number | undefined;
 
 function readTasks(): WebinarTask[] {
@@ -26,8 +31,48 @@ function readTasks(): WebinarTask[] {
   }
 }
 
-async function syncCompletedWebinarTasks() {
-  const completed = readTasks().filter((task) =>
+function taskDate(value?: string): Date | undefined {
+  if (!value) return undefined;
+  const date = new Date(value);
+  return Number.isFinite(date.getTime()) ? date : undefined;
+}
+
+async function syncCanonicalLeadEvents(tasks: WebinarTask[]) {
+  const leads = tasks.filter((task) =>
+    task.sourceActionKind === 'follow-up' &&
+    typeof task.sourceRegistrationId === 'string' && task.sourceRegistrationId &&
+    typeof task.personId === 'string' && task.personId
+  );
+
+  for (const task of leads) {
+    const key = task.sourceRegistrationId!;
+    if (leadEventsSynced.has(key) || leadEventsInFlight.has(key)) continue;
+    leadEventsInFlight.add(key);
+    try {
+      // The deterministic key makes historical backfill and future sync safe to repeat.
+      await appendExpertRelationshipEvent({
+        personId: task.personId!,
+        type: 'lead_entered',
+        sourceType: 'webinar_registration',
+        sourceId: task.sourceRegistrationId!,
+        idempotencyKey: `lead-entered:${task.sourceRegistrationId}`,
+        occurredAt: taskDate(task.createdAt),
+        metadata: {
+          webinarId: task.sourceId || '',
+          registrationId: task.sourceRegistrationId!,
+          taskId: task.id || ''
+        }
+      });
+      leadEventsSynced.add(key);
+    } catch {
+    } finally {
+      leadEventsInFlight.delete(key);
+    }
+  }
+}
+
+async function syncCompletedWebinarTasks(tasks: WebinarTask[]) {
+  const completed = tasks.filter((task) =>
     task.status === 'done' &&
     typeof task.sourceRegistrationId === 'string' && task.sourceRegistrationId &&
     typeof task.personId === 'string' && task.personId
@@ -53,12 +98,18 @@ async function syncCompletedWebinarTasks() {
   }
 }
 
+async function syncWebinarTasks() {
+  const tasks = readTasks();
+  await syncCanonicalLeadEvents(tasks);
+  await syncCompletedWebinarTasks(tasks);
+}
+
 function scheduleSync() {
   if (typeof window === 'undefined') return;
   if (timer !== undefined) window.clearTimeout(timer);
   timer = window.setTimeout(() => {
     timer = undefined;
-    void syncCompletedWebinarTasks();
+    void syncWebinarTasks();
   }, 180);
 }
 

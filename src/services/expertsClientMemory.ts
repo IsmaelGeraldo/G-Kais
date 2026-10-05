@@ -3,9 +3,11 @@ import {
   collection,
   doc,
   getDocs,
+  onSnapshot,
   serverTimestamp,
   setDoc,
-  writeBatch
+  writeBatch,
+  type Unsubscribe
 } from 'firebase/firestore';
 import { firebaseAuth, firestoreDb } from '../lib/firebase';
 import { resolveActiveExpertWorkspaceId } from './expertsWorkspaceCore';
@@ -23,6 +25,12 @@ const SCHEMA_VERSION = 1;
 type ClientLike = Record<string, unknown> & { id: string };
 type HydrationResult = 'firestore' | 'migrated' | 'local';
 type OutcomeMemory = Record<string, unknown>;
+type ClientEnvelope = { record?: ClientLike; session?: ClientLike };
+
+let clientSubscription: Unsubscribe | null = null;
+let subscribedWorkspaceId = '';
+let remoteRecordFingerprints = new Map<string, string>();
+let remoteSessionFingerprints = new Map<string, string>();
 
 function readLocalArray<T>(baseKey: string, workspaceId: string): T[] {
   if (typeof window === 'undefined') return [];
@@ -53,6 +61,45 @@ function sanitizeForFirestore<T>(value: T): T {
     return Object.fromEntries(entries) as T;
   }
   return value;
+}
+
+function fingerprint(value: ClientLike): string {
+  return JSON.stringify(value);
+}
+
+function fingerprintMap(items: ClientLike[]): Map<string, string> {
+  return new Map(items.filter((item) => item?.id).map((item) => [item.id, fingerprint(item)]));
+}
+
+function preservePendingLocal(remote: ClientLike[], local: ClientLike[], knownRemote: Map<string, string>): ClientLike[] {
+  const remoteById = new Map(remote.map((item) => [item.id, item]));
+  const result: ClientLike[] = [];
+  const included = new Set<string>();
+
+  local.forEach((localItem) => {
+    if (!localItem?.id) return;
+    const remoteItem = remoteById.get(localItem.id);
+    const knownFingerprint = knownRemote.get(localItem.id);
+    const localFingerprint = fingerprint(localItem);
+    const remoteFingerprint = remoteItem ? fingerprint(remoteItem) : '';
+    const localHasPendingChange = knownFingerprint !== undefined && localFingerprint !== knownFingerprint && localFingerprint !== remoteFingerprint;
+    const localIsNewPending = !remoteItem && knownFingerprint === undefined;
+
+    if (localHasPendingChange || localIsNewPending) {
+      result.push(localItem);
+      included.add(localItem.id);
+      return;
+    }
+    if (remoteItem) {
+      result.push(remoteItem);
+      included.add(remoteItem.id);
+    }
+  });
+
+  remote.forEach((remoteItem) => {
+    if (!included.has(remoteItem.id)) result.push(remoteItem);
+  });
+  return result;
 }
 
 function defined(value: unknown): boolean {
@@ -116,12 +163,56 @@ function localSessionClient(clientId: string, workspaceId: string): ClientLike |
   return readLocalArray<ClientLike>(SESSION_CLIENT_STORAGE_KEY, workspaceId).find((item) => item?.id === clientId);
 }
 
+function stopClientSubscription(): void {
+  clientSubscription?.();
+  clientSubscription = null;
+  subscribedWorkspaceId = '';
+  remoteRecordFingerprints = new Map();
+  remoteSessionFingerprints = new Map();
+}
+
+function remoteClientState(snapshot: { docs: Array<{ data: () => unknown }> }): { records: ClientLike[]; sessions: ClientLike[] } {
+  const records: ClientLike[] = [];
+  const sessions: ClientLike[] = [];
+  snapshot.docs.forEach((item) => {
+    const data = item.data() as ClientEnvelope;
+    if (data.record?.id) records.push(data.record);
+    if (data.session?.id) sessions.push(data.session);
+  });
+  return { records, sessions };
+}
+
+function startClientSubscription(workspaceId: string): void {
+  if (clientSubscription && subscribedWorkspaceId === workspaceId) return;
+  stopClientSubscription();
+  subscribedWorkspaceId = workspaceId;
+  clientSubscription = onSnapshot(clientsCollection(workspaceId), (snapshot) => {
+    const remote = remoteClientState(snapshot);
+    const localRecords = readLocalArray<ClientLike>(CLIENT_RECORD_STORAGE_KEY, workspaceId);
+    const localSessions = readLocalArray<ClientLike>(SESSION_CLIENT_STORAGE_KEY, workspaceId);
+    const records = preservePendingLocal(remote.records, localRecords, remoteRecordFingerprints);
+    const sessions = preservePendingLocal(remote.sessions, localSessions, remoteSessionFingerprints);
+
+    remoteRecordFingerprints = fingerprintMap(remote.records);
+    remoteSessionFingerprints = fingerprintMap(remote.sessions);
+    writeLocalArray(CLIENT_RECORD_STORAGE_KEY, workspaceId, records);
+    writeLocalArray(SESSION_CLIENT_STORAGE_KEY, workspaceId, sessions);
+    emitWorkspaceRefresh();
+  }, (error) => {
+    console.error('[G-KAIS CLIENT MEMORY SUBSCRIPTION ERROR]', error);
+  });
+}
+
 export async function hydrateExpertsClientMemory(): Promise<HydrationResult> {
   if (typeof window === 'undefined') return 'local';
   const user = await restoredUser();
-  if (!user) return 'local';
+  if (!user) {
+    stopClientSubscription();
+    return 'local';
+  }
   const workspaceId = await ownerWorkspaceId(user);
   if (!workspaceId) {
+    stopClientSubscription();
     emitWorkspaceRefresh();
     return 'local';
   }
@@ -140,6 +231,9 @@ export async function hydrateExpertsClientMemory(): Promise<HydrationResult> {
       if (!ids.length) {
         writeLocalArray(CLIENT_RECORD_STORAGE_KEY, workspaceId, []);
         writeLocalArray(SESSION_CLIENT_STORAGE_KEY, workspaceId, []);
+        remoteRecordFingerprints = new Map();
+        remoteSessionFingerprints = new Map();
+        startClientSubscription(workspaceId);
         emitWorkspaceRefresh();
         return 'firestore';
       }
@@ -159,21 +253,20 @@ export async function hydrateExpertsClientMemory(): Promise<HydrationResult> {
         });
       });
       await batch.commit();
+      remoteRecordFingerprints = fingerprintMap(localRecords);
+      remoteSessionFingerprints = fingerprintMap(localSessions);
+      startClientSubscription(workspaceId);
       emitExpertsPersistenceStatus('saved');
       emitWorkspaceRefresh();
       return 'migrated';
     }
 
-    const records: ClientLike[] = [];
-    const sessions: ClientLike[] = [];
-    snapshot.docs.forEach((item) => {
-      const data = item.data() as { record?: ClientLike; session?: ClientLike };
-      if (data.record?.id) records.push(data.record);
-      if (data.session?.id) sessions.push(data.session);
-    });
-
-    writeLocalArray(CLIENT_RECORD_STORAGE_KEY, workspaceId, records);
-    writeLocalArray(SESSION_CLIENT_STORAGE_KEY, workspaceId, sessions);
+    const remote = remoteClientState(snapshot);
+    writeLocalArray(CLIENT_RECORD_STORAGE_KEY, workspaceId, remote.records);
+    writeLocalArray(SESSION_CLIENT_STORAGE_KEY, workspaceId, remote.sessions);
+    remoteRecordFingerprints = fingerprintMap(remote.records);
+    remoteSessionFingerprints = fingerprintMap(remote.sessions);
+    startClientSubscription(workspaceId);
     emitWorkspaceRefresh();
     return 'firestore';
   } catch (error) {
@@ -271,4 +364,10 @@ export async function persistExpertClientMemory(clientId: string): Promise<void>
     outcomeMemory: buildOutcomeMemory(record, session),
     updatedAt: serverTimestamp()
   }, { merge: true });
+}
+
+if (typeof window !== 'undefined') {
+  onAuthStateChanged(firebaseAuth, (user) => {
+    if (!user) stopClientSubscription();
+  });
 }

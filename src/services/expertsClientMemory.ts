@@ -115,19 +115,33 @@ function currentTimeZone(): string {
   }
 }
 
+function clearStructuredNextSession(value: ClientLike): ClientLike {
+  const {
+    nextSessionAt: _nextSessionAt,
+    nextSessionTimeZone: _nextSessionTimeZone,
+    nextSessionSource: _nextSessionSource,
+    ...rest
+  } = value;
+  return rest as ClientLike;
+}
+
 function normalizeStructuredNextSession(value?: ClientLike): ClientLike | undefined {
   if (!value) return undefined;
-  if (typeof value.nextSessionAt === 'string' && value.nextSessionAt.trim()) return value;
   const nextSession = typeof value.nextSession === 'string' ? value.nextSession.trim() : '';
-  if (!nextSession) return value;
+  const storedSource = typeof value.nextSessionSource === 'string' ? value.nextSessionSource : '';
+  const storedAt = typeof value.nextSessionAt === 'string' ? value.nextSessionAt.trim() : '';
+  if (!nextSession) return storedAt || storedSource ? clearStructuredNextSession(value) : value;
+  if (storedAt && storedSource === nextSession) return value;
+
   const match = nextSession.match(/(\d{4}-\d{2}-\d{2})(?:\s*[·T]\s*|\s+)(\d{2}:\d{2})/);
-  if (!match) return value;
+  if (!match) return storedAt || storedSource ? clearStructuredNextSession(value) : value;
   const localDate = new Date(`${match[1]}T${match[2]}:00`);
-  if (!Number.isFinite(localDate.getTime())) return value;
+  if (!Number.isFinite(localDate.getTime())) return storedAt || storedSource ? clearStructuredNextSession(value) : value;
   return {
     ...value,
     nextSessionAt: localDate.toISOString(),
-    nextSessionTimeZone: currentTimeZone()
+    nextSessionTimeZone: currentTimeZone(),
+    nextSessionSource: nextSession
   };
 }
 

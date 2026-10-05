@@ -2,7 +2,7 @@ import { scopedWorkspaceStorageKey } from './expertsWorkspaceStorage';
 
 const CLIENT_RECORD_STORAGE_KEY = 'gkais-experts-client-records-v2';
 
-type IdentifiedRecord = Record<string, unknown> & { id: string };
+type IdentifiedRecord = { id: string };
 
 export function loadMentoringClientCache<T extends IdentifiedRecord>(): T[] {
   if (typeof window === 'undefined') return [];

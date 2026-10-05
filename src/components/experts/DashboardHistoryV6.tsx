@@ -55,6 +55,15 @@ type FollowUpSegment = 'leads' | 'nurture';
 type FollowUpLane = 'queue' | 'waiting' | 'replied';
 
 const FLAG_SVGS = FlagSvgStrings as unknown as Record<string, string>;
+const WEEKDAY_INDEX: Record<string, number> = {
+  domingo: 0, sunday: 0,
+  lunes: 1, monday: 1,
+  martes: 2, tuesday: 2,
+  miercoles: 3, wednesday: 3,
+  jueves: 4, thursday: 4,
+  viernes: 5, friday: 5,
+  sabado: 6, saturday: 6
+};
 
 function todayKey() {
   const d = new Date();
@@ -110,6 +119,38 @@ function isWebinarLeadEntry(item: DashboardWorkItem) {
     && item.sourceActionKind === 'follow-up'
     && Boolean(item.personId)
     && Boolean(asDate(item.createdAt));
+}
+function relationshipAlreadyAdvanced(person?: ExpertPerson) {
+  return person?.currentStage === 'student' || person?.currentStage === 'alumni' || person?.currentStage === 'mentoring';
+}
+function normalizedWord(value: string) {
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+}
+function agendaTimestamp(value: string): number {
+  const clean = value.trim();
+  if (!clean) return Number.MAX_SAFE_INTEGER;
+  const iso = clean.match(/^(\d{4}-\d{2}-\d{2})(?:\s*(?:·|T)\s*|\s+)?(\d{2}:\d{2})?/);
+  if (iso) {
+    const date = new Date(`${iso[1]}T${iso[2] || '12:00'}:00`);
+    return Number.isFinite(date.getTime()) ? date.getTime() : Number.MAX_SAFE_INTEGER;
+  }
+  const now = new Date();
+  const timeMatch = clean.match(/(\d{1,2}):(\d{2})/);
+  const hours = timeMatch ? Number(timeMatch[1]) : 12;
+  const minutes = timeMatch ? Number(timeMatch[2]) : 0;
+  const word = normalizedWord(clean.split(/[·,]/)[0] || '');
+  const candidate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, 0, 0);
+  if (word === 'hoy' || word === 'today') return candidate.getTime();
+  if (word === 'manana' || word === 'tomorrow') {
+    candidate.setDate(candidate.getDate() + 1);
+    return candidate.getTime();
+  }
+  const weekday = WEEKDAY_INDEX[word];
+  if (weekday === undefined) return Number.MAX_SAFE_INTEGER;
+  let delta = (weekday - now.getDay() + 7) % 7;
+  if (delta === 0 && candidate.getTime() < now.getTime()) delta = 7;
+  candidate.setDate(candidate.getDate() + delta);
+  return candidate.getTime();
 }
 function normalizeCountry(value: string) {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
@@ -369,6 +410,7 @@ export function DashboardHistoryV6({ language, onNavigate, onOpenClient, onStart
 
   const today = todayKey();
   const profileById = useMemo(() => new Map(profiles.map((p) => [p.id, p])), [profiles]);
+  const peopleById = useMemo(() => new Map(people.map((p) => [p.id, p])), [people]);
   const formationById = useMemo(() => new Map(formations.map((f) => [f.id, f])), [formations]);
   const cohortById = useMemo(() => new Map(cohorts.map((c) => [c.id, c])), [cohorts]);
   const cohortTimeById = useMemo(() => new Map(cohortTimes.map((c) => [c.cohortId, c.time])), [cohortTimes]);
@@ -376,8 +418,11 @@ export function DashboardHistoryV6({ language, onNavigate, onOpenClient, onStart
   const dueToday = useMemo(() => mainWork.filter((t) => t.interactionState !== 'waiting-reply' && (!t.dueDate || t.dueDate <= today)).sort((a, b) => `${a.dueDate || today}${a.dueTime || '23:59'}`.localeCompare(`${b.dueDate || today}${b.dueTime || '23:59'}`)), [mainWork, today]);
   const activeClasses = useMemo(() => classes.filter((c) => !c.archived && c.status !== 'done' && c.date >= today).map((c) => ({ ...c, effectiveTime: c.time || cohortTimeById.get(c.cohortId) || '' })).sort((a, b) => `${a.date}${a.effectiveTime}`.localeCompare(`${b.date}${b.effectiveTime}`)), [classes, cohortTimeById, today]);
   const formationPersonIds = useMemo(() => new Set(enrollments.filter((e) => e.status !== 'withdrawn' && e.status !== 'refunded').map((e) => e.personId)), [enrollments]);
-  const activeClientIds = useMemo(() => new Set([...formationPersonIds, ...people.filter((p) => p.currentStage === 'mentoring').map((p) => p.id)]), [formationPersonIds, people]);
+  const mentoringPersonIds = useMemo(() => new Set(people.filter((p) => p.currentStage === 'mentoring').map((p) => p.id)), [people]);
+  const activeClientIds = useMemo(() => new Set([...formationPersonIds, ...mentoringPersonIds]), [formationPersonIds, mentoringPersonIds]);
   const activeClients = activeClientIds.size;
+  const activeFormationCount = formationPersonIds.size;
+  const activeMentoringCount = mentoringPersonIds.size;
   const currentMonth = today.slice(0, 7);
   const priorMonth = previousMonthKey();
   const leadEntryByPerson = useMemo(() => { const map = new Map<string, Date>(); tasks.forEach((task) => { if (!isWebinarLeadEntry(task)) return; const date = asDate(task.createdAt); if (!date) return; const current = map.get(task.personId); if (!current || date < current) map.set(task.personId, date); }); return map; }, [tasks]);
@@ -399,12 +444,20 @@ export function DashboardHistoryV6({ language, onNavigate, onOpenClient, onStart
   const buyerComparison = buyerDifference === 0 ? (language === 'es' ? 'Sin cambios vs mes anterior' : 'No change vs previous month') : `${buyerDifference > 0 ? '+' : ''}${buyerDifference} ${language === 'es' ? 'vs mes anterior' : 'vs previous month'}`;
   const buyerDates = useMemo(() => buyerEvents.map((event) => event.date), [buyerEvents]);
   const agenda = useMemo(() => {
-    const classRows = activeClasses.slice(0, 8).map((c) => ({ kind: 'class' as const, id: c.id, title: `${formationById.get(c.formationId)?.title || 'Formación'} · ${c.title}`, subtitle: `${cohortById.get(c.cohortId)?.title || c.cohortTitle} · ${humanDate(c.date, c.effectiveTime, language)}`, classItem: c }));
-    const clientRows = clients.filter((c) => (c.nextSession || '').trim()).slice(0, 5).map((c) => ({ kind: 'client' as const, id: c.id, title: c.name, subtitle: c.nextSession || '', client: c }));
-    return [...clientRows, ...classRows].slice(0, 9);
+    const classRows = activeClasses.map((c) => ({ kind: 'class' as const, id: c.id, title: `${formationById.get(c.formationId)?.title || 'Formación'} · ${c.title}`, subtitle: `${cohortById.get(c.cohortId)?.title || c.cohortTitle} · ${humanDate(c.date, c.effectiveTime, language)}`, classItem: c, sortAt: agendaTimestamp(`${c.date} · ${c.effectiveTime || '12:00'}`) }));
+    const clientRows = clients.filter((c) => (c.nextSession || '').trim()).map((c) => ({ kind: 'client' as const, id: c.id, title: c.name, subtitle: c.nextSession || '', client: c, sortAt: agendaTimestamp(c.nextSession || '') }));
+    const now = Date.now();
+    return [...clientRows, ...classRows]
+      .filter((item) => item.sortAt === Number.MAX_SAFE_INTEGER || item.sortAt >= now)
+      .sort((a, b) => a.sortAt - b.sortAt || a.title.localeCompare(b.title))
+      .slice(0, 9);
   }, [activeClasses, formationById, cohortById, clients, language]);
   const radar = useMemo(() => {
-    const follow = tasks.filter((t) => t.status !== 'done' && !t.deletedAt && !isHiddenWork(t) && isFollowUpWork(t));
+    const follow = tasks.filter((t) => {
+      if (t.status === 'done' || t.deletedAt || isHiddenWork(t) || !isFollowUpWork(t)) return false;
+      const person = t.personId ? peopleById.get(t.personId) : undefined;
+      return !relationshipAlreadyAdvanced(person);
+    });
     const leadFollow = follow.filter((t) => t.source === 'webinar' && t.sourceActionKind === 'follow-up');
     const nurtureFollow = follow.filter((t) => !(t.source === 'webinar' && t.sourceActionKind === 'follow-up'));
     return [
@@ -412,7 +465,7 @@ export function DashboardHistoryV6({ language, onNavigate, onOpenClient, onStart
       { label: language === 'es' ? 'Esperando respuesta' : 'Waiting for reply', value: nurtureFollow.filter((t) => t.interactionState === 'waiting-reply').length, detail: language === 'es' ? 'Interacciones activas en seguimiento.' : 'Active follow-up interactions.', segment: 'nurture' as FollowUpSegment, lane: 'waiting' as FollowUpLane },
       { label: language === 'es' ? 'Leads por atender' : 'Leads to review', value: leadFollow.filter((t) => !t.interactionState || t.interactionState === 'queue').length, detail: language === 'es' ? 'Motivo, contexto y continuidad por definir.' : 'Reason, context and continuity to define.', segment: 'leads' as FollowUpSegment, lane: 'queue' as FollowUpLane }
     ];
-  }, [tasks, language]);
+  }, [tasks, peopleById, language]);
   const reach = useMemo<ReachRow[]>(() => {
     const rows = new Map<string, { country: string; formation: Set<string>; mentoring: Set<string> }>();
     people.forEach((person) => {
@@ -446,7 +499,7 @@ export function DashboardHistoryV6({ language, onNavigate, onOpenClient, onStart
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <MetricCard id="priority" label={language === 'es' ? 'Trabajo prioritario' : 'Priority Work'} value={mainWork.length} detail={language === 'es' ? 'Tareas activas por resolver' : 'Active tasks to resolve'} detailAfterDivider ringValue={Math.min(mainWork.length, 12)} ringTotal={12} colors={['#A23A32', '#D67A32']} />
       <MetricCard id="buyers" label={language === 'es' ? 'Compradores del mes' : 'Buyers this month'} value={currentBuyers} detail={`${formationBuyers} ${language === 'es' ? 'Formación' : 'Program'} · ${mentoringBuyerCount} ${language === 'es' ? 'Mentoría' : 'Mentoring'}`} ringValue={currentBuyers} ringTotal={Math.max(1, currentBuyers, previousBuyers)} colors={['#8B5E34', '#C49A6C']} expandable expanded={expanded === 'buyers'} onToggle={() => setExpanded((current) => current === 'buyers' ? null : 'buyers')} />
-      <MetricCard id="clients" label={language === 'es' ? 'Clientes activos' : 'Active Clients'} value={activeClients} detail={language === 'es' ? 'Mentoría y formación' : 'Mentoring and programs'} ringValue={activeClients} ringTotal={Math.max(1, people.length)} colors={['#0A3F4D', '#78A892']} expandable expanded={expanded === 'clients'} onToggle={() => setExpanded((current) => current === 'clients' ? null : 'clients')} />
+      <MetricCard id="clients" label={language === 'es' ? 'Clientes activos' : 'Active Clients'} value={activeClients} detail={`${activeFormationCount} ${language === 'es' ? 'Formación' : 'Program'} · ${activeMentoringCount} ${language === 'es' ? 'Mentoría' : 'Mentoring'}`} ringValue={activeClients} ringTotal={Math.max(1, people.length)} colors={['#0A3F4D', '#78A892']} expandable expanded={expanded === 'clients'} onToggle={() => setExpanded((current) => current === 'clients' ? null : 'clients')} />
       <MetricCard id="leads" label={language === 'es' ? 'Nuevos leads' : 'New Leads'} value={newLeads} detail={language === 'es' ? 'pasaron a Leads este mes' : 'entered Leads this month'} ringValue={newLeads} ringTotal={Math.max(1, leadEntryByPerson.size)} colors={['#5C4D8A', '#7A9FC8']} expandable expanded={expanded === 'leads'} onToggle={() => setExpanded((current) => current === 'leads' ? null : 'leads')} />
     </div>
     {expanded && <TrendChart kind={expanded} dates={chartDates} range={ranges[expanded]} setRange={(range) => setRanges((current) => ({ ...current, [expanded]: range }))} language={language} comparison={expanded === 'buyers' ? buyerComparison : undefined} />}

@@ -49,6 +49,7 @@ async function syncCanonicalLeadEvents(tasks: WebinarTask[]) {
     if (leadEventsSynced.has(key) || leadEventsInFlight.has(key)) continue;
     leadEventsInFlight.add(key);
     try {
+      // The deterministic key makes historical backfill and future sync safe to repeat.
       await appendExpertRelationshipEvent({
         personId: task.personId!,
         type: 'lead_entered',

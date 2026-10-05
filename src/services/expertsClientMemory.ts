@@ -26,6 +26,7 @@ type ClientLike = Record<string, unknown> & { id: string };
 type HydrationResult = 'firestore' | 'migrated' | 'local';
 type OutcomeMemory = Record<string, unknown>;
 type ClientEnvelope = { record?: ClientLike; session?: ClientLike };
+type ClientSnapshot = { docs: Array<{ data: () => unknown }> };
 
 let clientSubscription: Unsubscribe | null = null;
 let subscribedWorkspaceId = '';
@@ -106,20 +107,54 @@ function defined(value: unknown): boolean {
   return value !== undefined && value !== null && value !== '';
 }
 
+function currentTimeZone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  } catch {
+    return 'UTC';
+  }
+}
+
+function normalizeStructuredNextSession(value?: ClientLike): ClientLike | undefined {
+  if (!value) return undefined;
+  if (typeof value.nextSessionAt === 'string' && value.nextSessionAt.trim()) return value;
+  const nextSession = typeof value.nextSession === 'string' ? value.nextSession.trim() : '';
+  if (!nextSession) return value;
+  const match = nextSession.match(/(\d{4}-\d{2}-\d{2})(?:\s*[·T]\s*|\s+)(\d{2}:\d{2})/);
+  if (!match) return value;
+  const localDate = new Date(`${match[1]}T${match[2]}:00`);
+  if (!Number.isFinite(localDate.getTime())) return value;
+  return {
+    ...value,
+    nextSessionAt: localDate.toISOString(),
+    nextSessionTimeZone: currentTimeZone()
+  };
+}
+
+function needsStructuredNextSessionBackfill(value?: ClientLike): boolean {
+  if (!value) return false;
+  const normalized = normalizeStructuredNextSession(value);
+  return Boolean(normalized && fingerprint(normalized) !== fingerprint(value));
+}
+
 function buildOutcomeMemory(record?: ClientLike, session?: ClientLike): OutcomeMemory {
+  const normalizedRecord = normalizeStructuredNextSession(record);
+  const normalizedSession = normalizeStructuredNextSession(session);
   const memory: OutcomeMemory = {
-    startingPoint: record?.startingPoint,
-    expectedOutcome: session?.goal ?? record?.expectedOutcome,
-    primaryGoal: record?.primaryGoal,
-    currentPhase: session?.currentPhase ?? record?.currentPhase,
-    currentGap: session?.currentGap ?? record?.currentGap,
-    planSummary: session?.planSummary ?? record?.planSummary,
-    blockers: session?.blockers ?? record?.blockers,
-    milestones: record?.milestones,
-    commitments: session?.commitments ?? record?.commitments,
-    nextAction: session?.nextAction ?? record?.nextAction,
-    nextSession: session?.nextSession ?? record?.nextSession,
-    progress: session?.week ?? record?.progress
+    startingPoint: normalizedRecord?.startingPoint,
+    expectedOutcome: normalizedSession?.goal ?? normalizedRecord?.expectedOutcome,
+    primaryGoal: normalizedRecord?.primaryGoal,
+    currentPhase: normalizedSession?.currentPhase ?? normalizedRecord?.currentPhase,
+    currentGap: normalizedSession?.currentGap ?? normalizedRecord?.currentGap,
+    planSummary: normalizedSession?.planSummary ?? normalizedRecord?.planSummary,
+    blockers: normalizedSession?.blockers ?? normalizedRecord?.blockers,
+    milestones: normalizedRecord?.milestones,
+    commitments: normalizedSession?.commitments ?? normalizedRecord?.commitments,
+    nextAction: normalizedSession?.nextAction ?? normalizedRecord?.nextAction,
+    nextSession: normalizedSession?.nextSession ?? normalizedRecord?.nextSession,
+    nextSessionAt: normalizedSession?.nextSessionAt ?? normalizedRecord?.nextSessionAt,
+    nextSessionTimeZone: normalizedSession?.nextSessionTimeZone ?? normalizedRecord?.nextSessionTimeZone,
+    progress: normalizedSession?.week ?? normalizedRecord?.progress
   };
   return sanitizeForFirestore(Object.fromEntries(Object.entries(memory).filter(([, value]) => defined(value))));
 }
@@ -171,15 +206,42 @@ function stopClientSubscription(): void {
   remoteSessionFingerprints = new Map();
 }
 
-function remoteClientState(snapshot: { docs: Array<{ data: () => unknown }> }): { records: ClientLike[]; sessions: ClientLike[] } {
+function remoteClientState(snapshot: ClientSnapshot): { records: ClientLike[]; sessions: ClientLike[] } {
   const records: ClientLike[] = [];
   const sessions: ClientLike[] = [];
   snapshot.docs.forEach((item) => {
     const data = item.data() as ClientEnvelope;
-    if (data.record?.id) records.push(data.record);
-    if (data.session?.id) sessions.push(data.session);
+    const record = normalizeStructuredNextSession(data.record);
+    const session = normalizeStructuredNextSession(data.session);
+    if (record?.id) records.push(record);
+    if (session?.id) sessions.push(session);
   });
   return { records, sessions };
+}
+
+async function backfillStructuredNextSessions(workspaceId: string, snapshot: ClientSnapshot): Promise<void> {
+  const pending: Array<{ id: string; record?: ClientLike; session?: ClientLike }> = [];
+  snapshot.docs.forEach((item) => {
+    const data = item.data() as ClientEnvelope;
+    if (!needsStructuredNextSessionBackfill(data.record) && !needsStructuredNextSessionBackfill(data.session)) return;
+    const record = normalizeStructuredNextSession(data.record);
+    const session = normalizeStructuredNextSession(data.session);
+    const id = record?.id || session?.id;
+    if (id) pending.push({ id, record, session });
+  });
+  if (!pending.length) return;
+
+  const batch = writeBatch(firestoreDb);
+  pending.forEach(({ id, record, session }) => {
+    batch.set(clientDocument(workspaceId, id), {
+      schemaVersion: SCHEMA_VERSION,
+      ...(record ? { record: sanitizeForFirestore(record) } : {}),
+      ...(session ? { session: sanitizeForFirestore(session) } : {}),
+      outcomeMemory: buildOutcomeMemory(record, session),
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+  });
+  await batch.commit();
 }
 
 function startClientSubscription(workspaceId: string): void {
@@ -241,8 +303,8 @@ export async function hydrateExpertsClientMemory(): Promise<HydrationResult> {
       emitExpertsPersistenceStatus('saving', 'Sincronizando datos del Workspace…');
       const batch = writeBatch(firestoreDb);
       ids.forEach((clientId) => {
-        const record = localRecords.find((item) => item.id === clientId);
-        const session = localSessions.find((item) => item.id === clientId);
+        const record = normalizeStructuredNextSession(localRecords.find((item) => item.id === clientId));
+        const session = normalizeStructuredNextSession(localSessions.find((item) => item.id === clientId));
         batch.set(clientDocument(workspaceId, clientId), {
           schemaVersion: SCHEMA_VERSION,
           ...(record ? { record: sanitizeForFirestore(record) } : {}),
@@ -253,14 +315,19 @@ export async function hydrateExpertsClientMemory(): Promise<HydrationResult> {
         });
       });
       await batch.commit();
-      remoteRecordFingerprints = fingerprintMap(localRecords);
-      remoteSessionFingerprints = fingerprintMap(localSessions);
+      const normalizedRecords = localRecords.map((item) => normalizeStructuredNextSession(item) ?? item);
+      const normalizedSessions = localSessions.map((item) => normalizeStructuredNextSession(item) ?? item);
+      writeLocalArray(CLIENT_RECORD_STORAGE_KEY, workspaceId, normalizedRecords);
+      writeLocalArray(SESSION_CLIENT_STORAGE_KEY, workspaceId, normalizedSessions);
+      remoteRecordFingerprints = fingerprintMap(normalizedRecords);
+      remoteSessionFingerprints = fingerprintMap(normalizedSessions);
       startClientSubscription(workspaceId);
       emitExpertsPersistenceStatus('saved');
       emitWorkspaceRefresh();
       return 'migrated';
     }
 
+    await backfillStructuredNextSessions(workspaceId, snapshot);
     const remote = remoteClientState(snapshot);
     writeLocalArray(CLIENT_RECORD_STORAGE_KEY, workspaceId, remote.records);
     writeLocalArray(SESSION_CLIENT_STORAGE_KEY, workspaceId, remote.sessions);
@@ -282,11 +349,12 @@ export async function persistExpertClientRecord(record: ClientLike): Promise<voi
   if (!user) return;
   const workspaceId = await ownerWorkspaceId(user);
   if (!workspaceId) return;
-  const session = localSessionClient(record.id, workspaceId);
+  const normalizedRecord = normalizeStructuredNextSession(record) ?? record;
+  const session = normalizeStructuredNextSession(localSessionClient(record.id, workspaceId));
   await setDoc(clientDocument(workspaceId, record.id), {
     schemaVersion: SCHEMA_VERSION,
-    record: sanitizeForFirestore(record),
-    outcomeMemory: buildOutcomeMemory(record, session),
+    record: sanitizeForFirestore(normalizedRecord),
+    outcomeMemory: buildOutcomeMemory(normalizedRecord, session),
     updatedAt: serverTimestamp()
   }, { merge: true });
 }
@@ -301,11 +369,12 @@ export async function persistExpertClientRecords(records: ClientLike[]): Promise
   const sessions = readLocalArray<ClientLike>(SESSION_CLIENT_STORAGE_KEY, workspaceId);
   const batch = writeBatch(firestoreDb);
   valid.forEach((record) => {
-    const session = sessions.find((item) => item.id === record.id);
+    const normalizedRecord = normalizeStructuredNextSession(record) ?? record;
+    const session = normalizeStructuredNextSession(sessions.find((item) => item.id === record.id));
     batch.set(clientDocument(workspaceId, record.id), {
       schemaVersion: SCHEMA_VERSION,
-      record: sanitizeForFirestore(record),
-      outcomeMemory: buildOutcomeMemory(record, session),
+      record: sanitizeForFirestore(normalizedRecord),
+      outcomeMemory: buildOutcomeMemory(normalizedRecord, session),
       updatedAt: serverTimestamp()
     }, { merge: true });
   });
@@ -318,11 +387,12 @@ export async function persistExpertSessionClient(session: ClientLike): Promise<v
   if (!user) return;
   const workspaceId = await ownerWorkspaceId(user);
   if (!workspaceId) return;
-  const record = localClientRecord(session.id, workspaceId);
+  const normalizedSession = normalizeStructuredNextSession(session) ?? session;
+  const record = normalizeStructuredNextSession(localClientRecord(session.id, workspaceId));
   await setDoc(clientDocument(workspaceId, session.id), {
     schemaVersion: SCHEMA_VERSION,
-    session: sanitizeForFirestore(session),
-    outcomeMemory: buildOutcomeMemory(record, session),
+    session: sanitizeForFirestore(normalizedSession),
+    outcomeMemory: buildOutcomeMemory(record, normalizedSession),
     updatedAt: serverTimestamp()
   }, { merge: true });
 }
@@ -337,11 +407,12 @@ export async function persistExpertSessionClients(sessions: ClientLike[]): Promi
   const records = readLocalArray<ClientLike>(CLIENT_RECORD_STORAGE_KEY, workspaceId);
   const batch = writeBatch(firestoreDb);
   valid.forEach((session) => {
-    const record = records.find((item) => item.id === session.id);
+    const normalizedSession = normalizeStructuredNextSession(session) ?? session;
+    const record = normalizeStructuredNextSession(records.find((item) => item.id === session.id));
     batch.set(clientDocument(workspaceId, session.id), {
       schemaVersion: SCHEMA_VERSION,
-      session: sanitizeForFirestore(session),
-      outcomeMemory: buildOutcomeMemory(record, session),
+      session: sanitizeForFirestore(normalizedSession),
+      outcomeMemory: buildOutcomeMemory(record, normalizedSession),
       updatedAt: serverTimestamp()
     }, { merge: true });
   });
@@ -354,8 +425,8 @@ export async function persistExpertClientMemory(clientId: string): Promise<void>
   if (!user) return;
   const workspaceId = await ownerWorkspaceId(user);
   if (!workspaceId) return;
-  const record = localClientRecord(clientId, workspaceId);
-  const session = localSessionClient(clientId, workspaceId);
+  const record = normalizeStructuredNextSession(localClientRecord(clientId, workspaceId));
+  const session = normalizeStructuredNextSession(localSessionClient(clientId, workspaceId));
   if (!record && !session) return;
   await setDoc(clientDocument(workspaceId, clientId), {
     schemaVersion: SCHEMA_VERSION,

@@ -132,6 +132,7 @@ export async function updateExpertWorkspaceMember(input: {
   if (input.memberUid === workspaceId) throw new Error('OWNER_CANNOT_BE_EDITED');
   if (input.memberUid === user.uid) throw new Error('SELF_EDIT_NOT_ALLOWED');
   if (!input.roleId.trim()) throw new Error('ROLE_REQUIRED');
+  if (input.roleId === 'owner') throw new Error('OWNER_ROLE_RESERVED');
 
   const memberRef = workspaceSubDocument(workspaceId, 'members', input.memberUid);
   const [memberSnapshot, roleSnapshot] = await Promise.all([
@@ -142,7 +143,7 @@ export async function updateExpertWorkspaceMember(input: {
   if (!roleSnapshot.exists()) throw new Error('ROLE_NOT_FOUND');
 
   const member = memberSnapshot.data() as WorkspaceMember;
-  const nextPermissions = Array.from(new Set(input.permissions));
+  const nextPermissions = Array.from(new Set(input.permissions.filter((permission) => permission !== '*')));
 
   await setDoc(memberRef, {
     roleId: input.roleId,

@@ -3,12 +3,18 @@ import {
   collection,
   doc,
   getDocs,
+  onSnapshot,
   serverTimestamp,
   setDoc,
-  writeBatch
+  writeBatch,
+  type Unsubscribe
 } from 'firebase/firestore';
 import { firebaseAuth, firestoreDb } from '../lib/firebase';
 import { resolveActiveExpertWorkspaceId } from './expertsWorkspaceCore';
+import {
+  scopedWorkspaceStorageKey,
+  setActiveExpertWorkspaceStorageScope
+} from './expertsWorkspaceStorage';
 
 const JOURNAL_STORAGE_KEY = 'gkais-experts-client-journal-v1';
 const SESSION_SUMMARY_STORAGE_KEY = 'gkais-experts-session-summaries-v1';
@@ -28,31 +34,36 @@ type RemoteEnvelope<T extends StoredItem> = {
   summary?: T;
 };
 
-let lastJournalFingerprint = '';
-let lastSessionsFingerprint = '';
+let journalSubscription: Unsubscribe | null = null;
+let sessionSubscription: Unsubscribe | null = null;
+let subscribedWorkspaceId = '';
+let remoteJournalFingerprints = new Map<string, string>();
+let remoteSessionFingerprints = new Map<string, string>();
+let syncTimer: number | undefined;
 
-function readLocalArray<T>(key: string): T[] {
+function readLocalArray<T>(baseKey: string, workspaceId: string): T[] {
   if (typeof window === 'undefined') return [];
   try {
-    const parsed = JSON.parse(window.localStorage.getItem(key) || '[]');
+    const parsed = JSON.parse(window.localStorage.getItem(scopedWorkspaceStorageKey(baseKey, workspaceId)) || '[]');
     return Array.isArray(parsed) ? parsed as T[] : [];
   } catch {
     return [];
   }
 }
 
-function writeLocalArray(key: string, value: unknown[]): void {
+function writeLocalArray(baseKey: string, workspaceId: string, value: unknown[]): void {
   if (typeof window === 'undefined') return;
   try {
-    window.localStorage.setItem(key, JSON.stringify(value));
+    window.localStorage.setItem(scopedWorkspaceStorageKey(baseKey, workspaceId), JSON.stringify(value));
   } catch {}
 }
 
-function clearOwnerOnlyRelationshipCache(): void {
-  writeLocalArray(JOURNAL_STORAGE_KEY, []);
-  writeLocalArray(SESSION_SUMMARY_STORAGE_KEY, []);
-  lastJournalFingerprint = '[]';
-  lastSessionsFingerprint = '[]';
+function clearOwnerOnlyRelationshipCache(workspaceId: string): void {
+  if (!workspaceId) return;
+  writeLocalArray(JOURNAL_STORAGE_KEY, workspaceId, []);
+  writeLocalArray(SESSION_SUMMARY_STORAGE_KEY, workspaceId, []);
+  remoteJournalFingerprints = new Map();
+  remoteSessionFingerprints = new Map();
 }
 
 function emitWorkspaceRefresh(): void {
@@ -71,8 +82,35 @@ function sanitizeForFirestore<T>(value: T): T {
   return value;
 }
 
-function fingerprint(items: StoredItem[]): string {
-  return JSON.stringify(items);
+function itemFingerprint(item: StoredItem): string {
+  return JSON.stringify(item);
+}
+
+function fingerprintMap(items: StoredItem[]): Map<string, string> {
+  return new Map(items.filter((item) => item?.id).map((item) => [item.id, itemFingerprint(item)]));
+}
+
+function sortNewest(items: StoredItem[]): StoredItem[] {
+  return [...items].sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+}
+
+function preservePendingLocal(remote: StoredItem[], local: StoredItem[], knownRemote: Map<string, string>): StoredItem[] {
+  const remoteById = new Map(remote.map((item) => [item.id, item]));
+  const merged = new Map<string, StoredItem>();
+
+  remote.forEach((item) => merged.set(item.id, item));
+  local.forEach((localItem) => {
+    if (!localItem?.id) return;
+    const remoteItem = remoteById.get(localItem.id);
+    const knownFingerprint = knownRemote.get(localItem.id);
+    const localFingerprint = itemFingerprint(localItem);
+    const remoteFingerprint = remoteItem ? itemFingerprint(remoteItem) : '';
+    const localHasPendingChange = knownFingerprint !== undefined && localFingerprint !== knownFingerprint && localFingerprint !== remoteFingerprint;
+    const localIsNewPending = !remoteItem && knownFingerprint === undefined;
+    if (localHasPendingChange || localIsNewPending) merged.set(localItem.id, localItem);
+  });
+
+  return sortNewest(Array.from(merged.values()));
 }
 
 async function restoredUser(): Promise<User | null> {
@@ -90,8 +128,10 @@ async function restoredUser(): Promise<User | null> {
 async function ownerWorkspaceId(user: User): Promise<string | null> {
   if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('invite')) return null;
   const workspaceId = await resolveActiveExpertWorkspaceId(user);
-  if (!workspaceId || workspaceId !== user.uid) {
-    clearOwnerOnlyRelationshipCache();
+  if (!workspaceId) return null;
+  setActiveExpertWorkspaceStorageScope(workspaceId);
+  if (workspaceId !== user.uid) {
+    clearOwnerOnlyRelationshipCache(workspaceId);
     return null;
   }
   return workspaceId;
@@ -111,13 +151,6 @@ function sessionCollection(workspaceId: string) {
 
 function sessionDocument(workspaceId: string, summaryId: string) {
   return doc(firestoreDb, 'expert_workspaces', workspaceId, 'session_summaries', summaryId);
-}
-
-function mergeRemoteWithLocal<T extends StoredItem>(remote: T[], local: T[]): T[] {
-  const merged = new Map<string, T>();
-  local.forEach((item) => { if (item?.id) merged.set(item.id, item); });
-  remote.forEach((item) => { if (item?.id) merged.set(item.id, item); });
-  return Array.from(merged.values()).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
 }
 
 async function writeJournalBatch(workspaceId: string, entries: StoredItem[], migrated: boolean): Promise<void> {
@@ -150,42 +183,88 @@ async function writeSessionBatch(workspaceId: string, summaries: StoredItem[], m
   }
 }
 
-async function hydrateJournal(workspaceId: string): Promise<boolean> {
-  const snapshot = await getDocs(journalCollection(workspaceId));
-  const remote = snapshot.docs
+function remoteJournal(snapshot: { docs: Array<{ data: () => unknown }> }): StoredItem[] {
+  return snapshot.docs
     .map((item) => (item.data() as RemoteEnvelope<StoredItem>).entry)
     .filter((item): item is StoredItem => Boolean(item?.id));
-  const local = readLocalArray<StoredItem>(JOURNAL_STORAGE_KEY);
+}
+
+function remoteSessions(snapshot: { docs: Array<{ data: () => unknown }> }): StoredItem[] {
+  return snapshot.docs
+    .map((item) => (item.data() as RemoteEnvelope<StoredItem>).summary)
+    .filter((item): item is StoredItem => Boolean(item?.id));
+}
+
+function stopRelationshipSubscriptions(): void {
+  journalSubscription?.();
+  sessionSubscription?.();
+  journalSubscription = null;
+  sessionSubscription = null;
+  subscribedWorkspaceId = '';
+  remoteJournalFingerprints = new Map();
+  remoteSessionFingerprints = new Map();
+}
+
+function startRelationshipSubscriptions(workspaceId: string): void {
+  if (journalSubscription && sessionSubscription && subscribedWorkspaceId === workspaceId) return;
+  stopRelationshipSubscriptions();
+  subscribedWorkspaceId = workspaceId;
+
+  journalSubscription = onSnapshot(journalCollection(workspaceId), (snapshot) => {
+    const remote = remoteJournal(snapshot);
+    const local = readLocalArray<StoredItem>(JOURNAL_STORAGE_KEY, workspaceId);
+    const merged = preservePendingLocal(remote, local, remoteJournalFingerprints);
+    remoteJournalFingerprints = fingerprintMap(remote);
+    writeLocalArray(JOURNAL_STORAGE_KEY, workspaceId, merged);
+    emitWorkspaceRefresh();
+  }, (error) => console.error('[G-KAIS JOURNAL SUBSCRIPTION ERROR]', error));
+
+  sessionSubscription = onSnapshot(sessionCollection(workspaceId), (snapshot) => {
+    const remote = remoteSessions(snapshot);
+    const local = readLocalArray<StoredItem>(SESSION_SUMMARY_STORAGE_KEY, workspaceId);
+    const merged = preservePendingLocal(remote, local, remoteSessionFingerprints);
+    remoteSessionFingerprints = fingerprintMap(remote);
+    writeLocalArray(SESSION_SUMMARY_STORAGE_KEY, workspaceId, merged);
+    emitWorkspaceRefresh();
+  }, (error) => console.error('[G-KAIS SESSION SUMMARY SUBSCRIPTION ERROR]', error));
+}
+
+async function hydrateJournal(workspaceId: string): Promise<boolean> {
+  const snapshot = await getDocs(journalCollection(workspaceId));
+  const remote = remoteJournal(snapshot);
+  const local = readLocalArray<StoredItem>(JOURNAL_STORAGE_KEY, workspaceId);
   const remoteIds = new Set(remote.map((item) => item.id));
   const missingRemote = local.filter((item) => item?.id && !remoteIds.has(item.id));
   if (missingRemote.length) await writeJournalBatch(workspaceId, missingRemote, true);
-  const merged = mergeRemoteWithLocal(remote, local);
-  if (merged.length || local.length) writeLocalArray(JOURNAL_STORAGE_KEY, merged);
-  lastJournalFingerprint = fingerprint(merged);
+  const merged = sortNewest([...remote, ...missingRemote]);
+  writeLocalArray(JOURNAL_STORAGE_KEY, workspaceId, merged);
+  remoteJournalFingerprints = fingerprintMap(merged);
   return remote.length > 0 || missingRemote.length > 0;
 }
 
 async function hydrateSessions(workspaceId: string): Promise<boolean> {
   const snapshot = await getDocs(sessionCollection(workspaceId));
-  const remote = snapshot.docs
-    .map((item) => (item.data() as RemoteEnvelope<StoredItem>).summary)
-    .filter((item): item is StoredItem => Boolean(item?.id));
-  const local = readLocalArray<StoredItem>(SESSION_SUMMARY_STORAGE_KEY);
+  const remote = remoteSessions(snapshot);
+  const local = readLocalArray<StoredItem>(SESSION_SUMMARY_STORAGE_KEY, workspaceId);
   const remoteIds = new Set(remote.map((item) => item.id));
   const missingRemote = local.filter((item) => item?.id && !remoteIds.has(item.id));
   if (missingRemote.length) await writeSessionBatch(workspaceId, missingRemote, true);
-  const merged = mergeRemoteWithLocal(remote, local);
-  if (merged.length || local.length) writeLocalArray(SESSION_SUMMARY_STORAGE_KEY, merged);
-  lastSessionsFingerprint = fingerprint(merged);
+  const merged = sortNewest([...remote, ...missingRemote]);
+  writeLocalArray(SESSION_SUMMARY_STORAGE_KEY, workspaceId, merged);
+  remoteSessionFingerprints = fingerprintMap(merged);
   return remote.length > 0 || missingRemote.length > 0;
 }
 
 export async function hydrateExpertsRelationshipMemory(): Promise<'firestore' | 'local'> {
   if (typeof window === 'undefined') return 'local';
   const user = await restoredUser();
-  if (!user) return 'local';
+  if (!user) {
+    stopRelationshipSubscriptions();
+    return 'local';
+  }
   const workspaceId = await ownerWorkspaceId(user);
   if (!workspaceId) {
+    stopRelationshipSubscriptions();
     emitWorkspaceRefresh();
     return 'local';
   }
@@ -194,9 +273,11 @@ export async function hydrateExpertsRelationshipMemory(): Promise<'firestore' | 
       hydrateJournal(workspaceId),
       hydrateSessions(workspaceId)
     ]);
+    startRelationshipSubscriptions(workspaceId);
     if (journalChanged || sessionsChanged) emitWorkspaceRefresh();
     return 'firestore';
-  } catch {
+  } catch (error) {
+    console.error('[G-KAIS RELATIONSHIP MEMORY HYDRATION ERROR]', error);
     return 'local';
   }
 }
@@ -207,13 +288,11 @@ export async function persistExpertJournalEntry(entry: StoredItem): Promise<void
   if (!user) return;
   const workspaceId = await ownerWorkspaceId(user);
   if (!workspaceId) return;
-  try {
-    await setDoc(journalDocument(workspaceId, entry.id), {
-      schemaVersion: SCHEMA_VERSION,
-      entry: sanitizeForFirestore(entry),
-      updatedAt: serverTimestamp()
-    }, { merge: true });
-  } catch {}
+  await setDoc(journalDocument(workspaceId, entry.id), {
+    schemaVersion: SCHEMA_VERSION,
+    entry: sanitizeForFirestore(entry),
+    updatedAt: serverTimestamp()
+  }, { merge: true });
 }
 
 export async function persistExpertSessionSummary(summary: StoredItem): Promise<void> {
@@ -222,13 +301,11 @@ export async function persistExpertSessionSummary(summary: StoredItem): Promise<
   if (!user) return;
   const workspaceId = await ownerWorkspaceId(user);
   if (!workspaceId) return;
-  try {
-    await setDoc(sessionDocument(workspaceId, summary.id), {
-      schemaVersion: SCHEMA_VERSION,
-      summary: sanitizeForFirestore(summary),
-      updatedAt: serverTimestamp()
-    }, { merge: true });
-  } catch {}
+  await setDoc(sessionDocument(workspaceId, summary.id), {
+    schemaVersion: SCHEMA_VERSION,
+    summary: sanitizeForFirestore(summary),
+    updatedAt: serverTimestamp()
+  }, { merge: true });
 }
 
 async function syncRelationshipMemoryFromLocal(): Promise<void> {
@@ -237,36 +314,41 @@ async function syncRelationshipMemoryFromLocal(): Promise<void> {
   const workspaceId = await ownerWorkspaceId(user);
   if (!workspaceId) return;
 
-  const journal = readLocalArray<StoredItem>(JOURNAL_STORAGE_KEY);
-  const summaries = readLocalArray<StoredItem>(SESSION_SUMMARY_STORAGE_KEY);
-  const journalFingerprint = fingerprint(journal);
-  const sessionsFingerprint = fingerprint(summaries);
+  const journal = readLocalArray<StoredItem>(JOURNAL_STORAGE_KEY, workspaceId);
+  const summaries = readLocalArray<StoredItem>(SESSION_SUMMARY_STORAGE_KEY, workspaceId);
+  const changedJournal = journal.filter((item) => remoteJournalFingerprints.get(item.id) !== itemFingerprint(item));
+  const changedSessions = summaries.filter((item) => remoteSessionFingerprints.get(item.id) !== itemFingerprint(item));
 
   try {
-    if (journalFingerprint !== lastJournalFingerprint) {
-      await writeJournalBatch(workspaceId, journal, false);
-      lastJournalFingerprint = journalFingerprint;
+    if (changedJournal.length) {
+      await writeJournalBatch(workspaceId, changedJournal, false);
+      changedJournal.forEach((item) => remoteJournalFingerprints.set(item.id, itemFingerprint(item)));
     }
-    if (sessionsFingerprint !== lastSessionsFingerprint) {
-      await writeSessionBatch(workspaceId, summaries, false);
-      lastSessionsFingerprint = sessionsFingerprint;
+    if (changedSessions.length) {
+      await writeSessionBatch(workspaceId, changedSessions, false);
+      changedSessions.forEach((item) => remoteSessionFingerprints.set(item.id, itemFingerprint(item)));
     }
-  } catch {}
+  } catch (error) {
+    console.error('[G-KAIS RELATIONSHIP MEMORY SYNC ERROR]', error);
+  }
+}
+
+function scheduleSync(): void {
+  if (typeof window === 'undefined') return;
+  if (syncTimer !== undefined) window.clearTimeout(syncTimer);
+  syncTimer = window.setTimeout(() => {
+    syncTimer = undefined;
+    void syncRelationshipMemoryFromLocal();
+  }, 120);
 }
 
 if (typeof window !== 'undefined') {
-  let syncTimer: number | undefined;
-  const scheduleSync = () => {
-    if (syncTimer !== undefined) window.clearTimeout(syncTimer);
-    syncTimer = window.setTimeout(() => {
-      syncTimer = undefined;
-      void syncRelationshipMemoryFromLocal();
-    }, 120);
-  };
-
   void hydrateExpertsRelationshipMemory();
   window.addEventListener(WORKSPACE_STATE_EVENT, scheduleSync);
   window.addEventListener('storage', (event) => {
-    if (event.key === JOURNAL_STORAGE_KEY || event.key === SESSION_SUMMARY_STORAGE_KEY) scheduleSync();
+    if (event.key?.startsWith(JOURNAL_STORAGE_KEY) || event.key?.startsWith(SESSION_SUMMARY_STORAGE_KEY)) scheduleSync();
+  });
+  onAuthStateChanged(firebaseAuth, (user) => {
+    if (!user) stopRelationshipSubscriptions();
   });
 }

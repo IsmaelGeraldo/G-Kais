@@ -12,7 +12,8 @@ import {
   DEFAULT_WORKSPACE_ROLES,
   appendExpertAuditLog,
   resolveActiveExpertWorkspaceId,
-  type WorkspaceMember
+  type WorkspaceMember,
+  type WorkspacePermission
 } from './expertsWorkspaceCore';
 
 const SCHEMA_VERSION = 1;
@@ -117,6 +118,51 @@ export async function resolveValidExpertWorkspaceId(user: User | null = firebase
   }
 
   return bootstrapOwnedWorkspace(user);
+}
+
+export async function updateExpertWorkspaceMember(input: {
+  memberUid: string;
+  roleId: string;
+  permissions: Array<WorkspacePermission | '*'>;
+}): Promise<void> {
+  const user = firebaseAuth.currentUser;
+  const workspaceId = await resolveValidExpertWorkspaceId(user);
+  if (!user || !workspaceId) throw new Error('AUTH_REQUIRED');
+  if (!input.memberUid.trim()) throw new Error('MEMBER_REQUIRED');
+  if (input.memberUid === workspaceId) throw new Error('OWNER_CANNOT_BE_EDITED');
+  if (input.memberUid === user.uid) throw new Error('SELF_EDIT_NOT_ALLOWED');
+  if (!input.roleId.trim()) throw new Error('ROLE_REQUIRED');
+
+  const memberRef = workspaceSubDocument(workspaceId, 'members', input.memberUid);
+  const [memberSnapshot, roleSnapshot] = await Promise.all([
+    getDoc(memberRef),
+    getDoc(workspaceSubDocument(workspaceId, 'roles', input.roleId))
+  ]);
+  if (!memberSnapshot.exists()) throw new Error('MEMBER_NOT_FOUND');
+  if (!roleSnapshot.exists()) throw new Error('ROLE_NOT_FOUND');
+
+  const member = memberSnapshot.data() as WorkspaceMember;
+  const nextPermissions = Array.from(new Set(input.permissions));
+
+  await setDoc(memberRef, {
+    roleId: input.roleId,
+    permissions: nextPermissions,
+    updatedAt: serverTimestamp()
+  }, { merge: true });
+
+  void appendExpertAuditLog({
+    entityType: 'workspace_member',
+    entityId: input.memberUid,
+    action: 'member.updated',
+    changes: {
+      previousRoleId: member.roleId,
+      nextRoleId: input.roleId,
+      previousPermissions: member.permissions,
+      nextPermissions
+    }
+  }).catch(() => {});
+
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('gkais:workspace-membership-changed'));
 }
 
 export async function removeExpertWorkspaceMember(memberUid: string): Promise<void> {

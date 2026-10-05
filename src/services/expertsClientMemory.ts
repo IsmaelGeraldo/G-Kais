@@ -116,13 +116,12 @@ function currentTimeZone(): string {
 }
 
 function clearStructuredNextSession(value: ClientLike): ClientLike {
-  const {
-    nextSessionAt: _nextSessionAt,
-    nextSessionTimeZone: _nextSessionTimeZone,
-    nextSessionSource: _nextSessionSource,
-    ...rest
-  } = value;
-  return rest as ClientLike;
+  return {
+    ...value,
+    nextSessionAt: null,
+    nextSessionTimeZone: null,
+    nextSessionSource: null
+  };
 }
 
 function normalizeStructuredNextSession(value?: ClientLike): ClientLike | undefined {
@@ -130,6 +129,7 @@ function normalizeStructuredNextSession(value?: ClientLike): ClientLike | undefi
   const nextSession = typeof value.nextSession === 'string' ? value.nextSession.trim() : '';
   const storedSource = typeof value.nextSessionSource === 'string' ? value.nextSessionSource : '';
   const storedAt = typeof value.nextSessionAt === 'string' ? value.nextSessionAt.trim() : '';
+  const hasStructuredFields = value.nextSessionAt !== undefined || value.nextSessionTimeZone !== undefined || value.nextSessionSource !== undefined;
   if (!nextSession) return storedAt || storedSource ? clearStructuredNextSession(value) : value;
   if (storedAt && storedSource === nextSession) return value;
 
@@ -137,12 +137,14 @@ function normalizeStructuredNextSession(value?: ClientLike): ClientLike | undefi
   if (!match) return storedAt || storedSource ? clearStructuredNextSession(value) : value;
   const localDate = new Date(`${match[1]}T${match[2]}:00`);
   if (!Number.isFinite(localDate.getTime())) return storedAt || storedSource ? clearStructuredNextSession(value) : value;
-  return {
+  const normalized = {
     ...value,
     nextSessionAt: localDate.toISOString(),
     nextSessionTimeZone: currentTimeZone(),
     nextSessionSource: nextSession
   };
+  if (!hasStructuredFields || fingerprint(normalized) !== fingerprint(value)) return normalized;
+  return value;
 }
 
 function needsStructuredNextSessionBackfill(value?: ClientLike): boolean {
@@ -166,11 +168,11 @@ function buildOutcomeMemory(record?: ClientLike, session?: ClientLike): OutcomeM
     commitments: normalizedSession?.commitments ?? normalizedRecord?.commitments,
     nextAction: normalizedSession?.nextAction ?? normalizedRecord?.nextAction,
     nextSession: normalizedSession?.nextSession ?? normalizedRecord?.nextSession,
-    nextSessionAt: normalizedSession?.nextSessionAt ?? normalizedRecord?.nextSessionAt,
-    nextSessionTimeZone: normalizedSession?.nextSessionTimeZone ?? normalizedRecord?.nextSessionTimeZone,
+    nextSessionAt: normalizedSession?.nextSessionAt ?? normalizedRecord?.nextSessionAt ?? null,
+    nextSessionTimeZone: normalizedSession?.nextSessionTimeZone ?? normalizedRecord?.nextSessionTimeZone ?? null,
     progress: normalizedSession?.week ?? normalizedRecord?.progress
   };
-  return sanitizeForFirestore(Object.fromEntries(Object.entries(memory).filter(([, value]) => defined(value))));
+  return sanitizeForFirestore(Object.fromEntries(Object.entries(memory).filter(([key, value]) => key === 'nextSessionAt' || key === 'nextSessionTimeZone' || defined(value))));
 }
 
 async function restoredUser(): Promise<User | null> {

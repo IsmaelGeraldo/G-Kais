@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useLayoutEffect, useRef } from 'react';
 import type { Language } from '../../i18n/LanguageContext';
 import { DashboardHistoryV6 } from './DashboardHistoryV6';
 
@@ -119,6 +119,36 @@ function normalizeAgenda(root: HTMLElement): void {
   });
 }
 
+function alignMetricCardsToBuyers(root: HTMLElement): void {
+  const dashboard = root.firstElementChild as HTMLElement | null;
+  const metricGrid = dashboard?.firstElementChild as HTMLElement | null;
+  if (!metricGrid) return;
+
+  const cards = Array.from(metricGrid.children).filter((element): element is HTMLElement => element instanceof HTMLElement && element.tagName === 'ARTICLE');
+  if (cards.length < 4) return;
+
+  const buyersCard = cards[1];
+  const buyersTop = buyersCard.firstElementChild as HTMLElement | null;
+  const buyersLeft = buyersTop?.firstElementChild as HTMLElement | null;
+  const buyersLabel = buyersLeft?.firstElementChild as HTMLElement | null;
+  if (!buyersTop || !buyersLeft || !buyersLabel) return;
+
+  const labelHeight = Math.ceil(buyersLabel.getBoundingClientRect().height);
+  const leftHeight = Math.ceil(buyersLeft.getBoundingClientRect().height);
+  const topHeight = Math.ceil(buyersTop.getBoundingClientRect().height);
+
+  cards.forEach((card, index) => {
+    if (index === 1) return;
+    const top = card.firstElementChild as HTMLElement | null;
+    const left = top?.firstElementChild as HTMLElement | null;
+    const label = left?.firstElementChild as HTMLElement | null;
+    if (!top || !left || !label) return;
+    label.style.minHeight = `${labelHeight}px`;
+    left.style.minHeight = `${leftHeight}px`;
+    top.style.minHeight = `${topHeight}px`;
+  });
+}
+
 export function DashboardHistoryV7(props: Props) {
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -131,12 +161,30 @@ export function DashboardHistoryV7(props: Props) {
     return () => observer.disconnect();
   }, []);
 
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+
+    let frame = 0;
+    const align = () => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => alignMetricCardsToBuyers(root));
+    };
+
+    align();
+    const observer = new ResizeObserver(align);
+    observer.observe(root);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, []);
+
   return <div ref={rootRef} className="gkais-dashboard-v7">
     <style>{`
       .gkais-dashboard-v7 > div > div:first-child { align-items: stretch; }
       .gkais-dashboard-v7 > div > div:first-child > article { display:flex; height:100%; flex-direction:column; }
-      .gkais-dashboard-v7 > div > div:first-child > article > div:first-child { min-height:92px; }
-      .gkais-dashboard-v7 > div > div:first-child > article > div:first-child > div:first-child { display:flex; min-height:92px; flex-direction:column; }
+      .gkais-dashboard-v7 > div > div:first-child > article > div:first-child > div:first-child { display:flex; flex-direction:column; }
       .gkais-dashboard-v7 > div > div:first-child > article > div:first-child > div:first-child > p[class*="mt-1"] { margin-top:auto !important; padding-top:4px; }
       .gkais-dashboard-v7 > div > div:first-child > article > button[data-gkais-static-interaction="true"],
       .gkais-dashboard-v7 > div > div:first-child > article > div[class*="border-t"] { margin-top:4px !important; }

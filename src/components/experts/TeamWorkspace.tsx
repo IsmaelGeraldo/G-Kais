@@ -1,17 +1,18 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Check, Copy, Plus, ShieldCheck, UserMinus, UserPlus, UsersRound, XCircle } from 'lucide-react';
+import { AlertTriangle, Check, Copy, Pencil, Plus, Save, ShieldCheck, UserMinus, UserPlus, UsersRound, X, XCircle } from 'lucide-react';
 import type { Language } from '../../i18n/LanguageContext';
 import {
   createExpertWorkspaceInvite,
   createExpertWorkspaceRole,
   hasWorkspacePermission,
   loadExpertWorkspaceTeam,
+  type WorkspaceMember,
   type WorkspacePermission,
   type WorkspaceRole,
   type WorkspaceTeamState
 } from '../../services/expertsWorkspaceCore';
 import { revokeExpertWorkspaceInvite } from '../../services/expertsWorkspaceInvites';
-import { removeExpertWorkspaceMember } from '../../services/expertsWorkspaceMembers';
+import { removeExpertWorkspaceMember, updateExpertWorkspaceMember } from '../../services/expertsWorkspaceMembers';
 
 const PERMISSIONS: WorkspacePermission[] = ['people.read','people.manage','webinars.read','webinars.manage','formations.read','formations.manage','mentoring.read','mentoring.manage','tasks.read.own','tasks.manage.own','tasks.read.team','tasks.manage','members.read','members.manage','roles.read','roles.manage','events.read','events.create','audit.read','settings.manage','billing.manage'];
 
@@ -55,6 +56,10 @@ export function TeamWorkspace({ language }: { language: Language }) {
   const [copied, setCopied] = useState(false);
   const [saving, setSaving] = useState(false);
   const [revokingInvite, setRevokingInvite] = useState('');
+  const [editingMemberUid, setEditingMemberUid] = useState('');
+  const [editingRoleId, setEditingRoleId] = useState('');
+  const [editingPermissions, setEditingPermissions] = useState<WorkspacePermission[]>([]);
+  const [savingMember, setSavingMember] = useState(false);
   const [removingMember, setRemovingMember] = useState('');
 
   const refresh = async () => {
@@ -139,16 +144,49 @@ export function TeamWorkspace({ language }: { language: Language }) {
     }
   };
 
+  const beginEditMember = (member: WorkspaceMember) => {
+    setEditingMemberUid(member.uid);
+    setEditingRoleId(member.roleId);
+    setEditingPermissions(member.permissions.filter((permission): permission is WorkspacePermission => permission !== '*'));
+    setError('');
+  };
+
+  const changeEditingRole = (roleId: string) => {
+    setEditingRoleId(roleId);
+    const selectedRole = team?.roles.find((item) => item.id === roleId);
+    setEditingPermissions((selectedRole?.permissions || []).filter((permission): permission is WorkspacePermission => permission !== '*'));
+  };
+
+  const saveMember = async () => {
+    if (!editingMemberUid || !editingRoleId) return;
+    setSavingMember(true);
+    setError('');
+    try {
+      await updateExpertWorkspaceMember({
+        memberUid: editingMemberUid,
+        roleId: editingRoleId,
+        permissions: editingPermissions
+      });
+      setEditingMemberUid('');
+      await refresh();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'MEMBER_UPDATE_FAILED');
+    } finally {
+      setSavingMember(false);
+    }
+  };
+
   const removeMember = async (memberUid: string, memberName: string) => {
     const confirmed = window.confirm(language === 'es'
-      ? `¿Eliminar a ${memberName} del equipo?\n\nPerderá el acceso al Workspace. Su historial se conservará y las tareas abiertas que tenga asignadas quedarán sin responsable.`
-      : `Remove ${memberName} from the team?\n\nThey will lose access to the Workspace. Their history will be preserved and any open work assigned to them will become unassigned.`);
+      ? `¿Eliminar a ${memberName} del equipo?\n\nPerderá el acceso al Workspace. Su historial se conservará y el trabajo que tenía asignado seguirá visible para poder reasignarlo.`
+      : `Remove ${memberName} from the team?\n\nThey will lose access to the Workspace. Their history will be preserved and work assigned to them will remain visible so it can be reassigned.`);
     if (!confirmed) return;
 
     setRemovingMember(memberUid);
     setError('');
     try {
       await removeExpertWorkspaceMember(memberUid);
+      setEditingMemberUid('');
       await refresh();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'MEMBER_REMOVE_FAILED');
@@ -280,24 +318,82 @@ export function TeamWorkspace({ language }: { language: Language }) {
           {team.members.map((member) => {
             const isOwner = member.uid === team.workspaceId || member.roleId === 'owner';
             const isCurrentMember = member.uid === team.currentUid;
-            const canRemove = canManageMembers && !isOwner && !isCurrentMember;
-            return <div key={member.uid} className={`grid gap-2 py-3 ${canRemove ? 'md:grid-cols-[1fr_160px_90px_auto]' : 'md:grid-cols-[1fr_180px_100px]'} md:items-center`}>
-              <div>
-                <p className="text-sm font-semibold">{member.displayName || member.email}</p>
-                <p className="mt-1 text-xs text-black/40">{member.email}</p>
+            const canEdit = canManageMembers && !isOwner && !isCurrentMember;
+            const isEditing = editingMemberUid === member.uid;
+
+            return <div key={member.uid} className="py-3">
+              <div className={`grid gap-2 ${canEdit ? 'md:grid-cols-[1fr_160px_90px_auto]' : 'md:grid-cols-[1fr_180px_100px]'} md:items-center`}>
+                <div>
+                  <p className="text-sm font-semibold">{member.displayName || member.email}</p>
+                  <p className="mt-1 text-xs text-black/40">{member.email}</p>
+                </div>
+                <span className="text-xs text-black/50">{roleName(team.roles, member.roleId)}</span>
+                <span className={`text-xs font-semibold ${member.status === 'active' ? 'text-[#17603D]' : 'text-black/45'}`}>{member.status}</span>
+                {canEdit && <button
+                  type="button"
+                  onClick={() => isEditing ? setEditingMemberUid('') : beginEditMember(member)}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-full border border-black/10 px-3 py-2 text-xs font-semibold text-black/60 transition hover:bg-black/[0.03]"
+                >
+                  {isEditing ? <X className="h-3.5 w-3.5" /> : <Pencil className="h-3.5 w-3.5" />}
+                  {isEditing ? (language === 'es' ? 'Cerrar' : 'Close') : (language === 'es' ? 'Editar' : 'Edit')}
+                </button>}
               </div>
-              <span className="text-xs text-black/50">{roleName(team.roles, member.roleId)}</span>
-              <span className={`text-xs font-semibold ${member.status === 'active' ? 'text-[#17603D]' : 'text-black/45'}`}>{member.status}</span>
-              {canRemove && <button
-                disabled={removingMember === member.uid}
-                onClick={() => void removeMember(member.uid, member.displayName || member.email)}
-                className="inline-flex items-center justify-center gap-1.5 rounded-full border border-[#A23A32]/15 px-3 py-2 text-xs font-semibold text-[#8D332C] transition hover:bg-[#A23A32]/6 disabled:opacity-40"
-              >
-                <UserMinus className="h-3.5 w-3.5" />
-                {removingMember === member.uid
-                  ? (language === 'es' ? 'Eliminando…' : 'Removing…')
-                  : (language === 'es' ? 'Eliminar' : 'Remove')}
-              </button>}
+
+              {isEditing && <div className="mt-3 rounded-xl border border-black/8 bg-[#F7F7F5] p-4">
+                <div className="grid gap-3 md:grid-cols-[220px_minmax(0,1fr)]">
+                  <div>
+                    <label className="text-[10px] font-semibold uppercase tracking-[.12em] text-black/40">{language === 'es' ? 'Rol' : 'Role'}</label>
+                    <select
+                      value={editingRoleId}
+                      onChange={(event) => changeEditingRole(event.target.value)}
+                      className="mt-1.5 w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm"
+                    >
+                      {team.roles.filter((item) => item.id !== 'owner').map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+                    </select>
+                    <p className="mt-2 text-[10px] leading-4 text-black/40">{language === 'es' ? 'Al cambiar el rol cargamos sus permisos base; luego puedes ajustarlos individualmente.' : 'Changing the role loads its default permissions; you can then adjust them individually.'}</p>
+                  </div>
+
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[.12em] text-black/40">{language === 'es' ? 'Permisos' : 'Permissions'}</p>
+                    <div className="mt-1.5 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                      {available.map((permission) => <label key={permission} className="flex items-center gap-2 rounded-lg border border-black/8 bg-white p-2 text-[11px]">
+                        <input
+                          type="checkbox"
+                          checked={editingPermissions.includes(permission)}
+                          onChange={(event) => setEditingPermissions((current) => event.target.checked
+                            ? Array.from(new Set([...current, permission]))
+                            : current.filter((item) => item !== permission))}
+                        />
+                        <span className="truncate">{permission}</span>
+                      </label>)}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-black/7 pt-4">
+                  <button
+                    type="button"
+                    disabled={removingMember === member.uid || savingMember}
+                    onClick={() => void removeMember(member.uid, member.displayName || member.email)}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-[#A23A32]/15 px-3 py-2 text-xs font-semibold text-[#8D332C] transition hover:bg-[#A23A32]/6 disabled:opacity-40"
+                  >
+                    <UserMinus className="h-3.5 w-3.5" />
+                    {removingMember === member.uid
+                      ? (language === 'es' ? 'Eliminando…' : 'Removing…')
+                      : (language === 'es' ? 'Eliminar miembro' : 'Remove member')}
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={savingMember || removingMember === member.uid || !editingRoleId}
+                    onClick={() => void saveMember()}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-[#111413] px-4 py-2 text-xs font-semibold text-white disabled:opacity-40"
+                  >
+                    <Save className="h-3.5 w-3.5" />
+                    {savingMember ? (language === 'es' ? 'Guardando…' : 'Saving…') : (language === 'es' ? 'Guardar cambios' : 'Save changes')}
+                  </button>
+                </div>
+              </div>}
             </div>;
           })}
         </div> : <p className="mt-4 text-sm text-black/45">{language === 'es' ? 'Tu rol no permite ver el equipo completo.' : 'Your role cannot view the full team.'}</p>}

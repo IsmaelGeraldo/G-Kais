@@ -1,4 +1,4 @@
-import stripeBundle from '../../dist/stripeWebhook.cjs';
+import stripeBundle from '../../server-build/stripeWebhook.cjs';
 
 const { handleStripeWebhook } = stripeBundle;
 

@@ -1,7 +1,6 @@
 import express, { type Express, type Request, type Response, type NextFunction } from 'express';
 import { randomUUID } from 'crypto';
 import path from 'path';
-import { createServer as createViteServer } from 'vite';
 import { auditRepository } from './src/server/repositories/auditRepository';
 import { contactRepository } from './src/server/repositories/contactRepository';
 import { validateAuditPayload, validateContactPayload } from './src/server/validators/leadValidators';
@@ -638,6 +637,7 @@ async function startServer() {
 
   // 7. Vite middleware for frontend development and production static serving
   if (process.env.NODE_ENV !== 'production') {
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',

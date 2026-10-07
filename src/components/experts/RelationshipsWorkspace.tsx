@@ -112,7 +112,7 @@ export function RelationshipsWorkspace({ language, initialTab = 'people' }: { la
         font-size:12px !important;
       }
     `}</style>
-    <div className="flex flex-col gap-4 border-b border-black/7 p-4 md:p-5 xl:flex-row xl:items-center xl:justify-between">
+    <div className="flex flex-col gap-4 border-b border-black/7 p-4 md:p-5 lg:flex-row lg:items-center lg:justify-between">
       <div>
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#0A3F4D]">{language === 'es' ? 'RELACIONES' : 'RELATIONSHIPS'}</p>
         <h3 className="mt-1.5 text-xl font-semibold">{language === 'es' ? 'Una persona, toda la relación' : 'One person, the whole relationship'}</h3>

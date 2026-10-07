@@ -172,7 +172,7 @@ function LeadReview({ task, person, assignee, language, onDone }: {
     }
   };
 
-  return <div className="grid gap-3 xl:grid-cols-[1.1fr_0.9fr]">
+  return <div className="grid gap-3 lg:grid-cols-[1.1fr_0.9fr]">
     <div className="grid gap-2 sm:grid-cols-2">
       <label><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'Motivo de no compra' : 'No-purchase reason'}</span><select value={reason} onChange={(event) => setReason(event.target.value as NoPurchaseReason)} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-xs">{REASONS.map((value) => <option key={value} value={value}>{continuityReasonLabel(value, language)}</option>)}</select></label>
       <label><span className="mb-1 block text-[9px] font-semibold uppercase text-black/35">{language === 'es' ? 'Resultado' : 'Outcome'}</span><select value={decision} onChange={(event) => setDecision(event.target.value as 'nurture' | 'closed')} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-xs"><option value="nurture">{language === 'es' ? 'Pasa a seguimiento gratuito' : 'Move to free follow-up'}</option><option value="closed">{language === 'es' ? 'No está interesado · archivar' : 'Not interested · archive'}</option></select></label>
@@ -257,7 +257,7 @@ function NurtureReview({ task, person, assignee, language, onDone, contactNote, 
     }
   };
 
-  return <div className="grid gap-3 xl:grid-cols-[1fr_0.92fr] xl:items-start">
+  return <div className="grid gap-3 lg:grid-cols-[1fr_0.92fr] xl:items-start">
     <div>
       <div className="grid gap-2 sm:grid-cols-2">
         <div className="space-y-2">

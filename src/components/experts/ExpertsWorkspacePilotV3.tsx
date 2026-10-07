@@ -483,13 +483,18 @@ function ExpertsWorkspaceShell({ onExit }: Props) {
     </aside>
 
     <div className={`transition-[padding] duration-200 ${sidebarCollapsed ? 'lg:pl-[76px]' : 'lg:pl-[245px]'}`}>
-      <header className="sticky top-0 z-20 border-b border-black/8 bg-white/75 px-4 py-3 backdrop-blur md:px-8 lg:px-10">
-        <div className="flex items-center justify-between gap-4">
+      <header className="sticky top-0 z-20 border-b border-black/8 bg-white/85 px-4 py-3 backdrop-blur md:px-8 lg:px-10">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <button type="button" onClick={goBack} className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-black/10 bg-white text-black/60"><ArrowLeft className="h-4 w-4" /></button>
-            <div className="min-w-0"><p className="truncate text-[10px] font-semibold uppercase tracking-[0.16em] text-black/35">{workspaceName}</p><h1 className="truncate text-sm font-semibold">{activeLabel}</h1></div>
+            <p className="hidden truncate text-[10px] font-semibold uppercase tracking-[0.16em] text-black/35 sm:block">{workspaceName}</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center justify-center gap-3 px-2">
+            <span className="hidden h-px w-8 bg-black/15 sm:block" />
+            <h1 className="max-w-[42vw] truncate text-sm font-semibold md:text-base">{activeLabel}</h1>
+            <span className="hidden h-px w-8 bg-black/15 sm:block" />
+          </div>
+          <div className="flex items-center justify-end gap-3">
             <div className="hidden rounded-full border border-black/10 bg-white p-0.5 sm:inline-flex">{(['es', 'en'] as Language[]).map((option) => <button key={option} type="button" onClick={() => setLanguage(option)} className={`rounded-full px-2.5 py-1.5 text-[10px] font-semibold uppercase ${language === option ? 'bg-[#111413] text-white' : 'text-black/40'}`}>{option}</button>)}</div>
             <div className="relative">
               <button
@@ -520,23 +525,13 @@ function ExpertsWorkspaceShell({ onExit }: Props) {
       <main className="px-4 py-6 md:px-8 md:py-8 lg:px-10 lg:py-10">
         <div className="mx-auto max-w-[1500px]">
           <div className="mb-5 lg:hidden"><div className="flex gap-2 overflow-x-auto pb-2">{visibleNav.map((item) => <button key={item.id} onClick={() => navigate(item.id)} className={`whitespace-nowrap rounded-full px-3 py-2 text-xs font-semibold ${active === item.id ? 'bg-[#111413] text-white' : 'border border-black/10 bg-white text-black/55'}`}>{item.label[language]}</button>)}<button type="button" onClick={() => navigate('settings')} className={`whitespace-nowrap rounded-full px-3 py-2 text-xs font-semibold ${active === 'settings' ? 'bg-[#111413] text-white' : 'border border-black/10 bg-white text-black/55'}`}>{language === 'es' ? 'Configuración' : 'Settings'}</button></div></div>
-          <div className="mb-7">
-            <p className={`text-xs font-semibold uppercase tracking-[0.18em] ${darkWorkspace ? 'text-white/70' : 'text-[#0A3F4D]'}`}>{
-              active === 'overview' ? (language === 'es' ? 'VISTA OPERATIVA DIARIA' : 'DAILY OPERATING VIEW')
-                : active === 'settings' ? (language === 'es' ? 'PREFERENCIAS DEL WORKSPACE' : 'WORKSPACE PREFERENCES')
-                : active === 'team' ? (language === 'es' ? 'OPERACIÓN DEL EQUIPO' : 'TEAM OPERATIONS')
-                : active === 'priority' ? (language === 'es' ? 'TRABAJO ASIGNADO' : 'ASSIGNED WORK')
-                : active === 'relationships' ? (language === 'es' ? 'PERSONAS Y CONTINUIDAD' : 'PEOPLE AND CONTINUITY')
-                : active === 'webinars' ? (language === 'es' ? 'RECORRIDO COMERCIAL' : 'COMMERCIAL JOURNEY')
-                : active === 'formations' ? (language === 'es' ? 'ALUMNOS Y COHORTES' : 'STUDENTS AND COHORTS')
-                : active === 'clients' ? (language === 'es' ? 'MENTORÍAS' : 'MENTORING')
-                : 'G-KAIS WORKSPACE'
-            }</p>
-            <h2 className={`mt-2 text-3xl font-semibold tracking-[-0.035em] md:text-4xl ${darkWorkspace ? 'text-white' : 'text-[#0A0A0A]'}`}>{active === 'overview' ? (language === 'es' ? '¿Qué necesita tu atención?' : 'What needs your attention?') : activeLabel}</h2>
-            {active === 'overview' && <p className={`mt-2 max-w-2xl text-sm leading-6 ${darkWorkspace ? 'text-white/65' : 'text-black/50'}`}>{language === 'es'
+          {active === 'overview' && <div className="mb-7">
+            <p className={`text-xs font-semibold uppercase tracking-[0.18em] ${darkWorkspace ? 'text-white/70' : 'text-[#0A3F4D]'}`}>{language === 'es' ? 'VISTA OPERATIVA DIARIA' : 'DAILY OPERATING VIEW'}</p>
+            <h2 className={`mt-2 text-3xl font-semibold tracking-[-0.035em] md:text-4xl ${darkWorkspace ? 'text-white' : 'text-[#0A0A0A]'}`}>{language === 'es' ? '¿Qué necesita tu atención?' : 'What needs your attention?'}</h2>
+            <p className={`mt-2 max-w-2xl text-sm leading-6 ${darkWorkspace ? 'text-white/65' : 'text-black/50'}`}>{language === 'es'
               ? 'Entiende el negocio, detecta señales y ejecuta el trabajo sin perder el contexto de cada relación.'
-              : 'Understand the business, detect signals and execute work without losing relationship context.'}</p>}
-          </div>
+              : 'Understand the business, detect signals and execute work without losing relationship context.'}</p>
+          </div>}
           {content}
         </div>
       </main>

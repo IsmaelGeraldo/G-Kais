@@ -423,7 +423,7 @@ export function TeamWorkspace({ language }: { language: Language }) {
       </div>
     </section>}
 
-    <div className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
+    <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
       <section className="rounded-2xl border border-black/10 bg-white p-5">
         <div className="flex items-center gap-2">
           <UsersRound className="h-4 w-4 text-[#0A3F4D]" />

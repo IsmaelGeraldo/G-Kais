@@ -29,6 +29,7 @@ import {
   type DashboardWorkItem
 } from '../../services/expertsDashboardLive';
 import { loadSessionClients, WORKSPACE_STATE_EVENT, type SharedSessionClient } from './workspaceState';
+import { firebaseAuth } from '../../lib/firebase';
 
 type Props = {
   language: Language;
@@ -429,6 +430,11 @@ export function DashboardHistoryV6({ language, onNavigate, onOpenClient, onStart
   const cohortById = useMemo(() => new Map(cohorts.map((c) => [c.id, c])), [cohorts]);
   const cohortTimeById = useMemo(() => new Map(cohortTimes.map((c) => [c.cohortId, c.time])), [cohortTimes]);
   const mainWork = useMemo(() => tasks.filter((t) => t.status !== 'done' && !t.deletedAt && !isHiddenWork(t) && !isFollowUpWork(t)), [tasks]);
+  const currentMemberUid = firebaseAuth.currentUser?.uid || '';
+  const memberMainWork = useMemo(
+    () => currentMemberUid ? mainWork.filter((task) => task.assignedToUid === currentMemberUid) : [],
+    [mainWork, currentMemberUid]
+  );
   const dueToday = useMemo(() => mainWork.filter((t) => t.interactionState !== 'waiting-reply' && (!t.dueDate || t.dueDate <= today)).sort((a, b) => `${a.dueDate || today}${a.dueTime || '23:59'}`.localeCompare(`${b.dueDate || today}${b.dueTime || '23:59'}`)), [mainWork, today]);
   const activeClasses = useMemo(() => classes.filter((c) => !c.archived && c.status !== 'done' && c.date >= today).map((c) => ({ ...c, effectiveTime: c.time || cohortTimeById.get(c.cohortId) || '' })).sort((a, b) => `${a.date}${a.effectiveTime}`.localeCompare(`${b.date}${b.effectiveTime}`)), [classes, cohortTimeById, today]);
   const formationPersonIds = useMemo(() => new Set(enrollments.filter((e) => e.status !== 'withdrawn' && e.status !== 'refunded').map((e) => e.personId)), [enrollments]);
@@ -567,7 +573,7 @@ export function DashboardHistoryV6({ language, onNavigate, onOpenClient, onStart
 
   return <div className="space-y-6">
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      <MetricCard id="priority" label={language === 'es' ? 'Trabajo prioritario' : 'Priority Work'} value={mainWork.length} detail={language === 'es' ? 'Tareas activas por resolver' : 'Active tasks to resolve'} detailAfterDivider ringValue={Math.min(mainWork.length, 12)} ringTotal={12} colors={['#A23A32', '#D67A32']} />
+      <MetricCard id="priority" label={language === 'es' ? 'Trabajo prioritario' : 'Priority Work'} value={memberMainWork.length} detail={language === 'es' ? 'Tus tareas activas por resolver' : 'Your active tasks to resolve'} detailAfterDivider ringValue={Math.min(memberMainWork.length, 12)} ringTotal={12} colors={['#A23A32', '#D67A32']} />
       <MetricCard id="buyers" label={language === 'es' ? 'Compradores del mes' : 'Buyers this month'} value={currentBuyers} detail={`${formationBuyers} ${language === 'es' ? 'Formación' : 'Program'} · ${mentoringBuyerCount} ${language === 'es' ? 'Mentoría' : 'Mentoring'}${currentVerifiedPurchases > 0 ? ` · ${currentVerifiedPurchases} ${language === 'es' ? (currentVerifiedPurchases === 1 ? 'pago verificado' : 'pagos verificados') : (currentVerifiedPurchases === 1 ? 'verified payment' : 'verified payments')}` : ''}`} ringValue={currentBuyers} ringTotal={Math.max(1, currentBuyers, previousBuyers)} colors={['#8B5E34', '#C49A6C']} expandable expanded={expanded === 'buyers'} onToggle={() => setExpanded((current) => current === 'buyers' ? null : 'buyers')} />
       <MetricCard id="clients" label={language === 'es' ? 'Clientes activos' : 'Active Clients'} value={activeClients} detail={`${activeFormationCount} ${language === 'es' ? 'Formación' : 'Program'} · ${activeMentoringCount} ${language === 'es' ? 'Mentoría' : 'Mentoring'}`} ringValue={activeClients} ringTotal={Math.max(1, people.length)} colors={['#0A3F4D', '#78A892']} expandable expanded={expanded === 'clients'} onToggle={() => setExpanded((current) => current === 'clients' ? null : 'clients')} />
       <MetricCard id="leads" label={language === 'es' ? 'Nuevos leads' : 'New Leads'} value={newLeads} detail={language === 'es' ? 'pasaron a Leads este mes' : 'entered Leads this month'} ringValue={newLeads} ringTotal={Math.max(1, leadEntryByPerson.size)} colors={['#5C4D8A', '#7A9FC8']} expandable expanded={expanded === 'leads'} onToggle={() => setExpanded((current) => current === 'leads' ? null : 'leads')} />

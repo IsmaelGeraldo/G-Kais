@@ -263,7 +263,7 @@ export function DashboardHistoryV10(props: Props) {
             </div>
           </aside>
           <div className="min-w-0 max-h-[176px] overflow-y-auto pr-1">
-            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {workloadRows.map((row) => <div key={row.id} className="flex items-center gap-3 rounded-xl border border-black/6 px-3 py-2.5">
                 <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-[10px] font-semibold ${row.kind === 'unassigned' ? 'bg-[#A23A32]/8 text-[#8D332C]' : row.kind === 'invite' ? 'bg-[#A46F16]/9 text-[#82570F]' : 'bg-[#0A3F4D]/8 text-[#0A3F4D]'}`}>{initials(row.name)}</span>
                 <span className="min-w-0 flex-1"><span className="block truncate text-xs font-semibold">{row.name}</span><span className="mt-0.5 block truncate text-[10px] text-black/40">{row.role} · {row.meta}</span></span>

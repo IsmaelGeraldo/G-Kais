@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Check, Copy, Pencil, Plus, Save, ShieldCheck, UserMinus, UserPlus, UsersRound, X, XCircle } from 'lucide-react';
 import type { Language } from '../../i18n/LanguageContext';
+import { buildPublicAppUrl, isPrivateOrPreviewAppOrigin } from '../../config/publicAppUrl';
 import {
   createExpertWorkspaceInvite,
   createExpertWorkspaceRole,
@@ -18,26 +19,6 @@ const PERMISSIONS: WorkspacePermission[] = ['people.read','people.manage','webin
 
 function roleName(roles: WorkspaceRole[], id: string) {
   return roles.find((role) => role.id === id)?.name || id;
-}
-
-function inviteBaseOrigin() {
-  const configured = String(import.meta.env.VITE_PUBLIC_APP_URL || '').trim().replace(/\/+$/, '');
-  if (configured) return configured;
-  return typeof window !== 'undefined' ? window.location.origin : '';
-}
-
-function buildInviteLink(token: string) {
-  const origin = inviteBaseOrigin();
-  return `${origin}/workspace/experts?invite=${encodeURIComponent(token)}`;
-}
-
-function looksPrivatePreview(origin: string) {
-  try {
-    const host = new URL(origin).hostname.toLowerCase();
-    return host === 'localhost' || host === '127.0.0.1' || /aistudio|ais-dev|googleusercontent|usercontent/.test(host);
-  } catch {
-    return true;
-  }
 }
 
 export function TeamWorkspace({ language }: { language: Language }) {
@@ -91,7 +72,7 @@ export function TeamWorkspace({ language }: { language: Language }) {
     () => permissions.includes('*') ? PERMISSIONS : PERMISSIONS.filter((permission) => permissions.includes(permission)),
     [permissions]
   );
-  const previewLink = looksPrivatePreview(inviteBaseOrigin());
+  const previewLink = isPrivateOrPreviewAppOrigin();
   const pendingInvites = useMemo(() => team?.invites.filter((invite) => invite.status === 'pending') || [], [team]);
 
   const invite = async () => {
@@ -100,7 +81,7 @@ export function TeamWorkspace({ language }: { language: Language }) {
     setError('');
     try {
       const result = await createExpertWorkspaceInvite({ displayName: name, email, roleId: role });
-      setInviteLink(buildInviteLink(result.token));
+      setInviteLink(buildPublicAppUrl('/workspace/experts', new URLSearchParams({ invite: result.token })));
       setName('');
       setEmail('');
       await refresh();

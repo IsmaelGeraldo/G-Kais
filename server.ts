@@ -82,6 +82,7 @@ async function startServer() {
       firestoreAdminRequiredForPublicIntake: false,
       emailNotifications: emailConfigured ? 'configured' : 'not_configured',
       verifiedPayments: process.env.STRIPE_WEBHOOK_SECRET?.trim() ? 'stripe_configured' : 'not_configured',
+      publicAppUrl: (process.env.VITE_PUBLIC_APP_URL || process.env.APP_URL || '').trim() ? 'configured' : 'not_configured',
       timestamp: new Date().toISOString()
     });
   });

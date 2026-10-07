@@ -211,7 +211,7 @@ function MetricRing({ value, total, colors }: { value: number; total: number; co
   </div>;
 }
 
-function MetricCard({ label, value, detail, ringValue, ringTotal, colors, detailAfterDivider, expandable, expanded, onToggle }: MetricCardProps) {
+function MetricCard({ id, label, value, detail, ringValue, ringTotal, colors, detailAfterDivider, expandable, expanded, onToggle }: MetricCardProps) {
   return <article className="rounded-2xl border border-black/10 bg-white p-5 shadow-[0_10px_30px_rgba(10,10,10,.035)]">
     <div className="flex items-start justify-between gap-4">
       <div className="min-w-0">
@@ -223,7 +223,11 @@ function MetricCard({ label, value, detail, ringValue, ringTotal, colors, detail
     </div>
     {expandable
       ? <button type="button" data-gkais-static-interaction="true" onClick={onToggle} className="mt-4 flex w-full items-center justify-between border-t border-black/5 pt-3 text-left text-xs text-black/55"><span>{expanded ? 'Ocultar histórico' : 'Ver histórico'}</span><ChevronDown className={`h-3.5 w-3.5 transition ${expanded ? 'rotate-180' : ''}`} /></button>
-      : <div className="mt-4 border-t border-black/5 pt-3 text-xs text-black/45">{detail}</div>}
+      : <div className="mt-4 border-t border-black/5 pt-3 text-xs text-black/45">
+          {id === 'priority'
+            ? <><span>{detail}</span><span data-gkais-team-workload-host="true" className="block" /></>
+            : detail}
+        </div>}
   </article>;
 }
 

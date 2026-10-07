@@ -21,6 +21,7 @@ import {
 } from './src/server/services/leadIntelligence';
 import { registerWorkspaceAiRoutes } from './src/server/routes/workspaceAi';
 import { registerPaymentWebhookRoutes } from './src/server/routes/paymentWebhooks';
+export { handleStripeWebhook } from './src/server/payments/stripeWebhook';
 
 export function createGkaisApiApp(options: { registerStripeWebhook?: boolean } = {}): Express {
   const app = express();

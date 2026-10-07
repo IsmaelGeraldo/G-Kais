@@ -41,12 +41,13 @@ export function readInternalNavAccent(): 'black' | 'sidebar' {
   return window.localStorage.getItem(INTERNAL_NAV_ACCENT_KEY) === 'sidebar' ? 'sidebar' : 'black';
 }
 
-export function WorkspaceSettingsProfile({ language, profile, setProfile, appearance, setAppearance }: {
+export function WorkspaceSettingsProfile({ language, profile, setProfile, appearance, setAppearance, showIdentity = true }: {
   language: Language;
   profile: WorkspaceProfile;
   setProfile: React.Dispatch<React.SetStateAction<WorkspaceProfile>>;
   appearance: WorkspaceAppearance;
   setAppearance: React.Dispatch<React.SetStateAction<WorkspaceAppearance>>;
+  showIdentity?: boolean;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [internalNavAccent, setInternalNavAccent] = useState<'black' | 'sidebar'>(readInternalNavAccent);
@@ -67,13 +68,19 @@ export function WorkspaceSettingsProfile({ language, profile, setProfile, appear
   };
 
   return <div className="space-y-6">
-    <section className="rounded-2xl border border-black/10 bg-white p-6 shadow-[0_10px_30px_rgba(10,10,10,0.035)]">
+    {showIdentity && <section className="rounded-2xl border border-black/10 bg-white p-6 shadow-[0_10px_30px_rgba(10,10,10,0.035)]">
       <div className="flex items-start justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#0A3F4D]">{language === 'es' ? 'PERFIL' : 'PROFILE'}</p><h3 className="mt-2 text-xl font-semibold">{language === 'es' ? 'Identidad del Workspace' : 'Workspace identity'}</h3><p className="mt-2 text-sm leading-6 text-black/50">{language === 'es' ? 'Tu nombre, negocio y foto aparecen en el sidebar y encabezado.' : 'Your name, business and photo appear in the sidebar and header.'}</p></div><UserRound className="h-5 w-5 text-[#0A3F4D]" /></div>
       <div className="mt-6 grid gap-6 md:grid-cols-[140px_1fr]">
         <div><button type="button" onClick={() => fileRef.current?.click()} className="grid h-24 w-24 place-items-center overflow-hidden rounded-2xl border border-dashed border-black/20 bg-[#F7F7F5]">{profile.avatar ? <img src={profile.avatar} alt="" className="h-full w-full object-cover" /> : <ImagePlus className="h-6 w-6 text-black/30" />}</button><input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(event) => handleFile(event.target.files?.[0])} /><p className="mt-2 text-[10px] text-black/35">{language === 'es' ? 'Foto o logo' : 'Photo or logo'}</p></div>
         <div className="grid gap-4 sm:grid-cols-3"><label><span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.14em] text-black/40">{language === 'es' ? 'Nombre' : 'Name'}</span><input value={profile.name} onChange={(event) => setProfile((current) => ({ ...current, name: event.target.value }))} className="w-full rounded-xl border border-black/10 px-3.5 py-2.5 text-sm outline-none" /></label><label><span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.14em] text-black/40">{language === 'es' ? 'Empresa / Workspace' : 'Company / Workspace'}</span><input value={profile.business} onChange={(event) => setProfile((current) => ({ ...current, business: event.target.value }))} className="w-full rounded-xl border border-black/10 px-3.5 py-2.5 text-sm outline-none" /></label><label><span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.14em] text-black/40">{language === 'es' ? 'Rol' : 'Role'}</span><input value={profile.role} onChange={(event) => setProfile((current) => ({ ...current, role: event.target.value }))} className="w-full rounded-xl border border-black/10 px-3.5 py-2.5 text-sm outline-none" /></label></div>
       </div>
-    </section>
+    </section>}
+
+    {!showIdentity && <section className="rounded-2xl border border-black/10 bg-white p-5 text-sm text-black/55 shadow-[0_10px_30px_rgba(10,10,10,0.035)]">
+      {language === 'es'
+        ? 'Estas preferencias son personales. Puedes adaptar colores y apariencia sin modificar la identidad ni la configuración del Workspace.'
+        : 'These preferences are personal. You can customize colors and appearance without changing Workspace identity or configuration.'}
+    </section>}
 
     <div className="grid gap-5 xl:grid-cols-3">
       <section className="rounded-2xl border border-black/10 bg-white p-5 shadow-[0_10px_30px_rgba(10,10,10,0.035)]">

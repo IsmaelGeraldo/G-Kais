@@ -1,17 +1,23 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ArrowUpRight, Menu, X } from 'lucide-react';
 import { LanguageSelector } from './LanguageSelector';
 import { useLanguage } from '../i18n/LanguageContext';
+import { onAuthStateChanged } from 'firebase/auth';
+import { firebaseAuth } from '../lib/firebase';
 
 interface HeaderProps {
   onOpenAudit: () => void;
   onOpenAdmin?: () => void;
+  onOpenWorkspace?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onOpenAudit, onOpenAdmin }) => {
+export const Header: React.FC<HeaderProps> = ({ onOpenAudit, onOpenAdmin, onOpenWorkspace }) => {
   const { language } = useLanguage();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [workspaceSession, setWorkspaceSession] = useState(Boolean(firebaseAuth.currentUser));
   const showDevelopmentAdminEntry = import.meta.env.DEV && Boolean(onOpenAdmin);
+
+  useEffect(() => onAuthStateChanged(firebaseAuth, (user) => setWorkspaceSession(Boolean(user))), []);
 
   const scrollTo = (id: string) => {
     setMobileMenuOpen(false);
@@ -83,6 +89,15 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAudit, onOpenAdmin }) => {
         {/* Header Action Button */}
         <div className="hidden md:flex items-center space-x-3">
           <LanguageSelector compact />
+          {workspaceSession && onOpenWorkspace && (
+            <button
+              type="button"
+              onClick={onOpenWorkspace}
+              className="inline-flex items-center justify-center rounded-xl border border-[#0A0A0A]/15 bg-white px-4 py-2.5 text-xs font-semibold text-[#0A0A0A] transition-colors hover:border-[#0A3F4D] hover:text-[#0A3F4D]"
+            >
+              Workspace
+            </button>
+          )}
           {showDevelopmentAdminEntry && onOpenAdmin && (
             <button
               type="button"
@@ -147,6 +162,18 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAudit, onOpenAdmin }) => {
             <div className="flex justify-start">
               <LanguageSelector />
             </div>
+            {workspaceSession && onOpenWorkspace && (
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  onOpenWorkspace();
+                }}
+                className="w-full rounded-xl border border-[#0A0A0A]/20 bg-white px-5 py-3 text-center text-xs font-semibold uppercase tracking-wider text-[#0A0A0A]"
+              >
+                Workspace
+              </button>
+            )}
             {showDevelopmentAdminEntry && onOpenAdmin && (
               <button
                 type="button"

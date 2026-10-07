@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Check, Copy, Pencil, Plus, Save, ShieldCheck, UserMinus, UserPlus, UsersRound, X, XCircle } from 'lucide-react';
+import { AlertTriangle, Copy, Pencil, Plus, Save, ShieldCheck, UserMinus, UserPlus, UsersRound, X, XCircle } from 'lucide-react';
 import type { Language } from '../../i18n/LanguageContext';
 import { buildPublicAppUrl, isPrivateOrPreviewAppOrigin } from '../../config/publicAppUrl';
 import {
@@ -128,16 +128,54 @@ export function TeamWorkspace({ language }: { language: Language }) {
   };
 
   const beginEditMember = (member: WorkspaceMember) => {
+    const editableRoles = (team?.roles || []).filter((item) => item.id !== 'owner');
+    const selectedRole = editableRoles.some((item) => item.id === member.roleId)
+      ? member.roleId
+      : editableRoles[0]?.id || '';
+    const memberPermissions = Array.isArray(member.permissions) ? member.permissions : [];
+    const rolePermissions = editableRoles.find((item) => item.id === selectedRole)?.permissions || [];
+    const nextPermissions = memberPermissions.length ? memberPermissions : rolePermissions;
+
     setEditingMemberUid(member.uid);
-    setEditingRoleId(member.roleId);
-    setEditingPermissions(member.permissions.filter((permission): permission is WorkspacePermission => permission !== '*'));
+    setEditingRoleId(selectedRole);
+    setEditingPermissions(nextPermissions.filter((permission): permission is WorkspacePermission => permission !== '*'));
+    setConfirmingRemovalUid('');
     setError('');
   };
 
   const changeEditingRole = (roleId: string) => {
     setEditingRoleId(roleId);
     const selectedRole = team?.roles.find((item) => item.id === roleId);
-    setEditingPermissions((selectedRole?.permissions || []).filter((permission): permission is WorkspacePermission => permission !== '*'));
+    const rolePermissions = Array.isArray(selectedRole?.permissions) ? selectedRole.permissions : [];
+    setEditingPermissions(rolePermissions.filter((permission): permission is WorkspacePermission => permission !== '*'));
+  };
+
+  const copyInviteLink = async () => {
+    if (!inviteLink) return;
+    setError('');
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(inviteLink);
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = inviteLink;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        const copiedWithFallback = document.execCommand('copy');
+        textarea.remove();
+        if (!copiedWithFallback) throw new Error('COPY_NOT_AVAILABLE');
+      }
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1200);
+    } catch {
+      setCopied(false);
+      setError(language === 'es'
+        ? 'No se pudo copiar automáticamente. Selecciona el enlace y cópialo manualmente.'
+        : 'The link could not be copied automatically. Select it and copy it manually.');
+    }
   };
 
   const saveMember = async () => {
@@ -225,12 +263,8 @@ export function TeamWorkspace({ language }: { language: Language }) {
       {inviteLink && <div className="mt-3">
         <div className="flex items-center gap-2 rounded-xl bg-[#F7F7F5] p-3">
           <p className="min-w-0 flex-1 truncate text-xs">{inviteLink}</p>
-          <button onClick={async () => {
-            await navigator.clipboard.writeText(inviteLink);
-            setCopied(true);
-            window.setTimeout(() => setCopied(false), 1200);
-          }} className="inline-flex items-center gap-1 rounded-full border border-black/10 bg-white px-3 py-2 text-xs">
-            {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}{language === 'es' ? 'Copiar' : 'Copy'}
+          <button type="button" onClick={() => void copyInviteLink()} className="inline-flex items-center gap-1 rounded-full border border-black/10 bg-white px-3 py-2 text-xs">
+            <Copy className="h-3 w-3" />{copied ? (language === 'es' ? 'Copiado' : 'Copied') : (language === 'es' ? 'Copiar' : 'Copy')}
           </button>
         </div>
         {previewLink && <div className="mt-2 flex items-start gap-2 rounded-xl bg-[#A46F16]/8 p-3 text-xs leading-5 text-[#82570F]">

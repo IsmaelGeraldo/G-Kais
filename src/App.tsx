@@ -27,7 +27,7 @@ import { ExpertsSessionRouteGate } from './components/experts/ExpertsSessionRout
 import { FormationClassSessionPage } from './components/experts/FormationClassSessionPage.tsx';
 import { LanguageProvider } from './i18n/LanguageContext.tsx';
 
-function PublicApp({ onOpenAdmin }: { onOpenAdmin: () => void }) {
+function PublicApp({ onOpenAdmin, onOpenWorkspace }: { onOpenAdmin: () => void; onOpenWorkspace: () => void }) {
   const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
   const [isLeadFlowModalOpen, setIsLeadFlowModalOpen] = useState(false);
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
@@ -41,7 +41,7 @@ function PublicApp({ onOpenAdmin }: { onOpenAdmin: () => void }) {
 
   return (
     <div className="min-h-screen bg-[#F7F7F5] text-[#0A0A0A] selection:bg-[#0A3F4D] selection:text-[#F7F7F5] font-sans">
-      <Header onOpenAudit={handleOpenAudit} onOpenAdmin={onOpenAdmin} />
+      <Header onOpenAudit={handleOpenAudit} onOpenAdmin={onOpenAdmin} onOpenWorkspace={onOpenWorkspace} />
       <main>
         <Hero onOpenAudit={handleOpenAudit} />
         <ProblemSection />
@@ -145,7 +145,7 @@ function AppContent() {
 
   return showAdmin
     ? <div className="relative"><AdminPage onExitAdmin={exitAdmin} /><button type="button" onClick={openExpertsWorkspace} className="fixed bottom-5 right-5 z-[80] rounded-full border border-[#0A3F4D]/20 bg-[#0A3F4D] px-4 py-3 text-xs font-semibold text-white shadow-[0_12px_30px_rgba(10,63,77,0.25)] transition hover:bg-[#083540]">Open Experts Workspace</button></div>
-    : <PublicApp onOpenAdmin={openAdmin} />;
+    : <PublicApp onOpenAdmin={openAdmin} onOpenWorkspace={openExpertsWorkspace} />;
 }
 
 export default function App() {

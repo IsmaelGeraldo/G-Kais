@@ -1,6 +1,4 @@
-import serverBundle from '../../dist/server.cjs';
-
-const { handleStripeWebhook } = serverBundle;
+import { handleStripeWebhook } from '../../dist/server.mjs';
 
 function json(body, status = 200) {
   return Response.json(body, { status });

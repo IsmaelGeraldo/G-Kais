@@ -56,6 +56,14 @@ export type DashboardCanonicalBuyerEvent = {
   occurredAt: string;
 };
 
+export type DashboardVerifiedPurchase = {
+  id: string;
+  personId: string;
+  sourceId: string;
+  provider: string;
+  occurredAt: string;
+};
+
 async function workspaceId(): Promise<string> {
   const user = firebaseAuth.currentUser;
   if (!user) throw new Error('AUTH_REQUIRED');
@@ -198,6 +206,30 @@ export async function subscribeDashboardBuyerEvents(
         personId,
         sourceId: text(data.sourceId),
         kind: kind as DashboardCanonicalBuyerEvent['kind'],
+        occurredAt
+      }];
+    });
+    callback(rows.sort((a, b) => a.occurredAt.localeCompare(b.occurredAt)));
+  }, () => callback([]));
+}
+
+export async function subscribeDashboardVerifiedPurchases(
+  callback: (items: DashboardVerifiedPurchase[]) => void
+): Promise<Unsubscribe> {
+  const workspace = await workspaceId();
+  return onSnapshot(collection(firestoreDb, 'expert_workspaces', workspace, 'relationship_events'), (snapshot) => {
+    const rows = snapshot.docs.flatMap((item) => {
+      const data = item.data() as Record<string, unknown>;
+      if (text(data.type) !== 'purchase_completed') return [];
+      const personId = text(data.personId);
+      const occurredAt = isoDate(data.occurredAt);
+      if (!personId || !occurredAt) return [];
+      const metadata = object(data.metadata);
+      return [{
+        id: item.id,
+        personId,
+        sourceId: text(data.sourceId),
+        provider: text(metadata.provider),
         occurredAt
       }];
     });

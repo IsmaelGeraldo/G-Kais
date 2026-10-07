@@ -1,4 +1,4 @@
-import { deleteDoc, doc } from 'firebase/firestore';
+import { deleteDoc, doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { firebaseAuth, firestoreDb } from '../lib/firebase';
 import { appendExpertAuditLog, hasWorkspacePermission, loadExpertWorkspaceTeam } from './expertsWorkspaceCore';
 
@@ -16,7 +16,24 @@ export async function revokeExpertWorkspaceInvite(inviteId: string): Promise<voi
   if (!invite) return;
   if (invite.status !== 'pending') throw new Error('INVITE_NOT_PENDING');
 
-  await deleteDoc(doc(firestoreDb, 'expert_workspaces', team.workspaceId, 'invites', inviteId));
+  const inviteRef = doc(firestoreDb, 'expert_workspaces', team.workspaceId, 'invites', inviteId);
+  let cancellationMode: 'deleted' | 'revoked' = 'deleted';
+
+  try {
+    await deleteDoc(inviteRef);
+  } catch (deleteError) {
+    cancellationMode = 'revoked';
+    try {
+      await setDoc(inviteRef, {
+        status: 'revoked',
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+    } catch (revokeError) {
+      const deleteMessage = deleteError instanceof Error ? deleteError.message : String(deleteError);
+      const revokeMessage = revokeError instanceof Error ? revokeError.message : String(revokeError);
+      throw new Error(`INVITE_CANCEL_FAILED: delete=${deleteMessage}; revoke=${revokeMessage}`);
+    }
+  }
 
   void appendExpertAuditLog({
     entityType: 'workspace_invite',
@@ -26,7 +43,8 @@ export async function revokeExpertWorkspaceInvite(inviteId: string): Promise<voi
       displayName: invite.displayName,
       email: invite.email,
       roleId: invite.roleId,
-      previousStatus: invite.status
+      previousStatus: invite.status,
+      cancellationMode
     }
   }).catch(() => {});
 }

@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
+    "check:vercel-adapters": "node --check 'api/[...].js' && node --check api/webhooks/stripe.js",
     "deploy:firestore-rules": "npx firebase-tools deploy --only firestore:rules --project careful-bloom-jmn89"
   },
   "dependencies": {

@@ -1,4 +1,4 @@
-import { collection, doc, onSnapshot, runTransaction, serverTimestamp, writeBatch, type Unsubscribe } from 'firebase/firestore';
+import { collection, doc, onSnapshot, runTransaction, serverTimestamp, writeBatch, type DocumentReference, type Unsubscribe } from 'firebase/firestore';
 import { regions } from 'react-svg-worldmap';
 import { firebaseAuth, firestoreDb } from '../lib/firebase';
 import { resolveActiveExpertWorkspaceId } from './expertsWorkspaceCore';
@@ -84,7 +84,7 @@ export async function subscribeExpertPeopleProfileMeta(
 ): Promise<Unsubscribe> {
   const workspace = await workspaceId();
   return onSnapshot(collection(firestoreDb, 'expert_workspaces', workspace, 'people'), (snapshot) => {
-    const pendingBackfill: Array<{ ref: typeof snapshot.docs[number]['ref']; countryCode: string }> = [];
+    const pendingBackfill: Array<{ ref: DocumentReference; countryCode: string }> = [];
     const items = snapshot.docs.map((item) => {
       const data = item.data() as Record<string, unknown>;
       const memory = data.outcomeMemory && typeof data.outcomeMemory === 'object'

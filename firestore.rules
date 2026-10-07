@@ -15,7 +15,8 @@ service cloud.firestore {
 
     function isExpertWorkspaceMember(workspaceId) {
       return request.auth != null &&
-        exists(/databases/$(database)/documents/expert_workspaces/$(workspaceId)/members/$(request.auth.uid));
+        exists(/databases/$(database)/documents/expert_workspaces/$(workspaceId)/members/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/expert_workspaces/$(workspaceId)/members/$(request.auth.uid)).data.status == 'active';
     }
 
     function hasWorkspacePermission(workspaceId, permission) {
@@ -673,7 +674,8 @@ service cloud.firestore {
     }
 
     match /expert_workspaces/{workspaceId}/relationship_events/{eventId} {
-      allow read: if hasWorkspacePermission(workspaceId, 'events.read');
+      // Dashboard business signals are visible read-only to every active member.
+      allow read: if isExpertWorkspaceMember(workspaceId);
       allow create: if hasWorkspacePermission(workspaceId, 'events.create') &&
         request.resource.data.type != 'purchase_completed' &&
         validRelationshipEvent(request.resource.data);
@@ -715,10 +717,9 @@ service cloud.firestore {
     }
 
     match /expert_workspaces/{workspaceId}/work_tasks/{taskId} {
-      allow read: if ownsExpertWorkspace(workspaceId) ||
-        hasWorkspacePermission(workspaceId, 'tasks.read.team') ||
-        (hasWorkspacePermission(workspaceId, 'tasks.read.own') &&
-          resource.data.task.assignedToUid == request.auth.uid);
+      // The Dashboard shows the organization's global workload. Mutation
+      // remains permission-gated below.
+      allow read: if isExpertWorkspaceMember(workspaceId);
 
       allow create: if validExpertWorkTask(request.resource.data, taskId) && (
         hasWorkspacePermission(workspaceId, 'tasks.manage') ||
@@ -747,7 +748,9 @@ service cloud.firestore {
     }
 
     match /expert_workspaces/{workspaceId}/people/{personId} {
-      allow read: if ownsExpertWorkspace(workspaceId);
+      // Global relationship data feeds the read-only Dashboard for all active
+      // members; editing remains owner-controlled.
+      allow read: if isExpertWorkspaceMember(workspaceId);
       allow create, update: if ownsExpertWorkspace(workspaceId) &&
         validExpertPerson(request.resource.data);
       allow delete: if ownsExpertWorkspace(workspaceId);
@@ -787,21 +790,21 @@ service cloud.firestore {
     }
 
     match /expert_workspaces/{workspaceId}/formations/{formationId} {
-      allow read: if ownsExpertWorkspace(workspaceId);
+      allow read: if isExpertWorkspaceMember(workspaceId);
       allow create, update: if ownsExpertWorkspace(workspaceId) &&
         validExpertFormation(request.resource.data);
       allow delete: if ownsExpertWorkspace(workspaceId);
     }
 
     match /expert_workspaces/{workspaceId}/cohorts/{cohortId} {
-      allow read: if ownsExpertWorkspace(workspaceId);
+      allow read: if isExpertWorkspaceMember(workspaceId);
       allow create, update: if ownsExpertWorkspace(workspaceId) &&
         validExpertCohort(request.resource.data);
       allow delete: if ownsExpertWorkspace(workspaceId);
     }
 
     match /expert_workspaces/{workspaceId}/enrollments/{enrollmentId} {
-      allow read: if ownsExpertWorkspace(workspaceId);
+      allow read: if isExpertWorkspaceMember(workspaceId);
       allow create, update: if ownsExpertWorkspace(workspaceId) &&
         validExpertEnrollment(request.resource.data);
       allow delete: if ownsExpertWorkspace(workspaceId);

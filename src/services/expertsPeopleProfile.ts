@@ -83,6 +83,7 @@ export async function subscribeExpertPeopleProfileMeta(
   callback: (items: ExpertPersonProfileMeta[]) => void
 ): Promise<Unsubscribe> {
   const workspace = await workspaceId();
+  const canBackfillCountryCodes = firebaseAuth.currentUser?.uid === workspace;
   return onSnapshot(collection(firestoreDb, 'expert_workspaces', workspace, 'people'), (snapshot) => {
     const pendingBackfill: Array<{ ref: DocumentReference; countryCode: string }> = [];
     const items = snapshot.docs.map((item) => {
@@ -93,7 +94,7 @@ export async function subscribeExpertPeopleProfileMeta(
       const country = typeof memory.country === 'string' ? memory.country.trim() : '';
       const storedCountryCode = typeof memory.countryCode === 'string' ? memory.countryCode.trim().toUpperCase() : '';
       const countryCode = storedCountryCode || resolveExpertCountryCode(country);
-      if (!storedCountryCode && countryCode) pendingBackfill.push({ ref: item.ref, countryCode });
+      if (canBackfillCountryCodes && !storedCountryCode && countryCode) pendingBackfill.push({ ref: item.ref, countryCode });
       return {
         id: item.id,
         createdAt: toDate(data.createdAt),

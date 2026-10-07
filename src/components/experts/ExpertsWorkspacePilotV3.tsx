@@ -15,8 +15,7 @@ import {
   HeartHandshake,
   LogOut,
   PanelLeftClose,
-  PanelLeftOpen,
-  UserRound
+  PanelLeftOpen
 } from 'lucide-react';
 import { useLanguage, type Language } from '../../i18n/LanguageContext';
 import { firebaseAuth, firestoreDb } from '../../lib/firebase';
@@ -362,7 +361,13 @@ function ExpertsWorkspaceShell({ onExit }: Props) {
 
   let content: React.ReactNode;
   if (active === 'overview' && allowedIds.has('overview')) {
-    content = <DashboardHistory language={language} onNavigate={(id) => navigate(id)} onOpenClient={openMentoringClient} onStartSession={startSession} />;
+    content = <DashboardHistory
+      language={language}
+      onNavigate={(id) => navigate(id)}
+      onOpenClient={openMentoringClient}
+      onStartSession={startSession}
+      canInteract={(id) => access.isOwner || allowedIds.has(id)}
+    />;
   } else if (active === 'webinars' && allowedIds.has('webinars')) {
     content = <WebinarsWorkspace language={language} />;
   } else if (active === 'formations' && allowedIds.has('formations')) {
@@ -504,8 +509,7 @@ function ExpertsWorkspaceShell({ onExit }: Props) {
                   <p className="mt-1 truncate text-xs text-black/45">{memberEmail}</p>
                   <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#0A3F4D]">{memberRoleLabel}</p>
                 </div>
-                <button type="button" onClick={() => { setAccountMenuOpen(false); navigate('settings'); }} className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm text-black/65 hover:bg-black/[0.035]"><UserRound className="h-4 w-4" />{language === 'es' ? 'Mi perfil y configuración' : 'My profile & settings'}</button>
-                <button type="button" onClick={() => window.location.assign('/')} className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm text-black/65 hover:bg-black/[0.035]"><ArrowLeft className="h-4 w-4" />{language === 'es' ? 'Ir al sitio de G-KAIS' : 'Go to G-KAIS site'}</button>
+                <button type="button" onClick={() => window.location.assign('/')} className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm text-black/65 hover:bg-black/[0.035]"><ArrowLeft className="h-4 w-4" />{language === 'es' ? 'Ir al sitio de G-KAIS' : 'Go to G-KAIS site'}</button>
                 <button type="button" onClick={() => void logout()} className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-[#8D332C] hover:bg-[#A23A32]/6"><LogOut className="h-4 w-4" />{language === 'es' ? 'Cerrar sesión' : 'Sign out'}</button>
               </div>}
             </div>

@@ -7,6 +7,7 @@ type Props = {
   onNavigate: (id: string) => void;
   onOpenClient: (id: string) => void;
   onStartSession: (id: string) => void;
+  canInteract?: (id: string) => boolean;
 };
 
 export function DashboardHistoryV8(props: Props) {

@@ -48,6 +48,9 @@ export type SharedSessionClient = {
   goal?: string;
   nextAction?: string;
   nextSession?: string;
+  nextSessionAt?: string | null;
+  nextSessionTimeZone?: string | null;
+  nextSessionSource?: string | null;
   currentPhase?: string;
   currentGap?: string;
   planSummary?: string;
@@ -175,9 +178,36 @@ function taskAsNextAction(task?: WorkTask): string {
   return [actionTypeLabel(task.type), detail, task.dueDate || '', task.dueTime || ''].filter(Boolean).join(' · ');
 }
 
-function nextMeetingText(task?: WorkTask): string {
-  if (!task?.dueDate) return '';
-  return `${task.dueDate}${task.dueTime ? ` · ${task.dueTime}` : ''}`;
+function currentTimeZone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  } catch {
+    return 'UTC';
+  }
+}
+
+function nextMeetingSchedule(task?: WorkTask): {
+  nextSession: string;
+  nextSessionAt: string | null;
+  nextSessionTimeZone: string | null;
+  nextSessionSource: string | null;
+} {
+  if (!task?.dueDate) {
+    return {
+      nextSession: '',
+      nextSessionAt: null,
+      nextSessionTimeZone: null,
+      nextSessionSource: null
+    };
+  }
+  const nextSession = `${task.dueDate}${task.dueTime ? ` · ${task.dueTime}` : ''}`;
+  const localDate = new Date(`${task.dueDate}T${task.dueTime || '12:00'}:00`);
+  return {
+    nextSession,
+    nextSessionAt: Number.isFinite(localDate.getTime()) ? localDate.toISOString() : null,
+    nextSessionTimeZone: currentTimeZone(),
+    nextSessionSource: nextSession
+  };
 }
 
 export function getWorkPriority(task: WorkTask, now = new Date()): WorkPriority {
@@ -232,6 +262,9 @@ async function syncClientRecordsFromSession(clients: SharedSessionClient[]): Pro
       expectedOutcome: live.goal ?? typed.expectedOutcome,
       nextAction: live.nextAction ?? typed.nextAction,
       nextSession: live.nextSession ?? typed.nextSession,
+      nextSessionAt: live.nextSessionAt ?? typed.nextSessionAt ?? null,
+      nextSessionTimeZone: live.nextSessionTimeZone ?? typed.nextSessionTimeZone ?? null,
+      nextSessionSource: live.nextSessionSource ?? typed.nextSessionSource ?? null,
       currentPhase: live.currentPhase ?? typed.currentPhase,
       currentGap: live.currentGap ?? typed.currentGap,
       planSummary: live.planSummary ?? typed.planSummary,
@@ -334,21 +367,29 @@ function syncClientOperationalState(clientId: string, tasks: WorkTask[]): void {
   const open = tasks.filter((task) => task.clientId === clientId && task.status !== 'done' && !task.deletedAt).sort((a, b) => dueTimestamp(a) - dueTimestamp(b));
   const nextAction = taskAsNextAction(open[0]);
   const nextMeeting = open.filter((task) => task.type === 'meeting').sort((a, b) => dueTimestamp(a) - dueTimestamp(b))[0];
-  const nextSession = nextMeetingText(nextMeeting);
+  const schedule = nextMeetingSchedule(nextMeeting);
   const persistence: Promise<void>[] = [];
   try {
     const rawRecords = window.localStorage.getItem(storageKey(CLIENT_RECORD_STORAGE_KEY));
     if (rawRecords) {
       const records = JSON.parse(rawRecords);
       if (Array.isArray(records)) {
-        const nextRecords = records.map((record) => record?.id === clientId ? { ...record, nextAction, ...(nextMeeting ? { nextSession } : {}) } : record);
+        const nextRecords = records.map((record) => record?.id === clientId ? {
+          ...record,
+          nextAction,
+          ...(nextMeeting ? schedule : {})
+        } : record);
         window.localStorage.setItem(storageKey(CLIENT_RECORD_STORAGE_KEY), JSON.stringify(nextRecords));
         persistence.push(persistExpertClientRecords(nextRecords));
       }
     }
     const sessionClients = loadSessionClients();
     if (sessionClients.some((client) => client.id === clientId)) {
-      const nextSessionClients = sessionClients.map((client) => client.id === clientId ? { ...client, nextAction, ...(nextMeeting ? { nextSession } : {}) } : client);
+      const nextSessionClients = sessionClients.map((client) => client.id === clientId ? {
+        ...client,
+        nextAction,
+        ...(nextMeeting ? schedule : {})
+      } : client);
       window.localStorage.setItem(storageKey(SESSION_CLIENT_STORAGE_KEY), JSON.stringify(nextSessionClients));
       persistence.push(persistExpertSessionClients(nextSessionClients));
     }

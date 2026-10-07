@@ -37,7 +37,7 @@ type ClientStatus = 'active' | 'attention' | 'renewal';
 type CommitmentStatus = 'done' | 'pending' | 'overdue';
 type MilestoneStatus = 'done' | 'current' | 'pending';
 type ClientRecord = {
-  id: string; personId?: string; name: string; initials: string; company: string; businessType: string; email: string; phone: string; program: string; startDate: string; duration: string; progress: string; status: ClientStatus; nextAction: string; primaryGoal: string; currentPhase: string; nextSession: string; startingPoint: string; expectedOutcome: string; currentGap: string; planSummary: string; blockers: string[]; milestones: Array<{ label: string; status: MilestoneStatus }>; commitments: Array<{ label: string; status: CommitmentStatus }>;
+  id: string; personId?: string; name: string; initials: string; company: string; businessType: string; email: string; phone: string; program: string; startDate: string; duration: string; progress: string; status: ClientStatus; nextAction: string; primaryGoal: string; currentPhase: string; nextSession: string; nextSessionAt?: string | null; nextSessionTimeZone?: string | null; nextSessionSource?: string | null; startingPoint: string; expectedOutcome: string; currentGap: string; planSummary: string; blockers: string[]; milestones: Array<{ label: string; status: MilestoneStatus }>; commitments: Array<{ label: string; status: CommitmentStatus }>;
 };
 
 const INITIAL_CLIENTS: ClientRecord[] = [
@@ -55,6 +55,17 @@ function displayDate(value: string, language: Language): string { try { return n
 function displayNextSession(value: string): string { const match = value.trim().match(/^(\d{4})-(\d{2})-(\d{2})(.*)$/); return match ? `${match[3]}-${match[2]}-${match[1]}${match[4]}` : value; }
 function nextSessionParts(value: string): { date: string; time: string } { const date = value.trim().match(/(\d{4}-\d{2}-\d{2})/)?.[1] || ''; const time = value.trim().match(/(\d{1,2}:\d{2})/)?.[1] || ''; return { date, time: time.length === 4 ? `0${time}` : time }; }
 function updateNextSessionPart(value: string, date?: string, time?: string): string { const current = nextSessionParts(value); const nextDate = date === undefined ? current.date : date; const nextTime = time === undefined ? current.time : time; if (nextDate) return `${nextDate}${nextTime ? ` · ${nextTime}` : ''}`; const label = value.split('·')[0]?.trim() || ''; return label && nextTime ? `${label} · ${nextTime}` : nextTime || value; }
+function currentTimeZone(): string { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch { return 'UTC'; } }
+function structuredNextSession(value: string) {
+  const parts = nextSessionParts(value);
+  if (!parts.date) return { nextSessionAt: null, nextSessionTimeZone: null, nextSessionSource: null };
+  const localDate = new Date(`${parts.date}T${parts.time || '12:00'}:00`);
+  return {
+    nextSessionAt: Number.isFinite(localDate.getTime()) ? localDate.toISOString() : null,
+    nextSessionTimeZone: currentTimeZone(),
+    nextSessionSource: value
+  };
+}
 function actionName(type: WorkActionType, language: Language): string { if (type === 'email') return language === 'es' ? 'Enviar email' : 'Send email'; if (type === 'whatsapp') return 'WhatsApp'; if (type === 'call') return language === 'es' ? 'Llamar' : 'Call'; if (type === 'meeting') return language === 'es' ? 'Agendar reunión' : 'Schedule meeting'; return language === 'es' ? 'Tarea interna' : 'Internal task'; }
 function ActionIcon({ type }: { type: WorkActionType }) { if (type === 'email') return <Mail className="h-3.5 w-3.5" />; if (type === 'whatsapp') return <MessageCircle className="h-3.5 w-3.5" />; if (type === 'call') return <Phone className="h-3.5 w-3.5" />; if (type === 'meeting') return <CalendarDays className="h-3.5 w-3.5" />; return <ListTodo className="h-3.5 w-3.5" />; }
 function phaseDisplay(value: string, language: Language): string { const normalized = value.trim().toLowerCase(); if (language === 'en') { if (normalized.includes('adquis')) return 'Implement plan'; if (normalized.includes('convers')) return 'Solve and adjust'; if (normalized.includes('renov')) return 'Close and continue'; if (normalized.includes('diagn')) return 'Understand situation'; if (normalized.includes('deleg')) return 'Consolidate progress'; return value || 'Not defined'; } if (normalized.includes('adquis')) return 'Implementar plan'; if (normalized.includes('convers')) return 'Resolver y ajustar'; if (normalized.includes('renov')) return 'Cierre y continuidad'; if (normalized.includes('diagn')) return 'Entender situación'; if (normalized.includes('deleg')) return 'Consolidar avances'; return value || 'Sin definir'; }
@@ -75,10 +86,36 @@ export function ClientWorkspaceEnhanced({ language, selectedId, onSelectedId, on
   useEffect(() => { setSelectedSessionId(sessionSummaries[0]?.id || ''); }, [client.id, sessionSummaries[0]?.id]);
 
   const persistRecord = (record: ClientRecord) => { const nextClients = clients.map((item) => item.id === record.id ? record : item); try { writeMentoringClientCache(nextClients); } catch {} setClients(nextClients); };
-  const updateSharedFromRecord = (record: ClientRecord) => updateSessionClient(record.id, (current) => ({ ...current, id: record.id, ...(record.personId ? { personId: record.personId } : {}), name: record.name, company: record.company, program: record.program, week: record.progress, goal: record.expectedOutcome, nextAction: record.nextAction, nextSession: record.nextSession, currentPhase: record.currentPhase, currentGap: record.currentGap, planSummary: record.planSummary, blockers: record.blockers, commitments: record.commitments.map((item, index) => ({ id: current.commitments?.[index]?.id || `${record.id}-commitment-${index}`, label: item.label, status: item.status })) }));
+  const updateSharedFromRecord = (record: ClientRecord) => updateSessionClient(record.id, (current) => ({ ...current, id: record.id, ...(record.personId ? { personId: record.personId } : {}), name: record.name, company: record.company, program: record.program, week: record.progress, goal: record.expectedOutcome, nextAction: record.nextAction, nextSession: record.nextSession, nextSessionAt: record.nextSessionAt ?? null, nextSessionTimeZone: record.nextSessionTimeZone ?? null, nextSessionSource: record.nextSessionSource ?? null, currentPhase: record.currentPhase, currentGap: record.currentGap, planSummary: record.planSummary, blockers: record.blockers, commitments: record.commitments.map((item, index) => ({ id: current.commitments?.[index]?.id || `${record.id}-commitment-${index}`, label: item.label, status: item.status })) }));
   const toggleCommitment = (label: string) => { const index = client.commitments.findIndex((item) => item.label === label); if (index < 0) return; const currentCommitment = client.commitments[index]; const nextRecord = { ...client, commitments: client.commitments.map((item, itemIndex) => itemIndex === index ? { ...item, status: 'done' as CommitmentStatus } : item) }; persistRecord(nextRecord); updateSharedFromRecord(nextRecord); appendJournal(client.id, 'commitment', language === 'es' ? 'Compromiso completado' : 'Commitment completed', currentCommitment.label); };
   const removeBlocker = (index: number) => { const removed = client.blockers[index]; const nextRecord = { ...client, blockers: client.blockers.filter((_, itemIndex) => itemIndex !== index) }; persistRecord(nextRecord); updateSharedFromRecord(nextRecord); if (removed) appendJournal(client.id, 'blocker', language === 'es' ? 'Bloqueo eliminado' : 'Blocker removed', removed); };
-  const saveRecord = () => { if (!draft) return; const previousNextSession = client.nextSession; persistRecord(draft); updateSharedFromRecord(draft); appendJournal(draft.id, 'record', language === 'es' ? 'Ficha actualizada' : 'Record updated', language === 'es' ? 'Se actualizaron datos estructurales del cliente.' : 'Structural client data was updated.'); if (draft.personId && previousNextSession !== draft.nextSession) void appendExpertRelationshipEvent({ personId: draft.personId, type: 'mentoring.next_session_updated', sourceType: 'mentoring_client', sourceId: draft.id, metadata: { clientId: draft.id, previousNextSession, nextSession: draft.nextSession, result: draft.nextSession ? `${language === 'es' ? 'Próxima sesión' : 'Next session'}: ${displayNextSession(draft.nextSession)}` : (language === 'es' ? 'Próxima sesión eliminada' : 'Next session removed') } }).catch(() => {}); setEditing(false); };
+  const saveRecord = () => {
+    if (!draft) return;
+    const previousNextSession = client.nextSession;
+    const normalizedDraft: ClientRecord = { ...draft, ...structuredNextSession(draft.nextSession) };
+    persistRecord(normalizedDraft);
+    updateSharedFromRecord(normalizedDraft);
+    appendJournal(normalizedDraft.id, 'record', language === 'es' ? 'Ficha actualizada' : 'Record updated', language === 'es' ? 'Se actualizaron datos estructurales del cliente.' : 'Structural client data was updated.');
+    if (normalizedDraft.personId && previousNextSession !== normalizedDraft.nextSession) {
+      void appendExpertRelationshipEvent({
+        personId: normalizedDraft.personId,
+        type: 'mentoring.next_session_updated',
+        sourceType: 'mentoring_client',
+        sourceId: normalizedDraft.id,
+        metadata: {
+          clientId: normalizedDraft.id,
+          previousNextSession,
+          nextSession: normalizedDraft.nextSession,
+          nextSessionAt: normalizedDraft.nextSessionAt,
+          nextSessionTimeZone: normalizedDraft.nextSessionTimeZone,
+          result: normalizedDraft.nextSession
+            ? `${language === 'es' ? 'Próxima sesión' : 'Next session'}: ${displayNextSession(normalizedDraft.nextSession)}`
+            : (language === 'es' ? 'Próxima sesión eliminada' : 'Next session removed')
+        }
+      }).catch(() => {});
+    }
+    setEditing(false);
+  };
   const createAction = () => { const label = actionName(actionType, language); const cleanNote = actionNote.trim(); const internalPrefix = actionType === 'task' ? taskPreset : ''; const detail = [internalPrefix, cleanNote].filter(Boolean).join(' · '); const title = detail || `${label} · ${client.name}`; const task = addWorkTask({ clientId: client.id, clientName: client.name, personId: client.personId, title, type: actionType, note: detail, dueDate: actionDate, dueTime: actionTime, assignee, source: 'manual', confirmationEmail: actionType === 'meeting' ? 'queued' : 'not-required' }); appendJournal(client.id, 'task', language === 'es' ? 'Acción programada' : 'Action scheduled', `${label}${detail ? ` · ${detail}` : ''} · ${assignee}${actionDate ? ` · ${actionDate}` : ''}${actionTime ? ` ${actionTime}` : ''}`); setTasks((current) => [task, ...current.filter((item) => item.id !== task.id)]); setActionNote(''); };
   const openPriorityForClient = () => { const params = new URLSearchParams({ view: 'priority', client: client.id }); if (client.personId) params.set('person', client.personId); window.history.pushState({}, '', `/workspace/experts?${params.toString()}`); window.dispatchEvent(new PopStateEvent('popstate')); };
 

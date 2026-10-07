@@ -40,7 +40,8 @@ type Draft = {
   currentGap: string;
   planSummary: string;
   nextAction: string;
-  nextSession: string;
+  nextSessionDate: string;
+  nextSessionTime: string;
   blockers: string;
   commitments: string;
 };
@@ -48,7 +49,7 @@ type Draft = {
 const EMPTY_DRAFT: Draft = {
   name: '', company: '', businessType: '', email: '', phone: '', program: '', startDate: '', duration: '',
   primaryGoal: '', startingPoint: '', expectedOutcome: '', currentPhase: 'Onboarding', currentGap: '',
-  planSummary: '', nextAction: '', nextSession: '', blockers: '', commitments: ''
+  planSummary: '', nextAction: '', nextSessionDate: '', nextSessionTime: '', blockers: '', commitments: ''
 };
 
 function readClientRecords(): Array<Record<string, unknown> & { id: string }> {
@@ -76,6 +77,33 @@ function createClientId(name: string): string {
 
 function normalizedPhone(value: unknown): string {
   return String(value || '').replace(/\D/g, '');
+}
+
+function currentTimeZone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  } catch {
+    return 'UTC';
+  }
+}
+
+function structuredNextSession(date: string, time: string) {
+  if (!date) {
+    return {
+      nextSession: '',
+      nextSessionAt: null,
+      nextSessionTimeZone: null,
+      nextSessionSource: null
+    };
+  }
+  const nextSession = `${date}${time ? ` · ${time}` : ''}`;
+  const localDate = new Date(`${date}T${time || '12:00'}:00`);
+  return {
+    nextSession,
+    nextSessionAt: Number.isFinite(localDate.getTime()) ? localDate.toISOString() : null,
+    nextSessionTimeZone: currentTimeZone(),
+    nextSessionSource: nextSession
+  };
 }
 
 function Field({ label, value, onChange, type = 'text', placeholder = '', required = false }: { label: string; value: string; onChange: (value: string) => void; type?: string; placeholder?: string; required?: boolean }) {
@@ -166,6 +194,7 @@ export function ClientOnboardingWorkspace({ language, selectedId, onSelectedId, 
       const id = createClientId(draft.name);
       const blockers = splitLines(draft.blockers);
       const commitments = splitLines(draft.commitments).map((label) => ({ label, status: 'pending' as const }));
+      const nextSession = structuredNextSession(draft.nextSessionDate, draft.nextSessionTime);
       const record = {
         id,
         ...(linkedPersonId ? { personId: linkedPersonId } : {}),
@@ -184,7 +213,7 @@ export function ClientOnboardingWorkspace({ language, selectedId, onSelectedId, 
         nextAction: draft.nextAction.trim(),
         primaryGoal: draft.primaryGoal.trim(),
         currentPhase: draft.currentPhase.trim() || 'Onboarding',
-        nextSession: draft.nextSession.trim(),
+        ...nextSession,
         startingPoint: draft.startingPoint.trim(),
         expectedOutcome: draft.expectedOutcome.trim(),
         currentGap: draft.currentGap.trim(),
@@ -211,6 +240,9 @@ export function ClientOnboardingWorkspace({ language, selectedId, onSelectedId, 
         goal: record.expectedOutcome,
         nextAction: record.nextAction,
         nextSession: record.nextSession,
+        nextSessionAt: record.nextSessionAt,
+        nextSessionTimeZone: record.nextSessionTimeZone,
+        nextSessionSource: record.nextSessionSource,
         currentPhase: record.currentPhase,
         currentGap: record.currentGap,
         planSummary: record.planSummary,
@@ -270,7 +302,10 @@ export function ClientOnboardingWorkspace({ language, selectedId, onSelectedId, 
           <section><p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-black/40">{language === 'es' ? '3. Primer plan' : '3. First plan'}</p><div className="grid gap-4 md:grid-cols-2">
             <div className="md:col-span-2"><TextArea label={language === 'es' ? 'Plan inicial' : 'Initial plan'} value={draft.planSummary} onChange={(value) => update('planSummary', value)} /></div>
             <Field label={language === 'es' ? 'Próxima acción' : 'Next action'} value={draft.nextAction} onChange={(value) => update('nextAction', value)} required />
-            <Field label={language === 'es' ? 'Próxima sesión' : 'Next session'} value={draft.nextSession} onChange={(value) => update('nextSession', value)} placeholder={language === 'es' ? 'Ej. 08 oct · 15:30' : 'E.g. Oct 08 · 15:30'} />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label={language === 'es' ? 'Fecha próxima sesión' : 'Next session date'} type="date" value={draft.nextSessionDate} onChange={(value) => update('nextSessionDate', value)} />
+              <Field label={language === 'es' ? 'Hora próxima sesión' : 'Next session time'} type="time" value={draft.nextSessionTime} onChange={(value) => update('nextSessionTime', value)} />
+            </div>
             <TextArea label={language === 'es' ? 'Bloqueos iniciales' : 'Initial blockers'} value={draft.blockers} onChange={(value) => update('blockers', value)} placeholder={language === 'es' ? 'Uno por línea' : 'One per line'} />
             <TextArea label={language === 'es' ? 'Primeros compromisos' : 'Initial commitments'} value={draft.commitments} onChange={(value) => update('commitments', value)} placeholder={language === 'es' ? 'Uno por línea' : 'One per line'} />
           </div></section>

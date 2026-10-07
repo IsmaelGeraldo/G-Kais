@@ -9,6 +9,7 @@ import {
 } from 'firebase/firestore';
 import { firebaseAuth, firestoreDb } from '../lib/firebase';
 import { createExpertCohort, createExpertEnrollment, createExpertFormation } from './expertsRelationshipFoundation';
+import { recordOperationalBuyerEvent } from './expertsBuyerEvents';
 import {
   appendExpertAuditLog,
   appendExpertRelationshipEvent,
@@ -229,6 +230,20 @@ export async function enrollExpertPerson(input: {
     idempotencyKey: `${id}:enrolled`,
     metadata: { formationId: input.formationId, cohortId: input.cohortId, status: input.status || 'active' }
   }).catch((error) => reportSecondaryWriteFailure('RELATIONSHIP EVENT ERROR', error));
+  const enrollmentStatus = input.status || 'active';
+  if (enrollmentStatus !== 'withdrawn' && enrollmentStatus !== 'refunded') {
+    await recordOperationalBuyerEvent({
+      personId: input.personId,
+      kind: 'formation',
+      sourceType: 'enrollment',
+      sourceId: id,
+      metadata: {
+        formationId: input.formationId,
+        cohortId: input.cohortId,
+        status: enrollmentStatus
+      }
+    }).catch((error) => reportSecondaryWriteFailure('BUYER EVENT ERROR', error));
+  }
   await appendExpertAuditLog({ entityType: 'enrollment', entityId: id, action: 'formation.enrolled', changes: { personId: input.personId, formationId: input.formationId, cohortId: input.cohortId } })
     .catch((error) => reportSecondaryWriteFailure('AUDIT LOG ERROR', error));
   return id;

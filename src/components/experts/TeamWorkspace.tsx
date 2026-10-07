@@ -69,13 +69,14 @@ function PermissionChecklist({
 }) {
   return <div className="space-y-4">
     {PERMISSION_GROUPS.map((group) => {
-      const groupPermissions = available.filter((permission) => PERMISSION_META[permission].group === group);
+      const groupPermissions = available.filter((permission) => PERMISSION_META[permission]?.group === group);
       if (!groupPermissions.length) return null;
       return <div key={group}>
         <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.13em] text-black/35">{PERMISSION_GROUP_LABELS[group][language]}</p>
-        <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
           {groupPermissions.map((permission) => {
             const meta = PERMISSION_META[permission];
+            if (!meta) return null;
             return <label key={permission} className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-black/8 bg-white p-3 transition hover:border-black/15">
               <input
                 type="checkbox"
@@ -122,6 +123,7 @@ export function TeamWorkspace({ language }: { language: Language }) {
   const [editingMemberUid, setEditingMemberUid] = useState('');
   const [editingRoleId, setEditingRoleId] = useState('');
   const [editingPermissions, setEditingPermissions] = useState<WorkspacePermission[]>([]);
+  const [editingSupervisorUid, setEditingSupervisorUid] = useState('');
   const [savingMember, setSavingMember] = useState(false);
   const [removingMember, setRemovingMember] = useState('');
   const [confirmingRemovalUid, setConfirmingRemovalUid] = useState('');
@@ -154,6 +156,11 @@ export function TeamWorkspace({ language }: { language: Language }) {
   );
   const previewLink = isPrivateOrPreviewAppOrigin();
   const pendingInvites = useMemo(() => team?.invites.filter((invite) => invite.status === 'pending') || [], [team]);
+  const memberLabel = (uid?: string) => {
+    if (!uid || !team) return language === 'es' ? 'Sin supervisor' : 'No supervisor';
+    const member = team.members.find((item) => item.uid === uid);
+    return member?.displayName || member?.email || uid;
+  };
 
   const invite = async () => {
     if (!name.trim() || !email.trim() || !role) return;
@@ -213,12 +220,14 @@ export function TeamWorkspace({ language }: { language: Language }) {
       ? member.roleId
       : editableRoles[0]?.id || '';
     const memberPermissions = Array.isArray(member.permissions) ? member.permissions : [];
-    const rolePermissions = editableRoles.find((item) => item.id === selectedRole)?.permissions || [];
+    const rawRolePermissions = editableRoles.find((item) => item.id === selectedRole)?.permissions;
+    const rolePermissions = Array.isArray(rawRolePermissions) ? rawRolePermissions : [];
     const nextPermissions = memberPermissions.length ? memberPermissions : rolePermissions;
 
     setEditingMemberUid(member.uid);
     setEditingRoleId(selectedRole);
-    setEditingPermissions(nextPermissions.filter((permission): permission is WorkspacePermission => permission !== '*'));
+    setEditingPermissions(nextPermissions.filter((permission): permission is WorkspacePermission => permission !== '*' && Boolean(PERMISSION_META[permission as WorkspacePermission])));
+    setEditingSupervisorUid(member.supervisorUid || '');
     setConfirmingRemovalUid('');
     setError('');
   };
@@ -266,9 +275,11 @@ export function TeamWorkspace({ language }: { language: Language }) {
       await updateExpertWorkspaceMember({
         memberUid: editingMemberUid,
         roleId: editingRoleId,
-        permissions: editingPermissions
+        permissions: editingPermissions,
+        supervisorUid: editingSupervisorUid
       });
       setEditingMemberUid('');
+      setEditingSupervisorUid('');
       await refresh();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'MEMBER_UPDATE_FAILED');
@@ -447,7 +458,10 @@ export function TeamWorkspace({ language }: { language: Language }) {
                   <p className="text-sm font-semibold">{member.displayName || member.email}</p>
                   <p className="mt-1 text-xs text-black/40">{member.email}</p>
                 </div>
-                <span className="text-xs text-black/50">{roleName(team.roles, member.roleId)}</span>
+                <div>
+                  <span className="text-xs text-black/50">{roleName(team.roles, member.roleId)}</span>
+                  {member.supervisorUid && <p className="mt-1 truncate text-[10px] text-black/35">{language === 'es' ? 'Supervisor' : 'Supervisor'}: {memberLabel(member.supervisorUid)}</p>}
+                </div>
                 <span className={`text-xs font-semibold ${member.status === 'active' ? 'text-[#17603D]' : 'text-black/45'}`}>{member.status}</span>
                 {canManageMembers && (canEdit ? <button
                   type="button"
@@ -469,7 +483,7 @@ export function TeamWorkspace({ language }: { language: Language }) {
               </div>
 
               {isEditing && <div className="mt-3 rounded-xl border border-black/8 bg-[#F7F7F5] p-4">
-                <div className="grid gap-3 md:grid-cols-[220px_minmax(0,1fr)]">
+                <div className="grid gap-4 lg:grid-cols-[220px_240px_minmax(0,1fr)]">
                   <div>
                     <label className="text-[10px] font-semibold uppercase tracking-[.12em] text-black/40">{language === 'es' ? 'Rol' : 'Role'}</label>
                     <select
@@ -480,6 +494,23 @@ export function TeamWorkspace({ language }: { language: Language }) {
                       {team.roles.filter((item) => item.id !== 'owner').map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
                     </select>
                     <p className="mt-2 text-[10px] leading-4 text-black/40">{language === 'es' ? 'Al cambiar el rol cargamos sus permisos base; luego puedes ajustarlos individualmente.' : 'Changing the role loads its default permissions; you can then adjust them individually.'}</p>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-semibold uppercase tracking-[.12em] text-black/40">{language === 'es' ? 'Encargado / supervisor' : 'Lead / supervisor'}</label>
+                    <select
+                      value={editingSupervisorUid}
+                      onChange={(event) => setEditingSupervisorUid(event.target.value)}
+                      className="mt-1.5 w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm"
+                    >
+                      <option value="">{language === 'es' ? 'Sin supervisor' : 'No supervisor'}</option>
+                      {team.members
+                        .filter((item) => item.status === 'active' && item.uid !== member.uid)
+                        .map((item) => <option key={item.uid} value={item.uid}>{item.displayName || item.email}</option>)}
+                    </select>
+                    <p className="mt-2 text-[10px] leading-4 text-black/40">{language === 'es'
+                      ? 'La carga del equipo del supervisor mostrará solo sus reportes directos. Puedes asignar el mismo supervisor a varias personas.'
+                      : 'The supervisor workload view will show only direct reports. The same supervisor can manage several people.'}</p>
                   </div>
 
                   <div>

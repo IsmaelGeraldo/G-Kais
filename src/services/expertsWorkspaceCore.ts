@@ -57,6 +57,7 @@ export type WorkspaceMember = {
   permissions: Array<WorkspacePermission | '*'>;
   status: 'active' | 'invited' | 'suspended';
   inviteId?: string;
+  supervisorUid?: string;
 };
 
 export type WorkspaceInvite = {
@@ -353,9 +354,27 @@ export async function loadExpertWorkspaceTeam(): Promise<WorkspaceTeamState> {
     canReadInvites ? getDocs(workspaceSubCollection(workspaceId, 'invites')) : Promise.resolve(null)
   ]);
 
+  const normalizeMember = (value: unknown, fallbackUid = ''): WorkspaceMember => {
+    const data = value && typeof value === 'object' ? value as Record<string, unknown> : {};
+    const permissions = Array.isArray(data.permissions)
+      ? data.permissions.filter((permission): permission is WorkspacePermission | '*' => typeof permission === 'string')
+      : [];
+    const status = data.status === 'invited' || data.status === 'suspended' ? data.status : 'active';
+    return {
+      uid: typeof data.uid === 'string' && data.uid.trim() ? data.uid : fallbackUid,
+      email: typeof data.email === 'string' ? data.email : '',
+      displayName: typeof data.displayName === 'string' ? data.displayName : '',
+      roleId: typeof data.roleId === 'string' ? data.roleId : '',
+      permissions,
+      status,
+      ...(typeof data.inviteId === 'string' && data.inviteId ? { inviteId: data.inviteId } : {}),
+      ...(typeof data.supervisorUid === 'string' && data.supervisorUid ? { supervisorUid: data.supervisorUid } : {})
+    };
+  };
+
   const members = membersSnapshot
-    ? membersSnapshot.docs.map((item) => item.data() as WorkspaceMember)
-    : [currentMember];
+    ? membersSnapshot.docs.map((item) => normalizeMember(item.data(), item.id))
+    : [normalizeMember(currentMember, user.uid)];
   const roles = rolesSnapshot
     ? rolesSnapshot.docs.map((item) => ({ id: item.id, ...(item.data() as Omit<WorkspaceRole, 'id'>) }))
     : [];
@@ -367,7 +386,7 @@ export async function loadExpertWorkspaceTeam(): Promise<WorkspaceTeamState> {
     workspaceId,
     currentUid: user.uid,
     currentMember,
-    members: members.sort((a, b) => a.displayName.localeCompare(b.displayName)),
+    members: members.sort((a, b) => (a.displayName || a.email || a.uid).localeCompare(b.displayName || b.email || b.uid)),
     roles: roles.sort((a, b) => a.name.localeCompare(b.name)),
     invites: invites.sort((a, b) => a.displayName.localeCompare(b.displayName))
   };

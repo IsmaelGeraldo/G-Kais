@@ -20,7 +20,7 @@ type WorkloadRow = {
   role: string;
   count: number;
   meta: string;
-  kind: 'member' | 'invite' | 'unassigned';
+  kind: 'member';
 };
 
 function isHiddenWork(item: DashboardWorkItem): boolean {
@@ -101,87 +101,53 @@ export function DashboardHistoryV10(props: Props) {
     && !isFollowUpWork(task)
   ), [tasks]);
 
-  const teamModeEnabled = Boolean(team);
+  const scopedMembers = useMemo(() => {
+    if (!team) return [];
+    return team.members
+      .filter((member) => member.status === 'active' && (member.uid === team.currentUid || member.supervisorUid === team.currentUid))
+      .filter((member, index, list) => list.findIndex((candidate) => candidate.uid === member.uid) === index);
+  }, [team]);
+
+  const directReportCount = scopedMembers.filter((member) => member.uid !== team?.currentUid).length;
+  const teamModeEnabled = Boolean(team && directReportCount > 0);
 
   const workloadRows = useMemo<WorkloadRow[]>(() => {
-    if (!team) return [];
+    if (!team || !scopedMembers.length) return [];
     const roleById = new Map(team.roles.map((role) => [role.id, role.name]));
-    const counts = new Map<string, number>();
+    const counts = new Map(scopedMembers.map((member) => [member.uid, 0]));
     const memberIdentity = new Map<string, string>();
-    const inviteIdentity = new Map<string, string>();
 
-    team.members.forEach((member) => {
-      counts.set(`member:${member.uid}`, 0);
+    scopedMembers.forEach((member) => {
       [member.displayName, member.email].filter(Boolean).forEach((value) => memberIdentity.set(normalizeIdentity(value), member.uid));
     });
-    team.invites.filter((invite) => invite.status === 'pending').forEach((invite) => {
-      counts.set(`invite:${invite.id}`, 0);
-      [invite.displayName, invite.email].filter(Boolean).forEach((value) => inviteIdentity.set(normalizeIdentity(value), invite.id));
-    });
 
-    let unassigned = 0;
     mainWork.forEach((task) => {
-      if (task.assignedToUid && counts.has(`member:${task.assignedToUid}`)) {
-        const key = `member:${task.assignedToUid}`;
-        counts.set(key, (counts.get(key) || 0) + 1);
+      if (task.assignedToUid && counts.has(task.assignedToUid)) {
+        counts.set(task.assignedToUid, (counts.get(task.assignedToUid) || 0) + 1);
         return;
       }
       const assignee = normalizeIdentity(task.assignee || '');
       const memberUid = assignee ? memberIdentity.get(assignee) : undefined;
-      if (memberUid) {
-        const key = `member:${memberUid}`;
-        counts.set(key, (counts.get(key) || 0) + 1);
-        return;
-      }
-      const inviteId = assignee ? inviteIdentity.get(assignee) : undefined;
-      if (inviteId) {
-        const key = `invite:${inviteId}`;
-        counts.set(key, (counts.get(key) || 0) + 1);
-        return;
-      }
-      unassigned += 1;
+      if (memberUid) counts.set(memberUid, (counts.get(memberUid) || 0) + 1);
     });
 
-    const members: WorkloadRow[] = team.members.map((member) => ({
+    return scopedMembers.map((member) => ({
       id: `member:${member.uid}`,
       name: member.displayName || member.email || (props.language === 'es' ? 'Miembro' : 'Member'),
       role: roleById.get(member.roleId) || member.roleId || '—',
-      count: counts.get(`member:${member.uid}`) || 0,
+      count: counts.get(member.uid) || 0,
       meta: member.uid === team.currentUid
         ? (props.language === 'es' ? 'Tú' : 'You')
-        : member.status === 'active'
-          ? (props.language === 'es' ? 'Activo' : 'Active')
-          : member.status === 'suspended'
-            ? (props.language === 'es' ? 'Suspendido' : 'Suspended')
-            : (props.language === 'es' ? 'Invitado' : 'Invited'),
+        : (props.language === 'es' ? 'Reporte directo' : 'Direct report'),
       kind: 'member' as const
-    })).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+    })).sort((a, b) => {
+      const aSelf = a.meta === (props.language === 'es' ? 'Tú' : 'You') ? 0 : 1;
+      const bSelf = b.meta === (props.language === 'es' ? 'Tú' : 'You') ? 0 : 1;
+      return aSelf - bSelf || b.count - a.count || a.name.localeCompare(b.name);
+    });
+  }, [team, scopedMembers, mainWork, props.language]);
 
-    const invitations: WorkloadRow[] = team.invites
-      .filter((invite) => invite.status === 'pending')
-      .filter((invite) => !team.members.some((member) => normalizeIdentity(member.email) === normalizeIdentity(invite.email)))
-      .map((invite) => ({
-        id: `invite:${invite.id}`,
-        name: invite.displayName || invite.email,
-        role: roleById.get(invite.roleId) || invite.roleId || '—',
-        count: counts.get(`invite:${invite.id}`) || 0,
-        meta: props.language === 'es' ? 'Invitación pendiente' : 'Pending invitation',
-        kind: 'invite' as const
-      }));
-
-    return [
-      ...members,
-      ...invitations,
-      ...(unassigned > 0 ? [{
-        id: 'unassigned',
-        name: props.language === 'es' ? 'Sin asignar' : 'Unassigned',
-        role: props.language === 'es' ? 'Requiere responsable' : 'Needs owner',
-        count: unassigned,
-        meta: props.language === 'es' ? 'Trabajo abierto' : 'Open work',
-        kind: 'unassigned' as const
-      }] : [])
-    ];
-  }, [team, mainWork, props.language]);
+  const scopedWorkCount = workloadRows.reduce((sum, row) => sum + row.count, 0);
 
   useEffect(() => {
     if (!teamModeEnabled && expanded) setExpanded(false);
@@ -214,9 +180,8 @@ export function DashboardHistoryV10(props: Props) {
     setExpanded((value) => !value);
   };
 
-  const totalAssigned = workloadRows.reduce((sum, row) => sum + row.count, 0);
-  const peopleCount = workloadRows.filter((row) => row.kind !== 'unassigned').length;
-  const unassignedCount = workloadRows.find((row) => row.kind === 'unassigned')?.count || 0;
+  const totalAssigned = scopedWorkCount;
+  const peopleCount = directReportCount;
 
   return <div ref={rootRef} className={teamModeEnabled ? 'gkais-dashboard-v10 gkais-dashboard-v10-team' : 'gkais-dashboard-v10'}>
     <style>{`
@@ -240,7 +205,7 @@ export function DashboardHistoryV10(props: Props) {
         className="flex w-full items-center justify-between text-left text-xs transition hover:text-black/75 focus:text-black/55 active:text-black/55"
         style={{ color: 'rgba(0,0,0,.55)' }}
       >
-        <span>{props.language === 'es' ? (expanded ? 'Ocultar carga del equipo' : 'Ver carga del equipo') : (expanded ? 'Hide team workload' : 'View team workload')}</span>
+        <span>{props.language === 'es' ? (expanded ? 'Ocultar carga de tu equipo' : 'Ver carga de tu equipo') : (expanded ? 'Hide your team workload' : 'View your team workload')}</span>
         <ChevronDown className={`h-3.5 w-3.5 transition ${expanded ? 'rotate-180' : ''}`} />
       </button>,
       footerHost
@@ -249,24 +214,24 @@ export function DashboardHistoryV10(props: Props) {
       <section className="col-span-full rounded-2xl border border-black/8 bg-white p-3 shadow-[0_8px_24px_rgba(10,10,10,.025)] md:p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <div className="flex items-center gap-2"><UsersRound className="h-4 w-4 text-[#0A3F4D]" /><p className="text-sm font-semibold">{props.language === 'es' ? 'Carga del equipo' : 'Team workload'}</p></div>
-            <p className="mt-0.5 text-[10px] text-black/40">{props.language === 'es' ? 'Distribución del mismo trabajo abierto que cuenta la tarjeta de Trabajo prioritario.' : 'Distribution of the same open work counted by the Priority Work card.'}</p>
+            <div className="flex items-center gap-2"><UsersRound className="h-4 w-4 text-[#0A3F4D]" /><p className="text-sm font-semibold">{props.language === 'es' ? 'Carga de tu equipo' : 'Your team workload'}</p></div>
+            <p className="mt-0.5 text-[10px] text-black/40">{props.language === 'es' ? 'Muestra solo tu carga y la de las personas que reportan directamente a ti.' : 'Shows only your workload and the people who report directly to you.'}</p>
           </div>
-          <span className="rounded-full border border-black/8 bg-[#F7F7F5] px-3 py-1.5 text-[10px] font-semibold text-black/55">{totalAssigned}/{mainWork.length}</span>
+          <span className="rounded-full border border-black/8 bg-[#F7F7F5] px-3 py-1.5 text-[10px] font-semibold text-black/55">{totalAssigned}</span>
         </div>
         <div className="mt-3 grid gap-3 lg:grid-cols-[160px_minmax(0,1fr)]">
           <aside className="rounded-xl bg-[#F7F7F5] p-3">
             <p className="text-[9px] font-semibold uppercase tracking-[.12em] text-black/35">{props.language === 'es' ? 'Trabajo abierto' : 'Open work'}</p>
             <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-2 lg:grid-cols-1">
-              <div><p className="text-[9px] text-black/40">{props.language === 'es' ? 'Total' : 'Total'}</p><p className="text-base font-semibold leading-5">{mainWork.length}</p></div>
-              <div><p className="text-[9px] text-black/40">{props.language === 'es' ? 'Personas' : 'People'}</p><p className="text-xs font-semibold">{peopleCount}</p></div>
-              <div><p className="text-[9px] text-black/40">{props.language === 'es' ? 'Sin asignar' : 'Unassigned'}</p><p className="text-xs font-semibold">{unassignedCount}</p></div>
+              <div><p className="text-[9px] text-black/40">{props.language === 'es' ? 'Total' : 'Total'}</p><p className="text-base font-semibold leading-5">{totalAssigned}</p></div>
+              <div><p className="text-[9px] text-black/40">{props.language === 'es' ? 'Reportes directos' : 'Direct reports'}</p><p className="text-xs font-semibold">{peopleCount}</p></div>
+              <div><p className="text-[9px] text-black/40">{props.language === 'es' ? 'Miembros visibles' : 'Visible members'}</p><p className="text-xs font-semibold">{workloadRows.length}</p></div>
             </div>
           </aside>
           <div className="min-w-0 max-h-[176px] overflow-y-auto pr-1">
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {workloadRows.map((row) => <div key={row.id} className="flex items-center gap-3 rounded-xl border border-black/6 px-3 py-2.5">
-                <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-[10px] font-semibold ${row.kind === 'unassigned' ? 'bg-[#A23A32]/8 text-[#8D332C]' : row.kind === 'invite' ? 'bg-[#A46F16]/9 text-[#82570F]' : 'bg-[#0A3F4D]/8 text-[#0A3F4D]'}`}>{initials(row.name)}</span>
+                <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-[10px] font-semibold bg-[#0A3F4D]/8 text-[#0A3F4D]`}>{initials(row.name)}</span>
                 <span className="min-w-0 flex-1"><span className="block truncate text-xs font-semibold">{row.name}</span><span className="mt-0.5 block truncate text-[10px] text-black/40">{row.role} · {row.meta}</span></span>
                 <span className="min-w-[28px] text-right text-base font-semibold tracking-[-0.03em]">{row.count}</span>
               </div>)}

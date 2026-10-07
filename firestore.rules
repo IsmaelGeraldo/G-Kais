@@ -92,7 +92,7 @@ service cloud.firestore {
         ]) &&
         data.keys().hasOnly([
           'schemaVersion', 'uid', 'email', 'displayName', 'roleId', 'permissions',
-          'status', 'inviteId', 'joinedAt', 'updatedAt'
+          'status', 'inviteId', 'supervisorUid', 'joinedAt', 'updatedAt'
         ]) &&
         data.schemaVersion == 1 &&
         data.uid is string && data.uid == memberId &&
@@ -102,6 +102,11 @@ service cloud.firestore {
         data.permissions is list && data.permissions.size() <= 100 &&
         data.status in ['active', 'invited', 'suspended'] &&
         (!('inviteId' in data) || (data.inviteId is string && data.inviteId.size() <= 200)) &&
+        (!('supervisorUid' in data) || (
+          data.supervisorUid is string &&
+          data.supervisorUid.size() <= 128 &&
+          data.supervisorUid != data.uid
+        )) &&
         data.joinedAt is timestamp && data.updatedAt is timestamp;
     }
 
@@ -612,6 +617,9 @@ service cloud.firestore {
     match /expert_workspaces/{workspaceId}/members/{memberId} {
       allow read: if ownsExpertWorkspace(workspaceId) ||
         (request.auth != null && request.auth.uid == memberId) ||
+        (request.auth != null &&
+          'supervisorUid' in resource.data &&
+          resource.data.supervisorUid == request.auth.uid) ||
         hasWorkspacePermission(workspaceId, 'members.read') ||
         hasWorkspacePermission(workspaceId, 'members.manage');
 

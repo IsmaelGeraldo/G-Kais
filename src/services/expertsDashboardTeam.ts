@@ -1,4 +1,4 @@
-import { collection, onSnapshot, type Unsubscribe } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, type Unsubscribe } from 'firebase/firestore';
 import { firebaseAuth, firestoreDb } from '../lib/firebase';
 import {
   getCurrentExpertWorkspaceMember,
@@ -35,13 +35,28 @@ export async function subscribeDashboardTeam(
   const unsubscribers: Unsubscribe[] = [];
   const emit = () => callback({ currentUid: user.uid, members, roles, invites });
 
+  const membersCollection = collection(firestoreDb, 'expert_workspaces', workspaceId, 'members');
   if (canReadMembers) {
     unsubscribers.push(onSnapshot(
-      collection(firestoreDb, 'expert_workspaces', workspaceId, 'members'),
+      membersCollection,
       (snapshot) => {
         members = snapshot.docs
-          .map((item) => item.data() as WorkspaceMember)
-          .sort((a, b) => (a.displayName || a.email).localeCompare(b.displayName || b.email));
+          .map((item) => ({ ...(item.data() as WorkspaceMember), uid: (item.data() as WorkspaceMember).uid || item.id }))
+          .sort((a, b) => (a.displayName || a.email || a.uid).localeCompare(b.displayName || b.email || b.uid));
+        emit();
+      },
+      () => { members = [context.member]; emit(); }
+    ));
+  } else {
+    unsubscribers.push(onSnapshot(
+      query(membersCollection, where('supervisorUid', '==', user.uid)),
+      (snapshot) => {
+        const directReports = snapshot.docs
+          .map((item) => ({ ...(item.data() as WorkspaceMember), uid: (item.data() as WorkspaceMember).uid || item.id }))
+          .filter((member) => member.status === 'active');
+        members = [context.member, ...directReports]
+          .filter((member, index, list) => list.findIndex((candidate) => candidate.uid === member.uid) === index)
+          .sort((a, b) => (a.displayName || a.email || a.uid).localeCompare(b.displayName || b.email || b.uid));
         emit();
       },
       () => { members = [context.member]; emit(); }

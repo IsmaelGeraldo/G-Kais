@@ -19,6 +19,33 @@
   font-family: 'JetBrains Mono', ui-monospace, monospace;
 }
 
+
+/* Light workspace scrollbars: same visual language across lists and panels. */
+.gkais-light-scrollbar {
+  scrollbar-color: #c9ccc8 transparent;
+  scrollbar-width: thin;
+}
+
+.gkais-light-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.gkais-light-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.gkais-light-scrollbar::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: #c9ccc8;
+  background-clip: padding-box;
+}
+
+.gkais-light-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #aeb2ad;
+  background-clip: padding-box;
+}
+
 .gkais-black-surface section.bg-white,
 .gkais-black-surface article.bg-white,
 .gkais-black-surface aside.bg-white {

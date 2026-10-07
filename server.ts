@@ -19,10 +19,14 @@ import {
   sanitizeLeadIntelligenceInput
 } from './src/server/services/leadIntelligence';
 import { registerWorkspaceAiRoutes } from './src/server/routes/workspaceAi';
+import { registerPaymentWebhookRoutes } from './src/server/routes/paymentWebhooks';
 
 async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT) || 3000;
+
+  // Payment webhooks must receive the exact raw request body for provider signature verification.
+  registerPaymentWebhookRoutes(app);
 
   // 1. Request payload size limit (max 100kb to avoid denial-of-service or arbitrary payloads)
   app.use(express.json({ limit: '100kb' }));
@@ -66,6 +70,7 @@ async function startServer() {
       persistence: 'firebase-web-sdk',
       firestoreAdminRequiredForPublicIntake: false,
       emailNotifications: emailConfigured ? 'configured' : 'not_configured',
+      verifiedPayments: process.env.STRIPE_WEBHOOK_SECRET?.trim() ? 'stripe_configured' : 'not_configured',
       timestamp: new Date().toISOString()
     });
   });

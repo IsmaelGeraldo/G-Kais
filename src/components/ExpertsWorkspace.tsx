@@ -73,10 +73,16 @@ function WorkspaceNotificationRelay() {
 }
 
 export function ExpertsWorkspace({ onExit }: { onExit: () => void }) {
-  const [scopeReady, setScopeReady] = useState(false);
+  const inviteFlow = new URLSearchParams(window.location.search).has('invite');
+  const [scopeReady, setScopeReady] = useState(inviteFlow);
   installExpertWorkspaceStorageIsolation();
 
   useEffect(() => {
+    if (inviteFlow) {
+      setScopeReady(true);
+      return;
+    }
+
     let cancelled = false;
     const unsubscribe = onAuthStateChanged(firebaseAuth, (user) => {
       if (!user) {
@@ -97,7 +103,7 @@ export function ExpertsWorkspace({ onExit }: { onExit: () => void }) {
       cancelled = true;
       unsubscribe();
     };
-  }, []);
+  }, [inviteFlow]);
 
   if (!scopeReady) {
     return <div className="grid min-h-screen place-items-center bg-[#F6F6F3] text-sm text-black/45">Preparando Workspace…</div>;

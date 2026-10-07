@@ -1,4 +1,4 @@
-import { createGkaisApiApp } from '../server';
+import { createGkaisApiApp } from '../server.js';
 
 const app = createGkaisApiApp({ registerStripeWebhook: false });
 

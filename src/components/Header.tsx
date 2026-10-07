@@ -8,10 +8,10 @@ import { firebaseAuth } from '../lib/firebase';
 interface HeaderProps {
   onOpenAudit: () => void;
   onOpenAdmin?: () => void;
-  onOpenWorkspace?: () => void;
+  onOpenWorkspaceAccess?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onOpenAudit, onOpenAdmin, onOpenWorkspace }) => {
+export const Header: React.FC<HeaderProps> = ({ onOpenAudit, onOpenAdmin, onOpenWorkspaceAccess }) => {
   const { language } = useLanguage();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [workspaceSession, setWorkspaceSession] = useState(Boolean(firebaseAuth.currentUser));
@@ -89,13 +89,13 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAudit, onOpenAdmin, onOpen
         {/* Header Action Button */}
         <div className="hidden md:flex items-center space-x-3">
           <LanguageSelector compact />
-          {workspaceSession && onOpenWorkspace && (
+          {onOpenWorkspaceAccess && (
             <button
               type="button"
-              onClick={onOpenWorkspace}
+              onClick={onOpenWorkspaceAccess}
               className="inline-flex items-center justify-center rounded-xl border border-[#0A0A0A]/15 bg-white px-4 py-2.5 text-xs font-semibold text-[#0A0A0A] transition-colors hover:border-[#0A3F4D] hover:text-[#0A3F4D]"
             >
-              Workspace
+              {workspaceSession ? (language === 'es' ? 'Ir al Workspace' : 'Open Workspace') : (language === 'es' ? 'Iniciar sesión' : 'Sign in')}
             </button>
           )}
           {showDevelopmentAdminEntry && onOpenAdmin && (
@@ -162,16 +162,16 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAudit, onOpenAdmin, onOpen
             <div className="flex justify-start">
               <LanguageSelector />
             </div>
-            {workspaceSession && onOpenWorkspace && (
+            {onOpenWorkspaceAccess && (
               <button
                 type="button"
                 onClick={() => {
                   setMobileMenuOpen(false);
-                  onOpenWorkspace();
+                  onOpenWorkspaceAccess();
                 }}
                 className="w-full rounded-xl border border-[#0A0A0A]/20 bg-white px-5 py-3 text-center text-xs font-semibold uppercase tracking-wider text-[#0A0A0A]"
               >
-                Workspace
+                {workspaceSession ? (language === 'es' ? 'Ir al Workspace' : 'Open Workspace') : (language === 'es' ? 'Iniciar sesión' : 'Sign in')}
               </button>
             )}
             {showDevelopmentAdminEntry && onOpenAdmin && (

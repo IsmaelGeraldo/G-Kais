@@ -15,6 +15,6 @@
     "types": ["vite/client"],
     "noEmit": true
   },
-  "include": ["src", "server.ts", "vite.config.ts"],
+  "include": ["src", "api", "server.ts", "vite.config.ts"],
   "exclude": ["motion", "src/components/experts/ExpertsWorkspacePilot.tsx"]
 }

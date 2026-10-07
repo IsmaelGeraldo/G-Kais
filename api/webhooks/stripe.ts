@@ -1,4 +1,4 @@
-import { handleStripeWebhook } from '../../src/server/payments/stripeWebhook';
+import { handleStripeWebhook } from '../../src/server/payments/stripeWebhook.js';
 
 function json(body: Record<string, unknown>, status = 200): Response {
   return Response.json(body, { status });

@@ -2,6 +2,7 @@ import { onAuthStateChanged, type User } from 'firebase/auth';
 import { collection, getDocs } from 'firebase/firestore';
 import { firebaseAuth, firestoreDb } from '../lib/firebase';
 import { recordOperationalBuyerEvent } from './expertsBuyerEvents';
+import { linkMentoringClientToPerson, upsertExpertPerson } from './expertsRelationshipFoundation';
 import { resolveActiveExpertWorkspaceId } from './expertsWorkspaceCore';
 
 let completedKey = '';
@@ -58,8 +59,22 @@ async function backfillMentoringBuyers(workspaceId: string): Promise<void> {
   for (const item of snapshot.docs) {
     const data = item.data() as Record<string, unknown>;
     const record = object(data.record);
-    const personId = text(record.personId);
-    if (!personId) continue;
+    let personId = text(record.personId);
+    if (!personId) {
+      const name = text(record.name).trim();
+      const email = text(record.email).trim();
+      const phone = text(record.phone).trim();
+      if (!name || (!email && !phone)) continue;
+      const resolved = await upsertExpertPerson({
+        name,
+        email,
+        phone,
+        source: 'mentoring-client',
+        stage: 'mentoring',
+        outcomeMemory: object(data.outcomeMemory)
+      });
+      personId = resolved.personId;
+    }
     await recordOperationalBuyerEvent({
       personId,
       kind: 'mentoring',
@@ -72,6 +87,7 @@ async function backfillMentoringBuyers(workspaceId: string): Promise<void> {
         backfilled: true
       }
     });
+    if (!text(record.personId)) await linkMentoringClientToPerson(item.id, personId);
   }
 }
 

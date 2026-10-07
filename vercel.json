@@ -1,0 +1,53 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "api/[...].ts": {
+      "maxDuration": 60
+    },
+    "api/webhooks/stripe.ts": {
+      "maxDuration": 60
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/webhooks/stripe",
+      "destination": "/api/webhooks/stripe"
+    },
+    {
+      "source": "/api/:path*",
+      "destination": "/api/[...]"
+    },
+    {
+      "source": "/workspace",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/workspace/:path*",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/hq",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/hq/:path*",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/admin",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/admin/:path*",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/demo/experts",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/demo/experts/:path*",
+      "destination": "/index.html"
+    }
+  ]
+}

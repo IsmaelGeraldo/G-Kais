@@ -1,4 +1,4 @@
-import express, { Request, Response, NextFunction } from 'express';
+import express, { type Express, type Request, type Response, type NextFunction } from 'express';
 import { randomUUID } from 'crypto';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
@@ -22,9 +22,8 @@ import {
 import { registerWorkspaceAiRoutes } from './src/server/routes/workspaceAi';
 import { registerPaymentWebhookRoutes } from './src/server/routes/paymentWebhooks';
 
-async function startServer() {
+export function createGkaisApiApp(options: { registerStripeWebhook?: boolean } = {}): Express {
   const app = express();
-  const PORT = Number(process.env.PORT) || 3000;
 
   app.use((req: Request, res: Response, next: NextFunction) => {
     const incoming = req.headers['x-request-id'];
@@ -37,7 +36,7 @@ async function startServer() {
   });
 
   // Payment webhooks must receive the exact raw request body for provider signature verification.
-  registerPaymentWebhookRoutes(app);
+  if (options.registerStripeWebhook !== false) registerPaymentWebhookRoutes(app);
 
   // 1. Request payload size limit (max 100kb to avoid denial-of-service or arbitrary payloads)
   app.use(express.json({ limit: '100kb' }));
@@ -618,6 +617,25 @@ async function startServer() {
     }
   });
 
+  app.use((err: unknown, req: Request, res: Response, next: NextFunction) => {
+    if (res.headersSent) return next(err);
+    const requestId = typeof res.locals.requestId === 'string' ? res.locals.requestId : '';
+    console.error(`[UNHANDLED REQUEST ERROR] requestId=${requestId} method=${req.method} path=${req.path}`, err);
+    return res.status(500).json({
+      success: false,
+      code: 'SERVER_ERROR',
+      error: 'Something went wrong. Please try again.',
+      requestId
+    });
+  });
+
+  return app;
+}
+
+async function startServer() {
+  const app = createGkaisApiApp();
+  const PORT = Number(process.env.PORT) || 3000;
+
   // 7. Vite middleware for frontend development and production static serving
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
@@ -633,24 +651,14 @@ async function startServer() {
     });
   }
 
-  app.use((err: unknown, req: Request, res: Response, next: NextFunction) => {
-    if (res.headersSent) return next(err);
-    const requestId = typeof res.locals.requestId === 'string' ? res.locals.requestId : '';
-    console.error(`[UNHANDLED REQUEST ERROR] requestId=${requestId} method=${req.method} path=${req.path}`, err);
-    return res.status(500).json({
-      success: false,
-      code: 'SERVER_ERROR',
-      error: 'Something went wrong. Please try again.',
-      requestId
-    });
-  });
-
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`G-KAIS Server running on http://0.0.0.0:${PORT}`);
   });
 }
 
-void startServer().catch((error) => {
+if (!process.env.VERCEL) {
+  void startServer().catch((error) => {
   console.error('[SERVER STARTUP ERROR]', error);
   process.exitCode = 1;
-});
+  });
+}

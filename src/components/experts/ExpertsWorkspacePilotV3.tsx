@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { useLanguage, type Language } from '../../i18n/LanguageContext';
 import { firebaseAuth, firestoreDb } from '../../lib/firebase';
-import { loadExpertWorkspaceTeam, type WorkspaceMember } from '../../services/expertsWorkspaceCore';
+import { hasWorkspacePermission, loadExpertWorkspaceTeam, type WorkspaceMember, type WorkspacePermission } from '../../services/expertsWorkspaceCore';
 import { DashboardHistory } from './DashboardHistory';
 import { PriorityRadarWorkspace } from './PriorityRadarWorkspace';
 import { ClientOnboardingWorkspace } from './ClientOnboardingWorkspace';
@@ -65,6 +65,23 @@ const NAV: NavItem[] = [
   { id: 'copilot', label: { es: 'G-KAIS Copilot', en: 'G-KAIS Copilot' }, icon: Sparkles, section: 'intelligence' },
   { id: 'knowledge', label: { es: 'Conocimiento', en: 'Knowledge' }, icon: BookOpenCheck, section: 'intelligence' }
 ];
+
+const NAV_PERMISSIONS: Partial<Record<string, WorkspacePermission[]>> = {
+  webinars: ['webinars.read', 'webinars.manage'],
+  formations: ['formations.read', 'formations.manage'],
+  clients: ['mentoring.read', 'mentoring.manage'],
+  priority: ['tasks.read.own', 'tasks.read.team', 'tasks.manage.own', 'tasks.manage'],
+  relationships: ['people.read', 'people.manage'],
+  team: ['members.read', 'members.manage', 'roles.read', 'roles.manage'],
+  copilot: ['events.read', 'events.create'],
+  knowledge: ['events.read']
+};
+
+function canAccessWorkspaceView(id: string, permissions: Array<WorkspacePermission | '*'>): boolean {
+  if (id === 'overview') return true;
+  const required = NAV_PERMISSIONS[id];
+  return Boolean(required?.some((permission) => hasWorkspacePermission(permissions, permission)));
+}
 
 const PROFILE_KEY = 'gkais-experts-profile-v1';
 const APPEARANCE_KEY = 'gkais-experts-appearance-v2';
@@ -199,24 +216,27 @@ function ExpertsWorkspaceShell({ onExit }: Props) {
     };
   }, []);
 
+  const currentPermissions = access.currentMember?.permissions || [];
   const visibleNav = useMemo(
-    () => access.isOwner ? NAV : NAV.filter((item) => item.id === 'priority' || item.id === 'team'),
-    [access.isOwner]
+    () => access.isOwner ? NAV : NAV.filter((item) => canAccessWorkspaceView(item.id, currentPermissions)),
+    [access.isOwner, currentPermissions]
   );
   const allowedIds = useMemo(() => new Set(visibleNav.map((item) => item.id)), [visibleNav]);
+  const landingView = visibleNav.some((item) => item.id === 'overview') ? 'overview' : (visibleNav[0]?.id || 'settings');
 
   useEffect(() => {
-    if (!access.ready || access.isOwner) return;
+    if (!access.ready) return;
+    if (active === 'settings') return;
     if (!allowedIds.has(active)) {
       const params = new URLSearchParams();
-      params.set('view', 'priority');
+      params.set('view', landingView);
       window.history.replaceState({}, '', `/workspace/experts?${params.toString()}`);
-      setActive('priority');
+      setActive(landingView);
     }
-  }, [access.ready, access.isOwner, active, allowedIds]);
+  }, [access.ready, active, allowedIds, landingView]);
 
   const navigate = (id: string, options?: { clientId?: string; tab?: RelationshipTab; personId?: string }) => {
-    if (access.ready && !access.isOwner && id !== 'priority' && id !== 'team') return;
+    if (access.ready && id !== 'settings' && !allowedIds.has(id)) return;
     const params = new URLSearchParams();
     params.set('view', id);
     const nextClient = options?.clientId ?? selectedClientId;
@@ -230,22 +250,22 @@ function ExpertsWorkspaceShell({ onExit }: Props) {
   };
 
   const startSession = (clientId: string) => {
-    if (!access.isOwner) return;
+    if (!access.isOwner && !hasWorkspacePermission(currentPermissions, 'mentoring.read') && !hasWorkspacePermission(currentPermissions, 'mentoring.manage')) return;
     window.history.pushState({}, '', `/workspace/experts/sessions?client=${encodeURIComponent(clientId)}`);
     window.dispatchEvent(new PopStateEvent('popstate'));
   };
 
   const openPerson = (id: string) => {
-    if (!access.isOwner) return;
+    if (!allowedIds.has('relationships')) return;
     navigate('relationships', { personId: id, tab: 'people' });
   };
 
   const openMentoringClient = (id: string) => {
-    if (!access.isOwner) return;
+    if (!allowedIds.has('clients')) return;
     navigate('clients', { clientId: id });
   };
 
-  const goBack = () => active === (access.isOwner ? 'overview' : 'priority') ? onExit() : window.history.back();
+  const goBack = () => active === landingView ? onExit() : window.history.back();
 
   if (!access.ready) {
     return <div className="grid min-h-screen place-items-center bg-[#F6F6F3] text-sm text-black/45">{language === 'es' ? 'Abriendo Workspace…' : 'Opening Workspace…'}</div>;
@@ -270,17 +290,17 @@ function ExpertsWorkspaceShell({ onExit }: Props) {
   const memberAvatar = access.isOwner ? profile.avatar : (firebaseAuth.currentUser?.photoURL || '');
 
   let content: React.ReactNode;
-  if (active === 'overview' && access.isOwner) {
+  if (active === 'overview' && allowedIds.has('overview')) {
     content = <DashboardHistory language={language} onNavigate={(id) => navigate(id)} onOpenClient={openMentoringClient} onStartSession={startSession} />;
-  } else if (active === 'webinars' && access.isOwner) {
+  } else if (active === 'webinars' && allowedIds.has('webinars')) {
     content = <WebinarsWorkspace language={language} />;
-  } else if (active === 'formations' && access.isOwner) {
+  } else if (active === 'formations' && allowedIds.has('formations')) {
     content = <FormationsWorkspace language={language} />;
-  } else if (active === 'priority') {
+  } else if (active === 'priority' && allowedIds.has('priority')) {
     content = <PriorityRadarWorkspace language={language} onOpenClient={openPerson} />;
-  } else if (active === 'relationships' && access.isOwner) {
+  } else if (active === 'relationships' && allowedIds.has('relationships')) {
     content = <RelationshipsWorkspace key={relationshipTab} language={language} initialTab={relationshipTab} />;
-  } else if (active === 'clients' && access.isOwner) {
+  } else if (active === 'clients' && allowedIds.has('clients')) {
     content = <ClientOnboardingWorkspace
       language={language}
       selectedId={selectedClientId}
@@ -288,10 +308,17 @@ function ExpertsWorkspaceShell({ onExit }: Props) {
       onStartSession={startSession}
       onOpenPriority={() => navigate('priority')}
     />;
-  } else if (active === 'team') {
+  } else if (active === 'team' && allowedIds.has('team')) {
     content = <TeamWorkspace language={language} />;
-  } else if (active === 'settings' && access.isOwner) {
-    content = <WorkspaceSettingsProfile language={language} profile={profile} setProfile={setProfile} appearance={appearance} setAppearance={setAppearance} />;
+  } else if (active === 'settings') {
+    content = <WorkspaceSettingsProfile
+      language={language}
+      profile={profile}
+      setProfile={setProfile}
+      appearance={appearance}
+      setAppearance={setAppearance}
+      showIdentity={access.isOwner}
+    />;
   } else {
     content = <Placeholder active={active} language={language} />;
   }
@@ -341,12 +368,12 @@ function ExpertsWorkspaceShell({ onExit }: Props) {
         })}
       </nav>
       <div className="border-t border-white/10 p-3">
-        {access.isOwner && <button
+        <button
           type="button"
           onClick={() => navigate('settings')}
           className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm ${active === 'settings' ? '' : 'text-white/55 hover:bg-white/[0.06]'}`}
           style={active === 'settings' ? { background: selectedBackground, color: selectedText } : undefined}
-        ><Settings className="h-4 w-4" />{language === 'es' ? 'Configuración' : 'Settings'}</button>}
+        ><Settings className="h-4 w-4" />{language === 'es' ? 'Configuración' : 'Settings'}</button>
         <div className="mt-2 flex items-center gap-3 rounded-xl bg-white/[0.05] p-3">
           {memberAvatar
             ? <img src={memberAvatar} alt="" className="h-9 w-9 rounded-full object-cover" />
@@ -374,7 +401,7 @@ function ExpertsWorkspaceShell({ onExit }: Props) {
 
       <main className="px-4 py-6 md:px-8 md:py-8 lg:px-10 lg:py-10">
         <div className="mx-auto max-w-[1500px]">
-          <div className="mb-5 lg:hidden"><div className="flex gap-2 overflow-x-auto pb-2">{visibleNav.map((item) => <button key={item.id} onClick={() => navigate(item.id)} className={`whitespace-nowrap rounded-full px-3 py-2 text-xs font-semibold ${active === item.id ? 'bg-[#111413] text-white' : 'border border-black/10 bg-white text-black/55'}`}>{item.label[language]}</button>)}</div></div>
+          <div className="mb-5 lg:hidden"><div className="flex gap-2 overflow-x-auto pb-2">{visibleNav.map((item) => <button key={item.id} onClick={() => navigate(item.id)} className={`whitespace-nowrap rounded-full px-3 py-2 text-xs font-semibold ${active === item.id ? 'bg-[#111413] text-white' : 'border border-black/10 bg-white text-black/55'}`}>{item.label[language]}</button>)}<button type="button" onClick={() => navigate('settings')} className={`whitespace-nowrap rounded-full px-3 py-2 text-xs font-semibold ${active === 'settings' ? 'bg-[#111413] text-white' : 'border border-black/10 bg-white text-black/55'}`}>{language === 'es' ? 'Configuración' : 'Settings'}</button></div></div>
           <div className="mb-7">
             <p className={`text-xs font-semibold uppercase tracking-[0.18em] ${darkWorkspace ? 'text-white/70' : 'text-[#0A3F4D]'}`}>{
               active === 'overview' ? (language === 'es' ? 'VISTA OPERATIVA DIARIA' : 'DAILY OPERATING VIEW')

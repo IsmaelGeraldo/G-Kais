@@ -13,6 +13,7 @@ import {
   where
 } from 'firebase/firestore';
 import { firebaseAuth, firestoreDb } from '../lib/firebase';
+import { recordOperationalBuyerEvent } from './expertsBuyerEvents';
 import { resolveActiveExpertWorkspaceId } from './expertsWorkspaceCore';
 
 const SCHEMA_VERSION = 1;
@@ -202,12 +203,12 @@ export async function linkMentoringClientToPerson(clientId: string, personId: st
   const clientRef = workspaceDocument(workspaceId, 'clients', clientId);
   const personRef = workspaceDocument(workspaceId, 'people', personId);
 
-  await runTransaction(firestoreDb, async (transaction) => {
+  const linked = await runTransaction(firestoreDb, async (transaction) => {
     const [clientSnapshot, personSnapshot] = await Promise.all([
       transaction.get(clientRef),
       transaction.get(personRef)
     ]);
-    if (!clientSnapshot.exists()) return;
+    if (!clientSnapshot.exists()) return false;
     if (!personSnapshot.exists()) throw new Error('PERSON_NOT_FOUND');
     const data = clientSnapshot.data() as ClientEnvelope;
     const update: Record<string, unknown> = {
@@ -221,7 +222,16 @@ export async function linkMentoringClientToPerson(clientId: string, personId: st
       currentStage: 'mentoring',
       updatedAt: serverTimestamp()
     });
+    return true;
   });
+  if (!linked) return;
+  await recordOperationalBuyerEvent({
+    personId,
+    kind: 'mentoring',
+    sourceType: 'mentoring_client',
+    sourceId: clientId,
+    metadata: { clientId }
+  }).catch((error) => console.error('[G-KAIS MENTORING BUYER EVENT]', error));
 }
 
 let backfillRunning = false;
@@ -324,6 +334,15 @@ export async function recordExpertWebinarRegistration(input: PersonIdentityInput
       updatedAt: serverTimestamp()
     });
   });
+  if (purchased) {
+    await recordOperationalBuyerEvent({
+      personId: person.personId,
+      kind: 'webinar',
+      sourceType: 'webinar_registration',
+      sourceId: registrationId,
+      metadata: { webinarId: input.webinarId }
+    }).catch((error) => console.error('[G-KAIS WEBINAR BUYER EVENT]', error));
+  }
   return { registrationId, personId: person.personId };
 }
 

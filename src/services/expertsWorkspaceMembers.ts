@@ -30,6 +30,29 @@ export async function resolveValidExpertWorkspaceId(user: User | null = firebase
   return membership.status === 'active' ? activeWorkspaceId : null;
 }
 
+export async function updateExpertWorkspaceUserPhoto(photoURL: string): Promise<void> {
+  const user = firebaseAuth.currentUser;
+  const workspaceId = await resolveValidExpertWorkspaceId(user);
+  if (!user || !workspaceId) throw new Error('AUTH_REQUIRED');
+
+  const normalized = photoURL.trim();
+  if (!normalized || normalized.length > 1000) throw new Error('PHOTO_TOO_LARGE');
+
+  const userRef = userDocument(user.uid);
+  const snapshot = await getDoc(userRef);
+  if (!snapshot.exists()) throw new Error('USER_PROFILE_NOT_FOUND');
+
+  await setDoc(userRef, {
+    photoURL: normalized,
+    updatedAt: serverTimestamp()
+  }, { merge: true });
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('gkais:user-profile-changed', { detail: { photoURL: normalized } }));
+  }
+}
+
+
 export async function updateExpertWorkspaceMember(input: {
   memberUid: string;
   roleId: string;

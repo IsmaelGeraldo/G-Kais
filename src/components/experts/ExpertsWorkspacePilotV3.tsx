@@ -165,17 +165,21 @@ function ExpertsWorkspaceShell({ onExit }: Props) {
   const [profile, setProfile] = useState<WorkspaceProfile>(loadProfile);
   const [appearance, setAppearance] = useState<WorkspaceAppearance>(loadAppearance);
   const [internalNavAccent, setInternalNavAccent] = useState<'black' | 'sidebar'>(readInternalNavAccent);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(readSidebarCollapsed);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [access, setAccess] = useState<WorkspaceAccess>({
     ready: false,
     workspaceId: '',
     currentUid: '',
     workspaceName: '',
     currentMember: null,
+    photoURL: '',
     isOwner: false
   });
 
   useEffect(() => { try { localStorage.setItem(PROFILE_KEY, JSON.stringify(profile)); } catch {} }, [profile]);
   useEffect(() => { try { localStorage.setItem(APPEARANCE_KEY, JSON.stringify(appearance)); } catch {} }, [appearance]);
+  useEffect(() => { try { localStorage.setItem(SIDEBAR_COLLAPSED_KEY, sidebarCollapsed ? '1' : '0'); } catch {} }, [sidebarCollapsed]);
   useEffect(() => {
     const syncInternalAccent = (event: Event) => {
       const detail = (event as CustomEvent<'black' | 'sidebar'>).detail;
@@ -203,9 +207,15 @@ function ExpertsWorkspaceShell({ onExit }: Props) {
     const loadAccess = async (attempt = 0) => {
       try {
         const team = await loadExpertWorkspaceTeam();
-        const workspaceSnapshot = await getDoc(doc(firestoreDb, 'expert_workspaces', team.workspaceId));
+        const [workspaceSnapshot, userSnapshot] = await Promise.all([
+          getDoc(doc(firestoreDb, 'expert_workspaces', team.workspaceId)),
+          getDoc(doc(firestoreDb, 'users', team.currentUid))
+        ]);
         const workspaceName = workspaceSnapshot.exists() && typeof workspaceSnapshot.data().name === 'string'
           ? workspaceSnapshot.data().name as string
+          : '';
+        const photoURL = userSnapshot.exists() && typeof userSnapshot.data().photoURL === 'string'
+          ? userSnapshot.data().photoURL as string
           : '';
         if (cancelled) return;
         setAccess({
@@ -214,6 +224,7 @@ function ExpertsWorkspaceShell({ onExit }: Props) {
           currentUid: team.currentUid,
           workspaceName,
           currentMember: team.currentMember,
+          photoURL,
           isOwner: team.workspaceId === team.currentUid
         });
       } catch {
@@ -228,18 +239,21 @@ function ExpertsWorkspaceShell({ onExit }: Props) {
 
     const unsubscribe = onAuthStateChanged(firebaseAuth, (user) => {
       if (!user) {
-        setAccess({ ready: true, workspaceId: '', currentUid: '', workspaceName: '', currentMember: null, isOwner: false });
+        setAccess({ ready: true, workspaceId: '', currentUid: '', workspaceName: '', currentMember: null, photoURL: '', isOwner: false });
         return;
       }
       void loadAccess();
     });
     const onMembershipChanged = () => void loadAccess();
+    const onProfileChanged = () => void loadAccess();
     window.addEventListener('gkais:workspace-membership-changed', onMembershipChanged);
+    window.addEventListener('gkais:user-profile-changed', onProfileChanged);
     return () => {
       cancelled = true;
       if (retryTimer !== undefined) window.clearTimeout(retryTimer);
       unsubscribe();
       window.removeEventListener('gkais:workspace-membership-changed', onMembershipChanged);
+      window.removeEventListener('gkais:user-profile-changed', onProfileChanged);
     };
   }, []);
 

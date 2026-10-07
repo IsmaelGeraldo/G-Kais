@@ -1,11 +1,13 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
-    "api/[...].ts": {
-      "maxDuration": 60
+    "api/[...].js": {
+      "maxDuration": 60,
+      "includeFiles": "server-build/server.cjs"
     },
-    "api/webhooks/stripe.ts": {
-      "maxDuration": 60
+    "api/webhooks/stripe.js": {
+      "maxDuration": 60,
+      "includeFiles": "server-build/stripeWebhook.cjs"
     }
   },
   "rewrites": [

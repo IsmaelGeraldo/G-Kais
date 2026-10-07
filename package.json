@@ -5,10 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
-    "start": "node dist/server.cjs",
+    "build": "vite build && mkdir -p server-build && esbuild server.ts --bundle --platform=node --format=cjs --external:vite --sourcemap --outfile=server-build/server.cjs && esbuild src/server/payments/stripeWebhook.ts --bundle --platform=node --format=cjs --sourcemap --outfile=server-build/stripeWebhook.cjs && VERCEL=1 node -e \"const m=require('./server-build/server.cjs'); if(typeof m.createGkaisApiApp!=='function') process.exit(1); process.exit(0)\" && node -e \"const m=require('./server-build/stripeWebhook.cjs'); if(typeof m.handleStripeWebhook!=='function') process.exit(1); process.exit(0)\"",
+    "start": "node server-build/server.cjs",
     "preview": "vite preview",
-    "clean": "rm -rf dist server.js",
+    "clean": "rm -rf dist server-build server.js",
     "lint": "tsc --noEmit",
     "deploy:firestore-rules": "npx firebase-tools deploy --only firestore:rules --project careful-bloom-jmn89"
   },

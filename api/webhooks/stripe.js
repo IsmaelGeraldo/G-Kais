@@ -1,16 +1,23 @@
-import { handleStripeWebhook } from '../../src/server/payments/stripeWebhook';
+import { createRequire } from 'node:module';
 
-function json(body: Record<string, unknown>, status = 200): Response {
+const require = createRequire(import.meta.url);
+
+function json(body, status = 200) {
   return Response.json(body, { status });
 }
 
-export async function POST(request: Request): Promise<Response> {
+function getStripeWebhookHandler() {
+  const { handleStripeWebhook } = require('../../server-build/stripeWebhook.cjs');
+  return handleStripeWebhook;
+}
+
+export async function POST(request) {
   try {
     const signature = request.headers.get('stripe-signature') || '';
     if (!signature) return json({ success: false, code: 'STRIPE_SIGNATURE_REQUIRED' }, 400);
 
     const rawBody = Buffer.from(await request.arrayBuffer());
-    const result = await handleStripeWebhook(rawBody, signature);
+    const result = await getStripeWebhookHandler()(rawBody, signature);
 
     if (result.status === 'ignored') {
       return json({ success: true, code: 'WEBHOOK_IGNORED', reason: result.reason });
@@ -26,7 +33,7 @@ export async function POST(request: Request): Promise<Response> {
         ? 'VERIFIED_PURCHASE_DUPLICATE'
         : 'VERIFIED_PURCHASE_RECORDED'
     });
-  } catch (error: unknown) {
+  } catch (error) {
     const message = error instanceof Error ? error.message : 'STRIPE_WEBHOOK_ERROR';
     console.error('[STRIPE WEBHOOK ERROR]', error);
 
@@ -43,6 +50,6 @@ export async function POST(request: Request): Promise<Response> {
   }
 }
 
-export function GET(): Response {
+export function GET() {
   return json({ success: false, code: 'METHOD_NOT_ALLOWED' }, 405);
 }

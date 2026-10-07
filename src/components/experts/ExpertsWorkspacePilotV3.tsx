@@ -312,9 +312,24 @@ function ExpertsWorkspaceShell({ onExit }: Props) {
     return <div className="grid min-h-screen place-items-center bg-[#F6F6F3] text-sm text-black/45">{language === 'es' ? 'Abriendo Workspace…' : 'Opening Workspace…'}</div>;
   }
 
+  if (!access.currentMember) {
+    return <div className="grid min-h-screen place-items-center bg-[#F6F6F3] px-5">
+      <div className="w-full max-w-md rounded-3xl border border-black/10 bg-white p-7 text-center shadow-[0_20px_60px_rgba(0,0,0,0.07)]">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#0A3F4D]">G-KAIS WORKSPACE</p>
+        <h1 className="mt-2 text-xl font-semibold">{language === 'es' ? 'Necesitas iniciar sesión' : 'Sign in required'}</h1>
+        <p className="mt-2 text-sm leading-6 text-black/50">{language === 'es'
+          ? 'No encontramos una membresía activa para esta sesión. Inicia sesión con la cuenta asociada a tu empresa.'
+          : 'We could not find an active membership for this session. Sign in with the account linked to your company.'}</p>
+        <button type="button" onClick={() => window.location.assign('/login')} className="mt-5 rounded-full bg-[#111413] px-5 py-3 text-sm font-semibold text-white">
+          {language === 'es' ? 'Ir a iniciar sesión' : 'Go to sign in'}
+        </button>
+      </div>
+    </div>;
+  }
+
   const accent = themeColor(appearance.sidebar === 'same' ? appearance.theme : appearance.sidebar);
   const selectedBackground = `color-mix(in srgb, ${accent} ${Math.min(94, 40 + appearance.sidebarIntensity * 5)}%, white)`;
-  const selectedText = accent !== '#FFFFFF' && appearance.sidebarIntensity >= 6 ? '#FFFFFF' : '#111413';
+  const selectedText = contrastTextForAccent(accent);
   const internalAccent = internalNavAccent === 'sidebar' ? selectedBackground : '#111413';
   const internalAccentText = internalNavAccent === 'sidebar' ? selectedText : '#FFFFFF';
   const workspaceAccent = themeColor(appearance.theme);
@@ -325,10 +340,25 @@ function ExpertsWorkspaceShell({ onExit }: Props) {
     ? (language === 'es' ? 'Configuración' : 'Settings')
     : NAV.find((item) => item.id === active)?.label[language] ?? 'Workspace';
 
-  const memberName = access.currentMember?.displayName || firebaseAuth.currentUser?.displayName || firebaseAuth.currentUser?.email || profile.name;
-  const memberRole = access.currentMember?.roleId || profile.role;
+  const memberName = access.currentMember.displayName || firebaseAuth.currentUser?.displayName || firebaseAuth.currentUser?.email || profile.name;
+  const memberRole = access.currentMember.roleId || profile.role;
+  const memberRoleLabel = memberRole.split('-').map((part) => part ? part[0].toUpperCase() + part.slice(1) : part).join(' ');
+  const memberEmail = access.currentMember.email || firebaseAuth.currentUser?.email || '';
   const workspaceName = access.workspaceName || (access.isOwner ? profile.business : 'G-KAIS Workspace');
-  const memberAvatar = access.isOwner ? profile.avatar : (firebaseAuth.currentUser?.photoURL || '');
+  const memberAvatar = access.isOwner
+    ? (profile.avatar || access.photoURL || firebaseAuth.currentUser?.photoURL || '')
+    : (access.photoURL || firebaseAuth.currentUser?.photoURL || '');
+
+  const updatePersonalPhoto = async (photoURL: string) => {
+    await updateExpertWorkspaceUserPhoto(photoURL);
+    setAccess((current) => ({ ...current, photoURL }));
+  };
+
+  const logout = async () => {
+    setAccountMenuOpen(false);
+    await signOut(firebaseAuth);
+    window.location.assign('/login');
+  };
 
   let content: React.ReactNode;
   if (active === 'overview' && allowedIds.has('overview')) {
@@ -359,6 +389,14 @@ function ExpertsWorkspaceShell({ onExit }: Props) {
       appearance={appearance}
       setAppearance={setAppearance}
       showIdentity={access.isOwner}
+      personalProfile={access.isOwner ? undefined : {
+        displayName: memberName,
+        email: memberEmail,
+        role: memberRoleLabel,
+        workspaceName,
+        photoURL: memberAvatar
+      }}
+      onPersonalPhotoChange={access.isOwner ? undefined : updatePersonalPhoto}
     />;
   } else {
     content = <Placeholder active={active} language={language} />;

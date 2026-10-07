@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import {
   ArrowLeft,
@@ -12,11 +12,16 @@ import {
   Sparkles,
   Users,
   UsersRound,
-  HeartHandshake
+  HeartHandshake,
+  LogOut,
+  PanelLeftClose,
+  PanelLeftOpen,
+  UserRound
 } from 'lucide-react';
 import { useLanguage, type Language } from '../../i18n/LanguageContext';
 import { firebaseAuth, firestoreDb } from '../../lib/firebase';
 import { hasWorkspacePermission, loadExpertWorkspaceTeam, type WorkspaceMember, type WorkspacePermission } from '../../services/expertsWorkspaceCore';
+import { updateExpertWorkspaceUserPhoto } from '../../services/expertsWorkspaceMembers';
 import { DashboardHistory } from './DashboardHistory';
 import { PriorityRadarWorkspace } from './PriorityRadarWorkspace';
 import { ClientOnboardingWorkspace } from './ClientOnboardingWorkspace';
@@ -50,6 +55,7 @@ type WorkspaceAccess = {
   currentUid: string;
   workspaceName: string;
   currentMember: WorkspaceMember | null;
+  photoURL: string;
   isOwner: boolean;
 };
 type RelationshipTab = 'people' | 'follow-up';
@@ -85,6 +91,7 @@ function canAccessWorkspaceView(id: string, permissions: Array<WorkspacePermissi
 
 const PROFILE_KEY = 'gkais-experts-profile-v1';
 const APPEARANCE_KEY = 'gkais-experts-appearance-v2';
+const SIDEBAR_COLLAPSED_KEY = 'gkais-experts-sidebar-collapsed-v1';
 
 function readLocation() {
   const params = new URLSearchParams(window.location.search);
@@ -110,6 +117,26 @@ function loadProfile(): WorkspaceProfile {
 function loadAppearance(): WorkspaceAppearance {
   try { return JSON.parse(localStorage.getItem(APPEARANCE_KEY) || '') as WorkspaceAppearance; }
   catch { return { theme: 'white', intensity: 3, sidebar: 'same', sidebarIntensity: 7 }; }
+}
+
+function readSidebarCollapsed(): boolean {
+  try {
+    const stored = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
+    if (stored === '1') return true;
+    if (stored === '0') return false;
+  } catch {}
+  return typeof window !== 'undefined' && window.innerWidth < 1200;
+}
+
+function contrastTextForAccent(hex: string): string {
+  if (!/^#[0-9A-F]{6}$/i.test(hex)) return '#FFFFFF';
+  const value = hex.slice(1);
+  const r = parseInt(value.slice(0, 2), 16) / 255;
+  const g = parseInt(value.slice(2, 4), 16) / 255;
+  const b = parseInt(value.slice(4, 6), 16) / 255;
+  const linear = (channel: number) => channel <= 0.03928 ? channel / 12.92 : Math.pow((channel + 0.055) / 1.055, 2.4);
+  const luminance = 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b);
+  return luminance > 0.55 ? '#111413' : '#FFFFFF';
 }
 
 function Placeholder({ active, language }: { active: string; language: Language }) {

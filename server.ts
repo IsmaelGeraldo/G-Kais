@@ -1,5 +1,6 @@
 import express, { type Express, type Request, type Response, type NextFunction } from 'express';
 import { randomUUID } from 'crypto';
+import { writeFileSync } from 'node:fs';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { auditRepository } from './src/server/repositories/auditRepository';
@@ -144,7 +145,7 @@ export function createGkaisApiApp(options: { registerStripeWebhook?: boolean } =
         });
       } catch (err: any) {
         console.error(`[AUDIT INTERNAL ERROR] stage=${stage}`, err);
-        try { require('fs').writeFileSync('/tmp/server_error.log', (err?.stack || err?.message || String(err))); } catch {}
+        try { writeFileSync('/tmp/server_error.log', (err?.stack || err?.message || String(err))); } catch {}
 
         const isProduction = process.env.NODE_ENV === 'production';
         const safeDiagnostic = err instanceof Error && err.message

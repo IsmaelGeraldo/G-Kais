@@ -25,9 +25,10 @@ import { ExpertsWorkspace } from './components/ExpertsWorkspace.tsx';
 import { SessionMemoryWorkspaceAI } from './components/SessionMemoryWorkspaceAI.tsx';
 import { ExpertsSessionRouteGate } from './components/experts/ExpertsSessionRouteGate.tsx';
 import { FormationClassSessionPage } from './components/experts/FormationClassSessionPage.tsx';
+import { WorkspaceLoginPage } from './components/experts/WorkspaceLoginPage.tsx';
 import { LanguageProvider } from './i18n/LanguageContext.tsx';
 
-function PublicApp({ onOpenAdmin, onOpenWorkspace }: { onOpenAdmin: () => void; onOpenWorkspace: () => void }) {
+function PublicApp({ onOpenAdmin, onOpenWorkspaceAccess }: { onOpenAdmin: () => void; onOpenWorkspaceAccess: () => void }) {
   const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
   const [isLeadFlowModalOpen, setIsLeadFlowModalOpen] = useState(false);
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
@@ -41,7 +42,7 @@ function PublicApp({ onOpenAdmin, onOpenWorkspace }: { onOpenAdmin: () => void; 
 
   return (
     <div className="min-h-screen bg-[#F7F7F5] text-[#0A0A0A] selection:bg-[#0A3F4D] selection:text-[#F7F7F5] font-sans">
-      <Header onOpenAudit={handleOpenAudit} onOpenAdmin={onOpenAdmin} onOpenWorkspace={onOpenWorkspace} />
+      <Header onOpenAudit={handleOpenAudit} onOpenAdmin={onOpenAdmin} onOpenWorkspaceAccess={onOpenWorkspaceAccess} />
       <main>
         <Hero onOpenAudit={handleOpenAudit} />
         <ProblemSection />
@@ -74,6 +75,10 @@ function isExpertsWorkspaceRoute(): boolean {
   return window.location.pathname === '/workspace' || window.location.pathname === '/workspace/experts' || window.location.pathname.startsWith('/workspace/experts/');
 }
 
+function isWorkspaceLoginRoute(): boolean {
+  return window.location.pathname === '/login' || window.location.pathname === '/workspace/login';
+}
+
 function isSessionMemoryRoute(): boolean {
   return window.location.pathname === '/workspace/experts/sessions' || window.location.pathname.startsWith('/workspace/experts/sessions/');
 }
@@ -88,6 +93,7 @@ function AppContent() {
   const [showExpertsWorkspace, setShowExpertsWorkspace] = useState<boolean>(() => isExpertsWorkspaceRoute());
   const [showSessionMemory, setShowSessionMemory] = useState<boolean>(() => isSessionMemoryRoute());
   const [showFormationClassSession, setShowFormationClassSession] = useState<boolean>(() => isFormationClassSessionRoute());
+  const [showWorkspaceLogin, setShowWorkspaceLogin] = useState<boolean>(() => isWorkspaceLoginRoute());
 
   useEffect(() => {
     const handlePopState = () => {
@@ -96,6 +102,7 @@ function AppContent() {
       setShowExpertsWorkspace(isExpertsWorkspaceRoute());
       setShowSessionMemory(isSessionMemoryRoute());
       setShowFormationClassSession(isFormationClassSessionRoute());
+      setShowWorkspaceLogin(isWorkspaceLoginRoute());
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
@@ -109,7 +116,12 @@ function AppContent() {
 
   const openExpertsWorkspace = () => {
     window.history.pushState({}, '', '/workspace/experts');
-    setShowAdmin(false); setShowExpertsDemo(false); setShowSessionMemory(false); setShowFormationClassSession(false); setShowExpertsWorkspace(true);
+    setShowAdmin(false); setShowExpertsDemo(false); setShowSessionMemory(false); setShowFormationClassSession(false); setShowWorkspaceLogin(false); setShowExpertsWorkspace(true);
+  };
+
+  const openWorkspaceAccess = () => {
+    window.history.pushState({}, '', '/login');
+    setShowAdmin(false); setShowExpertsDemo(false); setShowExpertsWorkspace(false); setShowSessionMemory(false); setShowFormationClassSession(false); setShowWorkspaceLogin(true);
   };
 
   const exitAdmin = () => {
@@ -141,11 +153,12 @@ function AppContent() {
   if (showFormationClassSession) return <div className="gkais-experts-interactions"><ExpertsSessionRouteGate><FormationClassSessionPage /></ExpertsSessionRouteGate></div>;
   if (showSessionMemory) return <div className="gkais-experts-interactions"><ExpertsSessionRouteGate><SessionMemoryWorkspaceAI onBack={backFromSessionMemory} /></ExpertsSessionRouteGate></div>;
   if (showExpertsWorkspace) return <div className="gkais-experts-interactions"><ExpertsWorkspace onExit={exitExpertsWorkspace} /></div>;
+  if (showWorkspaceLogin) return <WorkspaceLoginPage />;
   if (showExpertsDemo) return <ExpertsCommercialDemo onExit={exitExpertsDemo} />;
 
   return showAdmin
     ? <div className="relative"><AdminPage onExitAdmin={exitAdmin} /><button type="button" onClick={openExpertsWorkspace} className="fixed bottom-5 right-5 z-[80] rounded-full border border-[#0A3F4D]/20 bg-[#0A3F4D] px-4 py-3 text-xs font-semibold text-white shadow-[0_12px_30px_rgba(10,63,77,0.25)] transition hover:bg-[#083540]">Open Experts Workspace</button></div>
-    : <PublicApp onOpenAdmin={openAdmin} onOpenWorkspace={openExpertsWorkspace} />;
+    : <PublicApp onOpenAdmin={openAdmin} onOpenWorkspaceAccess={openWorkspaceAccess} />;
 }
 
 export default function App() {

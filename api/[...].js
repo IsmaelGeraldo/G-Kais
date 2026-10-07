@@ -38,9 +38,18 @@ export default function handler(req, res) {
     return getApp()(req, res);
   } catch (error) {
     console.error('[VERCEL API BOOT ERROR]', error);
+    const details = process.env.VERCEL_ENV === 'preview'
+      ? {
+          name: error instanceof Error ? error.name : 'UnknownError',
+          runtimeCode: error && typeof error === 'object' && 'code' in error ? String(error.code) : null,
+          message: error instanceof Error ? error.message : String(error)
+        }
+      : undefined;
+
     return res.status(500).json({
       success: false,
-      code: 'VERCEL_API_BOOT_ERROR'
+      code: 'VERCEL_API_BOOT_ERROR',
+      ...(details ? { details } : {})
     });
   }
 }

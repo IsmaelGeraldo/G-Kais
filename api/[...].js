@@ -1,14 +1,12 @@
-import { createRequire } from 'node:module';
+let appPromise;
 
-const require = createRequire(import.meta.url);
-let app;
-
-function getApp() {
-  if (!app) {
-    const { createGkaisApiApp } = require('../server-build/server.cjs');
-    app = createGkaisApiApp({ registerStripeWebhook: false });
+async function getApp() {
+  if (!appPromise) {
+    appPromise = import('../server-build/server.mjs').then(({ createGkaisApiApp }) =>
+      createGkaisApiApp({ registerStripeWebhook: false })
+    );
   }
-  return app;
+  return appPromise;
 }
 
 function pathFromQuery(value) {
@@ -24,7 +22,7 @@ function appendQuery(search, key, value) {
   if (value !== undefined && value !== null) search.append(key, String(value));
 }
 
-export default function handler(req, res) {
+export default async function handler(req, res) {
   try {
     const query = req.query && typeof req.query === 'object' ? req.query : {};
     const path = pathFromQuery(query.path);
@@ -35,7 +33,8 @@ export default function handler(req, res) {
     });
 
     req.url = `/api/${path}${search.toString() ? `?${search.toString()}` : ''}`;
-    return getApp()(req, res);
+    const app = await getApp();
+    return app(req, res);
   } catch (error) {
     console.error('[VERCEL API BOOT ERROR]', error);
     const details = process.env.VERCEL_ENV === 'preview'

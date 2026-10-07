@@ -14,6 +14,15 @@ import {
 } from './expertsWorkspaceCore';
 
 const SCHEMA_VERSION = 1;
+
+function userDocument(uid: string) {
+  return doc(firestoreDb, 'users', uid);
+}
+
+function workspaceSubDocument(workspaceId: string, subcollection: string, id: string) {
+  return doc(firestoreDb, 'expert_workspaces', workspaceId, subcollection, id);
+}
+
 export async function resolveValidExpertWorkspaceId(user: User | null = firebaseAuth.currentUser): Promise<string | null> {
   if (!user) return null;
 

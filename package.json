@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "vite build && mkdir -p server-build && esbuild server.ts --bundle --platform=node --format=esm --packages=external --sourcemap --outfile=server-build/server.mjs && esbuild src/server/payments/stripeWebhook.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=server-build/stripeWebhook.cjs && VERCEL=1 node -e \"import('./server-build/server.mjs').then(m=>{if(typeof m.createGkaisApiApp!=='function') process.exit(1); process.exit(0)}).catch(()=>process.exit(1))\" && node -e \"const m=require('./server-build/stripeWebhook.cjs'); if(typeof m.handleStripeWebhook!=='function') process.exit(1); process.exit(0)\"",
+    "build": "vite build && mkdir -p server-build && esbuild server.ts --bundle --platform=node --format=esm --external:vite --sourcemap --outfile=server-build/server.mjs && esbuild src/server/payments/stripeWebhook.ts --bundle --platform=node --format=cjs --sourcemap --outfile=server-build/stripeWebhook.cjs && VERCEL=1 node -e \"import('./server-build/server.mjs').then(m=>{if(typeof m.createGkaisApiApp!=='function') process.exit(1); process.exit(0)}).catch(()=>process.exit(1))\" && node -e \"const m=require('./server-build/stripeWebhook.cjs'); if(typeof m.handleStripeWebhook!=='function') process.exit(1); process.exit(0)\"",
     "start": "node server-build/server.mjs",
     "preview": "vite preview",
     "clean": "rm -rf dist server-build server.js",

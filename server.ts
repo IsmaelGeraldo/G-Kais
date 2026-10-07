@@ -1,4 +1,5 @@
 import express, { Request, Response, NextFunction } from 'express';
+import { randomUUID } from 'crypto';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { auditRepository } from './src/server/repositories/auditRepository';
@@ -24,6 +25,16 @@ import { registerPaymentWebhookRoutes } from './src/server/routes/paymentWebhook
 async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT) || 3000;
+
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    const incoming = req.headers['x-request-id'];
+    const requestId = typeof incoming === 'string' && /^[A-Za-z0-9._-]{1,100}$/.test(incoming)
+      ? incoming
+      : randomUUID();
+    res.locals.requestId = requestId;
+    res.setHeader('x-request-id', requestId);
+    next();
+  });
 
   // Payment webhooks must receive the exact raw request body for provider signature verification.
   registerPaymentWebhookRoutes(app);
@@ -621,9 +632,24 @@ async function startServer() {
     });
   }
 
+  app.use((err: unknown, req: Request, res: Response, next: NextFunction) => {
+    if (res.headersSent) return next(err);
+    const requestId = typeof res.locals.requestId === 'string' ? res.locals.requestId : '';
+    console.error(`[UNHANDLED REQUEST ERROR] requestId=${requestId} method=${req.method} path=${req.path}`, err);
+    return res.status(500).json({
+      success: false,
+      code: 'SERVER_ERROR',
+      error: 'Something went wrong. Please try again.',
+      requestId
+    });
+  });
+
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`G-KAIS Server running on http://0.0.0.0:${PORT}`);
   });
 }
 
-startServer();
+void startServer().catch((error) => {
+  console.error('[SERVER STARTUP ERROR]', error);
+  process.exitCode = 1;
+});

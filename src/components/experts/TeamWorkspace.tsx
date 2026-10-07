@@ -57,6 +57,7 @@ export function TeamWorkspace({ language }: { language: Language }) {
   const [saving, setSaving] = useState(false);
   const [revokingInvite, setRevokingInvite] = useState('');
   const [confirmingInviteId, setConfirmingInviteId] = useState('');
+  const [inviteNotice, setInviteNotice] = useState('');
   const [editingMemberUid, setEditingMemberUid] = useState('');
   const [editingRoleId, setEditingRoleId] = useState('');
   const [editingPermissions, setEditingPermissions] = useState<WorkspacePermission[]>([]);
@@ -130,12 +131,15 @@ export function TeamWorkspace({ language }: { language: Language }) {
   const cancelInvite = async (inviteId: string) => {
     setRevokingInvite(inviteId);
     setError('');
+    setInviteNotice('');
     try {
       await revokeExpertWorkspaceInvite(inviteId);
       setInviteLink('');
       setConfirmingInviteId('');
+      setInviteNotice(language === 'es' ? 'Invitación cancelada correctamente.' : 'Invitation cancelled successfully.');
       await refresh();
     } catch (cause) {
+      setInviteNotice('');
       setError(cause instanceof Error ? cause.message : 'INVITE_REVOKE_FAILED');
     } finally {
       setRevokingInvite('');
@@ -223,6 +227,7 @@ export function TeamWorkspace({ language }: { language: Language }) {
         </div>
       </div>
       {error && <p className="mt-3 rounded-xl bg-[#A23A32]/8 p-3 text-xs text-[#8D332C]">{error}</p>}
+      {inviteNotice && <p className="mt-3 rounded-xl bg-[#17603D]/8 p-3 text-xs font-medium text-[#17603D]">{inviteNotice}</p>}
     </section>
 
     {showInvite && canManageMembers && <section className="rounded-2xl border border-black/10 bg-white p-5">
@@ -332,6 +337,11 @@ export function TeamWorkspace({ language }: { language: Language }) {
           <UsersRound className="h-4 w-4 text-[#0A3F4D]" />
           <p className="font-semibold">{language === 'es' ? 'Miembros' : 'Members'}</p>
         </div>
+        {canManageMembers && <p className="mt-2 text-[11px] leading-5 text-black/45">
+          {language === 'es'
+            ? 'Editar aparece en miembros que ya aceptaron la invitación. La cuenta Owner y tu propia cuenta están protegidas para evitar perder acceso accidentalmente.'
+            : 'Edit appears for members who have accepted their invitation. The Owner account and your own account are protected to prevent accidental loss of access.'}
+        </p>}
         {canRead ? <div className="mt-3 divide-y divide-black/5">
           {team.members.map((member) => {
             const isOwner = member.uid === team.workspaceId || member.roleId === 'owner';

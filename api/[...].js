@@ -1,4 +1,4 @@
-import serverBundle from '../dist/server.cjs';
+import serverBundle from '../server-build/server.cjs';
 
 const { createGkaisApiApp } = serverBundle;
 const app = createGkaisApiApp({ registerStripeWebhook: false });

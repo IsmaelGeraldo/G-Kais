@@ -1,9 +1,14 @@
-import stripeBundle from '../../server-build/stripeWebhook.cjs';
+import { createRequire } from 'node:module';
 
-const { handleStripeWebhook } = stripeBundle;
+const require = createRequire(import.meta.url);
 
 function json(body, status = 200) {
   return Response.json(body, { status });
+}
+
+function getStripeWebhookHandler() {
+  const { handleStripeWebhook } = require('../../server-build/stripeWebhook.cjs');
+  return handleStripeWebhook;
 }
 
 export async function POST(request) {
@@ -12,7 +17,7 @@ export async function POST(request) {
     if (!signature) return json({ success: false, code: 'STRIPE_SIGNATURE_REQUIRED' }, 400);
 
     const rawBody = Buffer.from(await request.arrayBuffer());
-    const result = await handleStripeWebhook(rawBody, signature);
+    const result = await getStripeWebhookHandler()(rawBody, signature);
 
     if (result.status === 'ignored') {
       return json({ success: true, code: 'WEBHOOK_IGNORED', reason: result.reason });

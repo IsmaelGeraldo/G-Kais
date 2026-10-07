@@ -73,7 +73,7 @@ function PermissionChecklist({
       if (!groupPermissions.length) return null;
       return <div key={group}>
         <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.13em] text-black/35">{PERMISSION_GROUP_LABELS[group][language]}</p>
-        <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-2 [grid-template-columns:repeat(auto-fit,minmax(210px,1fr))]">
           {groupPermissions.map((permission) => {
             const meta = PERMISSION_META[permission];
             if (!meta) return null;
@@ -434,7 +434,7 @@ export function TeamWorkspace({ language }: { language: Language }) {
       </div>
     </section>}
 
-    <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
+    <div className={`grid gap-5 ${editingMemberUid ? 'grid-cols-1' : 'lg:grid-cols-[1.1fr_0.9fr]'}`}>
       <section className="rounded-2xl border border-black/10 bg-white p-5">
         <div className="flex items-center gap-2">
           <UsersRound className="h-4 w-4 text-[#0A3F4D]" />
@@ -482,26 +482,26 @@ export function TeamWorkspace({ language }: { language: Language }) {
                 </span>)}
               </div>
 
-              {isEditing && <div className="mt-3 rounded-xl border border-black/8 bg-[#F7F7F5] p-4">
-                <div className="grid gap-4 lg:grid-cols-[220px_240px_minmax(0,1fr)]">
-                  <div>
+              {isEditing && <div className="mt-4 rounded-2xl border border-black/8 bg-[#F7F7F5] p-4 md:p-5">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="rounded-xl border border-black/8 bg-white p-4">
                     <label className="text-[10px] font-semibold uppercase tracking-[.12em] text-black/40">{language === 'es' ? 'Rol' : 'Role'}</label>
                     <select
                       value={editingRoleId}
                       onChange={(event) => changeEditingRole(event.target.value)}
-                      className="mt-1.5 w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm"
+                      className="mt-2 w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm"
                     >
                       {team.roles.filter((item) => item.id !== 'owner').map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
                     </select>
                     <p className="mt-2 text-[10px] leading-4 text-black/40">{language === 'es' ? 'Al cambiar el rol cargamos sus permisos base; luego puedes ajustarlos individualmente.' : 'Changing the role loads its default permissions; you can then adjust them individually.'}</p>
                   </div>
 
-                  <div>
+                  <div className="rounded-xl border border-black/8 bg-white p-4">
                     <label className="text-[10px] font-semibold uppercase tracking-[.12em] text-black/40">{language === 'es' ? 'Encargado / supervisor' : 'Lead / supervisor'}</label>
                     <select
                       value={editingSupervisorUid}
                       onChange={(event) => setEditingSupervisorUid(event.target.value)}
-                      className="mt-1.5 w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm"
+                      className="mt-2 w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm"
                     >
                       <option value="">{language === 'es' ? 'Sin supervisor' : 'No supervisor'}</option>
                       {team.members
@@ -512,13 +512,17 @@ export function TeamWorkspace({ language }: { language: Language }) {
                       ? 'La carga del equipo del supervisor mostrará solo sus reportes directos. Puedes asignar el mismo supervisor a varias personas.'
                       : 'The supervisor workload view will show only direct reports. The same supervisor can manage several people.'}</p>
                   </div>
+                </div>
 
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-[.12em] text-black/40">{language === 'es' ? 'Permisos' : 'Permissions'}</p>
-                    <div className="mt-2">
-                      <PermissionChecklist available={available} selected={editingPermissions} setSelected={setEditingPermissions} language={language} />
+                <div className="mt-5 border-t border-black/8 pt-5">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-[.12em] text-black/40">{language === 'es' ? 'Permisos' : 'Permissions'}</p>
+                      <p className="mt-1 text-[11px] text-black/40">{language === 'es' ? 'Activa solo lo que esta persona necesita para su trabajo.' : 'Enable only what this person needs for their work.'}</p>
                     </div>
+                    <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-black/45">{editingPermissions.length} {language === 'es' ? 'activos' : 'active'}</span>
                   </div>
+                  <PermissionChecklist available={available} selected={editingPermissions} setSelected={setEditingPermissions} language={language} />
                 </div>
 
                 <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-black/7 pt-4">

@@ -15,10 +15,12 @@ import {
 } from '../../services/expertsFormations';
 import { subscribeExpertPeopleProfileMeta, type ExpertPersonProfileMeta } from '../../services/expertsPeopleProfile';
 import {
+  subscribeDashboardBuyerEvents,
   subscribeDashboardCohortTimes,
   subscribeDashboardFormationClasses,
   subscribeDashboardMentoringBuyers,
   subscribeDashboardWorkItems,
+  type DashboardCanonicalBuyerEvent,
   type DashboardCohortTime,
   type DashboardFormationClass,
   type DashboardMentoringBuyer,
@@ -36,7 +38,7 @@ type ReachRow = { country: string; code: string; formation: number; mentoring: n
 type RangeKey = 'week' | 'month' | 'year';
 type ExpandableMetric = 'buyers' | 'clients' | 'leads';
 type TrendPoint = { label: string; fullLabel: string; value: number };
-type BuyerEvent = { identity: string; date: Date; kind: 'formation' | 'mentoring' };
+type BuyerEvent = { identity: string; date: Date; kind: 'formation' | 'mentoring'; sourceKey: string };
 type MetricCardProps = {
   id: 'priority' | ExpandableMetric;
   label: string;
@@ -388,12 +390,13 @@ export function DashboardHistoryV6({ language, onNavigate, onOpenClient, onStart
   const [classes, setClasses] = useState<DashboardFormationClass[]>([]);
   const [cohortTimes, setCohortTimes] = useState<DashboardCohortTime[]>([]);
   const [mentoringBuyers, setMentoringBuyers] = useState<DashboardMentoringBuyer[]>([]);
+  const [canonicalBuyerEvents, setCanonicalBuyerEvents] = useState<DashboardCanonicalBuyerEvent[]>([]);
   const [clients, setClients] = useState<SharedSessionClient[]>(() => loadSessionClients());
   const [expanded, setExpanded] = useState<ExpandableMetric | null>(null);
   const [ranges, setRanges] = useState<Record<ExpandableMetric, RangeKey>>({ buyers: 'month', clients: 'month', leads: 'month' });
 
   useEffect(() => {
-    let a: (() => void) | undefined, b: (() => void) | undefined, c: (() => void) | undefined, d: (() => void) | undefined, e: (() => void) | undefined, f: (() => void) | undefined, g: (() => void) | undefined, h: (() => void) | undefined, i: (() => void) | undefined;
+    let a: (() => void) | undefined, b: (() => void) | undefined, c: (() => void) | undefined, d: (() => void) | undefined, e: (() => void) | undefined, f: (() => void) | undefined, g: (() => void) | undefined, h: (() => void) | undefined, i: (() => void) | undefined, j: (() => void) | undefined;
     void subscribeExpertPeople(setPeople).then((x) => { a = x; });
     void subscribeExpertPeopleProfileMeta(setProfiles).then((x) => { b = x; });
     void subscribeExpertFormations(setFormations).then((x) => { c = x; });
@@ -403,9 +406,10 @@ export function DashboardHistoryV6({ language, onNavigate, onOpenClient, onStart
     void subscribeDashboardFormationClasses(setClasses).then((x) => { g = x; });
     void subscribeDashboardCohortTimes(setCohortTimes).then((x) => { h = x; });
     void subscribeDashboardMentoringBuyers(setMentoringBuyers).then((x) => { i = x; });
+    void subscribeDashboardBuyerEvents(setCanonicalBuyerEvents).then((x) => { j = x; });
     const refresh = () => setClients(loadSessionClients());
     window.addEventListener(WORKSPACE_STATE_EVENT, refresh); window.addEventListener('storage', refresh);
-    return () => { a?.(); b?.(); c?.(); d?.(); e?.(); f?.(); g?.(); h?.(); i?.(); window.removeEventListener(WORKSPACE_STATE_EVENT, refresh); window.removeEventListener('storage', refresh); };
+    return () => { a?.(); b?.(); c?.(); d?.(); e?.(); f?.(); g?.(); h?.(); i?.(); j?.(); window.removeEventListener(WORKSPACE_STATE_EVENT, refresh); window.removeEventListener('storage', refresh); };
   }, []);
 
   const today = todayKey();
@@ -430,10 +434,42 @@ export function DashboardHistoryV6({ language, onNavigate, onOpenClient, onStart
   const newLeads = leadDates.filter((date) => monthKey(date) === currentMonth).length;
   const clientDates = useMemo(() => [...activeClientIds].map((id) => profileById.get(id)?.createdAt || null).filter((value): value is Date => value instanceof Date), [activeClientIds, profileById]);
   const buyerEvents = useMemo<BuyerEvent[]>(() => {
-    const formationEvents: BuyerEvent[] = enrollments.filter((e) => e.status !== 'withdrawn' && e.status !== 'refunded' && e.joinedAt).map((e) => ({ identity: `person:${e.personId}`, date: e.joinedAt!, kind: 'formation' }));
-    const mentoringEvents = mentoringBuyers.reduce<BuyerEvent[]>((acc, item) => { const date = asDate(item.createdAt) || asDate(item.startDate); if (date) acc.push({ identity: item.personId ? `person:${item.personId}` : `client:${item.id}`, date, kind: 'mentoring' }); return acc; }, []);
-    return [...formationEvents, ...mentoringEvents].sort((a, b) => a.date.getTime() - b.date.getTime());
-  }, [enrollments, mentoringBuyers]);
+    const legacyFormationEvents: BuyerEvent[] = enrollments
+      .filter((e) => e.status !== 'withdrawn' && e.status !== 'refunded' && e.joinedAt)
+      .map((e) => ({
+        identity: `person:${e.personId}`,
+        date: e.joinedAt!,
+        kind: 'formation',
+        sourceKey: `formation:${e.id}`
+      }));
+    const legacyMentoringEvents = mentoringBuyers.reduce<BuyerEvent[]>((acc, item) => {
+      const date = asDate(item.createdAt) || asDate(item.startDate);
+      if (date) acc.push({
+        identity: item.personId ? `person:${item.personId}` : `client:${item.id}`,
+        date,
+        kind: 'mentoring',
+        sourceKey: `mentoring:${item.id}`
+      });
+      return acc;
+    }, []);
+    const canonicalEvents = canonicalBuyerEvents.reduce<BuyerEvent[]>((acc, event) => {
+      const date = asDate(event.occurredAt);
+      if (!date) return acc;
+      acc.push({
+        identity: `person:${event.personId}`,
+        date,
+        kind: event.kind,
+        sourceKey: `${event.kind}:${event.sourceId || event.id}`
+      });
+      return acc;
+    }, []);
+    const canonicalKeys = new Set(canonicalEvents.map((event) => event.sourceKey));
+    return [
+      ...canonicalEvents,
+      ...legacyFormationEvents.filter((event) => !canonicalKeys.has(event.sourceKey)),
+      ...legacyMentoringEvents.filter((event) => !canonicalKeys.has(event.sourceKey))
+    ].sort((a, b) => a.date.getTime() - b.date.getTime());
+  }, [enrollments, mentoringBuyers, canonicalBuyerEvents]);
   const formationBuyers = useMemo(() => new Set(buyerEvents.filter((e) => e.kind === 'formation' && monthKey(e.date) === currentMonth).map((e) => e.identity)).size, [buyerEvents, currentMonth]);
   const mentoringBuyerCount = useMemo(() => new Set(buyerEvents.filter((e) => e.kind === 'mentoring' && monthKey(e.date) === currentMonth).map((e) => e.identity)).size, [buyerEvents, currentMonth]);
   const currentBuyers = formationBuyers + mentoringBuyerCount;

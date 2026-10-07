@@ -1,0 +1,50 @@
+import stripeBundle from '../../dist/stripeWebhook.cjs';
+
+const { handleStripeWebhook } = stripeBundle;
+
+function json(body, status = 200) {
+  return Response.json(body, { status });
+}
+
+export async function POST(request) {
+  try {
+    const signature = request.headers.get('stripe-signature') || '';
+    if (!signature) return json({ success: false, code: 'STRIPE_SIGNATURE_REQUIRED' }, 400);
+
+    const rawBody = Buffer.from(await request.arrayBuffer());
+    const result = await handleStripeWebhook(rawBody, signature);
+
+    if (result.status === 'ignored') {
+      return json({ success: true, code: 'WEBHOOK_IGNORED', reason: result.reason });
+    }
+
+    console.info(
+      `[VERIFIED PURCHASE] provider=stripe status=${result.status} workspace=${result.purchase.workspaceId} person=${result.purchase.personId} event=${result.purchase.providerEventId}`
+    );
+
+    return json({
+      success: true,
+      code: result.status === 'duplicate'
+        ? 'VERIFIED_PURCHASE_DUPLICATE'
+        : 'VERIFIED_PURCHASE_RECORDED'
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'STRIPE_WEBHOOK_ERROR';
+    console.error('[STRIPE WEBHOOK ERROR]', error);
+
+    if (message === 'STRIPE_WEBHOOK_NOT_CONFIGURED') {
+      return json({ success: false, code: message }, 503);
+    }
+    if (message.startsWith('STRIPE_SIGNATURE_') || message === 'STRIPE_EMPTY_BODY' || message === 'STRIPE_EVENT_INVALID') {
+      return json({ success: false, code: message }, 400);
+    }
+    if (message === 'PAYMENT_WORKSPACE_NOT_FOUND' || message === 'PAYMENT_PERSON_NOT_FOUND') {
+      return json({ success: false, code: message }, 409);
+    }
+    return json({ success: false, code: 'VERIFIED_PURCHASE_PERSISTENCE_ERROR' }, 500);
+  }
+}
+
+export function GET() {
+  return json({ success: false, code: 'METHOD_NOT_ALLOWED' }, 405);
+}

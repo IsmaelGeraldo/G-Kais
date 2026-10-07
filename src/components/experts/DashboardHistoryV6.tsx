@@ -16,11 +16,13 @@ import {
 import { subscribeExpertPeopleProfileMeta, type ExpertPersonProfileMeta } from '../../services/expertsPeopleProfile';
 import {
   subscribeDashboardBuyerEvents,
+  subscribeDashboardVerifiedPurchases,
   subscribeDashboardCohortTimes,
   subscribeDashboardFormationClasses,
   subscribeDashboardMentoringBuyers,
   subscribeDashboardWorkItems,
   type DashboardCanonicalBuyerEvent,
+  type DashboardVerifiedPurchase,
   type DashboardCohortTime,
   type DashboardFormationClass,
   type DashboardMentoringBuyer,
@@ -395,12 +397,13 @@ export function DashboardHistoryV6({ language, onNavigate, onOpenClient, onStart
   const [cohortTimes, setCohortTimes] = useState<DashboardCohortTime[]>([]);
   const [mentoringBuyers, setMentoringBuyers] = useState<DashboardMentoringBuyer[]>([]);
   const [canonicalBuyerEvents, setCanonicalBuyerEvents] = useState<DashboardCanonicalBuyerEvent[]>([]);
+  const [verifiedPurchases, setVerifiedPurchases] = useState<DashboardVerifiedPurchase[]>([]);
   const [clients, setClients] = useState<SharedSessionClient[]>(() => loadSessionClients());
   const [expanded, setExpanded] = useState<ExpandableMetric | null>(null);
   const [ranges, setRanges] = useState<Record<ExpandableMetric, RangeKey>>({ buyers: 'month', clients: 'month', leads: 'month' });
 
   useEffect(() => {
-    let a: (() => void) | undefined, b: (() => void) | undefined, c: (() => void) | undefined, d: (() => void) | undefined, e: (() => void) | undefined, f: (() => void) | undefined, g: (() => void) | undefined, h: (() => void) | undefined, i: (() => void) | undefined, j: (() => void) | undefined;
+    let a: (() => void) | undefined, b: (() => void) | undefined, c: (() => void) | undefined, d: (() => void) | undefined, e: (() => void) | undefined, f: (() => void) | undefined, g: (() => void) | undefined, h: (() => void) | undefined, i: (() => void) | undefined, j: (() => void) | undefined, k: (() => void) | undefined;
     void subscribeExpertPeople(setPeople).then((x) => { a = x; });
     void subscribeExpertPeopleProfileMeta(setProfiles).then((x) => { b = x; });
     void subscribeExpertFormations(setFormations).then((x) => { c = x; });
@@ -411,9 +414,10 @@ export function DashboardHistoryV6({ language, onNavigate, onOpenClient, onStart
     void subscribeDashboardCohortTimes(setCohortTimes).then((x) => { h = x; });
     void subscribeDashboardMentoringBuyers(setMentoringBuyers).then((x) => { i = x; });
     void subscribeDashboardBuyerEvents(setCanonicalBuyerEvents).then((x) => { j = x; });
+    void subscribeDashboardVerifiedPurchases(setVerifiedPurchases).then((x) => { k = x; });
     const refresh = () => setClients(loadSessionClients());
     window.addEventListener(WORKSPACE_STATE_EVENT, refresh); window.addEventListener('storage', refresh);
-    return () => { a?.(); b?.(); c?.(); d?.(); e?.(); f?.(); g?.(); h?.(); i?.(); j?.(); window.removeEventListener(WORKSPACE_STATE_EVENT, refresh); window.removeEventListener('storage', refresh); };
+    return () => { a?.(); b?.(); c?.(); d?.(); e?.(); f?.(); g?.(); h?.(); i?.(); j?.(); k?.(); window.removeEventListener(WORKSPACE_STATE_EVENT, refresh); window.removeEventListener('storage', refresh); };
   }, []);
 
   const today = todayKey();
@@ -483,6 +487,7 @@ export function DashboardHistoryV6({ language, onNavigate, onOpenClient, onStart
   const formationBuyers = useMemo(() => new Set(buyerEvents.filter((e) => e.kind === 'formation' && monthKey(e.date) === currentMonth).map((e) => e.identity)).size, [buyerEvents, currentMonth]);
   const mentoringBuyerCount = useMemo(() => new Set(buyerEvents.filter((e) => e.kind === 'mentoring' && monthKey(e.date) === currentMonth).map((e) => e.identity)).size, [buyerEvents, currentMonth]);
   const currentBuyers = formationBuyers + mentoringBuyerCount;
+  const currentVerifiedPurchases = useMemo(() => verifiedPurchases.filter((purchase) => monthKey(asDate(purchase.occurredAt)) === currentMonth).length, [verifiedPurchases, currentMonth]);
   const previousFormationBuyers = useMemo(() => new Set(buyerEvents.filter((e) => e.kind === 'formation' && monthKey(e.date) === priorMonth).map((e) => e.identity)).size, [buyerEvents, priorMonth]);
   const previousMentoringBuyers = useMemo(() => new Set(buyerEvents.filter((e) => e.kind === 'mentoring' && monthKey(e.date) === priorMonth).map((e) => e.identity)).size, [buyerEvents, priorMonth]);
   const previousBuyers = previousFormationBuyers + previousMentoringBuyers;
@@ -544,7 +549,7 @@ export function DashboardHistoryV6({ language, onNavigate, onOpenClient, onStart
   return <div className="space-y-6">
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <MetricCard id="priority" label={language === 'es' ? 'Trabajo prioritario' : 'Priority Work'} value={mainWork.length} detail={language === 'es' ? 'Tareas activas por resolver' : 'Active tasks to resolve'} detailAfterDivider ringValue={Math.min(mainWork.length, 12)} ringTotal={12} colors={['#A23A32', '#D67A32']} />
-      <MetricCard id="buyers" label={language === 'es' ? 'Compradores del mes' : 'Buyers this month'} value={currentBuyers} detail={`${formationBuyers} ${language === 'es' ? 'Formación' : 'Program'} · ${mentoringBuyerCount} ${language === 'es' ? 'Mentoría' : 'Mentoring'}`} ringValue={currentBuyers} ringTotal={Math.max(1, currentBuyers, previousBuyers)} colors={['#8B5E34', '#C49A6C']} expandable expanded={expanded === 'buyers'} onToggle={() => setExpanded((current) => current === 'buyers' ? null : 'buyers')} />
+      <MetricCard id="buyers" label={language === 'es' ? 'Compradores del mes' : 'Buyers this month'} value={currentBuyers} detail={`${formationBuyers} ${language === 'es' ? 'Formación' : 'Program'} · ${mentoringBuyerCount} ${language === 'es' ? 'Mentoría' : 'Mentoring'}${currentVerifiedPurchases > 0 ? ` · ${currentVerifiedPurchases} ${language === 'es' ? (currentVerifiedPurchases === 1 ? 'pago verificado' : 'pagos verificados') : (currentVerifiedPurchases === 1 ? 'verified payment' : 'verified payments')}` : ''}`} ringValue={currentBuyers} ringTotal={Math.max(1, currentBuyers, previousBuyers)} colors={['#8B5E34', '#C49A6C']} expandable expanded={expanded === 'buyers'} onToggle={() => setExpanded((current) => current === 'buyers' ? null : 'buyers')} />
       <MetricCard id="clients" label={language === 'es' ? 'Clientes activos' : 'Active Clients'} value={activeClients} detail={`${activeFormationCount} ${language === 'es' ? 'Formación' : 'Program'} · ${activeMentoringCount} ${language === 'es' ? 'Mentoría' : 'Mentoring'}`} ringValue={activeClients} ringTotal={Math.max(1, people.length)} colors={['#0A3F4D', '#78A892']} expandable expanded={expanded === 'clients'} onToggle={() => setExpanded((current) => current === 'clients' ? null : 'clients')} />
       <MetricCard id="leads" label={language === 'es' ? 'Nuevos leads' : 'New Leads'} value={newLeads} detail={language === 'es' ? 'pasaron a Leads este mes' : 'entered Leads this month'} ringValue={newLeads} ringTotal={Math.max(1, leadEntryByPerson.size)} colors={['#5C4D8A', '#7A9FC8']} expandable expanded={expanded === 'leads'} onToggle={() => setExpanded((current) => current === 'leads' ? null : 'leads')} />
     </div>

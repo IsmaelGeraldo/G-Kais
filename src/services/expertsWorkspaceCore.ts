@@ -1,4 +1,4 @@
-import { onAuthStateChanged, type User } from 'firebase/auth';
+import type { User } from 'firebase/auth';
 import {
   collection,
   doc,
@@ -309,14 +309,20 @@ export async function ensureExpertWorkspaceCore(user: User): Promise<string> {
 export async function resolveActiveExpertWorkspaceId(user: User | null = firebaseAuth.currentUser): Promise<string | null> {
   if (!user) return null;
   const userSnapshot = await getDoc(userDocument(user.uid));
-  if (userSnapshot.exists()) {
-    const activeWorkspaceId = (userSnapshot.data() as { activeWorkspaceId?: string }).activeWorkspaceId?.trim();
-    if (activeWorkspaceId) {
-      if (activeWorkspaceId === user.uid) await ensureSystemRolesForOwner(user, activeWorkspaceId).catch(() => {});
-      return activeWorkspaceId;
-    }
+  if (!userSnapshot.exists()) return null;
+
+  const activeWorkspaceId = (userSnapshot.data() as { activeWorkspaceId?: string }).activeWorkspaceId?.trim();
+  if (!activeWorkspaceId) return null;
+
+  const membershipSnapshot = await getDoc(workspaceSubDocument(activeWorkspaceId, 'members', user.uid));
+  if (!membershipSnapshot.exists()) return null;
+  const membership = membershipSnapshot.data() as WorkspaceMember;
+  if (membership.status !== 'active') return null;
+
+  if (activeWorkspaceId === user.uid) {
+    await ensureSystemRolesForOwner(user, activeWorkspaceId).catch(() => {});
   }
-  return ensureExpertWorkspaceCore(user);
+  return activeWorkspaceId;
 }
 
 export async function getCurrentExpertWorkspaceMember(): Promise<{ workspaceId: string; member: WorkspaceMember } | null> {
@@ -569,20 +575,4 @@ export async function appendExpertAuditLog(input: AuditLogInput): Promise<string
     createdAt: serverTimestamp()
   });
   return logId;
-}
-
-let initializedUid = '';
-if (typeof window !== 'undefined') {
-  onAuthStateChanged(firebaseAuth, (user) => {
-    if (!user) {
-      initializedUid = '';
-      systemRolesEnsuredFor = '';
-      return;
-    }
-    if (initializedUid === user.uid) return;
-    initializedUid = user.uid;
-    const invite = new URLSearchParams(window.location.search).get('invite');
-    if (invite) return;
-    void ensureExpertWorkspaceCore(user).catch(() => {});
-  });
 }

@@ -4,121 +4,63 @@ import {
   doc,
   getDoc,
   serverTimestamp,
-  setDoc,
-  writeBatch
+  setDoc
 } from 'firebase/firestore';
 import { firebaseAuth, firestoreDb } from '../lib/firebase';
 import {
-  DEFAULT_WORKSPACE_ROLES,
   appendExpertAuditLog,
-  resolveActiveExpertWorkspaceId,
   type WorkspaceMember,
   type WorkspacePermission
 } from './expertsWorkspaceCore';
 
 const SCHEMA_VERSION = 1;
-const PROFILE_KEY = 'gkais-experts-profile-v1';
 
 function userDocument(uid: string) {
   return doc(firestoreDb, 'users', uid);
-}
-
-function workspaceDocument(workspaceId: string) {
-  return doc(firestoreDb, 'expert_workspaces', workspaceId);
 }
 
 function workspaceSubDocument(workspaceId: string, subcollection: string, id: string) {
   return doc(firestoreDb, 'expert_workspaces', workspaceId, subcollection, id);
 }
 
-function localWorkspaceName(user: User): string {
-  if (typeof window !== 'undefined') {
-    try {
-      const profile = JSON.parse(window.localStorage.getItem(PROFILE_KEY) || '{}') as { business?: string };
-      if (profile.business?.trim()) return profile.business.trim();
-    } catch {}
-  }
-  return user.displayName?.trim() || user.email?.split('@')[0] || 'G-KAIS Workspace';
-}
-
-async function bootstrapOwnedWorkspace(user: User): Promise<string> {
-  const workspaceId = user.uid;
-  const userRef = userDocument(user.uid);
-  const workspaceRef = workspaceDocument(workspaceId);
-  const [userSnapshot, workspaceSnapshot] = await Promise.all([
-    getDoc(userRef),
-    getDoc(workspaceRef)
-  ]);
-  const now = serverTimestamp();
-  const batch = writeBatch(firestoreDb);
-
-  batch.set(userRef, {
-    schemaVersion: SCHEMA_VERSION,
-    email: user.email || '',
-    displayName: user.displayName || '',
-    photoURL: user.photoURL || '',
-    activeWorkspaceId: workspaceId,
-    ...(!userSnapshot.exists() ? { createdAt: now } : {}),
-    updatedAt: now
-  }, { merge: true });
-
-  if (!workspaceSnapshot.exists()) {
-    batch.set(workspaceRef, {
-      schemaVersion: SCHEMA_VERSION,
-      name: localWorkspaceName(user),
-      ownerUid: user.uid,
-      status: 'active',
-      createdAt: now,
-      updatedAt: now
-    });
-  }
-
-  DEFAULT_WORKSPACE_ROLES.forEach((role) => {
-    batch.set(workspaceSubDocument(workspaceId, 'roles', role.id), {
-      schemaVersion: SCHEMA_VERSION,
-      name: role.name,
-      description: role.description,
-      permissions: role.permissions,
-      isSystem: true,
-      createdByUid: user.uid,
-      createdAt: now,
-      updatedAt: now
-    }, { merge: true });
-  });
-
-  batch.set(workspaceSubDocument(workspaceId, 'members', user.uid), {
-    schemaVersion: SCHEMA_VERSION,
-    uid: user.uid,
-    email: user.email || '',
-    displayName: user.displayName || '',
-    roleId: 'owner',
-    permissions: ['*'],
-    status: 'active',
-    joinedAt: now,
-    updatedAt: now
-  }, { merge: true });
-
-  await batch.commit();
-  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('gkais:workspace-membership-changed'));
-  return workspaceId;
-}
-
 export async function resolveValidExpertWorkspaceId(user: User | null = firebaseAuth.currentUser): Promise<string | null> {
   if (!user) return null;
+
   const userSnapshot = await getDoc(userDocument(user.uid));
-  if (!userSnapshot.exists()) return resolveActiveExpertWorkspaceId(user);
+  if (!userSnapshot.exists()) return null;
 
   const activeWorkspaceId = String(userSnapshot.data().activeWorkspaceId || '').trim();
-  if (!activeWorkspaceId || activeWorkspaceId === user.uid) return resolveActiveExpertWorkspaceId(user);
+  if (!activeWorkspaceId) return null;
 
   const membershipSnapshot = await getDoc(workspaceSubDocument(activeWorkspaceId, 'members', user.uid));
-  if (membershipSnapshot.exists()) {
-    const membership = membershipSnapshot.data() as WorkspaceMember;
-    if (membership.status === 'active') return activeWorkspaceId;
-  }
+  if (!membershipSnapshot.exists()) return null;
 
-  return bootstrapOwnedWorkspace(user);
+  const membership = membershipSnapshot.data() as WorkspaceMember;
+  return membership.status === 'active' ? activeWorkspaceId : null;
 }
+
+export async function updateExpertWorkspaceUserPhoto(photoURL: string): Promise<void> {
+  const user = firebaseAuth.currentUser;
+  const workspaceId = await resolveValidExpertWorkspaceId(user);
+  if (!user || !workspaceId) throw new Error('AUTH_REQUIRED');
+
+  const normalized = photoURL.trim();
+  if (!normalized || normalized.length > 1000) throw new Error('PHOTO_TOO_LARGE');
+
+  const userRef = userDocument(user.uid);
+  const snapshot = await getDoc(userRef);
+  if (!snapshot.exists()) throw new Error('USER_PROFILE_NOT_FOUND');
+
+  await setDoc(userRef, {
+    photoURL: normalized,
+    updatedAt: serverTimestamp()
+  }, { merge: true });
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('gkais:user-profile-changed', { detail: { photoURL: normalized } }));
+  }
+}
+
 
 export async function updateExpertWorkspaceMember(input: {
   memberUid: string;

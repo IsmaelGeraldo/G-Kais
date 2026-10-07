@@ -20,6 +20,14 @@
       "destination": "/api/[...]"
     },
     {
+      "source": "/login",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/workspace/login",
+      "destination": "/index.html"
+    },
+    {
       "source": "/workspace",
       "destination": "/index.html"
     },

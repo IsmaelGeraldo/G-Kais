@@ -12,6 +12,7 @@ function friendlyError(value: string) {
   if (value === 'INVITE_EMAIL_MISMATCH') return 'La cuenta iniciada no coincide con el email de la invitación.';
   if (value === 'INVITE_EXPIRED') return 'La invitación venció. Solicita una nueva invitación al administrador del Workspace.';
   if (value === 'INVITE_NOT_FOUND') return 'La invitación ya no existe o el enlace no es válido.';
+  if (value === 'INVITE_ALREADY_ACCEPTED') return 'Esta invitación ya fue utilizada. Inicia sesión normalmente para volver a tu Workspace.';
   if (value.includes('auth/unauthorized-domain')) return 'Este dominio todavía no está autorizado para iniciar sesión. Usa el enlace público de G-Kais o solicita uno nuevo.';
   if (value.includes('auth/popup-closed-by-user')) return 'El inicio de sesión fue cancelado antes de completarse.';
   return value;
@@ -83,7 +84,10 @@ export function WorkspaceInviteGate({ token }: { token: string }) {
         <button type="button" onClick={() => void login()} className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#111413] px-5 py-3 text-sm font-semibold text-white"><LogIn className="h-4 w-4" />Continuar con Google</button>
       </> : <>
         {invite && <div className="mt-5 rounded-2xl bg-[#F7F7F5] p-4"><p className="text-sm font-semibold">{invite.displayName}</p><p className="mt-1 text-xs text-black/45">{invite.email}</p><p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-black/35">Rol asignado</p><p className="mt-1 text-sm font-medium">{invite.roleId}</p></div>}
-        {status === 'accepted' ? <div className="mt-5 flex items-center gap-2 rounded-2xl bg-[#0A3F4D]/8 p-4 text-sm font-medium text-[#0A3F4D]"><CheckCircle2 className="h-5 w-5" />Invitación aceptada. Abriendo tu Workspace…</div> : <button type="button" disabled={!invite || status === 'loading'} onClick={() => void accept()} className="mt-6 w-full rounded-full bg-[#111413] px-5 py-3 text-sm font-semibold text-white disabled:opacity-40">{status === 'loading' ? 'Verificando…' : 'Aceptar y entrar al Workspace'}</button>}
+        {status === 'accepted' ? <div className="mt-5 flex items-center gap-2 rounded-2xl bg-[#0A3F4D]/8 p-4 text-sm font-medium text-[#0A3F4D]"><CheckCircle2 className="h-5 w-5" />Invitación aceptada. Abriendo tu Workspace…</div>
+          : invite?.status === 'accepted'
+            ? <button type="button" onClick={() => window.location.assign('/login')} className="mt-6 w-full rounded-full bg-[#111413] px-5 py-3 text-sm font-semibold text-white">Esta invitación ya fue usada · Iniciar sesión</button>
+            : <button type="button" disabled={!invite || status === 'loading'} onClick={() => void accept()} className="mt-6 w-full rounded-full bg-[#111413] px-5 py-3 text-sm font-semibold text-white disabled:opacity-40">{status === 'loading' ? 'Verificando…' : 'Aceptar y entrar al Workspace'}</button>}
       </>}
       {error && <p className="mt-4 rounded-xl bg-[#A23A32]/8 px-3 py-2 text-xs text-[#8D332C]">{friendlyError(error)}</p>}
     </div>

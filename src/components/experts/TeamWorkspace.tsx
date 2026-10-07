@@ -17,6 +17,86 @@ import { removeExpertWorkspaceMember, updateExpertWorkspaceMember } from '../../
 
 const PERMISSIONS: WorkspacePermission[] = ['people.read','people.manage','webinars.read','webinars.manage','formations.read','formations.manage','mentoring.read','mentoring.manage','tasks.read.own','tasks.manage.own','tasks.read.team','tasks.manage','members.read','members.manage','roles.read','roles.manage','events.read','events.create','audit.read','settings.manage','billing.manage'];
 
+type PermissionGroup = 'people' | 'programs' | 'work' | 'team' | 'system';
+
+const PERMISSION_META: Record<WorkspacePermission, {
+  group: PermissionGroup;
+  label: { es: string; en: string };
+  description: { es: string; en: string };
+}> = {
+  'people.read': { group: 'people', label: { es: 'Ver personas', en: 'View people' }, description: { es: 'Consultar contactos, alumnos, clientes y relaciones.', en: 'View contacts, students, clients and relationships.' } },
+  'people.manage': { group: 'people', label: { es: 'Gestionar personas', en: 'Manage people' }, description: { es: 'Crear, editar y actualizar información de personas.', en: 'Create, edit and update people records.' } },
+  'webinars.read': { group: 'programs', label: { es: 'Ver webinars', en: 'View webinars' }, description: { es: 'Consultar webinars, participantes y actividad relacionada.', en: 'View webinars, attendees and related activity.' } },
+  'webinars.manage': { group: 'programs', label: { es: 'Gestionar webinars', en: 'Manage webinars' }, description: { es: 'Crear, editar y administrar webinars.', en: 'Create, edit and manage webinars.' } },
+  'formations.read': { group: 'programs', label: { es: 'Ver formaciones', en: 'View formations' }, description: { es: 'Consultar cursos, alumnos y cohortes.', en: 'View courses, students and cohorts.' } },
+  'formations.manage': { group: 'programs', label: { es: 'Gestionar formaciones', en: 'Manage formations' }, description: { es: 'Modificar formaciones, alumnos y seguimiento.', en: 'Manage formations, students and follow-up.' } },
+  'mentoring.read': { group: 'programs', label: { es: 'Ver mentorías', en: 'View mentoring' }, description: { es: 'Consultar clientes, sesiones y procesos de mentoría.', en: 'View mentoring clients, sessions and processes.' } },
+  'mentoring.manage': { group: 'programs', label: { es: 'Gestionar mentorías', en: 'Manage mentoring' }, description: { es: 'Administrar clientes, sesiones y estados de mentoría.', en: 'Manage mentoring clients, sessions and statuses.' } },
+  'tasks.read.own': { group: 'work', label: { es: 'Ver mis tareas', en: 'View my tasks' }, description: { es: 'Consultar únicamente el trabajo asignado a esta persona.', en: 'View work assigned to this person.' } },
+  'tasks.manage.own': { group: 'work', label: { es: 'Gestionar mis tareas', en: 'Manage my tasks' }, description: { es: 'Actualizar, completar o reprogramar sus propias tareas.', en: 'Update, complete or reschedule own tasks.' } },
+  'tasks.read.team': { group: 'work', label: { es: 'Ver tareas del equipo', en: 'View team tasks' }, description: { es: 'Consultar trabajo asignado a otros miembros.', en: 'View work assigned to other members.' } },
+  'tasks.manage': { group: 'work', label: { es: 'Gestionar tareas del equipo', en: 'Manage team tasks' }, description: { es: 'Crear, asignar y modificar tareas de otras personas.', en: 'Create, assign and update other people\'s tasks.' } },
+  'events.read': { group: 'work', label: { es: 'Ver actividad y eventos', en: 'View activity and events' }, description: { es: 'Consultar actividad operativa y eventos registrados.', en: 'View operational activity and recorded events.' } },
+  'events.create': { group: 'work', label: { es: 'Registrar eventos', en: 'Create events' }, description: { es: 'Registrar nueva actividad o eventos operativos.', en: 'Record new operational activity or events.' } },
+  'members.read': { group: 'team', label: { es: 'Ver equipo', en: 'View team' }, description: { es: 'Consultar miembros y su información de trabajo.', en: 'View members and their work information.' } },
+  'members.manage': { group: 'team', label: { es: 'Gestionar miembros', en: 'Manage members' }, description: { es: 'Invitar, editar roles, permisos o eliminar miembros.', en: 'Invite, edit roles, permissions or remove members.' } },
+  'roles.read': { group: 'team', label: { es: 'Ver roles', en: 'View roles' }, description: { es: 'Consultar los roles y permisos definidos.', en: 'View defined roles and permissions.' } },
+  'roles.manage': { group: 'team', label: { es: 'Gestionar roles', en: 'Manage roles' }, description: { es: 'Crear y modificar roles y sus permisos.', en: 'Create and modify roles and permissions.' } },
+  'audit.read': { group: 'system', label: { es: 'Ver auditoría', en: 'View audit log' }, description: { es: 'Consultar historial de cambios y acciones administrativas.', en: 'View history of changes and administrative actions.' } },
+  'settings.manage': { group: 'system', label: { es: 'Gestionar configuración', en: 'Manage settings' }, description: { es: 'Modificar configuración organizacional del Workspace.', en: 'Change organizational Workspace settings.' } },
+  'billing.manage': { group: 'system', label: { es: 'Gestionar facturación', en: 'Manage billing' }, description: { es: 'Acceder y modificar información de planes y pagos.', en: 'Access and modify plan and billing information.' } }
+};
+
+const PERMISSION_GROUPS: PermissionGroup[] = ['people', 'programs', 'work', 'team', 'system'];
+const PERMISSION_GROUP_LABELS: Record<PermissionGroup, { es: string; en: string }> = {
+  people: { es: 'Personas', en: 'People' },
+  programs: { es: 'Programas', en: 'Programs' },
+  work: { es: 'Trabajo y actividad', en: 'Work & activity' },
+  team: { es: 'Equipo y permisos', en: 'Team & permissions' },
+  system: { es: 'Sistema', en: 'System' }
+};
+
+function PermissionChecklist({
+  available,
+  selected,
+  setSelected,
+  language
+}: {
+  available: WorkspacePermission[];
+  selected: WorkspacePermission[];
+  setSelected: React.Dispatch<React.SetStateAction<WorkspacePermission[]>>;
+  language: Language;
+}) {
+  return <div className="space-y-4">
+    {PERMISSION_GROUPS.map((group) => {
+      const groupPermissions = available.filter((permission) => PERMISSION_META[permission].group === group);
+      if (!groupPermissions.length) return null;
+      return <div key={group}>
+        <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.13em] text-black/35">{PERMISSION_GROUP_LABELS[group][language]}</p>
+        <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+          {groupPermissions.map((permission) => {
+            const meta = PERMISSION_META[permission];
+            return <label key={permission} className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-black/8 bg-white p-3 transition hover:border-black/15">
+              <input
+                type="checkbox"
+                checked={selected.includes(permission)}
+                onChange={(event) => setSelected((current) => event.target.checked
+                  ? Array.from(new Set([...current, permission]))
+                  : current.filter((item) => item !== permission))}
+                className="mt-0.5"
+              />
+              <span className="min-w-0">
+                <span className="block text-xs font-semibold text-black/75">{meta.label[language]}</span>
+                <span className="mt-1 block text-[10px] leading-4 text-black/40">{meta.description[language]}</span>
+              </span>
+            </label>;
+          })}
+        </div>
+      </div>;
+    })}
+  </div>;
+}
+
 function roleName(roles: WorkspaceRole[], id: string) {
   return roles.find((role) => role.id === id)?.name || id;
 }
@@ -285,11 +365,8 @@ export function TeamWorkspace({ language }: { language: Language }) {
         <input value={roleNameDraft} onChange={(event) => setRoleNameDraft(event.target.value)} placeholder={language === 'es' ? 'Nombre del rol' : 'Role name'} className="rounded-xl border border-black/10 px-3 py-2.5 text-sm" />
         <input value={roleDescription} onChange={(event) => setRoleDescription(event.target.value)} placeholder={language === 'es' ? 'Descripción' : 'Description'} className="rounded-xl border border-black/10 px-3 py-2.5 text-sm" />
       </div>
-      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-        {available.map((permission) => <label key={permission} className="flex items-center gap-2 rounded-lg border border-black/8 p-2 text-xs">
-          <input type="checkbox" checked={rolePermissions.includes(permission)} onChange={(event) => setRolePermissions((current) => event.target.checked ? [...current, permission] : current.filter((item) => item !== permission))} />
-          {permission}
-        </label>)}
+      <div className="mt-5">
+        <PermissionChecklist available={available} selected={rolePermissions} setSelected={setRolePermissions} language={language} />
       </div>
       <button disabled={saving || !rolePermissions.length} onClick={() => void createRole()} className="mt-3 rounded-full bg-[#111413] px-4 py-2.5 text-xs font-semibold text-white">
         {language === 'es' ? 'Guardar rol' : 'Save role'}
@@ -407,17 +484,8 @@ export function TeamWorkspace({ language }: { language: Language }) {
 
                   <div>
                     <p className="text-[10px] font-semibold uppercase tracking-[.12em] text-black/40">{language === 'es' ? 'Permisos' : 'Permissions'}</p>
-                    <div className="mt-1.5 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                      {available.map((permission) => <label key={permission} className="flex items-center gap-2 rounded-lg border border-black/8 bg-white p-2 text-[11px]">
-                        <input
-                          type="checkbox"
-                          checked={editingPermissions.includes(permission)}
-                          onChange={(event) => setEditingPermissions((current) => event.target.checked
-                            ? Array.from(new Set([...current, permission]))
-                            : current.filter((item) => item !== permission))}
-                        />
-                        <span className="truncate">{permission}</span>
-                      </label>)}
+                    <div className="mt-2">
+                      <PermissionChecklist available={available} selected={editingPermissions} setSelected={setEditingPermissions} language={language} />
                     </div>
                   </div>
                 </div>

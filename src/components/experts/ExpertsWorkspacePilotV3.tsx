@@ -410,7 +410,7 @@ function ExpertsWorkspaceShell({ onExit }: Props) {
   };
 
   return <div
-    className={`min-h-screen text-[#0A0A0A] ${appearance.theme === 'black' ? 'gkais-black-surface' : ''}`}
+    className={`min-h-screen text-[#0A0A0A] ${sidebarCollapsed ? 'gkais-sidebar-collapsed' : '' } ${appearance.theme === 'black' ? 'gkais-black-surface' : ''}`}
     style={{
       background: workspaceBackground(workspaceAccent, appearance.intensity),
       '--gkais-card-surface': cardSurface,
@@ -418,62 +418,97 @@ function ExpertsWorkspaceShell({ onExit }: Props) {
       '--gkais-internal-accent-text': internalAccentText
     } as React.CSSProperties}
   >
-    <aside className="fixed inset-y-0 left-0 z-30 hidden w-[245px] border-r border-black/10 bg-[#111413] text-white lg:flex lg:flex-col">
-      <div className="border-b border-white/10 px-5 py-5">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/45">G-KAIS</p>
-        <p className="mt-1 text-sm font-semibold">for Experts</p>
+    <aside className={`fixed inset-y-0 left-0 z-30 hidden border-r border-black/10 bg-[#111413] text-white transition-[width] duration-200 lg:flex lg:flex-col ${sidebarCollapsed ? 'w-[76px]' : 'w-[245px]'}`}>
+      <div className={`border-b border-white/10 py-5 ${sidebarCollapsed ? 'px-3 text-center' : 'px-5'}`}>
+        <p className={`font-semibold uppercase text-white/45 ${sidebarCollapsed ? 'text-[10px] tracking-[0.1em]' : 'text-[11px] tracking-[0.2em]'}`}>{sidebarCollapsed ? 'G-K' : 'G-KAIS'}</p>
+        {!sidebarCollapsed && <p className="mt-1 text-sm font-semibold">for Experts</p>}
       </div>
-      <nav className="flex-1 overflow-y-auto px-3 py-4">
+      <nav className={`flex-1 overflow-y-auto py-4 ${sidebarCollapsed ? 'px-2' : 'px-3'}`}>
         {(['overview', 'programs', 'operations', 'intelligence'] as Section[]).map((section) => {
           const items = visibleNav.filter((item) => item.section === section);
           if (!items.length) return null;
           return <div key={section} className={section === 'overview' ? '' : 'mt-5'}>
-            {sectionLabels[section] && <p className="mb-2 px-3 text-[9px] font-semibold tracking-[0.18em] text-white/30">{sectionLabels[section]![language]}</p>}
+            {!sidebarCollapsed && sectionLabels[section] && <p className="mb-2 px-3 text-[9px] font-semibold tracking-[0.18em] text-white/30">{sectionLabels[section]![language]}</p>}
             <div className="space-y-1">{items.map((item) => {
               const Icon = item.icon;
               const selected = active === item.id;
               return <button
                 key={item.id}
                 type="button"
+                title={sidebarCollapsed ? item.label[language] : undefined}
                 onClick={() => navigate(item.id)}
-                className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${selected ? '' : 'text-white/65 hover:bg-white/[0.06] hover:text-white'}`}
+                className={`flex w-full items-center rounded-xl py-2.5 text-sm transition ${sidebarCollapsed ? 'justify-center px-2' : 'gap-3 px-3'} ${selected ? '' : 'text-white/65 hover:bg-white/[0.06] hover:text-white'}`}
                 style={selected ? { background: selectedBackground, color: selectedText } : undefined}
               >
-                <Icon className="h-4 w-4" />
-                <span className="flex-1 text-left">{item.label[language]}</span>
+                <Icon className="h-4 w-4 shrink-0" />
+                {!sidebarCollapsed && <span className="flex-1 text-left">{item.label[language]}</span>}
               </button>;
             })}</div>
           </div>;
         })}
       </nav>
-      <div className="border-t border-white/10 p-3">
+      <div className={`border-t border-white/10 ${sidebarCollapsed ? 'p-2' : 'p-3'}`}>
+        <div className={`mb-2 flex ${sidebarCollapsed ? 'justify-center' : 'justify-end'}`}>
+          <button
+            type="button"
+            onClick={() => setSidebarCollapsed((value) => !value)}
+            title={sidebarCollapsed ? (language === 'es' ? 'Desplegar sidebar' : 'Expand sidebar') : (language === 'es' ? 'Ocultar sidebar' : 'Collapse sidebar')}
+            className="grid h-7 w-7 place-items-center rounded-lg text-white/40 transition hover:bg-white/[0.06] hover:text-white/80"
+          >
+            {sidebarCollapsed ? <PanelLeftOpen className="h-3.5 w-3.5" /> : <PanelLeftClose className="h-3.5 w-3.5" />}
+          </button>
+        </div>
         <button
           type="button"
+          title={sidebarCollapsed ? (language === 'es' ? 'Configuración' : 'Settings') : undefined}
           onClick={() => navigate('settings')}
-          className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm ${active === 'settings' ? '' : 'text-white/55 hover:bg-white/[0.06]'}`}
+          className={`flex w-full items-center rounded-xl py-2.5 text-sm ${sidebarCollapsed ? 'justify-center px-2' : 'gap-3 px-3'} ${active === 'settings' ? '' : 'text-white/55 hover:bg-white/[0.06]'}`}
           style={active === 'settings' ? { background: selectedBackground, color: selectedText } : undefined}
-        ><Settings className="h-4 w-4" />{language === 'es' ? 'Configuración' : 'Settings'}</button>
-        <div className="mt-2 flex items-center gap-3 rounded-xl bg-white/[0.05] p-3">
+        >
+          <Settings className="h-4 w-4 shrink-0" />
+          {!sidebarCollapsed && (language === 'es' ? 'Configuración' : 'Settings')}
+        </button>
+        <div className={`mt-2 flex items-center rounded-xl bg-white/[0.05] ${sidebarCollapsed ? 'justify-center p-2' : 'gap-3 p-3'}`}>
           {memberAvatar
             ? <img src={memberAvatar} alt="" className="h-9 w-9 rounded-full object-cover" />
-            : <div className="grid h-9 w-9 place-items-center rounded-full bg-white/10 text-xs font-semibold">{memberName.split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase()}</div>}
-          <div className="min-w-0"><p className="truncate text-xs font-semibold">{memberName}</p><p className="truncate text-[10px] text-white/35">{memberRole}</p></div>
+            : <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/10 text-xs font-semibold">{memberName.split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase()}</div>}
+          {!sidebarCollapsed && <div className="min-w-0"><p className="truncate text-xs font-semibold">{memberName}</p><p className="truncate text-[10px] text-white/35">{memberRoleLabel}</p></div>}
         </div>
       </div>
     </aside>
 
-    <div className="lg:pl-[245px]">
+    <div className={`transition-[padding] duration-200 ${sidebarCollapsed ? 'lg:pl-[76px]' : 'lg:pl-[245px]'}`}>
       <header className="sticky top-0 z-20 border-b border-black/8 bg-white/75 px-4 py-3 backdrop-blur md:px-8 lg:px-10">
         <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <button type="button" onClick={goBack} className="grid h-9 w-9 place-items-center rounded-full border border-black/10 bg-white text-black/60"><ArrowLeft className="h-4 w-4" /></button>
-            <div><p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-black/35">{workspaceName}</p><h1 className="text-sm font-semibold">{activeLabel}</h1></div>
+          <div className="flex min-w-0 items-center gap-3">
+            <button type="button" onClick={goBack} className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-black/10 bg-white text-black/60"><ArrowLeft className="h-4 w-4" /></button>
+            <div className="min-w-0"><p className="truncate text-[10px] font-semibold uppercase tracking-[0.16em] text-black/35">{workspaceName}</p><h1 className="truncate text-sm font-semibold">{activeLabel}</h1></div>
           </div>
           <div className="flex items-center gap-3">
-            <div className="inline-flex rounded-full border border-black/10 bg-white p-0.5">{(['es', 'en'] as Language[]).map((option) => <button key={option} type="button" onClick={() => setLanguage(option)} className={`rounded-full px-2.5 py-1.5 text-[10px] font-semibold uppercase ${language === option ? 'bg-[#111413] text-white' : 'text-black/40'}`}>{option}</button>)}</div>
-            {memberAvatar
-              ? <img src={memberAvatar} alt="" className="h-9 w-9 rounded-full object-cover" />
-              : <div className="grid h-9 w-9 place-items-center rounded-full bg-[#111413] text-xs font-semibold text-white">{memberName.split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase()}</div>}
+            <div className="hidden rounded-full border border-black/10 bg-white p-0.5 sm:inline-flex">{(['es', 'en'] as Language[]).map((option) => <button key={option} type="button" onClick={() => setLanguage(option)} className={`rounded-full px-2.5 py-1.5 text-[10px] font-semibold uppercase ${language === option ? 'bg-[#111413] text-white' : 'text-black/40'}`}>{option}</button>)}</div>
+            <div className="relative">
+              <button
+                type="button"
+                aria-expanded={accountMenuOpen}
+                onClick={() => setAccountMenuOpen((value) => !value)}
+                className="grid h-10 w-10 place-items-center overflow-hidden rounded-full border border-black/10 bg-white shadow-sm"
+                title={language === 'es' ? 'Cuenta' : 'Account'}
+              >
+                {memberAvatar
+                  ? <img src={memberAvatar} alt="" className="h-full w-full object-cover" />
+                  : <span className="grid h-full w-full place-items-center bg-[#111413] text-xs font-semibold text-white">{memberName.split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase()}</span>}
+              </button>
+              {accountMenuOpen && <div className="absolute right-0 top-12 z-50 w-[270px] rounded-2xl border border-black/10 bg-white p-2 shadow-[0_18px_55px_rgba(0,0,0,0.16)]">
+                <div className="border-b border-black/7 px-3 py-3">
+                  <p className="truncate text-sm font-semibold">{memberName}</p>
+                  <p className="mt-1 truncate text-xs text-black/45">{memberEmail}</p>
+                  <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#0A3F4D]">{memberRoleLabel}</p>
+                </div>
+                <button type="button" onClick={() => { setAccountMenuOpen(false); navigate('settings'); }} className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm text-black/65 hover:bg-black/[0.035]"><UserRound className="h-4 w-4" />{language === 'es' ? 'Mi perfil y configuración' : 'My profile & settings'}</button>
+                <button type="button" onClick={() => window.location.assign('/')} className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm text-black/65 hover:bg-black/[0.035]"><ArrowLeft className="h-4 w-4" />{language === 'es' ? 'Ir al sitio de G-KAIS' : 'Go to G-KAIS site'}</button>
+                <button type="button" onClick={() => void logout()} className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-[#8D332C] hover:bg-[#A23A32]/6"><LogOut className="h-4 w-4" />{language === 'es' ? 'Cerrar sesión' : 'Sign out'}</button>
+              </div>}
+            </div>
           </div>
         </div>
       </header>

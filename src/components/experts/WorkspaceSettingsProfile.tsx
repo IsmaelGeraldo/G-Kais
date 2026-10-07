@@ -1,9 +1,16 @@
 import React, { useRef, useState } from 'react';
-import { ImagePlus, Layers3, Palette, UserRound } from 'lucide-react';
+import { ImagePlus, Layers3, Mail, Palette, ShieldCheck, UserRound } from 'lucide-react';
 import type { Language } from '../../i18n/LanguageContext';
 
 export type WorkspaceProfile = { name: string; business: string; role: string; avatar: string };
 export type WorkspaceAppearance = { theme: string; intensity: number; sidebar: string; sidebarIntensity: number; surfaceIntensity?: number; surfaceColorIntensity?: number };
+export type PersonalWorkspaceProfile = {
+  displayName: string;
+  email: string;
+  role: string;
+  workspaceName: string;
+  photoURL: string;
+};
 
 export const THEME_COLORS = [
   { id: 'stone', label: 'Piedra', hex: '#77807A' }, { id: 'teal', label: 'Teal', hex: '#0A6B66' },
@@ -41,16 +48,68 @@ export function readInternalNavAccent(): 'black' | 'sidebar' {
   return window.localStorage.getItem(INTERNAL_NAV_ACCENT_KEY) === 'sidebar' ? 'sidebar' : 'black';
 }
 
-export function WorkspaceSettingsProfile({ language, profile, setProfile, appearance, setAppearance, showIdentity = true }: {
+async function compressAvatar(file: File): Promise<string> {
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const next = new Image();
+      next.onload = () => resolve(next);
+      next.onerror = () => reject(new Error('PHOTO_READ_FAILED'));
+      next.src = objectUrl;
+    });
+
+    const attempts = [
+      { size: 64, quality: 0.55 },
+      { size: 56, quality: 0.5 },
+      { size: 48, quality: 0.45 },
+      { size: 40, quality: 0.4 },
+      { size: 32, quality: 0.35 }
+    ];
+
+    for (const attempt of attempts) {
+      const canvas = document.createElement('canvas');
+      canvas.width = attempt.size;
+      canvas.height = attempt.size;
+      const context = canvas.getContext('2d');
+      if (!context) continue;
+
+      const side = Math.min(image.naturalWidth, image.naturalHeight);
+      const sx = Math.max(0, (image.naturalWidth - side) / 2);
+      const sy = Math.max(0, (image.naturalHeight - side) / 2);
+      context.drawImage(image, sx, sy, side, side, 0, 0, attempt.size, attempt.size);
+
+      const result = canvas.toDataURL('image/webp', attempt.quality);
+      if (result.length <= 950) return result;
+    }
+    throw new Error('PHOTO_TOO_LARGE');
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
+export function WorkspaceSettingsProfile({
+  language,
+  profile,
+  setProfile,
+  appearance,
+  setAppearance,
+  showIdentity = true,
+  personalProfile,
+  onPersonalPhotoChange
+}: {
   language: Language;
   profile: WorkspaceProfile;
   setProfile: React.Dispatch<React.SetStateAction<WorkspaceProfile>>;
   appearance: WorkspaceAppearance;
   setAppearance: React.Dispatch<React.SetStateAction<WorkspaceAppearance>>;
   showIdentity?: boolean;
+  personalProfile?: PersonalWorkspaceProfile;
+  onPersonalPhotoChange?: (photoURL: string) => Promise<void>;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [internalNavAccent, setInternalNavAccent] = useState<'black' | 'sidebar'>(readInternalNavAccent);
+  const [personalPhotoSaving, setPersonalPhotoSaving] = useState(false);
+  const [personalPhotoError, setPersonalPhotoError] = useState('');
   const surfaceIndex = Math.max(0, Math.min(WINDOW_COLORS.length - 1, Math.round(appearance.surfaceIntensity ?? 0)));
   const surfaceColorIntensity = appearance.surfaceColorIntensity ?? 3;
 
@@ -59,6 +118,23 @@ export function WorkspaceSettingsProfile({ language, profile, setProfile, appear
     const reader = new FileReader();
     reader.onload = () => setProfile((current) => ({ ...current, avatar: String(reader.result ?? '') }));
     reader.readAsDataURL(file);
+  };
+
+  const handlePersonalFile = async (file?: File) => {
+    if (!file || !onPersonalPhotoChange) return;
+    setPersonalPhotoSaving(true);
+    setPersonalPhotoError('');
+    try {
+      const compressed = await compressAvatar(file);
+      await onPersonalPhotoChange(compressed);
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : 'PHOTO_UPDATE_FAILED';
+      setPersonalPhotoError(message === 'PHOTO_TOO_LARGE'
+        ? (language === 'es' ? 'No pudimos reducir esta imagen lo suficiente. Prueba con otra foto.' : 'We could not reduce this image enough. Try another photo.')
+        : (language === 'es' ? 'No se pudo actualizar la foto.' : 'The photo could not be updated.'));
+    } finally {
+      setPersonalPhotoSaving(false);
+    }
   };
 
   const updateInternalNavAccent = (value: 'black' | 'sidebar') => {
@@ -76,10 +152,66 @@ export function WorkspaceSettingsProfile({ language, profile, setProfile, appear
       </div>
     </section>}
 
-    {!showIdentity && <section className="rounded-2xl border border-black/10 bg-white p-5 text-sm text-black/55 shadow-[0_10px_30px_rgba(10,10,10,0.035)]">
-      {language === 'es'
-        ? 'Estas preferencias son personales. Puedes adaptar colores y apariencia sin modificar la identidad ni la configuración del Workspace.'
-        : 'These preferences are personal. You can customize colors and appearance without changing Workspace identity or configuration.'}
+    {!showIdentity && personalProfile && <section className="rounded-2xl border border-black/10 bg-white p-6 shadow-[0_10px_30px_rgba(10,10,10,0.035)]">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#0A3F4D]">{language === 'es' ? 'MI PERFIL' : 'MY PROFILE'}</p>
+          <h3 className="mt-2 text-xl font-semibold">{personalProfile.displayName}</h3>
+          <p className="mt-2 text-sm leading-6 text-black/50">{language === 'es'
+            ? 'La foto es personal. Nombre, correo y rol pertenecen a tu relación con la empresa y requieren autorización para cambiarse.'
+            : 'Your photo is personal. Name, email and role belong to your company relationship and require approval to change.'}</p>
+        </div>
+        <UserRound className="h-5 w-5 text-[#0A3F4D]" />
+      </div>
+
+      <div className="mt-6 grid gap-6 md:grid-cols-[150px_minmax(0,1fr)]">
+        <div>
+          <button
+            type="button"
+            disabled={!onPersonalPhotoChange || personalPhotoSaving}
+            onClick={() => fileRef.current?.click()}
+            className="grid h-24 w-24 place-items-center overflow-hidden rounded-2xl border border-dashed border-black/20 bg-[#F7F7F5] disabled:opacity-50"
+          >
+            {personalProfile.photoURL
+              ? <img src={personalProfile.photoURL} alt="" className="h-full w-full object-cover" />
+              : <ImagePlus className="h-6 w-6 text-black/30" />}
+          </button>
+          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(event) => void handlePersonalFile(event.target.files?.[0])} />
+          <p className="mt-2 text-[10px] text-black/35">{personalPhotoSaving ? (language === 'es' ? 'Guardando…' : 'Saving…') : (language === 'es' ? 'Cambiar foto' : 'Change photo')}</p>
+          {personalPhotoError && <p className="mt-2 text-[10px] leading-4 text-[#8D332C]">{personalPhotoError}</p>}
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="rounded-xl border border-black/8 bg-[#F7F7F5] p-3">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-black/35">{language === 'es' ? 'Nombre' : 'Name'}</p>
+            <p className="mt-1 text-sm font-semibold">{personalProfile.displayName}</p>
+          </div>
+          <div className="rounded-xl border border-black/8 bg-[#F7F7F5] p-3">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-black/35">Email</p>
+            <p className="mt-1 truncate text-sm font-semibold">{personalProfile.email}</p>
+          </div>
+          <div className="rounded-xl border border-black/8 bg-[#F7F7F5] p-3">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-black/35">{language === 'es' ? 'Rol' : 'Role'}</p>
+            <p className="mt-1 text-sm font-semibold">{personalProfile.role}</p>
+          </div>
+          <div className="rounded-xl border border-black/8 bg-[#F7F7F5] p-3">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-black/35">Workspace</p>
+            <p className="mt-1 text-sm font-semibold">{personalProfile.workspaceName}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-5 flex items-start gap-3 rounded-xl border border-[#0A3F4D]/10 bg-[#0A3F4D]/5 p-3 text-xs leading-5 text-[#0A3F4D]">
+        <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
+        <span>{language === 'es'
+          ? 'Los cambios de nombre o correo se gestionarán mediante solicitud y aprobación de un superior. Tu rol solo puede modificarlo alguien con permisos de administración del equipo.'
+          : 'Name or email changes will be handled through an approval request. Your role can only be changed by someone with team administration permissions.'}</span>
+      </div>
+      <div className="mt-3 flex items-center gap-2 text-xs text-black/40"><Mail className="h-3.5 w-3.5" />{personalProfile.email}</div>
+    </section>}
+
+    {!showIdentity && !personalProfile && <section className="rounded-2xl border border-black/10 bg-white p-5 text-sm text-black/55 shadow-[0_10px_30px_rgba(10,10,10,0.035)]">
+      {language === 'es' ? 'No pudimos cargar tu perfil personal.' : 'We could not load your personal profile.'}
     </section>}
 
     <div className="grid gap-5 xl:grid-cols-3">

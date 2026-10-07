@@ -1,6 +1,4 @@
-import serverBundle from '../dist/server.cjs';
-
-const { createGkaisApiApp } = serverBundle;
+import { createGkaisApiApp } from '../dist/server.mjs';
 const app = createGkaisApiApp({ registerStripeWebhook: false });
 
 function pathFromQuery(value) {

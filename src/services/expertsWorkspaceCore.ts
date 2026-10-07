@@ -9,6 +9,7 @@ import {
   writeBatch
 } from 'firebase/firestore';
 import { firebaseAuth, firestoreDb } from '../lib/firebase';
+import { buildPublicAppUrl } from '../config/publicAppUrl';
 
 const SCHEMA_VERSION = 1;
 const PROFILE_KEY = 'gkais-experts-profile-v1';
@@ -438,8 +439,7 @@ export function parseExpertWorkspaceInviteToken(token: string): { workspaceId: s
 }
 
 export function buildExpertWorkspaceInviteLink(token: string): string {
-  if (typeof window === 'undefined') return `/workspace/experts?invite=${encodeURIComponent(token)}`;
-  return `${window.location.origin}/workspace/experts?invite=${encodeURIComponent(token)}`;
+  return buildPublicAppUrl('/workspace/experts', new URLSearchParams({ invite: token }));
 }
 
 export async function getExpertWorkspaceInvite(token: string): Promise<WorkspaceInvite> {

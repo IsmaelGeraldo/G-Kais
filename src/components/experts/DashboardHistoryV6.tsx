@@ -452,14 +452,20 @@ export function DashboardHistoryV6({ language, onNavigate, onOpenClient, onStart
       });
       return acc;
     }, []);
+    const validFormationSources = new Set(enrollments
+      .filter((enrollment) => enrollment.status !== 'withdrawn' && enrollment.status !== 'refunded')
+      .map((enrollment) => enrollment.id));
+    const validMentoringSources = new Set(mentoringBuyers.map((item) => item.id));
     const canonicalEvents = canonicalBuyerEvents.reduce<BuyerEvent[]>((acc, event) => {
       const date = asDate(event.occurredAt);
-      if (!date) return acc;
+      if (!date || !event.sourceId) return acc;
+      if (event.kind === 'formation' && !validFormationSources.has(event.sourceId)) return acc;
+      if (event.kind === 'mentoring' && !validMentoringSources.has(event.sourceId)) return acc;
       acc.push({
         identity: `person:${event.personId}`,
         date,
         kind: event.kind,
-        sourceKey: `${event.kind}:${event.sourceId || event.id}`
+        sourceKey: `${event.kind}:${event.sourceId}`
       });
       return acc;
     }, []);

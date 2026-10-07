@@ -484,23 +484,8 @@ export async function acceptExpertWorkspaceInvite(token: string): Promise<string
   const userSnapshot = await getDoc(userRef);
   const now = serverTimestamp();
 
-  if (invite.status === 'accepted' && memberSnapshot.exists()) {
-    const existingMember = memberSnapshot.data() as WorkspaceMember;
-    if (existingMember.roleId !== invite.roleId || existingMember.email.toLowerCase() !== authEmail) throw new Error('MEMBERSHIP_MISMATCH');
-    await setDoc(userRef, {
-      schemaVersion: SCHEMA_VERSION,
-      email: user.email || invite.email,
-      displayName: user.displayName || invite.displayName || '',
-      photoURL: user.photoURL || '',
-      activeWorkspaceId: parsed.workspaceId,
-      ...(!userSnapshot.exists() ? { createdAt: now } : {}),
-      updatedAt: now
-    }, { merge: true });
-    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('gkais:workspace-membership-changed'));
-    return parsed.workspaceId;
-  }
-
-  if (invite.status !== 'pending') throw new Error('INVITE_ALREADY_ACCEPTED');
+  if (invite.status === 'accepted') throw new Error('INVITE_ALREADY_ACCEPTED');
+  if (invite.status !== 'pending') throw new Error('INVITE_NOT_ACTIVE');
 
   const batch = writeBatch(firestoreDb);
   batch.set(memberRef, {

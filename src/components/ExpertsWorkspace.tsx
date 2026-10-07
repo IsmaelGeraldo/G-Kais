@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { onAuthStateChanged } from 'firebase/auth';
 import { firebaseAuth } from '../lib/firebase.ts';
-import { resolveActiveExpertWorkspaceId } from '../services/expertsWorkspaceCore.ts';
+import { resolveValidExpertWorkspaceId } from '../services/expertsWorkspaceMembers.ts';
 import {
   installExpertWorkspaceStorageIsolation,
   setActiveExpertWorkspaceStorageScope
@@ -83,7 +83,7 @@ export function ExpertsWorkspace({ onExit }: { onExit: () => void }) {
         if (!cancelled) setScopeReady(true);
         return;
       }
-      void resolveActiveExpertWorkspaceId(user)
+      void resolveValidExpertWorkspaceId(user)
         .then((workspaceId) => {
           if (cancelled) return;
           if (workspaceId) setActiveExpertWorkspaceStorageScope(workspaceId);

@@ -1,6 +1,6 @@
-import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { deleteDoc, doc } from 'firebase/firestore';
 import { firebaseAuth, firestoreDb } from '../lib/firebase';
-import { hasWorkspacePermission, loadExpertWorkspaceTeam } from './expertsWorkspaceCore';
+import { appendExpertAuditLog, hasWorkspacePermission, loadExpertWorkspaceTeam } from './expertsWorkspaceCore';
 
 export async function revokeExpertWorkspaceInvite(inviteId: string): Promise<void> {
   const user = firebaseAuth.currentUser;
@@ -13,16 +13,20 @@ export async function revokeExpertWorkspaceInvite(inviteId: string): Promise<voi
   }
 
   const invite = team.invites.find((item) => item.id === inviteId);
-  if (!invite) throw new Error('INVITE_NOT_FOUND');
-  if (invite.status === 'revoked') return;
+  if (!invite) return;
   if (invite.status !== 'pending') throw new Error('INVITE_NOT_PENDING');
 
-  await setDoc(
-    doc(firestoreDb, 'expert_workspaces', team.workspaceId, 'invites', inviteId),
-    {
-      status: 'revoked',
-      updatedAt: serverTimestamp()
-    },
-    { merge: true }
-  );
+  await deleteDoc(doc(firestoreDb, 'expert_workspaces', team.workspaceId, 'invites', inviteId));
+
+  void appendExpertAuditLog({
+    entityType: 'workspace_invite',
+    entityId: inviteId,
+    action: 'invite.cancelled',
+    changes: {
+      displayName: invite.displayName,
+      email: invite.email,
+      roleId: invite.roleId,
+      previousStatus: invite.status
+    }
+  }).catch(() => {});
 }

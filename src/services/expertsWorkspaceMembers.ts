@@ -1,8 +1,10 @@
 import type { User } from 'firebase/auth';
 import {
+  collection,
   deleteDoc,
   doc,
   getDoc,
+  getDocs,
   serverTimestamp,
   setDoc
 } from 'firebase/firestore';
@@ -66,6 +68,7 @@ export async function updateExpertWorkspaceMember(input: {
   memberUid: string;
   roleId: string;
   permissions: Array<WorkspacePermission | '*'>;
+  supervisorUid?: string;
 }): Promise<void> {
   const user = firebaseAuth.currentUser;
   const workspaceId = await resolveValidExpertWorkspaceId(user);
@@ -86,10 +89,37 @@ export async function updateExpertWorkspaceMember(input: {
 
   const member = memberSnapshot.data() as WorkspaceMember;
   const nextPermissions = Array.from(new Set(input.permissions.filter((permission) => permission !== '*')));
+  const supervisorUid = (input.supervisorUid || '').trim();
+
+  if (supervisorUid) {
+    if (supervisorUid === input.memberUid) throw new Error('SUPERVISOR_CANNOT_BE_SELF');
+    const supervisorSnapshot = await getDoc(workspaceSubDocument(workspaceId, 'members', supervisorUid));
+    if (!supervisorSnapshot.exists()) throw new Error('SUPERVISOR_NOT_FOUND');
+    const supervisor = supervisorSnapshot.data() as WorkspaceMember;
+    if (supervisor.status !== 'active') throw new Error('SUPERVISOR_NOT_ACTIVE');
+
+    const membersSnapshot = await getDocs(collection(firestoreDb, 'expert_workspaces', workspaceId, 'members'));
+    const supervisorByMember = new Map<string, string>();
+    membersSnapshot.docs.forEach((item) => {
+      const data = item.data() as WorkspaceMember;
+      if (typeof data.supervisorUid === 'string' && data.supervisorUid) supervisorByMember.set(item.id, data.supervisorUid);
+    });
+    supervisorByMember.set(input.memberUid, supervisorUid);
+
+    let cursor = supervisorUid;
+    const visited = new Set<string>();
+    while (cursor) {
+      if (cursor === input.memberUid) throw new Error('SUPERVISOR_CYCLE');
+      if (visited.has(cursor)) throw new Error('SUPERVISOR_CYCLE');
+      visited.add(cursor);
+      cursor = supervisorByMember.get(cursor) || '';
+    }
+  }
 
   await setDoc(memberRef, {
     roleId: input.roleId,
     permissions: nextPermissions,
+    supervisorUid,
     updatedAt: serverTimestamp()
   }, { merge: true });
 
@@ -101,7 +131,9 @@ export async function updateExpertWorkspaceMember(input: {
       previousRoleId: member.roleId,
       nextRoleId: input.roleId,
       previousPermissions: member.permissions,
-      nextPermissions
+      nextPermissions,
+      previousSupervisorUid: member.supervisorUid || '',
+      nextSupervisorUid: supervisorUid
     }
   }).catch(() => {});
 

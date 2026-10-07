@@ -3,7 +3,7 @@
   "functions": {
     "api/[...].js": {
       "maxDuration": 60,
-      "includeFiles": "server-build/server.cjs"
+      "includeFiles": "server-build/server.mjs"
     },
     "api/webhooks/stripe.js": {
       "maxDuration": 60,

@@ -48,6 +48,14 @@ export type DashboardMentoringBuyer = {
   startDate: string;
 };
 
+export type DashboardCanonicalBuyerEvent = {
+  id: string;
+  personId: string;
+  sourceId: string;
+  kind: 'formation' | 'mentoring';
+  occurredAt: string;
+};
+
 async function workspaceId(): Promise<string> {
   const user = firebaseAuth.currentUser;
   if (!user) throw new Error('AUTH_REQUIRED');
@@ -167,6 +175,34 @@ export async function subscribeDashboardWorkItems(
     unsubscribeTasks();
     unsubscribeEvents();
   };
+}
+
+export async function subscribeDashboardBuyerEvents(
+  callback: (items: DashboardCanonicalBuyerEvent[]) => void
+): Promise<Unsubscribe> {
+  const workspace = await workspaceId();
+  return onSnapshot(collection(firestoreDb, 'expert_workspaces', workspace, 'relationship_events'), (snapshot) => {
+    const rows = snapshot.docs.flatMap((item) => {
+      const data = item.data() as Record<string, unknown>;
+      const type = text(data.type);
+      const kind = type === 'program_started'
+        ? 'formation'
+        : type === 'mentoring_started'
+          ? 'mentoring'
+          : '';
+      const personId = text(data.personId);
+      const occurredAt = isoDate(data.occurredAt);
+      if (!kind || !personId || !occurredAt) return [];
+      return [{
+        id: item.id,
+        personId,
+        sourceId: text(data.sourceId),
+        kind: kind as DashboardCanonicalBuyerEvent['kind'],
+        occurredAt
+      }];
+    });
+    callback(rows.sort((a, b) => a.occurredAt.localeCompare(b.occurredAt)));
+  }, () => callback([]));
 }
 
 export async function subscribeDashboardFormationClasses(

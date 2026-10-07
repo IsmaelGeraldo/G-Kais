@@ -10,6 +10,7 @@ import {
 } from 'firebase/firestore';
 import { firebaseAuth, firestoreDb } from '../lib/firebase';
 import type { WebinarAttendanceStatus, WebinarInterest } from './expertsAcquisition';
+import { recordOperationalBuyerEvent } from './expertsBuyerEvents';
 import { appendExpertAuditLog, resolveActiveExpertWorkspaceId } from './expertsWorkspaceCore';
 
 async function workspaceId() {
@@ -120,6 +121,14 @@ export async function updateWebinarParticipant(input: {
       purchaseChanged: previous.purchased !== input.purchased
     }
   }).catch(() => {});
+  if (input.purchased && !previous.purchased) {
+    await recordOperationalBuyerEvent({
+      personId: input.personId,
+      kind: 'webinar',
+      sourceType: 'webinar_registration',
+      sourceId: input.registrationId
+    }).catch((error) => console.error('[G-KAIS WEBINAR BUYER EVENT]', error));
+  }
   return previous;
 }
 
@@ -157,14 +166,14 @@ export async function updateWebinarRegistration(input: {
   const registrationRef = doc(firestoreDb, 'expert_workspaces', workspace, 'webinar_registrations', input.registrationId);
   const personRef = doc(firestoreDb, 'expert_workspaces', workspace, 'people', input.personId);
   const attendanceMinutes = Math.max(0, Math.min(10000, Math.round(input.attendanceMinutes || 0)));
-  await runTransaction(firestoreDb, async (transaction) => {
+  const previousPurchased = await runTransaction(firestoreDb, async (transaction) => {
     const [registrationSnapshot, personSnapshot] = await Promise.all([
       transaction.get(registrationRef),
       transaction.get(personRef)
     ]);
     if (!registrationSnapshot.exists()) throw new Error('REGISTRATION_NOT_FOUND');
     if (!personSnapshot.exists()) throw new Error('PERSON_NOT_FOUND');
-    const previous = registrationSnapshot.data() as { followUpStatus?: string };
+    const previous = registrationSnapshot.data() as { followUpStatus?: string; purchased?: boolean };
     const followUpStatus = input.purchased
       ? 'not-needed'
       : previous.followUpStatus === 'created' || previous.followUpStatus === 'completed'
@@ -192,7 +201,16 @@ export async function updateWebinarRegistration(input: {
       },
       updatedAt: serverTimestamp()
     });
+    return Boolean(previous.purchased);
   });
+  if (input.purchased && !previousPurchased) {
+    await recordOperationalBuyerEvent({
+      personId: input.personId,
+      kind: 'webinar',
+      sourceType: 'webinar_registration',
+      sourceId: input.registrationId
+    }).catch((error) => console.error('[G-KAIS WEBINAR BUYER EVENT]', error));
+  }
 }
 
 export async function deleteWebinarRegistration(registrationId: string) {

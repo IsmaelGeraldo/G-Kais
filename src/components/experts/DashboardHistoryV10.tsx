@@ -100,12 +100,7 @@ export function DashboardHistoryV10(props: Props) {
     && !isFollowUpWork(task)
   ), [tasks]);
 
-  const teamModeEnabled = useMemo(() => {
-    if (!team) return false;
-    return team.roles.some((role) => !role.isSystem)
-      || team.members.some((member) => member.uid !== team.currentUid)
-      || team.invites.some((invite) => invite.status === 'pending');
-  }, [team]);
+  const teamModeEnabled = Boolean(team);
 
   const workloadRows = useMemo<WorkloadRow[]>(() => {
     if (!team) return [];

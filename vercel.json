@@ -2,10 +2,12 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
     "api/[...].js": {
-      "maxDuration": 60
+      "maxDuration": 60,
+      "includeFiles": "server-build/server.cjs"
     },
     "api/webhooks/stripe.js": {
-      "maxDuration": 60
+      "maxDuration": 60,
+      "includeFiles": "server-build/stripeWebhook.cjs"
     }
   },
   "rewrites": [

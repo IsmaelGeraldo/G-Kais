@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "vite build && mkdir -p server-build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=server-build/server.cjs && esbuild src/server/payments/stripeWebhook.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=server-build/stripeWebhook.cjs",
+    "build": "vite build && mkdir -p server-build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=server-build/server.cjs && esbuild src/server/payments/stripeWebhook.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=server-build/stripeWebhook.cjs && VERCEL=1 node -e \"require('./server-build/server.cjs')\" && node -e \"require('./server-build/stripeWebhook.cjs')\"",
     "start": "node server-build/server.cjs",
     "preview": "vite preview",
     "clean": "rm -rf dist server-build server.js",

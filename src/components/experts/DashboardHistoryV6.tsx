@@ -496,7 +496,19 @@ export function DashboardHistoryV6({ language, onNavigate, onOpenClient, onStart
   const buyerDates = useMemo(() => buyerEvents.map((event) => event.date), [buyerEvents]);
   const agenda = useMemo(() => {
     const classRows = activeClasses.map((c) => ({ kind: 'class' as const, id: c.id, title: `${formationById.get(c.formationId)?.title || 'Formación'} · ${c.title}`, subtitle: `${cohortById.get(c.cohortId)?.title || c.cohortTitle} · ${humanDate(c.date, c.effectiveTime, language)}`, classItem: c, sortAt: agendaTimestamp(`${c.date} · ${c.effectiveTime || '12:00'}`) }));
-    const clientRows = clients.filter((c) => (c.nextSession || '').trim()).map((c) => ({ kind: 'client' as const, id: c.id, title: c.name, subtitle: c.nextSession || '', client: c, sortAt: agendaTimestamp(c.nextSession || '') }));
+    const clientRows = clients
+      .filter((c) => Boolean(c.nextSessionAt || (c.nextSession || '').trim()))
+      .map((c) => {
+        const structuredDate = c.nextSessionAt ? asDate(c.nextSessionAt) : null;
+        return {
+          kind: 'client' as const,
+          id: c.id,
+          title: c.name,
+          subtitle: c.nextSession || '',
+          client: c,
+          sortAt: structuredDate ? structuredDate.getTime() : agendaTimestamp(c.nextSession || '')
+        };
+      });
     const now = Date.now();
     return [...clientRows, ...classRows]
       .filter((item) => item.sortAt === Number.MAX_SAFE_INTEGER || item.sortAt >= now)
@@ -524,7 +536,9 @@ export function DashboardHistoryV6({ language, onNavigate, onOpenClient, onStart
       if (!country) return;
       const inFormation = formationPersonIds.has(person.id), inMentoring = person.currentStage === 'mentoring';
       if (!inFormation && !inMentoring) return;
-      const code = countryCode(country), key = code || normalizeCountry(country), current = rows.get(key) || { country, formation: new Set<string>(), mentoring: new Set<string>() };
+      const profile = profileById.get(person.id);
+      const code = profile?.countryCode || countryCode(country);
+      const key = code || normalizeCountry(country), current = rows.get(key) || { country, formation: new Set<string>(), mentoring: new Set<string>() };
       if (inFormation) current.formation.add(person.id); if (inMentoring) current.mentoring.add(person.id); rows.set(key, current);
     });
     return [...rows.entries()].map(([key, value]) => ({ country: value.country, code: key.length === 2 ? key.toUpperCase() : '', formation: value.formation.size, mentoring: value.mentoring.size, total: new Set([...value.formation, ...value.mentoring]).size })).sort((a, b) => b.total - a.total || a.country.localeCompare(b.country));

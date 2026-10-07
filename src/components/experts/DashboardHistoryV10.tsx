@@ -90,7 +90,7 @@ export function DashboardHistoryV10(props: Props) {
       return typeof element.className === 'string' && element.className.includes('border-t');
     }) || null;
     setMetricGrid(grid);
-    setFooterHost(footer);
+    setFooterHost(footer?.querySelector<HTMLElement>('[data-gkais-team-workload-host="true"]') || null);
   }, []);
 
   const mainWork = useMemo(() => tasks.filter((task) =>
@@ -223,7 +223,7 @@ export function DashboardHistoryV10(props: Props) {
         font-size:0 !important;
         line-height:0 !important;
       }
-      .gkais-dashboard-v10-team .gkais-dashboard-v8 .gkais-dashboard-v7 > div > div:first-child > article:first-child > div[class*="border-t"] > button {
+      .gkais-dashboard-v10-team .gkais-dashboard-v8 .gkais-dashboard-v7 > div > div:first-child > article:first-child > div[class*="border-t"] [data-gkais-team-workload-host="true"] > button {
         font-size:12px !important;
         line-height:16px !important;
         color:rgba(0,0,0,.55) !important;

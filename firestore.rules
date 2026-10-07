@@ -675,8 +675,14 @@ service cloud.firestore {
     match /expert_workspaces/{workspaceId}/relationship_events/{eventId} {
       allow read: if hasWorkspacePermission(workspaceId, 'events.read');
       allow create: if hasWorkspacePermission(workspaceId, 'events.create') &&
+        request.resource.data.type != 'purchase_completed' &&
         validRelationshipEvent(request.resource.data);
       allow update, delete: if false;
+    }
+
+    match /expert_workspaces/{workspaceId}/payment_events/{paymentEventId} {
+      allow read: if hasWorkspacePermission(workspaceId, 'billing.manage');
+      allow create, update, delete: if false;
     }
 
     match /expert_workspaces/{workspaceId}/audit_logs/{logId} {

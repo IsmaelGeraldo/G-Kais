@@ -56,11 +56,13 @@ export function TeamWorkspace({ language }: { language: Language }) {
   const [copied, setCopied] = useState(false);
   const [saving, setSaving] = useState(false);
   const [revokingInvite, setRevokingInvite] = useState('');
+  const [confirmingInviteId, setConfirmingInviteId] = useState('');
   const [editingMemberUid, setEditingMemberUid] = useState('');
   const [editingRoleId, setEditingRoleId] = useState('');
   const [editingPermissions, setEditingPermissions] = useState<WorkspacePermission[]>([]);
   const [savingMember, setSavingMember] = useState(false);
   const [removingMember, setRemovingMember] = useState('');
+  const [confirmingRemovalUid, setConfirmingRemovalUid] = useState('');
 
   const refresh = async () => {
     setLoading(true);
@@ -125,17 +127,13 @@ export function TeamWorkspace({ language }: { language: Language }) {
     }
   };
 
-  const cancelInvite = async (inviteId: string, inviteName: string) => {
-    const confirmed = window.confirm(language === 'es'
-      ? `¿Cancelar la invitación pendiente de ${inviteName}?`
-      : `Cancel the pending invitation for ${inviteName}?`);
-    if (!confirmed) return;
-
+  const cancelInvite = async (inviteId: string) => {
     setRevokingInvite(inviteId);
     setError('');
     try {
       await revokeExpertWorkspaceInvite(inviteId);
       setInviteLink('');
+      setConfirmingInviteId('');
       await refresh();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'INVITE_REVOKE_FAILED');
@@ -176,17 +174,13 @@ export function TeamWorkspace({ language }: { language: Language }) {
     }
   };
 
-  const removeMember = async (memberUid: string, memberName: string) => {
-    const confirmed = window.confirm(language === 'es'
-      ? `¿Eliminar a ${memberName} del equipo?\n\nPerderá el acceso al Workspace. Su historial se conservará y el trabajo que tenía asignado seguirá visible para poder reasignarlo.`
-      : `Remove ${memberName} from the team?\n\nThey will lose access to the Workspace. Their history will be preserved and work assigned to them will remain visible so it can be reassigned.`);
-    if (!confirmed) return;
-
+  const removeMember = async (memberUid: string) => {
     setRemovingMember(memberUid);
     setError('');
     try {
       await removeExpertWorkspaceMember(memberUid);
       setEditingMemberUid('');
+      setConfirmingRemovalUid('');
       await refresh();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'MEMBER_REMOVE_FAILED');
@@ -300,10 +294,34 @@ export function TeamWorkspace({ language }: { language: Language }) {
             <p className="text-xs text-black/50">{roleName(team.roles, invite.roleId)}</p>
             <p className="mt-1 text-[10px] font-semibold text-[#A46F16]">{language === 'es' ? 'Invitación pendiente' : 'Pending invitation'}</p>
           </div>
-          <button disabled={revokingInvite === invite.id} onClick={() => void cancelInvite(invite.id, invite.displayName || invite.email)} className="inline-flex items-center justify-center gap-1.5 rounded-full border border-[#A23A32]/15 px-3 py-2 text-xs font-semibold text-[#8D332C] transition hover:bg-[#A23A32]/6 disabled:opacity-40">
+          {confirmingInviteId === invite.id ? <div className="flex flex-wrap items-center justify-end gap-2">
+            <span className="text-[11px] font-medium text-[#8D332C]">{language === 'es' ? '¿Cancelar esta invitación?' : 'Cancel this invitation?'}</span>
+            <button
+              type="button"
+              disabled={revokingInvite === invite.id}
+              onClick={() => setConfirmingInviteId('')}
+              className="rounded-full border border-black/10 px-3 py-2 text-xs font-semibold text-black/55 disabled:opacity-40"
+            >
+              {language === 'es' ? 'No' : 'No'}
+            </button>
+            <button
+              type="button"
+              disabled={revokingInvite === invite.id}
+              onClick={() => void cancelInvite(invite.id)}
+              className="inline-flex items-center justify-center gap-1.5 rounded-full bg-[#8D332C] px-3 py-2 text-xs font-semibold text-white disabled:opacity-40"
+            >
+              <XCircle className="h-3.5 w-3.5" />
+              {revokingInvite === invite.id ? (language === 'es' ? 'Cancelando…' : 'Canceling…') : (language === 'es' ? 'Sí, cancelar' : 'Yes, cancel')}
+            </button>
+          </div> : <button
+            type="button"
+            disabled={Boolean(revokingInvite)}
+            onClick={() => setConfirmingInviteId(invite.id)}
+            className="inline-flex items-center justify-center gap-1.5 rounded-full border border-[#A23A32]/15 px-3 py-2 text-xs font-semibold text-[#8D332C] transition hover:bg-[#A23A32]/6 disabled:opacity-40"
+          >
             <XCircle className="h-3.5 w-3.5" />
-            {revokingInvite === invite.id ? (language === 'es' ? 'Cancelando…' : 'Canceling…') : (language === 'es' ? 'Cancelar invitación' : 'Cancel invitation')}
-          </button>
+            {language === 'es' ? 'Cancelar invitación' : 'Cancel invitation'}
+          </button>}
         </div>)}
       </div>
     </section>}
@@ -322,21 +340,30 @@ export function TeamWorkspace({ language }: { language: Language }) {
             const isEditing = editingMemberUid === member.uid;
 
             return <div key={member.uid} className="py-3">
-              <div className={`grid gap-2 ${canEdit ? 'md:grid-cols-[1fr_160px_90px_auto]' : 'md:grid-cols-[1fr_180px_100px]'} md:items-center`}>
+              <div className={`grid gap-2 ${canManageMembers ? 'md:grid-cols-[1fr_160px_90px_auto]' : 'md:grid-cols-[1fr_180px_100px]'} md:items-center`}>
                 <div>
                   <p className="text-sm font-semibold">{member.displayName || member.email}</p>
                   <p className="mt-1 text-xs text-black/40">{member.email}</p>
                 </div>
                 <span className="text-xs text-black/50">{roleName(team.roles, member.roleId)}</span>
                 <span className={`text-xs font-semibold ${member.status === 'active' ? 'text-[#17603D]' : 'text-black/45'}`}>{member.status}</span>
-                {canEdit && <button
+                {canManageMembers && (canEdit ? <button
                   type="button"
                   onClick={() => isEditing ? setEditingMemberUid('') : beginEditMember(member)}
                   className="inline-flex items-center justify-center gap-1.5 rounded-full border border-black/10 px-3 py-2 text-xs font-semibold text-black/60 transition hover:bg-black/[0.03]"
                 >
                   {isEditing ? <X className="h-3.5 w-3.5" /> : <Pencil className="h-3.5 w-3.5" />}
                   {isEditing ? (language === 'es' ? 'Cerrar' : 'Close') : (language === 'es' ? 'Editar' : 'Edit')}
-                </button>}
+                </button> : <span
+                  className="inline-flex items-center justify-center rounded-full border border-black/8 bg-[#F7F7F5] px-3 py-2 text-[10px] font-semibold text-black/40"
+                  title={isOwner
+                    ? (language === 'es' ? 'El propietario no se puede eliminar ni cambiar de rol.' : 'The owner cannot be removed or have their role changed.')
+                    : (language === 'es' ? 'Tu propia cuenta se protege para evitar perder acceso accidentalmente.' : 'Your own account is protected to prevent accidental loss of access.')}
+                >
+                  {isOwner
+                    ? (language === 'es' ? 'Propietario protegido' : 'Protected owner')
+                    : (language === 'es' ? 'Tu cuenta' : 'Your account')}
+                </span>)}
               </div>
 
               {isEditing && <div className="mt-3 rounded-xl border border-black/8 bg-[#F7F7F5] p-4">
@@ -371,17 +398,36 @@ export function TeamWorkspace({ language }: { language: Language }) {
                 </div>
 
                 <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-black/7 pt-4">
-                  <button
+                  {confirmingRemovalUid === member.uid ? <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-[11px] font-medium text-[#8D332C]">{language === 'es' ? '¿Eliminar este miembro?' : 'Remove this member?'}</span>
+                    <button
+                      type="button"
+                      disabled={removingMember === member.uid || savingMember}
+                      onClick={() => setConfirmingRemovalUid('')}
+                      className="rounded-full border border-black/10 px-3 py-2 text-xs font-semibold text-black/55 disabled:opacity-40"
+                    >
+                      {language === 'es' ? 'No' : 'No'}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={removingMember === member.uid || savingMember}
+                      onClick={() => void removeMember(member.uid)}
+                      className="inline-flex items-center gap-1.5 rounded-full bg-[#8D332C] px-3 py-2 text-xs font-semibold text-white disabled:opacity-40"
+                    >
+                      <UserMinus className="h-3.5 w-3.5" />
+                      {removingMember === member.uid
+                        ? (language === 'es' ? 'Eliminando…' : 'Removing…')
+                        : (language === 'es' ? 'Sí, eliminar' : 'Yes, remove')}
+                    </button>
+                  </div> : <button
                     type="button"
-                    disabled={removingMember === member.uid || savingMember}
-                    onClick={() => void removeMember(member.uid, member.displayName || member.email)}
+                    disabled={Boolean(removingMember) || savingMember}
+                    onClick={() => setConfirmingRemovalUid(member.uid)}
                     className="inline-flex items-center gap-1.5 rounded-full border border-[#A23A32]/15 px-3 py-2 text-xs font-semibold text-[#8D332C] transition hover:bg-[#A23A32]/6 disabled:opacity-40"
                   >
                     <UserMinus className="h-3.5 w-3.5" />
-                    {removingMember === member.uid
-                      ? (language === 'es' ? 'Eliminando…' : 'Removing…')
-                      : (language === 'es' ? 'Eliminar miembro' : 'Remove member')}
-                  </button>
+                    {language === 'es' ? 'Eliminar miembro' : 'Remove member'}
+                  </button>}
 
                   <button
                     type="button"

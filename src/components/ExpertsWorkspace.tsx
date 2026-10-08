@@ -75,6 +75,7 @@ function WorkspaceNotificationRelay() {
 export function ExpertsWorkspace({ onExit }: { onExit: () => void }) {
   const inviteFlow = new URLSearchParams(window.location.search).has('invite');
   const [scopeReady, setScopeReady] = useState(inviteFlow);
+  const [verifiedWorkspaceId, setVerifiedWorkspaceId] = useState('');
   installExpertWorkspaceStorageIsolation();
 
   useEffect(() => {
@@ -86,13 +87,14 @@ export function ExpertsWorkspace({ onExit }: { onExit: () => void }) {
     let cancelled = false;
     const unsubscribe = onAuthStateChanged(firebaseAuth, (user) => {
       if (!user) {
-        if (!cancelled) setScopeReady(true);
+        if (!cancelled) { setVerifiedWorkspaceId(''); setScopeReady(true); }
         return;
       }
       void resolveValidExpertWorkspaceId(user)
         .then((workspaceId) => {
           if (cancelled) return;
           if (workspaceId) setActiveExpertWorkspaceStorageScope(workspaceId);
+          setVerifiedWorkspaceId(workspaceId || '');
           setScopeReady(true);
         })
         .catch(() => {
@@ -117,7 +119,7 @@ export function ExpertsWorkspace({ onExit }: { onExit: () => void }) {
           transform-origin: center center !important;
         }
       `}</style>
-      <ExpertsWorkspacePilotV3 onExit={onExit} />
+      <ExpertsWorkspacePilotV3 onExit={onExit} verifiedWorkspaceId={verifiedWorkspaceId} />
       <WorkspaceNotificationRelay />
       <WorkspacePersistenceStatus />
     </>

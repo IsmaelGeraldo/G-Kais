@@ -39,7 +39,7 @@ import {
   workspaceBackground
 } from './WorkspaceSettingsProfile';
 
-type Props = { onExit: () => void };
+type Props = { onExit: () => void; verifiedWorkspaceId?: string };
 type LocalText = { es: string; en: string };
 type Section = 'overview' | 'programs' | 'operations' | 'intelligence';
 type NavItem = {
@@ -149,13 +149,13 @@ function Placeholder({ active, language }: { active: string; language: Language 
   </section>;
 }
 
-export function ExpertsWorkspace({ onExit }: Props) {
+export function ExpertsWorkspace({ onExit, verifiedWorkspaceId }: Props) {
   const inviteToken = new URLSearchParams(window.location.search).get('invite');
   if (inviteToken) return <WorkspaceInviteGate token={inviteToken} />;
-  return <ExpertsWorkspaceShell onExit={onExit} />;
+  return <ExpertsWorkspaceShell onExit={onExit} verifiedWorkspaceId={verifiedWorkspaceId} />;
 }
 
-function ExpertsWorkspaceShell({ onExit }: Props) {
+function ExpertsWorkspaceShell({ onExit, verifiedWorkspaceId }: Props) {
   const { language, setLanguage } = useLanguage();
   const initial = readLocation();
   const [active, setActive] = useState(initial.active);
@@ -205,11 +205,23 @@ function ExpertsWorkspaceShell({ onExit }: Props) {
 
     const loadAccess = async (attempt = 0) => {
       try {
-        const team = await loadExpertWorkspaceTeam();
-        const [workspaceSnapshot, userSnapshot] = await Promise.all([
+        // Parent validated the workspace and set its isolated storage scope.
+        // Do not block first paint on directory, role or invite collection scans.
+        const user = firebaseAuth.currentUser;
+        if (!user) throw new Error('AUTH_REQUIRED');
+        const team = verifiedWorkspaceId
+          ? { workspaceId: verifiedWorkspaceId, currentUid: user.uid, currentMember: null as WorkspaceMember | null }
+          : await loadExpertWorkspaceTeam();
+        const [workspaceSnapshot, userSnapshot, memberSnapshot] = await Promise.all([
           getDoc(doc(firestoreDb, 'expert_workspaces', team.workspaceId)),
-          getDoc(doc(firestoreDb, 'users', team.currentUid))
+          getDoc(doc(firestoreDb, 'users', team.currentUid)),
+          verifiedWorkspaceId ? getDoc(doc(firestoreDb, 'expert_workspaces', team.workspaceId, 'members', team.currentUid)) : Promise.resolve(null)
         ]);
+        const currentMember = memberSnapshot
+          ? (memberSnapshot.exists() && (memberSnapshot.data() as WorkspaceMember).status === 'active'
+              ? memberSnapshot.data() as WorkspaceMember : null)
+          : team.currentMember;
+        if (!currentMember) throw new Error('MEMBERSHIP_REQUIRED');
         const workspaceName = workspaceSnapshot.exists() && typeof workspaceSnapshot.data().name === 'string'
           ? workspaceSnapshot.data().name as string
           : '';
@@ -222,7 +234,7 @@ function ExpertsWorkspaceShell({ onExit }: Props) {
           workspaceId: team.workspaceId,
           currentUid: team.currentUid,
           workspaceName,
-          currentMember: team.currentMember,
+          currentMember,
           photoURL,
           isOwner: team.workspaceId === team.currentUid
         });

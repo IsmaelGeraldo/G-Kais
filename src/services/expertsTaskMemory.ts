@@ -201,17 +201,22 @@ async function readableTaskQuery() {
   return { workspaceId, ref: null, team: false };
 }
 
-export async function persistExpertWorkTask(task: StoredTask): Promise<void> {
+export async function persistExpertWorkTask(task: StoredTask, options?: { throwOnError?: boolean }): Promise<void> {
   const user = firebaseAuth.currentUser;
   const workspaceId = await resolveActiveExpertWorkspaceId(user);
-  if (!user || !workspaceId || !task?.id) return;
+  if (!user || !workspaceId || !task?.id) {
+    if (options?.throwOnError) throw new Error('TASK_SAVE_UNAVAILABLE');
+    return;
+  }
   try {
     await setDoc(taskDocument(workspaceId, task.id), {
       schemaVersion: SCHEMA_VERSION,
       task: sanitizeForFirestore({ ...task, createdByUid: task.createdByUid || user.uid }),
       updatedAt: serverTimestamp()
     }, { merge: true });
-  } catch {}
+  } catch (cause) {
+    if (options?.throwOnError) throw cause;
+  }
 }
 
 async function syncOwnerLegacyTasksFromLocal(): Promise<void> {

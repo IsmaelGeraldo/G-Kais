@@ -190,8 +190,11 @@ export async function createPersonWorkAction(input: {
     updatedAt: serverTimestamp()
   });
 
-  const personRef = doc(firestoreDb, 'expert_workspaces', workspaceId, 'people', input.person.id);
-  await setDoc(personRef, {
+  // Global person-profile edits are owner-only. Team members can delegate
+  // actions without failing on an unrelated restricted profile update.
+  if (workspaceId === user.uid) {
+    const personRef = doc(firestoreDb, 'expert_workspaces', workspaceId, 'people', input.person.id);
+    await setDoc(personRef, {
     outcomeMemory: {
       ...(input.person.outcomeMemory || {}),
       nextActionType: input.type,
@@ -200,7 +203,8 @@ export async function createPersonWorkAction(input: {
       nextActionOwnerUid: input.assignee.uid
     },
     updatedAt: serverTimestamp()
-  }, { merge: true });
+    }, { merge: true });
+  }
 
   await appendExpertRelationshipEvent({
     personId: input.person.id,

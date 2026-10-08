@@ -4,6 +4,8 @@ import {
   doc,
   getDoc,
   getDocs,
+  query,
+  where,
   serverTimestamp,
   setDoc,
   writeBatch
@@ -60,6 +62,18 @@ export type WorkspaceMember = {
   supervisorUid?: string;
   isSupervisor?: boolean;
 };
+
+
+/** Team-scoped assignment labels. Keep role IDs as fallbacks for custom roles. */
+export function workspaceAssigneeLabel(
+  member: Pick<WorkspaceMember, 'uid' | 'displayName' | 'email' | 'roleId'>,
+  roles: readonly Pick<WorkspaceRole, 'id' | 'name'>[]
+): string {
+  const role = roles.find((item) => item.id === member.roleId)?.name
+    || DEFAULT_WORKSPACE_ROLES.find((item) => item.id === member.roleId)?.name
+    || member.roleId || 'Equipo';
+  return `${role} · ${member.displayName || member.email || member.uid}`;
+}
 
 export type WorkspaceInvite = {
   id: string;
@@ -346,12 +360,13 @@ export async function loadExpertWorkspaceTeam(): Promise<WorkspaceTeamState> {
   const currentMember = currentMemberSnapshot.data() as WorkspaceMember;
 
   const canReadMembers = hasWorkspacePermission(currentMember.permissions, 'members.read') || hasWorkspacePermission(currentMember.permissions, 'members.manage');
-  const canReadRoles = hasWorkspacePermission(currentMember.permissions, 'roles.read') || hasWorkspacePermission(currentMember.permissions, 'roles.manage');
   const canReadInvites = hasWorkspacePermission(currentMember.permissions, 'members.manage');
 
   const [membersSnapshot, rolesSnapshot, invitesSnapshot] = await Promise.all([
-    canReadMembers ? getDocs(workspaceSubCollection(workspaceId, 'members')) : Promise.resolve(null),
-    canReadRoles ? getDocs(workspaceSubCollection(workspaceId, 'roles')) : Promise.resolve(null),
+    canReadMembers
+      ? getDocs(workspaceSubCollection(workspaceId, 'members'))
+      : getDocs(query(workspaceSubCollection(workspaceId, 'members'), where('status', '==', 'active'))),
+    getDocs(workspaceSubCollection(workspaceId, 'roles')),
     canReadInvites ? getDocs(workspaceSubCollection(workspaceId, 'invites')) : Promise.resolve(null)
   ]);
 

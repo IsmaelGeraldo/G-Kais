@@ -90,6 +90,8 @@ export function ExpertsWorkspace({ onExit }: { onExit: () => void }) {
         if (!cancelled) { setVerifiedWorkspaceId(''); setScopeReady(true); }
         return;
       }
+      // Discard the previous member's scope while validating a new session.
+      if (!cancelled) { setVerifiedWorkspaceId(''); setScopeReady(false); }
       void resolveValidExpertWorkspaceId(user)
         .then((workspaceId) => {
           if (cancelled) return;

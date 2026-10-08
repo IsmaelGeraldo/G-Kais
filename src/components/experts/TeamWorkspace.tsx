@@ -163,6 +163,7 @@ export function TeamWorkspace({ language }: { language: Language }) {
   const [editingRoleId, setEditingRoleId] = useState('');
   const [editingPermissions, setEditingPermissions] = useState<WorkspacePermission[]>([]);
   const [editingSupervisorUid, setEditingSupervisorUid] = useState('');
+  const [editingDirectReportUids, setEditingDirectReportUids] = useState<string[]>([]);
   const [savingMember, setSavingMember] = useState(false);
   const [removingMember, setRemovingMember] = useState('');
   const [confirmingRemovalUid, setConfirmingRemovalUid] = useState('');
@@ -219,6 +220,21 @@ export function TeamWorkspace({ language }: { language: Language }) {
     ),
     [team, editingMemberUid]
   );
+
+  const directReportOptions = useMemo(
+    () => (team?.members || []).filter((item) =>
+      item &&
+      item.status === 'active' &&
+      typeof item.uid === 'string' &&
+      item.uid &&
+      item.uid !== editingMemberUid &&
+      item.uid !== team?.workspaceId
+    ),
+    [team, editingMemberUid]
+  );
+
+  const directReportCount = (uid: string) =>
+    (team?.members || []).filter((item) => item.supervisorUid === uid && item.status === 'active').length;
 
   const invite = async () => {
     if (!name.trim() || !email.trim() || !role) return;
@@ -285,6 +301,11 @@ export function TeamWorkspace({ language }: { language: Language }) {
     setEditingRoleId(selectedRole);
     setEditingPermissions(nextPermissions);
     setEditingSupervisorUid(member.supervisorUid || '');
+    setEditingDirectReportUids(
+      (team?.members || [])
+        .filter((item) => item.status === 'active' && item.supervisorUid === member.uid)
+        .map((item) => item.uid)
+    );
     setConfirmingRemovalUid('');
     setError('');
   };
@@ -332,10 +353,12 @@ export function TeamWorkspace({ language }: { language: Language }) {
         memberUid: editingMemberUid,
         roleId: editingRoleId,
         permissions: editingPermissions,
-        supervisorUid: editingSupervisorUid
+        supervisorUid: editingSupervisorUid,
+        directReportUids: editingDirectReportUids
       });
       setEditingMemberUid('');
       setEditingSupervisorUid('');
+      setEditingDirectReportUids([]);
       await refresh();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'MEMBER_UPDATE_FAILED');
@@ -493,7 +516,7 @@ export function TeamWorkspace({ language }: { language: Language }) {
     {editingMember && canManageMembers && <TeamEditorBoundary
       resetKey={editingMember.uid}
       language={language}
-      onClose={() => { setEditingMemberUid(''); setEditingSupervisorUid(''); setConfirmingRemovalUid(''); }}
+      onClose={() => { setEditingMemberUid(''); setEditingSupervisorUid(''); setEditingDirectReportUids([]); setConfirmingRemovalUid(''); }}
     ><section className="rounded-2xl border border-black/10 bg-white p-5 md:p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
@@ -503,7 +526,7 @@ export function TeamWorkspace({ language }: { language: Language }) {
         </div>
         <button
           type="button"
-          onClick={() => { setEditingMemberUid(''); setEditingSupervisorUid(''); setConfirmingRemovalUid(''); }}
+          onClick={() => { setEditingMemberUid(''); setEditingSupervisorUid(''); setEditingDirectReportUids([]); setConfirmingRemovalUid(''); }}
           className="inline-flex items-center gap-1.5 rounded-full border border-black/10 px-3 py-2 text-xs font-semibold text-black/55"
         >
           <X className="h-3.5 w-3.5" />{language === 'es' ? 'Cerrar' : 'Close'}
@@ -539,6 +562,52 @@ export function TeamWorkspace({ language }: { language: Language }) {
             ? 'La carga del supervisor mostrará únicamente sus reportes directos.'
             : 'The supervisor workload will show only direct reports.'}</p>
         </div>
+      </div>
+
+      <div className="mt-5 border-t border-black/8 pt-5">
+        <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[.12em] text-black/40">{language === 'es' ? 'Personas a cargo' : 'Direct reports'}</p>
+            <p className="mt-1 max-w-2xl text-[11px] leading-5 text-black/40">{language === 'es'
+              ? 'Selecciona quiénes reportan directamente a este miembro. Al asignar al menos una persona, aparecerá identificado automáticamente como Supervisor en Equipo.'
+              : 'Select who reports directly to this member. With at least one direct report, the member is automatically identified as a Supervisor in Team.'}</p>
+          </div>
+          <span className="rounded-full bg-[#F7F7F5] px-2.5 py-1 text-[10px] font-semibold text-black/45">
+            {editingDirectReportUids.length} {language === 'es' ? 'a cargo' : 'direct reports'}
+          </span>
+        </div>
+
+        {directReportOptions.length ? <div className="grid gap-2 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
+          {directReportOptions.map((member) => {
+            const checked = editingDirectReportUids.includes(member.uid);
+            const conflictsWithSupervisor = member.uid === editingSupervisorUid;
+            const currentSupervisor = member.supervisorUid && member.supervisorUid !== editingMemberUid
+              ? memberLabel(member.supervisorUid)
+              : '';
+            return <label
+              key={member.uid}
+              className={`flex items-start gap-3 rounded-xl border p-3 transition ${conflictsWithSupervisor ? 'cursor-not-allowed border-black/6 bg-black/[0.02] opacity-50' : checked ? 'border-[#0A3F4D]/20 bg-[#0A3F4D]/5' : 'cursor-pointer border-black/8 bg-white hover:border-black/15'}`}
+            >
+              <input
+                type="checkbox"
+                disabled={conflictsWithSupervisor}
+                checked={checked}
+                onChange={(event) => setEditingDirectReportUids((current) => event.target.checked
+                  ? Array.from(new Set([...current, member.uid]))
+                  : current.filter((uid) => uid !== member.uid))}
+                className="mt-0.5"
+              />
+              <span className="min-w-0">
+                <span className="block truncate text-xs font-semibold text-black/75">{member.displayName || member.email || member.uid}</span>
+                <span className="mt-1 block truncate text-[10px] text-black/40">{roleName(team.roles, member.roleId)}</span>
+                {currentSupervisor && <span className="mt-1 block truncate text-[9px] text-[#82570F]">{language === 'es' ? 'Actualmente con' : 'Currently with'}: {currentSupervisor}</span>}
+                {conflictsWithSupervisor && <span className="mt-1 block text-[9px] text-black/35">{language === 'es' ? 'Es el supervisor de este miembro.' : 'This person supervises the member.'}</span>}
+              </span>
+            </label>;
+          })}
+        </div> : <div className="rounded-xl bg-[#F7F7F5] p-4 text-xs text-black/40">
+          {language === 'es' ? 'No hay otros miembros activos disponibles para asignar.' : 'No other active members are available to assign.'}
+        </div>}
       </div>
 
       <div className="mt-5 border-t border-black/8 pt-5">
@@ -605,8 +674,13 @@ export function TeamWorkspace({ language }: { language: Language }) {
                   <p className="mt-1 text-xs text-black/40">{member.email}</p>
                 </div>
                 <div>
-                  <span className="text-xs text-black/50">{roleName(team.roles, member.roleId)}</span>
-                  {member.supervisorUid && <p className="mt-1 truncate text-[10px] text-black/35">{language === 'es' ? 'Supervisor' : 'Supervisor'}: {memberLabel(member.supervisorUid)}</p>}
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-xs text-black/50">{roleName(team.roles, member.roleId)}</span>
+                    {directReportCount(member.uid) > 0 && <span className="rounded-full bg-[#0A3F4D]/8 px-2 py-0.5 text-[9px] font-semibold text-[#0A3F4D]">
+                      {language === 'es' ? 'Supervisor' : 'Supervisor'} · {directReportCount(member.uid)}
+                    </span>}
+                  </div>
+                  {member.supervisorUid && <p className="mt-1 truncate text-[10px] text-black/35">{language === 'es' ? 'Reporta a' : 'Reports to'}: {memberLabel(member.supervisorUid)}</p>}
                 </div>
                 <span className={`text-xs font-semibold ${member.status === 'active' ? 'text-[#17603D]' : 'text-black/45'}`}>{member.status}</span>
                 {canManageMembers && (canEdit ? <button

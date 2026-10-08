@@ -20,30 +20,59 @@
 }
 
 
-/* Light workspace scrollbars: same visual language across lists and panels. */
+/* Experts Workspace scrollbars.
+   One visual system is shared by the page, Relationships, People, profile
+   timelines, horizontal navigation and every internal scroll container. */
+html.gkais-workspace-scrollbars,
+html.gkais-workspace-scrollbars body,
+html.gkais-workspace-scrollbars .gkais-experts-interactions,
+html.gkais-workspace-scrollbars .gkais-experts-interactions *,
 .gkais-light-scrollbar {
-  scrollbar-color: #c9ccc8 transparent;
+  scrollbar-color: #bfc2be transparent;
   scrollbar-width: thin;
 }
 
+html.gkais-workspace-scrollbars::-webkit-scrollbar,
+html.gkais-workspace-scrollbars body::-webkit-scrollbar,
+html.gkais-workspace-scrollbars .gkais-experts-interactions::-webkit-scrollbar,
+html.gkais-workspace-scrollbars .gkais-experts-interactions *::-webkit-scrollbar,
 .gkais-light-scrollbar::-webkit-scrollbar {
   width: 8px;
+  height: 8px;
 }
 
+html.gkais-workspace-scrollbars::-webkit-scrollbar-track,
+html.gkais-workspace-scrollbars body::-webkit-scrollbar-track,
+html.gkais-workspace-scrollbars .gkais-experts-interactions::-webkit-scrollbar-track,
+html.gkais-workspace-scrollbars .gkais-experts-interactions *::-webkit-scrollbar-track,
 .gkais-light-scrollbar::-webkit-scrollbar-track {
   background: transparent;
 }
 
+html.gkais-workspace-scrollbars::-webkit-scrollbar-thumb,
+html.gkais-workspace-scrollbars body::-webkit-scrollbar-thumb,
+html.gkais-workspace-scrollbars .gkais-experts-interactions::-webkit-scrollbar-thumb,
+html.gkais-workspace-scrollbars .gkais-experts-interactions *::-webkit-scrollbar-thumb,
 .gkais-light-scrollbar::-webkit-scrollbar-thumb {
   border: 2px solid transparent;
   border-radius: 999px;
-  background: #c9ccc8;
+  background: #bfc2be;
   background-clip: padding-box;
 }
 
+html.gkais-workspace-scrollbars::-webkit-scrollbar-thumb:hover,
+html.gkais-workspace-scrollbars body::-webkit-scrollbar-thumb:hover,
+html.gkais-workspace-scrollbars .gkais-experts-interactions::-webkit-scrollbar-thumb:hover,
+html.gkais-workspace-scrollbars .gkais-experts-interactions *::-webkit-scrollbar-thumb:hover,
 .gkais-light-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #aeb2ad;
+  background: #9fa39e;
   background-clip: padding-box;
+}
+
+html.gkais-workspace-scrollbars::-webkit-scrollbar-corner,
+html.gkais-workspace-scrollbars body::-webkit-scrollbar-corner,
+html.gkais-workspace-scrollbars .gkais-experts-interactions *::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 .gkais-black-surface section.bg-white,

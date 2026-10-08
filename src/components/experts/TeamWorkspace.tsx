@@ -522,8 +522,8 @@ export function TeamWorkspace({ language }: { language: Language }) {
 
 
 
-    <div className={`grid gap-5 ${editingMemberUid ? 'grid-cols-1' : 'lg:grid-cols-[1.1fr_0.9fr]'}`}>
-      <section className="rounded-2xl border border-black/10 bg-white p-5">
+    <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+      <section className="min-w-0 rounded-2xl border border-black/10 bg-white p-5">
         <div className="flex items-center gap-2">
           <UsersRound className="h-4 w-4 text-[#0A3F4D]" />
           <p className="font-semibold">{language === 'es' ? 'Miembros' : 'Members'}</p>
@@ -579,7 +579,7 @@ export function TeamWorkspace({ language }: { language: Language }) {
       resetKey={editingMember.uid}
       language={language}
       onClose={() => { setEditingMemberUid(''); setEditingSupervisorUid(''); setEditingDirectReportUids([]); setEditingIsSupervisor(false); setConfirmingRemovalUid(''); }}
-    ><section className="mt-3 mx-auto w-full max-w-[900px] rounded-2xl border border-black/10 bg-white p-4 shadow-sm sm:p-5">
+    ><section className="mt-3 w-full min-w-0 rounded-2xl border border-black/10 bg-[#FBFBFA] p-3 shadow-sm sm:p-4">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#0A3F4D]">{language === 'es' ? 'EDITAR MIEMBRO' : 'EDIT MEMBER'}</p>
@@ -595,7 +595,7 @@ export function TeamWorkspace({ language }: { language: Language }) {
         </button>
       </div>
 
-      <div className="mt-4 grid gap-3 md:grid-cols-2">
+      <div className="mt-4 grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr))]">
         <div className="rounded-xl border border-black/8 bg-[#F7F7F5] p-4">
           <label className="text-[10px] font-semibold uppercase tracking-[.12em] text-black/40">{language === 'es' ? 'Rol' : 'Role'}</label>
           <select
@@ -670,7 +670,7 @@ export function TeamWorkspace({ language }: { language: Language }) {
           <p className="mt-2 text-[10px] text-black/45">{language === 'es'
             ? 'El grupo reúne miembros con el mismo rol. Puedes ajustar cada persona individualmente.'
             : 'The group consists of members with the same role. Adjust individuals below.'}</p>
-          <div className="gkais-light-scrollbar mt-3 grid max-h-[235px] gap-2 overflow-y-auto sm:grid-cols-2">
+          <div className="gkais-light-scrollbar mt-3 grid max-h-[235px] gap-2 overflow-y-auto [grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr))]">
             {directReportOptions.filter((m) => reportRoleFilter === 'all' || m.roleId === reportRoleFilter).map((m) => {
               const forbidden = m.uid === editingSupervisorUid;
               const priorManager = m.supervisorUid && m.supervisorUid !== editingMemberUid ? memberLabel(m.supervisorUid) : '';
@@ -735,7 +735,7 @@ export function TeamWorkspace({ language }: { language: Language }) {
         </div> : <p className="mt-4 text-sm text-black/45">{language === 'es' ? 'Tu rol no permite ver el equipo completo.' : 'Your role cannot view the full team.'}</p>}
       </section>
 
-      <section className="rounded-2xl border border-black/10 bg-white p-5">
+      <section className="min-w-0 rounded-2xl border border-black/10 bg-white p-5">
         <p className="font-semibold">{language === 'es' ? 'Roles' : 'Roles'}</p>
         <div className="mt-3 space-y-2">
           {team.roles.map((item) => <div key={item.id} className="rounded-xl bg-[#F7F7F5] p-3">

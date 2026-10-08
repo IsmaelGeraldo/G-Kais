@@ -164,6 +164,9 @@ export function TeamWorkspace({ language }: { language: Language }) {
   const [editingPermissions, setEditingPermissions] = useState<WorkspacePermission[]>([]);
   const [editingSupervisorUid, setEditingSupervisorUid] = useState('');
   const [editingDirectReportUids, setEditingDirectReportUids] = useState<string[]>([]);
+  const [editingIsSupervisor, setEditingIsSupervisor] = useState(false);
+  const [reportRoleFilter, setReportRoleFilter] = useState('all');
+  const [editingPermissionsOpen, setEditingPermissionsOpen] = useState(false);
   const [savingMember, setSavingMember] = useState(false);
   const [removingMember, setRemovingMember] = useState('');
   const [confirmingRemovalUid, setConfirmingRemovalUid] = useState('');
@@ -301,11 +304,13 @@ export function TeamWorkspace({ language }: { language: Language }) {
     setEditingRoleId(selectedRole);
     setEditingPermissions(nextPermissions);
     setEditingSupervisorUid(member.supervisorUid || '');
-    setEditingDirectReportUids(
-      (team?.members || [])
-        .filter((item) => item.status === 'active' && item.supervisorUid === member.uid)
-        .map((item) => item.uid)
-    );
+    const reports = (team?.members || [])
+      .filter((item) => item.status === 'active' && item.supervisorUid === member.uid)
+      .map((item) => item.uid);
+    setEditingDirectReportUids(reports);
+    setEditingIsSupervisor(member.isSupervisor === true || reports.length > 0);
+    setReportRoleFilter('all');
+    setEditingPermissionsOpen(false);
     setConfirmingRemovalUid('');
     setError('');
   };
@@ -354,11 +359,13 @@ export function TeamWorkspace({ language }: { language: Language }) {
         roleId: editingRoleId,
         permissions: editingPermissions,
         supervisorUid: editingSupervisorUid,
-        directReportUids: editingDirectReportUids
+        directReportUids: editingIsSupervisor ? editingDirectReportUids : [],
+        isSupervisor: editingIsSupervisor
       });
       setEditingMemberUid('');
       setEditingSupervisorUid('');
       setEditingDirectReportUids([]);
+      setEditingIsSupervisor(false);
       await refresh();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'MEMBER_UPDATE_FAILED');
@@ -516,8 +523,8 @@ export function TeamWorkspace({ language }: { language: Language }) {
     {editingMember && canManageMembers && <TeamEditorBoundary
       resetKey={editingMember.uid}
       language={language}
-      onClose={() => { setEditingMemberUid(''); setEditingSupervisorUid(''); setEditingDirectReportUids([]); setConfirmingRemovalUid(''); }}
-    ><section className="rounded-2xl border border-black/10 bg-white p-5 md:p-6">
+      onClose={() => { setEditingMemberUid(''); setEditingSupervisorUid(''); setEditingDirectReportUids([]); setEditingIsSupervisor(false); setConfirmingRemovalUid(''); }}
+    ><section className="mx-auto w-full max-w-[900px] rounded-2xl border border-black/10 bg-white p-4 shadow-sm sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#0A3F4D]">{language === 'es' ? 'EDITAR MIEMBRO' : 'EDIT MEMBER'}</p>
@@ -526,14 +533,14 @@ export function TeamWorkspace({ language }: { language: Language }) {
         </div>
         <button
           type="button"
-          onClick={() => { setEditingMemberUid(''); setEditingSupervisorUid(''); setEditingDirectReportUids([]); setConfirmingRemovalUid(''); }}
+          onClick={() => { setEditingMemberUid(''); setEditingSupervisorUid(''); setEditingDirectReportUids([]); setEditingIsSupervisor(false); setConfirmingRemovalUid(''); }}
           className="inline-flex items-center gap-1.5 rounded-full border border-black/10 px-3 py-2 text-xs font-semibold text-black/55"
         >
           <X className="h-3.5 w-3.5" />{language === 'es' ? 'Cerrar' : 'Close'}
         </button>
       </div>
 
-      <div className="mt-5 grid gap-4 md:grid-cols-2">
+      <div className="mt-4 grid gap-3 md:grid-cols-2">
         <div className="rounded-xl border border-black/8 bg-[#F7F7F5] p-4">
           <label className="text-[10px] font-semibold uppercase tracking-[.12em] text-black/40">{language === 'es' ? 'Rol' : 'Role'}</label>
           <select
@@ -549,7 +556,7 @@ export function TeamWorkspace({ language }: { language: Language }) {
         </div>
 
         <div className="rounded-xl border border-black/8 bg-[#F7F7F5] p-4">
-          <label className="text-[10px] font-semibold uppercase tracking-[.12em] text-black/40">{language === 'es' ? 'Encargado / supervisor' : 'Lead / supervisor'}</label>
+          <label className="text-[10px] font-semibold uppercase tracking-[.12em] text-black/40">{language === 'es' ? 'A quién reporta' : 'Reports to'}</label>
           <select
             value={editingSupervisorUid}
             onChange={(event) => {
@@ -561,7 +568,7 @@ export function TeamWorkspace({ language }: { language: Language }) {
             }}
             className="mt-2 w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm"
           >
-            <option value="">{language === 'es' ? 'Sin supervisor' : 'No supervisor'}</option>
+            <option value="">{language === 'es' ? 'Sin superior asignado' : 'No manager assigned'}</option>
             {supervisorOptions.map((item) => <option key={item.uid} value={item.uid}>{item.displayName || item.email || item.uid}</option>)}
           </select>
           <p className="mt-2 text-[10px] leading-4 text-black/40">{language === 'es'
@@ -570,66 +577,79 @@ export function TeamWorkspace({ language }: { language: Language }) {
         </div>
       </div>
 
-      <div className="mt-5 border-t border-black/8 pt-5">
-        <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[.12em] text-black/40">{language === 'es' ? 'Personas a cargo' : 'Direct reports'}</p>
-            <p className="mt-1 max-w-2xl text-[11px] leading-5 text-black/40">{language === 'es'
-              ? 'Selecciona quiénes reportan directamente a este miembro. Al asignar al menos una persona, aparecerá identificado automáticamente como Supervisor en Equipo.'
-              : 'Select who reports directly to this member. With at least one direct report, the member is automatically identified as a Supervisor in Team.'}</p>
+      <section className="mt-4 rounded-xl border border-black/10 bg-[#F7F7F5] p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold">{language === 'es' ? 'Responsabilidad de equipo' : 'Team responsibility'}</p>
+            <p className="mt-1 text-[11px] text-black/45">{language === 'es' ? 'Nombra un supervisor y selecciona sus miembros o un grupo.' : 'Appoint a supervisor and select their people or a group.'}</p>
           </div>
-          <span className="rounded-full bg-[#F7F7F5] px-2.5 py-1 text-[10px] font-semibold text-black/45">
-            {editingDirectReportUids.length} {language === 'es' ? 'a cargo' : 'direct reports'}
-          </span>
+          <button type="button" aria-pressed={editingIsSupervisor} onClick={() => setEditingIsSupervisor((value) => !value)}
+            className={`rounded-full px-4 py-2.5 text-xs font-semibold ${editingIsSupervisor ? 'bg-[#0A3F4D] text-white' : 'border border-black/15 bg-white text-black/70'}`}>
+            {editingIsSupervisor
+              ? (language === 'es' ? '✓ Supervisor designado · Desactivar' : '✓ Supervisor appointed · Disable')
+              : (language === 'es' ? '+ Nombrar encargado / supervisor' : '+ Appoint lead / supervisor')}
+          </button>
         </div>
-
-        {directReportOptions.length ? <div className="grid gap-2 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
-          {directReportOptions.map((member) => {
-            const checked = editingDirectReportUids.includes(member.uid);
-            const conflictsWithSupervisor = member.uid === editingSupervisorUid;
-            const currentSupervisor = member.supervisorUid && member.supervisorUid !== editingMemberUid
-              ? memberLabel(member.supervisorUid)
-              : '';
-            return <label
-              key={member.uid}
-              className={`flex items-start gap-3 rounded-xl border p-3 transition ${conflictsWithSupervisor ? 'cursor-not-allowed border-black/6 bg-black/[0.02] opacity-50' : checked ? 'border-[#0A3F4D]/20 bg-[#0A3F4D]/5' : 'cursor-pointer border-black/8 bg-white hover:border-black/15'}`}
-            >
-              <input
-                type="checkbox"
-                disabled={conflictsWithSupervisor}
-                checked={checked}
-                onChange={(event) => setEditingDirectReportUids((current) => event.target.checked
-                  ? Array.from(new Set([...current, member.uid]))
-                  : current.filter((uid) => uid !== member.uid))}
-                className="mt-0.5"
-              />
-              <span className="min-w-0">
-                <span className="block truncate text-xs font-semibold text-black/75">{member.displayName || member.email || member.uid}</span>
-                <span className="mt-1 block truncate text-[10px] text-black/40">{roleName(team.roles, member.roleId)}</span>
-                {currentSupervisor && <span className="mt-1 block truncate text-[9px] text-[#82570F]">{language === 'es' ? 'Actualmente con' : 'Currently with'}: {currentSupervisor}</span>}
-                {conflictsWithSupervisor && <span className="mt-1 block text-[9px] text-black/35">{language === 'es' ? 'Es el supervisor de este miembro.' : 'This person supervises the member.'}</span>}
-              </span>
-            </label>;
-          })}
-        </div> : <div className="rounded-xl bg-[#F7F7F5] p-4 text-xs text-black/40">
-          {language === 'es' ? 'No hay otros miembros activos disponibles para asignar.' : 'No other active members are available to assign.'}
+        {editingIsSupervisor && <div className="mt-4 border-t border-black/10 pt-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-[11px] font-semibold">{language === 'es' ? 'Personas a cargo' : 'Direct reports'}</p>
+            <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold">{editingDirectReportUids.length} {language === 'es' ? 'asignados' : 'assigned'}</span>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <select value={reportRoleFilter} onChange={(event) => setReportRoleFilter(event.target.value)}
+              aria-label={language === 'es' ? 'Grupo por rol' : 'Group by role'}
+              className="min-w-[165px] flex-1 rounded-xl border border-black/10 bg-white px-3 py-2 text-xs">
+              <option value="all">{language === 'es' ? 'Todos los miembros' : 'All members'}</option>
+              {editableRoles.filter((r) => directReportOptions.some((m) => m.roleId === r.id))
+                .map((r) => <option key={r.id} value={r.id}>{language === 'es' ? 'Grupo: ' : 'Group: '}{r.name}</option>)}
+            </select>
+            <button type="button" onClick={() => setEditingDirectReportUids((prev) => Array.from(new Set([
+              ...prev,...directReportOptions.filter((m) => (reportRoleFilter === 'all' || m.roleId === reportRoleFilter) &&
+                m.uid !== editingSupervisorUid).map((m) => m.uid)
+            ])))} className="rounded-full border border-black/10 bg-white px-3 py-2 text-xs font-semibold">
+              {language === 'es' ? 'Asignar grupo visible' : 'Assign visible group'}
+            </button>
+            <button type="button" onClick={() => setEditingDirectReportUids([])}
+              className="rounded-full border border-black/10 bg-white px-3 py-2 text-xs">{language === 'es' ? 'Limpiar' : 'Clear'}</button>
+          </div>
+          <p className="mt-2 text-[10px] text-black/45">{language === 'es'
+            ? 'El grupo reúne miembros con el mismo rol. Puedes ajustar cada persona individualmente.'
+            : 'The group consists of members with the same role. Adjust individuals below.'}</p>
+          <div className="gkais-light-scrollbar mt-3 grid max-h-[235px] gap-2 overflow-y-auto sm:grid-cols-2">
+            {directReportOptions.filter((m) => reportRoleFilter === 'all' || m.roleId === reportRoleFilter).map((m) => {
+              const forbidden = m.uid === editingSupervisorUid;
+              const priorManager = m.supervisorUid && m.supervisorUid !== editingMemberUid ? memberLabel(m.supervisorUid) : '';
+              return <label key={m.uid} className={`flex items-start gap-2 rounded-xl border border-black/10 bg-white p-3 ${forbidden ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'}`}>
+                <input className="mt-0.5" type="checkbox" disabled={forbidden} checked={editingDirectReportUids.includes(m.uid)}
+                  onChange={(event) => setEditingDirectReportUids((prev) => event.target.checked
+                    ? Array.from(new Set([...prev, m.uid])) : prev.filter((uid) => uid !== m.uid))}/>
+                <span className="min-w-0">
+                  <span className="block truncate text-xs font-semibold">{m.displayName || m.email || m.uid}</span>
+                  <span className="mt-1 block text-[10px] text-black/40">{roleName(team.roles, m.roleId)}</span>
+                  {priorManager && <span className="mt-1 block text-[10px] text-[#82570F]">{language === 'es' ? 'Actualmente con: ' : 'Currently with: '}{priorManager}</span>}
+                </span>
+              </label>;
+            })}
+            {directReportOptions.length === 0 && <p className="text-xs text-black/45">{language === 'es' ? 'No hay miembros disponibles.' : 'No eligible members.'}</p>}
+          </div>
         </div>}
-      </div>
+        {!editingIsSupervisor && <p className="mt-2 text-[10px] leading-5 text-black/40">{language === 'es'
+          ? 'Al desactivar y guardar, sus reportes actuales quedarán sin supervisor.'
+          : 'Disabling and saving will unassign current direct reports.'}</p>}
+      </section>
 
-      <div className="mt-5 border-t border-black/8 pt-5">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[.12em] text-black/40">{language === 'es' ? 'Permisos' : 'Permissions'}</p>
-            <p className="mt-1 text-[11px] text-black/40">{language === 'es' ? 'Activa solo lo necesario para su trabajo.' : 'Enable only what is needed for this role.'}</p>
-          </div>
-          <span className="rounded-full bg-[#F7F7F5] px-2.5 py-1 text-[10px] font-semibold text-black/45">{normalizePermissionList(editingPermissions).length} {language === 'es' ? 'activos' : 'active'}</span>
-        </div>
-        <PermissionChecklist
-          available={normalizePermissionList(available)}
-          selected={normalizePermissionList(editingPermissions)}
-          setSelected={setEditingPermissions}
-          language={language}
-        />
+      <div className="mt-4 border-t border-black/8 pt-3">
+        <button type="button" aria-expanded={editingPermissionsOpen} onClick={() => setEditingPermissionsOpen((v) => !v)}
+          className="flex w-full items-center justify-between gap-3 rounded-xl px-2 py-2 text-left hover:bg-black/[0.025]">
+          <span><span className="block text-xs font-semibold">{language === 'es' ? 'Permisos individuales' : 'Individual permissions'}</span>
+            <span className="mt-1 block text-[10px] text-black/40">{language === 'es' ? 'Configuración avanzada opcional' : 'Optional advanced settings'}</span></span>
+          <span className="text-xs text-black/50">{normalizePermissionList(editingPermissions).length} · {editingPermissionsOpen
+            ? (language === 'es' ? 'Ocultar' : 'Hide') : (language === 'es' ? 'Editar' : 'Edit')}</span>
+        </button>
+        {editingPermissionsOpen && <div className="mt-3">
+          <PermissionChecklist available={normalizePermissionList(available)} selected={normalizePermissionList(editingPermissions)}
+            setSelected={setEditingPermissions} language={language}/>
+        </div>}
       </div>
 
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-black/8 pt-4">
@@ -682,7 +702,7 @@ export function TeamWorkspace({ language }: { language: Language }) {
                 <div>
                   <div className="flex flex-wrap items-center gap-1.5">
                     <span className="text-xs text-black/50">{roleName(team.roles, member.roleId)}</span>
-                    {directReportCount(member.uid) > 0 && <span className="rounded-full bg-[#0A3F4D]/8 px-2 py-0.5 text-[9px] font-semibold text-[#0A3F4D]">
+                    {(member.isSupervisor || directReportCount(member.uid) > 0) && <span className="rounded-full bg-[#0A3F4D]/8 px-2 py-0.5 text-[9px] font-semibold text-[#0A3F4D]">
                       {language === 'es' ? 'Supervisor' : 'Supervisor'} · {directReportCount(member.uid)}
                     </span>}
                   </div>

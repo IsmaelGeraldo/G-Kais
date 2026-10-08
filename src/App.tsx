@@ -108,6 +108,12 @@ function AppContent() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
+  useEffect(() => {
+    const workspaceActive = showExpertsWorkspace || showSessionMemory || showFormationClassSession;
+    document.documentElement.classList.toggle('gkais-workspace-scrollbars', workspaceActive);
+    return () => document.documentElement.classList.remove('gkais-workspace-scrollbars');
+  }, [showExpertsWorkspace, showSessionMemory, showFormationClassSession]);
+
   const openAdmin = () => {
     if (import.meta.env.DEV) window.sessionStorage.setItem('gkais-dev-admin', '1');
     window.history.pushState({}, '', '/hq');

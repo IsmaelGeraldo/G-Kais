@@ -331,7 +331,7 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
                   onClick={() => waiting(task)} className="inline-flex items-center rounded-full border border-[#0A3F4D]/15 bg-white px-4 py-2 text-xs font-semibold text-[#0A3F4D] disabled:opacity-40">
                   {language === 'es' ? 'En espera de respuesta' : 'Waiting for reply'}
                 </button>}
-              </div></div></div>
+              </div></div>
             <div className="min-w-0">
               <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#0A3F4D]">{language === 'es' ? 'SIGUIENTE ACCIÓN' : 'NEXT ACTION'}</p>
               <label className="mt-2 inline-flex cursor-pointer items-center gap-2 text-xs text-black/65">

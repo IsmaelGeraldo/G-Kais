@@ -6,7 +6,8 @@ import {
   getDoc,
   getDocs,
   serverTimestamp,
-  setDoc
+  setDoc,
+  writeBatch
 } from 'firebase/firestore';
 import { firebaseAuth, firestoreDb } from '../lib/firebase';
 import {
@@ -69,6 +70,7 @@ export async function updateExpertWorkspaceMember(input: {
   roleId: string;
   permissions: Array<WorkspacePermission | '*'>;
   supervisorUid?: string;
+  directReportUids?: string[];
 }): Promise<void> {
   const user = firebaseAuth.currentUser;
   const workspaceId = await resolveValidExpertWorkspaceId(user);
@@ -91,37 +93,87 @@ export async function updateExpertWorkspaceMember(input: {
   const nextPermissions = Array.from(new Set(input.permissions.filter((permission) => permission !== '*')));
   const supervisorUid = (input.supervisorUid || '').trim();
 
+  const membersSnapshot = await getDocs(collection(firestoreDb, 'expert_workspaces', workspaceId, 'members'));
+  const memberByUid = new Map<string, WorkspaceMember>();
+  const supervisorByMember = new Map<string, string>();
+
+  membersSnapshot.docs.forEach((item) => {
+    const data = item.data() as WorkspaceMember;
+    memberByUid.set(item.id, { ...data, uid: data.uid || item.id });
+    if (typeof data.supervisorUid === 'string' && data.supervisorUid) supervisorByMember.set(item.id, data.supervisorUid);
+  });
+
   if (supervisorUid) {
     if (supervisorUid === input.memberUid) throw new Error('SUPERVISOR_CANNOT_BE_SELF');
-    const supervisorSnapshot = await getDoc(workspaceSubDocument(workspaceId, 'members', supervisorUid));
-    if (!supervisorSnapshot.exists()) throw new Error('SUPERVISOR_NOT_FOUND');
-    const supervisor = supervisorSnapshot.data() as WorkspaceMember;
+    const supervisor = memberByUid.get(supervisorUid);
+    if (!supervisor) throw new Error('SUPERVISOR_NOT_FOUND');
     if (supervisor.status !== 'active') throw new Error('SUPERVISOR_NOT_ACTIVE');
+  }
 
-    const membersSnapshot = await getDocs(collection(firestoreDb, 'expert_workspaces', workspaceId, 'members'));
-    const supervisorByMember = new Map<string, string>();
-    membersSnapshot.docs.forEach((item) => {
-      const data = item.data() as WorkspaceMember;
-      if (typeof data.supervisorUid === 'string' && data.supervisorUid) supervisorByMember.set(item.id, data.supervisorUid);
-    });
-    supervisorByMember.set(input.memberUid, supervisorUid);
+  const requestedDirectReports = Array.from(new Set(
+    (input.directReportUids || [])
+      .map((uid) => uid.trim())
+      .filter(Boolean)
+  ));
 
-    let cursor = supervisorUid;
-    const visited = new Set<string>();
+  if (requestedDirectReports.includes(input.memberUid)) throw new Error('SUPERVISOR_CANNOT_BE_SELF');
+  if (requestedDirectReports.includes(workspaceId)) throw new Error('OWNER_CANNOT_BE_DIRECT_REPORT');
+
+  requestedDirectReports.forEach((uid) => {
+    const report = memberByUid.get(uid);
+    if (!report) throw new Error('DIRECT_REPORT_NOT_FOUND');
+    if (report.status !== 'active') throw new Error('DIRECT_REPORT_NOT_ACTIVE');
+  });
+
+  supervisorByMember.set(input.memberUid, supervisorUid);
+
+  const previousDirectReports = Array.from(memberByUid.entries())
+    .filter(([, value]) => value.supervisorUid === input.memberUid)
+    .map(([uid]) => uid);
+
+  previousDirectReports
+    .filter((uid) => !requestedDirectReports.includes(uid))
+    .forEach((uid) => supervisorByMember.set(uid, ''));
+
+  requestedDirectReports.forEach((uid) => supervisorByMember.set(uid, input.memberUid));
+
+  const validateNoCycle = (memberUid: string) => {
+    let cursor = supervisorByMember.get(memberUid) || '';
+    const visited = new Set<string>([memberUid]);
     while (cursor) {
-      if (cursor === input.memberUid) throw new Error('SUPERVISOR_CYCLE');
       if (visited.has(cursor)) throw new Error('SUPERVISOR_CYCLE');
       visited.add(cursor);
       cursor = supervisorByMember.get(cursor) || '';
     }
-  }
+  };
 
-  await setDoc(memberRef, {
+  supervisorByMember.forEach((_, uid) => validateNoCycle(uid));
+
+  const batch = writeBatch(firestoreDb);
+  batch.set(memberRef, {
     roleId: input.roleId,
     permissions: nextPermissions,
     supervisorUid,
     updatedAt: serverTimestamp()
   }, { merge: true });
+
+  previousDirectReports
+    .filter((uid) => !requestedDirectReports.includes(uid))
+    .forEach((uid) => {
+      batch.set(workspaceSubDocument(workspaceId, 'members', uid), {
+        supervisorUid: '',
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+    });
+
+  requestedDirectReports.forEach((uid) => {
+    batch.set(workspaceSubDocument(workspaceId, 'members', uid), {
+      supervisorUid: input.memberUid,
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+  });
+
+  await batch.commit();
 
   void appendExpertAuditLog({
     entityType: 'workspace_member',
@@ -133,7 +185,9 @@ export async function updateExpertWorkspaceMember(input: {
       previousPermissions: member.permissions,
       nextPermissions,
       previousSupervisorUid: member.supervisorUid || '',
-      nextSupervisorUid: supervisorUid
+      nextSupervisorUid: supervisorUid,
+      previousDirectReportUids: previousDirectReports,
+      nextDirectReportUids: requestedDirectReports
     }
   }).catch(() => {});
 

@@ -1,4 +1,5 @@
 import type { User } from 'firebase/auth';
+import { planHierarchyChange } from './expertsWorkspaceHierarchy';
 import {
   collection,
   deleteDoc,
@@ -92,90 +93,43 @@ export async function updateExpertWorkspaceMember(input: {
 
   const member = memberSnapshot.data() as WorkspaceMember;
   const nextPermissions = Array.from(new Set(input.permissions.filter((permission) => permission !== '*')));
-  const supervisorUid = (input.supervisorUid || '').trim();
-
   const membersSnapshot = await getDocs(collection(firestoreDb, 'expert_workspaces', workspaceId, 'members'));
-  const memberByUid = new Map<string, WorkspaceMember>();
-  const supervisorByMember = new Map<string, string>();
-
-  membersSnapshot.docs.forEach((item) => {
-    const data = item.data() as WorkspaceMember;
-    memberByUid.set(item.id, { ...data, uid: data.uid || item.id });
-    if (typeof data.supervisorUid === 'string' && data.supervisorUid) supervisorByMember.set(item.id, data.supervisorUid);
-  });
-
-  if (supervisorUid) {
-    if (supervisorUid === input.memberUid) throw new Error('SUPERVISOR_CANNOT_BE_SELF');
-    const supervisor = memberByUid.get(supervisorUid);
-    if (!supervisor) throw new Error('SUPERVISOR_NOT_FOUND');
-    if (supervisor.status !== 'active') throw new Error('SUPERVISOR_NOT_ACTIVE');
-  }
-
   const supervisorEnabled = input.isSupervisor ?? Boolean(input.directReportUids?.length);
-  const requestedDirectReports = Array.from(new Set(
-    (supervisorEnabled ? input.directReportUids || [] : [])
-      .map((uid) => uid.trim())
-      .filter(Boolean)
-  ));
-
-  if (requestedDirectReports.length > 350) throw new Error('TOO_MANY_DIRECT_REPORTS');
-  if (requestedDirectReports.includes(input.memberUid)) throw new Error('SUPERVISOR_CANNOT_BE_SELF');
-  if (requestedDirectReports.includes(workspaceId)) throw new Error('OWNER_CANNOT_BE_DIRECT_REPORT');
-
-  requestedDirectReports.forEach((uid) => {
-    const report = memberByUid.get(uid);
-    if (!report) throw new Error('DIRECT_REPORT_NOT_FOUND');
-    if (report.status !== 'active') throw new Error('DIRECT_REPORT_NOT_ACTIVE');
-  });
-
-  supervisorByMember.set(input.memberUid, supervisorUid);
-
-  const previousDirectReports = Array.from(memberByUid.entries())
-    .filter(([, value]) => value.supervisorUid === input.memberUid)
-    .map(([uid]) => uid);
-
-  previousDirectReports
-    .filter((uid) => !requestedDirectReports.includes(uid))
-    .forEach((uid) => supervisorByMember.set(uid, ''));
-
-  requestedDirectReports.forEach((uid) => supervisorByMember.set(uid, input.memberUid));
-
-  const validateNoCycle = (memberUid: string) => {
-    let cursor = supervisorByMember.get(memberUid) || '';
-    const visited = new Set<string>([memberUid]);
-    while (cursor) {
-      if (visited.has(cursor)) throw new Error('SUPERVISOR_CYCLE');
-      visited.add(cursor);
-      cursor = supervisorByMember.get(cursor) || '';
+  const hierarchyPlan = planHierarchyChange(
+    membersSnapshot.docs.map((item) => ({
+      ...(item.data() as WorkspaceMember),
+      uid: item.id
+    })),
+    {
+      workspaceId,
+      memberUid: input.memberUid,
+      supervisorUid: input.supervisorUid,
+      isSupervisor: supervisorEnabled,
+      directReportUids: input.directReportUids
     }
-  };
-
-  supervisorByMember.forEach((_, uid) => validateNoCycle(uid));
+  );
 
   const batch = writeBatch(firestoreDb);
   batch.set(memberRef, {
     roleId: input.roleId,
     permissions: nextPermissions,
-    supervisorUid,
+    supervisorUid: hierarchyPlan.supervisorUid,
     isSupervisor: supervisorEnabled,
     updatedAt: serverTimestamp()
   }, { merge: true });
 
-  previousDirectReports
-    .filter((uid) => !requestedDirectReports.includes(uid))
-    .forEach((uid) => {
-      batch.set(workspaceSubDocument(workspaceId, 'members', uid), {
-        supervisorUid: '',
-        updatedAt: serverTimestamp()
-      }, { merge: true });
-    });
-
-  requestedDirectReports.forEach((uid) => {
+  for (const uid of hierarchyPlan.unassignDirectReportUids) {
+    batch.set(workspaceSubDocument(workspaceId, 'members', uid), {
+      supervisorUid: '',
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+  }
+  for (const uid of hierarchyPlan.assignDirectReportUids) {
     batch.set(workspaceSubDocument(workspaceId, 'members', uid), {
       supervisorUid: input.memberUid,
       updatedAt: serverTimestamp()
     }, { merge: true });
-  });
+  }
 
   await batch.commit();
 
@@ -189,11 +143,11 @@ export async function updateExpertWorkspaceMember(input: {
       previousPermissions: member.permissions,
       nextPermissions,
       previousSupervisorUid: member.supervisorUid || '',
-      nextSupervisorUid: supervisorUid,
-      previousSupervisorEnabled: Boolean(member.isSupervisor || previousDirectReports.length),
+      nextSupervisorUid: hierarchyPlan.supervisorUid,
+      previousSupervisorEnabled: Boolean(member.isSupervisor || hierarchyPlan.previousDirectReportUids.length),
       nextSupervisorEnabled: supervisorEnabled,
-      previousDirectReportUids: previousDirectReports,
-      nextDirectReportUids: requestedDirectReports
+      previousDirectReportUids: hierarchyPlan.previousDirectReportUids,
+      nextDirectReportUids: hierarchyPlan.requestedDirectReportUids
     }
   }).catch(() => {});
 

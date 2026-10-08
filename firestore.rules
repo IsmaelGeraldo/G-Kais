@@ -618,7 +618,7 @@ service cloud.firestore {
     match /expert_workspaces/{workspaceId}/members/{memberId} {
       allow read: if ownsExpertWorkspace(workspaceId) ||
         (request.auth != null && request.auth.uid == memberId) ||
-        (request.auth != null &&
+        (isExpertWorkspaceMember(workspaceId) &&
           'supervisorUid' in resource.data &&
           resource.data.supervisorUid == request.auth.uid) ||
         hasWorkspacePermission(workspaceId, 'members.read') ||

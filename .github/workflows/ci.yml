@@ -30,5 +30,8 @@ jobs:
       - name: Typecheck
         run: npm run lint
 
+      - name: Test hierarchy assignments
+        run: npm run test:workspace-hierarchy
+
       - name: Build
         run: npm run build

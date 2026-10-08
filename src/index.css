@@ -367,3 +367,13 @@ html.gkais-surface-dark [class*="lg:pl-[245px]"] aside.bg-white textarea::placeh
     transform: none;
   }
 }
+/* In Trabajar, the field grid responds to the action panel's actual width. */
+.gkais-next-action-container {
+  container-type: inline-size;
+}
+
+@container (min-width: 640px) {
+  .gkais-next-action-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.65fr) minmax(132px, 1.1fr) minmax(120px, 0.9fr);
+  }
+}

@@ -46,7 +46,7 @@ export function GkaisTimeInput({ value, onChange, language, variant = 'compact' 
   };
 
   const show = () => {
-    const parts = /^([01]\\d|2[0-3]):([0-5]\\d)$/.exec(value);
+    const parts = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(value);
     const now = new Date();
     setHour(parts?.[1] ?? String(now.getHours()).padStart(2, '0'));
     setMinute(parts?.[2] ?? String(now.getMinutes()).padStart(2, '0'));

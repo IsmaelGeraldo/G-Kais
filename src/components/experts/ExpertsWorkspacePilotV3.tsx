@@ -266,7 +266,7 @@ function ExpertsWorkspaceShell({ onExit, verifiedWorkspaceId }: Props) {
       window.removeEventListener('gkais:workspace-membership-changed', onMembershipChanged);
       window.removeEventListener('gkais:user-profile-changed', onProfileChanged);
     };
-  }, []);
+  }, [verifiedWorkspaceId]);
 
   const currentPermissions = access.currentMember?.permissions || [];
   const visibleNav = useMemo(

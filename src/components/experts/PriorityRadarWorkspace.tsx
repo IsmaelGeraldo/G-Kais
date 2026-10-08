@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { BellRing, CalendarCheck2, CheckCircle2, ChevronDown, ChevronRight, Clock3, Inbox, ListTodo, Mail, MessageCircle, Pencil, Phone, Search, ShoppingBag, UserRoundCheck, UsersRound } from 'lucide-react';
+import { BellRing, CalendarCheck2, CheckCircle2, ChevronDown, ChevronRight, Clock3, Inbox, ListTodo, Mail, MessageCircle, Pencil, Phone, Search, ShoppingBag, Trash2, UserRoundCheck, UsersRound } from 'lucide-react';
 import type { Language } from '../../i18n/LanguageContext';
 import { loadMentoringClientCache } from '../../services/expertsMentoringClientCache';
 import { completeExpertWorkTaskWithNext, hydrateExpertsTaskMemory, persistExpertWorkTask } from '../../services/expertsTaskMemory';
@@ -243,6 +243,12 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
     setLane('replied');
   };
 
+  const remove = (task: TeamTask) => {
+    patch(task, { deletedAt: new Date().toISOString(), deletedFromStatus: task.status });
+    setActiveId('');
+    setResult('');
+  };
+
   const buildNextAction = (task: TeamTask): TeamTask => {
     const assigned = members.find((member) => member.uid === nextAssignee) || team?.currentMember;
     if (!assigned || assigned.status !== 'active') throw new Error('ASSIGNEE_REQUIRED');
@@ -324,41 +330,53 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
 
           {opened && canWork(task) && state === 'waiting-reply' && <div className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-[#FAFAF8] p-3"><div><p className="text-xs font-semibold">{language === 'es' ? 'Esperando respuesta' : 'Waiting for reply'}</p><p className="mt-1 text-xs text-black/45">{task.lastInteractionNote || task.note}</p></div><div className="flex gap-2"><button type="button" onClick={() => replied(task)} className="rounded-full bg-[#111413] px-4 py-2 text-xs font-semibold text-white">{language === 'es' ? 'Marcar respuesta recibida' : 'Mark reply received'}</button><button type="button" onClick={() => patch(task, { interactionState: 'queue' })} className="rounded-full border border-black/10 bg-white px-4 py-2 text-xs font-semibold">{language === 'es' ? 'Volver a por hacer' : 'Return to queue'}</button></div></div>}
 
-          {opened && canWork(task) && state !== 'waiting-reply' && <div className="mt-3 grid gap-3 rounded-xl bg-[#FAFAF8] p-3 lg:grid-cols-[0.9fr_1.1fr]">
-            <div><p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-black/40">{language === 'es' ? 'NOTAS / RESULTADO' : 'NOTES / RESULT'}</p><textarea rows={3} value={result} onChange={(event) => setResult(event.target.value)} className="mt-2 w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm" /><div className="mt-2 flex flex-wrap gap-2">
-                <button type="button" disabled={savingNext} onClick={() => void complete(task)}
-                  className="inline-flex items-center gap-1 rounded-full bg-[#111413] px-4 py-2 text-xs font-semibold text-white disabled:opacity-40">
-                  <CheckCircle2 className="h-3.5 w-3.5" />{savingNext ? (language === 'es' ? 'Guardando…' : 'Saving…') : (language === 'es' ? 'Completar' : 'Complete')}
-                </button>
-                {(task.type === 'whatsapp' || task.type === 'email') && <button type="button" disabled={savingNext}
-                  onClick={() => waiting(task)} className="inline-flex items-center rounded-full border border-[#0A3F4D]/15 bg-white px-4 py-2 text-xs font-semibold text-[#0A3F4D] disabled:opacity-40">
-                  {language === 'es' ? 'En espera de respuesta' : 'Waiting for reply'}
-                </button>}
-              </div></div>
-            <div className="min-w-0">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#0A3F4D]">{language === 'es' ? 'SIGUIENTE ACCIÓN' : 'NEXT ACTION'}</p>
-                <div className="mt-2 grid gap-2 [grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr))]">
-                <select value={nextType} onChange={(event) => setNextType(event.target.value as WorkActionType)}
-                className="min-w-0 w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-xs">
-                <option value="whatsapp">WhatsApp</option><option value="email">Email</option>
-                <option value="call">{language === 'es' ? 'Llamada' : 'Call'}</option>
-                <option value="meeting">{language === 'es' ? 'Reunión' : 'Meeting'}</option>
-                <option value="task">{language === 'es' ? 'Tarea' : 'Task'}</option>
-                </select>
-                <select value={nextAssignee || currentUid} onChange={(event) => setNextAssignee(event.target.value)}
-                className="min-w-0 w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-xs">
-                {members.map((member) => <option key={member.uid} value={member.uid}>{assigneeOptionLabel(member)}</option>)}
-                </select>
-                <input type="date" value={nextDate} onChange={(event) => setNextDate(event.target.value)}
-                className="min-w-0 w-full rounded-lg border border-black/10 bg-white px-2 py-2 text-xs" />
-                <input type="time" value={nextTime} onChange={(event) => setNextTime(event.target.value)}
-                onClick={(event) => { try { event.currentTarget.showPicker?.(); } catch {} }}
-                className="min-w-0 w-full rounded-lg border border-black/10 bg-white px-2 py-2 text-xs" />
+          {opened && canWork(task) && state !== 'waiting-reply' && <div className="mt-3 rounded-xl bg-[#FAFAF8] p-3">
+            <div className="grid gap-3 xl:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)]">
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-black/40">{language === 'es' ? 'NOTAS / RESULTADO' : 'NOTES / RESULT'}</p>
+                <textarea rows={3} value={result} onChange={(event) => setResult(event.target.value)}
+                  className="mt-2 w-full min-w-0 rounded-lg border border-black/10 bg-white px-3 py-2 text-sm" />
               </div>
-              <input value={nextNote} onChange={(event) => setNextNote(event.target.value)}
-                placeholder={language === 'es' ? 'Indicación para la siguiente acción (opcional)' : 'Instructions for the next action (optional)'}
-                className="mt-2 w-full min-w-0 rounded-lg border border-black/10 bg-white px-3 py-2 text-xs" />
-              {nextError && <p role="alert" className="mt-2 text-xs text-[#8D332C]">{nextError}</p>}
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#0A3F4D]">{language === 'es' ? 'SIGUIENTE ACCIÓN' : 'NEXT ACTION'}</p>
+                <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.65fr)_minmax(0,1.1fr)_minmax(0,0.9fr)]">
+                  <select value={nextType} onChange={(event) => setNextType(event.target.value as WorkActionType)}
+                    className="min-w-0 w-full rounded-lg border border-black/10 bg-white px-2 py-2 text-xs">
+                    <option value="whatsapp">WhatsApp</option><option value="email">Email</option>
+                    <option value="call">{language === 'es' ? 'Llamada' : 'Call'}</option>
+                    <option value="meeting">{language === 'es' ? 'Reunión' : 'Meeting'}</option>
+                    <option value="task">{language === 'es' ? 'Tarea' : 'Task'}</option>
+                  </select>
+                  <select value={nextAssignee || currentUid} onChange={(event) => setNextAssignee(event.target.value)}
+                    className="min-w-0 w-full rounded-lg border border-black/10 bg-white px-2 py-2 text-xs">
+                    {members.map((member) => <option key={member.uid} value={member.uid}>{assigneeOptionLabel(member)}</option>)}
+                  </select>
+                  <input type="date" value={nextDate} onChange={(event) => setNextDate(event.target.value)}
+                    className="min-w-0 w-full rounded-lg border border-black/10 bg-white px-2 py-2 text-xs" />
+                  <input type="time" value={nextTime} onChange={(event) => setNextTime(event.target.value)}
+                    onClick={(event) => { try { event.currentTarget.showPicker?.(); } catch {} }}
+                    className="min-w-0 w-full rounded-lg border border-black/10 bg-white px-2 py-2 text-xs" />
+                </div>
+                <input value={nextNote} onChange={(event) => setNextNote(event.target.value)}
+                  placeholder={language === 'es' ? 'Pequeña nota' : 'Short note'}
+                  className="mt-2 w-full min-w-0 rounded-lg border border-black/10 bg-white px-3 py-2 text-xs" />
+                {nextError && <p role="alert" className="mt-2 text-xs text-[#8D332C]">{nextError}</p>}
+              </div>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
+              {(task.type === 'whatsapp' || task.type === 'email') && <button type="button" disabled={savingNext}
+                onClick={() => waiting(task)}
+                className="inline-flex items-center rounded-full border border-[#0A3F4D]/15 bg-white px-4 py-2 text-xs font-semibold text-[#0A3F4D] disabled:opacity-40">
+                {language === 'es' ? 'En espera de respuesta' : 'Waiting for reply'}
+              </button>}
+              <button type="button" disabled={savingNext} onClick={() => remove(task)}
+                className="inline-flex items-center gap-1 rounded-full border border-[#A23A32]/15 bg-white px-4 py-2 text-xs font-semibold text-[#8D332C] disabled:opacity-40">
+                <Trash2 className="h-3.5 w-3.5" />{language === 'es' ? 'Eliminar' : 'Remove'}
+              </button>
+              <button type="button" disabled={savingNext} onClick={() => void complete(task)}
+                className="inline-flex items-center gap-1 rounded-full bg-[#111413] px-4 py-2 text-xs font-semibold text-white disabled:opacity-40">
+                <CheckCircle2 className="h-3.5 w-3.5" />{savingNext ? (language === 'es' ? 'Guardando…' : 'Saving…') : (language === 'es' ? 'Completar' : 'Complete')}
+              </button>
             </div>
           </div>}
         </div>;

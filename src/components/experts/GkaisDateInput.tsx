@@ -44,8 +44,10 @@ export function GkaisDateInput({ value, onChange, language, variant = 'compact' 
   const [viewYear, setViewYear] = useState(new Date().getFullYear());
   const [viewMonth, setViewMonth] = useState(new Date().getMonth());
   const [position, setPosition] = useState({ top: 0, left: 0 });
+  const [selector, setSelector] = useState<'day' | 'month' | 'year'>('day');
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popupRef = useRef<HTMLDivElement>(null);
+  const yearsRef = useRef<HTMLDivElement>(null);
   const es = language === 'es';
   const standard = variant === 'standard';
   const locale = es ? 'es-CL' : 'en-US';
@@ -67,6 +69,7 @@ export function GkaisDateInput({ value, onChange, language, variant = 'compact' 
     setDraftDate(parseIsoDate(value) ? value : '');
     setViewYear(date.getFullYear());
     setViewMonth(date.getMonth());
+    setSelector('day');
     positionPopup();
     setOpen(true);
   };
@@ -75,6 +78,7 @@ export function GkaisDateInput({ value, onChange, language, variant = 'compact' 
     const date = new Date(viewYear, viewMonth + offset, 1, 12);
     setViewYear(date.getFullYear());
     setViewMonth(date.getMonth());
+    setSelector('day');
   };
 
   useEffect(() => {
@@ -100,6 +104,13 @@ export function GkaisDateInput({ value, onChange, language, variant = 'compact' 
       window.removeEventListener('scroll', positionPopup, true);
     };
   }, [open]);
+
+  useEffect(() => {
+    if (open && selector === 'year' && yearsRef.current) {
+      const row = Math.floor(Math.max(0, viewYear - YEARS[0]) / 3);
+      yearsRef.current.scrollTop = Math.max(0, row * 36 - 72);
+    }
+  }, [open, selector]);
 
   const todayIso = toIsoDate(new Date());
   const weekdayStart = es ? 1 : 0;
@@ -139,7 +150,7 @@ export function GkaisDateInput({ value, onChange, language, variant = 'compact' 
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => open ? setOpen(false) : show()}
-        className={`hidden min-w-0 w-full items-center justify-between gap-1 border border-black/10 bg-white text-left text-black/65 shadow-none outline-offset-2 sm:flex ${standard ? 'rounded-xl px-2 py-2.5 text-sm' : 'rounded-lg px-2 py-2 text-xs'}`}
+        className={`hidden min-w-0 w-full items-center justify-between gap-1 border border-black/10 bg-white text-left shadow-none outline-offset-2 sm:flex ${value ? 'text-[#111413]' : 'text-black/45'} ${standard ? 'rounded-xl px-2 py-2.5 text-sm' : 'rounded-lg px-2 py-2 text-xs'}`}
       >
         <span className="truncate tabular-nums">{formatDate(value, language)}</span>
         <CalendarDays aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-black/70" />
@@ -156,39 +167,84 @@ export function GkaisDateInput({ value, onChange, language, variant = 'compact' 
             <button type="button" onClick={() => changeMonth(-1)} aria-label={es ? 'Mes anterior' : 'Previous month'} className="grid h-6 w-6 shrink-0 place-items-center rounded-lg text-black/60 hover:bg-black/5">
               <ChevronLeft aria-hidden="true" className="h-3.5 w-3.5" />
             </button>
-            <select aria-label={es ? 'Mes' : 'Month'} value={viewMonth} onChange={(event) => setViewMonth(Number(event.target.value))} className="min-w-0 flex-1 truncate bg-transparent text-center text-xs font-semibold text-black/75 outline-offset-2">
-              {monthNames.map((month, i) => <option key={i} value={i}>{month}</option>)}
-            </select>
-            <select aria-label={es ? 'Año' : 'Year'} value={viewYear} onChange={(event) => setViewYear(Number(event.target.value))} className="w-[59px] min-w-0 bg-transparent text-xs font-semibold tabular-nums text-black/75 outline-offset-2">
-              {YEARS.map((year) => <option key={year} value={year}>{year}</option>)}
-            </select>
+            <button
+              type="button"
+              aria-label={es ? 'Elegir mes' : 'Choose month'}
+              aria-expanded={selector === 'month'}
+              onClick={() => setSelector(selector === 'month' ? 'day' : 'month')}
+              className={`min-w-0 flex-1 truncate rounded-md px-0.5 py-1 text-center text-xs font-semibold ${selector === 'month' ? 'bg-black/5 text-[#111413]' : 'text-black/55'}`}
+            >{monthNames[viewMonth]}</button>
+            <button
+              type="button"
+              aria-label={es ? 'Elegir año' : 'Choose year'}
+              aria-expanded={selector === 'year'}
+              onClick={() => setSelector(selector === 'year' ? 'day' : 'year')}
+              className={`w-[47px] shrink-0 rounded-md px-0.5 py-1 text-center text-xs font-semibold tabular-nums ${selector === 'year' ? 'bg-black/5 text-[#111413]' : 'text-black/55'}`}
+            >{viewYear}</button>
             <button type="button" onClick={() => changeMonth(1)} aria-label={es ? 'Mes siguiente' : 'Next month'} className="grid h-6 w-6 shrink-0 place-items-center rounded-lg text-black/60 hover:bg-black/5">
               <ChevronRight aria-hidden="true" className="h-3.5 w-3.5" />
             </button>
           </div>
-          <div className="grid grid-cols-7 gap-0.5 pb-1 text-center text-[9px] font-semibold text-black/40">
-            {weekdayNames.map((day, i) => <span key={i}>{day}</span>)}
-          </div>
-          <div className="grid grid-cols-7 gap-0.5" role="group" aria-label={es ? 'Días del mes' : 'Days of month'}>
-            {Array.from({ length: 42 }, (_, index) => {
-              const day = index - offset + 1;
-              if (day < 1 || day > daysInMonth) return <span key={index} className="h-[26px]" />;
-              const date = toIsoDate(new Date(viewYear, viewMonth, day, 12));
-              const chosen = draftDate === date;
-              const isToday = todayIso === date;
-              return (
+          {selector === 'year' ? (
+            <div
+              ref={yearsRef}
+              role="group"
+              aria-label={es ? 'Seleccionar año' : 'Choose year'}
+              className="gkais-light-scrollbar grid h-[176px] grid-cols-3 content-start gap-1 overflow-y-auto rounded-lg border border-black/8 p-1"
+            >
+              {YEARS.map((year) => (
                 <button
-                  key={index}
+                  key={year}
                   type="button"
-                  aria-label={new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(viewYear, viewMonth, day, 12))}
-                  aria-pressed={chosen}
-                  aria-current={isToday ? 'date' : undefined}
-                  onClick={() => setDraftDate(date)}
-                  className={`h-[26px] rounded-md text-center text-[11px] tabular-nums ${chosen ? 'bg-[#111413] font-semibold text-white' : isToday ? 'border border-black/25 font-semibold text-black/75' : 'text-black/70 hover:bg-black/5'}`}
-                >{day}</button>
-              );
-            })}
-          </div>
+                  aria-pressed={viewYear === year}
+                  onClick={() => { setViewYear(year); setSelector('day'); }}
+                  className={`h-8 rounded-md text-center text-xs tabular-nums ${viewYear === year ? 'bg-[#111413] font-semibold text-white' : 'text-black/65 hover:bg-black/5'}`}
+                >{year}</button>
+              ))}
+            </div>
+          ) : selector === 'month' ? (
+            <div
+              role="group"
+              aria-label={es ? 'Seleccionar mes' : 'Choose month'}
+              className="grid h-[176px] grid-cols-3 content-start gap-1 rounded-lg border border-black/8 p-1"
+            >
+              {monthNames.map((month, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  aria-pressed={viewMonth === i}
+                  onClick={() => { setViewMonth(i); setSelector('day'); }}
+                  className={`h-8 truncate rounded-md px-0.5 text-center text-[10px] ${viewMonth === i ? 'bg-[#111413] font-semibold text-white' : 'text-black/65 hover:bg-black/5'}`}
+                >{month.slice(0, 3)}</button>
+              ))}
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-7 gap-0.5 pb-1 text-center text-[9px] font-semibold text-black/40">
+                {weekdayNames.map((day, i) => <span key={i}>{day}</span>)}
+              </div>
+              <div className="grid grid-cols-7 gap-0.5" role="group" aria-label={es ? 'Días del mes' : 'Days of month'}>
+                {Array.from({ length: 42 }, (_, index) => {
+                  const day = index - offset + 1;
+                  if (day < 1 || day > daysInMonth) return <span key={index} className="h-[26px]" />;
+                  const date = toIsoDate(new Date(viewYear, viewMonth, day, 12));
+                  const chosen = draftDate === date;
+                  const isToday = todayIso === date;
+                  return (
+                    <button
+                      key={index}
+                      type="button"
+                      aria-label={new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(viewYear, viewMonth, day, 12))}
+                      aria-pressed={chosen}
+                      aria-current={isToday ? 'date' : undefined}
+                      onClick={() => setDraftDate(date)}
+                      className={`h-[26px] rounded-md text-center text-[11px] tabular-nums ${chosen ? 'bg-[#111413] font-semibold text-white' : isToday ? 'border border-black/25 font-semibold text-black/75' : 'text-black/70 hover:bg-black/5'}`}
+                    >{day}</button>
+                  );
+                })}
+              </div>
+            </>
+          )}
           <div className="mt-2 flex items-center justify-between gap-1">
             <button type="button" onClick={() => {
               const today = new Date();

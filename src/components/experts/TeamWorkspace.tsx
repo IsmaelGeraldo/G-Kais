@@ -552,7 +552,13 @@ export function TeamWorkspace({ language }: { language: Language }) {
           <label className="text-[10px] font-semibold uppercase tracking-[.12em] text-black/40">{language === 'es' ? 'Encargado / supervisor' : 'Lead / supervisor'}</label>
           <select
             value={editingSupervisorUid}
-            onChange={(event) => setEditingSupervisorUid(event.target.value)}
+            onChange={(event) => {
+              const nextSupervisorUid = event.target.value;
+              setEditingSupervisorUid(nextSupervisorUid);
+              if (nextSupervisorUid) {
+                setEditingDirectReportUids((current) => current.filter((uid) => uid !== nextSupervisorUid));
+              }
+            }}
             className="mt-2 w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm"
           >
             <option value="">{language === 'es' ? 'Sin supervisor' : 'No supervisor'}</option>

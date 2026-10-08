@@ -219,6 +219,32 @@ export async function persistExpertWorkTask(task: StoredTask, options?: { throwO
   }
 }
 
+/**
+ * Mark the current action done and (optionally) create its delegated follow-up
+ * in a single Firestore batch. If either write is rejected, neither is applied.
+ */
+export async function completeExpertWorkTaskWithNext(
+  completed: StoredTask,
+  next?: StoredTask
+): Promise<void> {
+  const user = firebaseAuth.currentUser;
+  const workspaceId = await resolveActiveExpertWorkspaceId(user);
+  if (!user || !workspaceId || !completed.id) throw new Error('TASK_SAVE_UNAVAILABLE');
+  if (next && (!next.id || next.id === completed.id)) throw new Error('INVALID_NEXT_TASK');
+  if (completed.status !== 'done') throw new Error('COMPLETED_STATUS_REQUIRED');
+  if (next && next.status !== 'pending') throw new Error('NEXT_ACTION_MUST_BE_PENDING');
+
+  const batch = writeBatch(firestoreDb);
+  for (const task of next ? [completed, next] : [completed]) {
+    batch.set(taskDocument(workspaceId, task.id), {
+      schemaVersion: SCHEMA_VERSION,
+      task: sanitizeForFirestore({ ...task, createdByUid: task.createdByUid || user.uid }),
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+  }
+  await batch.commit();
+}
+
 async function syncOwnerLegacyTasksFromLocal(): Promise<void> {
   const user = firebaseAuth.currentUser;
   if (!user || typeof window === 'undefined') return;

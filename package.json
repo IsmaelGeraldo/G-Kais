@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server-build server.js",
     "lint": "tsc --noEmit",
-    "deploy:firestore-rules": "npx firebase-tools deploy --only firestore:rules --project careful-bloom-jmn89"
+    "deploy:firestore-rules": "npx firebase-tools deploy --only firestore:rules --project careful-bloom-jmn89",
+    "test:workspace-hierarchy": "tsx --test src/services/expertsWorkspaceHierarchy.test.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

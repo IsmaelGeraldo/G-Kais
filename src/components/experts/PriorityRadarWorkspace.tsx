@@ -358,9 +358,6 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
               <input value={nextNote} onChange={(event) => setNextNote(event.target.value)}
                 placeholder={language === 'es' ? 'Indicación para la siguiente acción (opcional)' : 'Instructions for the next action (optional)'}
                 className="mt-2 w-full min-w-0 rounded-lg border border-black/10 bg-white px-3 py-2 text-xs" />
-              <p className="mt-1.5 text-[10px] text-black/45">{language === 'es'
-                ? 'Completar solo cerrará este trabajo; si modificas la siguiente acción, también la asignará.'
-                : 'Complete closes this work; changing next-action details also assigns a follow-up.'}</p>
               {nextError && <p role="alert" className="mt-2 text-xs text-[#8D332C]">{nextError}</p>}
             </div>
           </div>}

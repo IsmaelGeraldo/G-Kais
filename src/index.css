@@ -397,7 +397,7 @@ html.gkais-surface-dark [class*="lg:pl-[245px]"] aside.bg-white textarea::placeh
 
 /* Keep native time input + mobile picker, with one explicit clock on desktop. */
 @media (min-width: 640px) {
-  .gkais-experts-interactions .gkais-time-picker-input::-webkit-calendar-picker-indicator {
+  .gkais-time-picker-input::-webkit-calendar-picker-indicator {
     display: none;
   }
 }

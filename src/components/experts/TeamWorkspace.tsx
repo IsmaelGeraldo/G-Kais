@@ -104,6 +104,39 @@ function PermissionChecklist({
   </div>;
 }
 
+class TeamEditorBoundary extends React.Component<{
+  children: React.ReactNode;
+  resetKey: string;
+  language: Language;
+  onClose: () => void;
+}, { failed: boolean }> {
+  state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  componentDidUpdate(previous: Readonly<{ resetKey: string }>) {
+    if (previous.resetKey !== this.props.resetKey && this.state.failed) {
+      this.setState({ failed: false });
+    }
+  }
+
+  render() {
+    if (!this.state.failed) return this.props.children;
+    return <section className="rounded-2xl border border-[#A23A32]/15 bg-white p-5">
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#8D332C]">G-KAIS · EQUIPO</p>
+      <p className="mt-2 text-sm font-semibold">{this.props.language === 'es' ? 'No pudimos abrir este editor.' : 'We could not open this editor.'}</p>
+      <p className="mt-1 text-xs leading-5 text-black/45">{this.props.language === 'es'
+        ? 'El resto del Workspace sigue disponible. Cierra el editor y vuelve a intentarlo después de recargar Equipo.'
+        : 'The rest of the Workspace remains available. Close the editor and retry after reloading Team.'}</p>
+      <button type="button" onClick={this.props.onClose} className="mt-4 rounded-full bg-[#111413] px-4 py-2 text-xs font-semibold text-white">
+        {this.props.language === 'es' ? 'Cerrar editor' : 'Close editor'}
+      </button>
+    </section>;
+  }
+}
+
 function roleName(roles: WorkspaceRole[], id: string) {
   return roles.find((role) => role.id === id)?.name || id;
 }
@@ -457,7 +490,11 @@ export function TeamWorkspace({ language }: { language: Language }) {
       </div>
     </section>}
 
-    {editingMember && canManageMembers && <section className="rounded-2xl border border-black/10 bg-white p-5 md:p-6">
+    {editingMember && canManageMembers && <TeamEditorBoundary
+      resetKey={editingMember.uid}
+      language={language}
+      onClose={() => { setEditingMemberUid(''); setEditingSupervisorUid(''); setConfirmingRemovalUid(''); }}
+    ><section className="rounded-2xl border border-black/10 bg-white p-5 md:p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#0A3F4D]">{language === 'es' ? 'EDITAR MIEMBRO' : 'EDIT MEMBER'}</p>
@@ -541,7 +578,7 @@ export function TeamWorkspace({ language }: { language: Language }) {
           {savingMember ? (language === 'es' ? 'Guardando…' : 'Saving…') : (language === 'es' ? 'Guardar cambios' : 'Save changes')}
         </button>
       </div>
-    </section>}
+    </section></TeamEditorBoundary>}
 
     <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
       <section className="rounded-2xl border border-black/10 bg-white p-5">

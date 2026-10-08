@@ -71,6 +71,7 @@ export async function updateExpertWorkspaceMember(input: {
   permissions: Array<WorkspacePermission | '*'>;
   supervisorUid?: string;
   directReportUids?: string[];
+  isSupervisor?: boolean;
 }): Promise<void> {
   const user = firebaseAuth.currentUser;
   const workspaceId = await resolveValidExpertWorkspaceId(user);
@@ -110,12 +111,14 @@ export async function updateExpertWorkspaceMember(input: {
     if (supervisor.status !== 'active') throw new Error('SUPERVISOR_NOT_ACTIVE');
   }
 
+  const supervisorEnabled = input.isSupervisor ?? Boolean(input.directReportUids?.length);
   const requestedDirectReports = Array.from(new Set(
-    (input.directReportUids || [])
+    (supervisorEnabled ? input.directReportUids || [] : [])
       .map((uid) => uid.trim())
       .filter(Boolean)
   ));
 
+  if (requestedDirectReports.length > 350) throw new Error('TOO_MANY_DIRECT_REPORTS');
   if (requestedDirectReports.includes(input.memberUid)) throw new Error('SUPERVISOR_CANNOT_BE_SELF');
   if (requestedDirectReports.includes(workspaceId)) throw new Error('OWNER_CANNOT_BE_DIRECT_REPORT');
 
@@ -154,6 +157,7 @@ export async function updateExpertWorkspaceMember(input: {
     roleId: input.roleId,
     permissions: nextPermissions,
     supervisorUid,
+    isSupervisor: supervisorEnabled,
     updatedAt: serverTimestamp()
   }, { merge: true });
 
@@ -186,6 +190,8 @@ export async function updateExpertWorkspaceMember(input: {
       nextPermissions,
       previousSupervisorUid: member.supervisorUid || '',
       nextSupervisorUid: supervisorUid,
+      previousSupervisorEnabled: Boolean(member.isSupervisor || previousDirectReports.length),
+      nextSupervisorEnabled: supervisorEnabled,
       previousDirectReportUids: previousDirectReports,
       nextDirectReportUids: requestedDirectReports
     }

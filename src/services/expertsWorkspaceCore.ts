@@ -58,6 +58,7 @@ export type WorkspaceMember = {
   status: 'active' | 'invited' | 'suspended';
   inviteId?: string;
   supervisorUid?: string;
+  isSupervisor?: boolean;
 };
 
 export type WorkspaceInvite = {
@@ -368,7 +369,8 @@ export async function loadExpertWorkspaceTeam(): Promise<WorkspaceTeamState> {
       permissions,
       status,
       ...(typeof data.inviteId === 'string' && data.inviteId ? { inviteId: data.inviteId } : {}),
-      ...(typeof data.supervisorUid === 'string' && data.supervisorUid ? { supervisorUid: data.supervisorUid } : {})
+      ...(typeof data.supervisorUid === 'string' && data.supervisorUid ? { supervisorUid: data.supervisorUid } : {}),
+      ...(typeof data.isSupervisor === 'boolean' ? { isSupervisor: data.isSupervisor } : {})
     };
   };
 

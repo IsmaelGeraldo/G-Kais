@@ -92,7 +92,7 @@ service cloud.firestore {
         ]) &&
         data.keys().hasOnly([
           'schemaVersion', 'uid', 'email', 'displayName', 'roleId', 'permissions',
-          'status', 'inviteId', 'supervisorUid', 'joinedAt', 'updatedAt'
+          'status', 'inviteId', 'supervisorUid', 'isSupervisor', 'joinedAt', 'updatedAt'
         ]) &&
         data.schemaVersion == 1 &&
         data.uid is string && data.uid == memberId &&
@@ -107,6 +107,7 @@ service cloud.firestore {
           data.supervisorUid.size() <= 128 &&
           data.supervisorUid != data.uid
         )) &&
+        (!('isSupervisor' in data) || data.isSupervisor is bool) &&
         data.joinedAt is timestamp && data.updatedAt is timestamp;
     }
 

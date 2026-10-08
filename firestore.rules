@@ -602,7 +602,10 @@ service cloud.firestore {
     }
 
     match /expert_workspaces/{workspaceId}/roles/{roleId} {
-      allow read: if ownsExpertWorkspace(workspaceId) ||
+      // Every active colleague may read role labels for task delegation.
+      // Role modification remains restricted to roles.manage.
+      allow read: if isExpertWorkspaceMember(workspaceId) ||
+        ownsExpertWorkspace(workspaceId) ||
         hasWorkspacePermission(workspaceId, 'roles.read') ||
         hasWorkspacePermission(workspaceId, 'roles.manage');
       allow create, update: if hasWorkspacePermission(workspaceId, 'roles.manage') &&
@@ -621,6 +624,9 @@ service cloud.firestore {
         (isExpertWorkspaceMember(workspaceId) &&
           'supervisorUid' in resource.data &&
           resource.data.supervisorUid == request.auth.uid) ||
+        // Active colleagues can query active member records as an assignee roster.
+        // Suspended/invited records remain visible only to member administrators.
+        (isExpertWorkspaceMember(workspaceId) && resource.data.status == 'active') ||
         hasWorkspacePermission(workspaceId, 'members.read') ||
         hasWorkspacePermission(workspaceId, 'members.manage');
 
@@ -733,7 +739,10 @@ service cloud.firestore {
       allow create: if validExpertWorkTask(request.resource.data, taskId) && (
         hasWorkspacePermission(workspaceId, 'tasks.manage') ||
         (hasWorkspacePermission(workspaceId, 'tasks.manage.own') &&
-          request.resource.data.task.assignedToUid == request.auth.uid)
+          request.resource.data.task.createdByUid == request.auth.uid &&
+          request.resource.data.task.status == 'pending' &&
+          exists(/databases/$(database)/documents/expert_workspaces/$(workspaceId)/members/$(request.resource.data.task.assignedToUid)) &&
+          get(/databases/$(database)/documents/expert_workspaces/$(workspaceId)/members/$(request.resource.data.task.assignedToUid)).data.status == 'active')
       );
 
       allow update: if validExpertWorkTask(request.resource.data, taskId) && (

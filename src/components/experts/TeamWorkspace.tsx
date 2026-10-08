@@ -17,6 +17,12 @@ import { removeExpertWorkspaceMember, updateExpertWorkspaceMember } from '../../
 
 const PERMISSIONS: WorkspacePermission[] = ['people.read','people.manage','webinars.read','webinars.manage','formations.read','formations.manage','mentoring.read','mentoring.manage','tasks.read.own','tasks.manage.own','tasks.read.team','tasks.manage','members.read','members.manage','roles.read','roles.manage','events.read','events.create','audit.read','settings.manage','billing.manage'];
 
+function normalizePermissionList(value: unknown): WorkspacePermission[] {
+  if (!Array.isArray(value)) return [];
+  const selected = new Set(value.filter((item): item is string => typeof item === 'string'));
+  return PERMISSIONS.filter((permission) => selected.has(permission));
+}
+
 type PermissionGroup = 'people' | 'programs' | 'work' | 'team' | 'system';
 
 const PERMISSION_META: Record<WorkspacePermission, {
@@ -80,7 +86,7 @@ function PermissionChecklist({
             return <label key={permission} className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-black/8 bg-white p-3 transition hover:border-black/15">
               <input
                 type="checkbox"
-                checked={selected.includes(permission)}
+                checked={Array.isArray(selected) && selected.includes(permission)}
                 onChange={(event) => setSelected((current) => event.target.checked
                   ? Array.from(new Set([...current, permission]))
                   : current.filter((item) => item !== permission))}
@@ -96,6 +102,39 @@ function PermissionChecklist({
       </div>;
     })}
   </div>;
+}
+
+class TeamEditorBoundary extends React.Component<{
+  children: React.ReactNode;
+  resetKey: string;
+  language: Language;
+  onClose: () => void;
+}, { failed: boolean }> {
+  state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  componentDidUpdate(previous: Readonly<{ resetKey: string }>) {
+    if (previous.resetKey !== this.props.resetKey && this.state.failed) {
+      this.setState({ failed: false });
+    }
+  }
+
+  render() {
+    if (!this.state.failed) return this.props.children;
+    return <section className="rounded-2xl border border-[#A23A32]/15 bg-white p-5">
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#8D332C]">G-KAIS · EQUIPO</p>
+      <p className="mt-2 text-sm font-semibold">{this.props.language === 'es' ? 'No pudimos abrir este editor.' : 'We could not open this editor.'}</p>
+      <p className="mt-1 text-xs leading-5 text-black/45">{this.props.language === 'es'
+        ? 'El resto del Workspace sigue disponible. Cierra el editor y vuelve a intentarlo después de recargar Equipo.'
+        : 'The rest of the Workspace remains available. Close the editor and retry after reloading Team.'}</p>
+      <button type="button" onClick={this.props.onClose} className="mt-4 rounded-full bg-[#111413] px-4 py-2 text-xs font-semibold text-white">
+        {this.props.language === 'es' ? 'Cerrar editor' : 'Close editor'}
+      </button>
+    </section>;
+  }
 }
 
 function roleName(roles: WorkspaceRole[], id: string) {
@@ -162,6 +201,25 @@ export function TeamWorkspace({ language }: { language: Language }) {
     return member?.displayName || member?.email || uid;
   };
 
+  const editingMember = useMemo(
+    () => team?.members.find((member) => member.uid === editingMemberUid) || null,
+    [team, editingMemberUid]
+  );
+  const editableRoles = useMemo(
+    () => (team?.roles || []).filter((item) => item && typeof item.id === 'string' && item.id !== 'owner'),
+    [team]
+  );
+  const supervisorOptions = useMemo(
+    () => (team?.members || []).filter((item) =>
+      item &&
+      item.status === 'active' &&
+      typeof item.uid === 'string' &&
+      item.uid &&
+      item.uid !== editingMemberUid
+    ),
+    [team, editingMemberUid]
+  );
+
   const invite = async () => {
     if (!name.trim() || !email.trim() || !role) return;
     setSaving(true);
@@ -219,14 +277,13 @@ export function TeamWorkspace({ language }: { language: Language }) {
     const selectedRole = editableRoles.some((item) => item.id === member.roleId)
       ? member.roleId
       : editableRoles[0]?.id || '';
-    const memberPermissions = Array.isArray(member.permissions) ? member.permissions : [];
-    const rawRolePermissions = editableRoles.find((item) => item.id === selectedRole)?.permissions;
-    const rolePermissions = Array.isArray(rawRolePermissions) ? rawRolePermissions : [];
+    const memberPermissions = normalizePermissionList(member.permissions);
+    const rolePermissions = normalizePermissionList(editableRoles.find((item) => item.id === selectedRole)?.permissions);
     const nextPermissions = memberPermissions.length ? memberPermissions : rolePermissions;
 
     setEditingMemberUid(member.uid);
     setEditingRoleId(selectedRole);
-    setEditingPermissions(nextPermissions.filter((permission): permission is WorkspacePermission => permission !== '*' && Boolean(PERMISSION_META[permission as WorkspacePermission])));
+    setEditingPermissions(nextPermissions);
     setEditingSupervisorUid(member.supervisorUid || '');
     setConfirmingRemovalUid('');
     setError('');
@@ -235,8 +292,7 @@ export function TeamWorkspace({ language }: { language: Language }) {
   const changeEditingRole = (roleId: string) => {
     setEditingRoleId(roleId);
     const selectedRole = team?.roles.find((item) => item.id === roleId);
-    const rolePermissions = Array.isArray(selectedRole?.permissions) ? selectedRole.permissions : [];
-    setEditingPermissions(rolePermissions.filter((permission): permission is WorkspacePermission => permission !== '*'));
+    setEditingPermissions(normalizePermissionList(selectedRole?.permissions));
   };
 
   const copyInviteLink = async () => {
@@ -434,7 +490,97 @@ export function TeamWorkspace({ language }: { language: Language }) {
       </div>
     </section>}
 
-    <div className={`grid gap-5 ${editingMemberUid ? 'grid-cols-1' : 'lg:grid-cols-[1.1fr_0.9fr]'}`}>
+    {editingMember && canManageMembers && <TeamEditorBoundary
+      resetKey={editingMember.uid}
+      language={language}
+      onClose={() => { setEditingMemberUid(''); setEditingSupervisorUid(''); setConfirmingRemovalUid(''); }}
+    ><section className="rounded-2xl border border-black/10 bg-white p-5 md:p-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#0A3F4D]">{language === 'es' ? 'EDITAR MIEMBRO' : 'EDIT MEMBER'}</p>
+          <h3 className="mt-2 text-xl font-semibold">{editingMember.displayName || editingMember.email || (language === 'es' ? 'Miembro' : 'Member')}</h3>
+          <p className="mt-1 text-xs text-black/40">{editingMember.email || '—'}</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => { setEditingMemberUid(''); setEditingSupervisorUid(''); setConfirmingRemovalUid(''); }}
+          className="inline-flex items-center gap-1.5 rounded-full border border-black/10 px-3 py-2 text-xs font-semibold text-black/55"
+        >
+          <X className="h-3.5 w-3.5" />{language === 'es' ? 'Cerrar' : 'Close'}
+        </button>
+      </div>
+
+      <div className="mt-5 grid gap-4 md:grid-cols-2">
+        <div className="rounded-xl border border-black/8 bg-[#F7F7F5] p-4">
+          <label className="text-[10px] font-semibold uppercase tracking-[.12em] text-black/40">{language === 'es' ? 'Rol' : 'Role'}</label>
+          <select
+            value={editingRoleId}
+            onChange={(event) => changeEditingRole(event.target.value)}
+            className="mt-2 w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm"
+          >
+            {editableRoles.map((item) => <option key={item.id} value={item.id}>{typeof item.name === 'string' ? item.name : item.id}</option>)}
+          </select>
+          <p className="mt-2 text-[10px] leading-4 text-black/40">{language === 'es'
+            ? 'Al cambiar el rol cargamos sus permisos base; luego puedes ajustarlos individualmente.'
+            : 'Changing the role loads its default permissions; you can then adjust them individually.'}</p>
+        </div>
+
+        <div className="rounded-xl border border-black/8 bg-[#F7F7F5] p-4">
+          <label className="text-[10px] font-semibold uppercase tracking-[.12em] text-black/40">{language === 'es' ? 'Encargado / supervisor' : 'Lead / supervisor'}</label>
+          <select
+            value={editingSupervisorUid}
+            onChange={(event) => setEditingSupervisorUid(event.target.value)}
+            className="mt-2 w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm"
+          >
+            <option value="">{language === 'es' ? 'Sin supervisor' : 'No supervisor'}</option>
+            {supervisorOptions.map((item) => <option key={item.uid} value={item.uid}>{item.displayName || item.email || item.uid}</option>)}
+          </select>
+          <p className="mt-2 text-[10px] leading-4 text-black/40">{language === 'es'
+            ? 'La carga del supervisor mostrará únicamente sus reportes directos.'
+            : 'The supervisor workload will show only direct reports.'}</p>
+        </div>
+      </div>
+
+      <div className="mt-5 border-t border-black/8 pt-5">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[.12em] text-black/40">{language === 'es' ? 'Permisos' : 'Permissions'}</p>
+            <p className="mt-1 text-[11px] text-black/40">{language === 'es' ? 'Activa solo lo necesario para su trabajo.' : 'Enable only what is needed for this role.'}</p>
+          </div>
+          <span className="rounded-full bg-[#F7F7F5] px-2.5 py-1 text-[10px] font-semibold text-black/45">{normalizePermissionList(editingPermissions).length} {language === 'es' ? 'activos' : 'active'}</span>
+        </div>
+        <PermissionChecklist
+          available={normalizePermissionList(available)}
+          selected={normalizePermissionList(editingPermissions)}
+          setSelected={setEditingPermissions}
+          language={language}
+        />
+      </div>
+
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-black/8 pt-4">
+        {confirmingRemovalUid === editingMember.uid ? <div className="flex flex-wrap items-center gap-2">
+          <span className="text-[11px] font-medium text-[#8D332C]">{language === 'es' ? '¿Eliminar este miembro?' : 'Remove this member?'}</span>
+          <button type="button" disabled={removingMember === editingMember.uid || savingMember} onClick={() => setConfirmingRemovalUid('')} className="rounded-full border border-black/10 px-3 py-2 text-xs font-semibold text-black/55 disabled:opacity-40">{language === 'es' ? 'No' : 'No'}</button>
+          <button type="button" disabled={removingMember === editingMember.uid || savingMember} onClick={() => void removeMember(editingMember.uid)} className="inline-flex items-center gap-1.5 rounded-full bg-[#8D332C] px-3 py-2 text-xs font-semibold text-white disabled:opacity-40">
+            <UserMinus className="h-3.5 w-3.5" />{removingMember === editingMember.uid ? (language === 'es' ? 'Eliminando…' : 'Removing…') : (language === 'es' ? 'Sí, eliminar' : 'Yes, remove')}
+          </button>
+        </div> : <button type="button" disabled={Boolean(removingMember) || savingMember} onClick={() => setConfirmingRemovalUid(editingMember.uid)} className="inline-flex items-center gap-1.5 rounded-full border border-[#A23A32]/15 px-3 py-2 text-xs font-semibold text-[#8D332C] transition hover:bg-[#A23A32]/6 disabled:opacity-40">
+          <UserMinus className="h-3.5 w-3.5" />{language === 'es' ? 'Eliminar miembro' : 'Remove member'}
+        </button>}
+
+        <button
+          type="button"
+          disabled={savingMember || removingMember === editingMember.uid || !editingRoleId}
+          onClick={() => void saveMember()}
+          className="inline-flex items-center gap-1.5 rounded-full bg-[#111413] px-4 py-2 text-xs font-semibold text-white disabled:opacity-40"
+        >
+          <Save className="h-3.5 w-3.5" />
+          {savingMember ? (language === 'es' ? 'Guardando…' : 'Saving…') : (language === 'es' ? 'Guardar cambios' : 'Save changes')}
+        </button>
+      </div>
+    </section></TeamEditorBoundary>}
+
+    <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
       <section className="rounded-2xl border border-black/10 bg-white p-5">
         <div className="flex items-center gap-2">
           <UsersRound className="h-4 w-4 text-[#0A3F4D]" />
@@ -482,92 +628,6 @@ export function TeamWorkspace({ language }: { language: Language }) {
                 </span>)}
               </div>
 
-              {isEditing && <div className="mt-4 rounded-2xl border border-black/8 bg-[#F7F7F5] p-4 md:p-5">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="rounded-xl border border-black/8 bg-white p-4">
-                    <label className="text-[10px] font-semibold uppercase tracking-[.12em] text-black/40">{language === 'es' ? 'Rol' : 'Role'}</label>
-                    <select
-                      value={editingRoleId}
-                      onChange={(event) => changeEditingRole(event.target.value)}
-                      className="mt-2 w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm"
-                    >
-                      {team.roles.filter((item) => item.id !== 'owner').map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-                    </select>
-                    <p className="mt-2 text-[10px] leading-4 text-black/40">{language === 'es' ? 'Al cambiar el rol cargamos sus permisos base; luego puedes ajustarlos individualmente.' : 'Changing the role loads its default permissions; you can then adjust them individually.'}</p>
-                  </div>
-
-                  <div className="rounded-xl border border-black/8 bg-white p-4">
-                    <label className="text-[10px] font-semibold uppercase tracking-[.12em] text-black/40">{language === 'es' ? 'Encargado / supervisor' : 'Lead / supervisor'}</label>
-                    <select
-                      value={editingSupervisorUid}
-                      onChange={(event) => setEditingSupervisorUid(event.target.value)}
-                      className="mt-2 w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm"
-                    >
-                      <option value="">{language === 'es' ? 'Sin supervisor' : 'No supervisor'}</option>
-                      {team.members
-                        .filter((item) => item.status === 'active' && item.uid !== member.uid)
-                        .map((item) => <option key={item.uid} value={item.uid}>{item.displayName || item.email}</option>)}
-                    </select>
-                    <p className="mt-2 text-[10px] leading-4 text-black/40">{language === 'es'
-                      ? 'La carga del equipo del supervisor mostrará solo sus reportes directos. Puedes asignar el mismo supervisor a varias personas.'
-                      : 'The supervisor workload view will show only direct reports. The same supervisor can manage several people.'}</p>
-                  </div>
-                </div>
-
-                <div className="mt-5 border-t border-black/8 pt-5">
-                  <div className="mb-3 flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-[10px] font-semibold uppercase tracking-[.12em] text-black/40">{language === 'es' ? 'Permisos' : 'Permissions'}</p>
-                      <p className="mt-1 text-[11px] text-black/40">{language === 'es' ? 'Activa solo lo que esta persona necesita para su trabajo.' : 'Enable only what this person needs for their work.'}</p>
-                    </div>
-                    <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-black/45">{editingPermissions.length} {language === 'es' ? 'activos' : 'active'}</span>
-                  </div>
-                  <PermissionChecklist available={available} selected={editingPermissions} setSelected={setEditingPermissions} language={language} />
-                </div>
-
-                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-black/7 pt-4">
-                  {confirmingRemovalUid === member.uid ? <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-[11px] font-medium text-[#8D332C]">{language === 'es' ? '¿Eliminar este miembro?' : 'Remove this member?'}</span>
-                    <button
-                      type="button"
-                      disabled={removingMember === member.uid || savingMember}
-                      onClick={() => setConfirmingRemovalUid('')}
-                      className="rounded-full border border-black/10 px-3 py-2 text-xs font-semibold text-black/55 disabled:opacity-40"
-                    >
-                      {language === 'es' ? 'No' : 'No'}
-                    </button>
-                    <button
-                      type="button"
-                      disabled={removingMember === member.uid || savingMember}
-                      onClick={() => void removeMember(member.uid)}
-                      className="inline-flex items-center gap-1.5 rounded-full bg-[#8D332C] px-3 py-2 text-xs font-semibold text-white disabled:opacity-40"
-                    >
-                      <UserMinus className="h-3.5 w-3.5" />
-                      {removingMember === member.uid
-                        ? (language === 'es' ? 'Eliminando…' : 'Removing…')
-                        : (language === 'es' ? 'Sí, eliminar' : 'Yes, remove')}
-                    </button>
-                  </div> : <button
-                    type="button"
-                    disabled={Boolean(removingMember) || savingMember}
-                    onClick={() => setConfirmingRemovalUid(member.uid)}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-[#A23A32]/15 px-3 py-2 text-xs font-semibold text-[#8D332C] transition hover:bg-[#A23A32]/6 disabled:opacity-40"
-                  >
-                    <UserMinus className="h-3.5 w-3.5" />
-                    {language === 'es' ? 'Eliminar miembro' : 'Remove member'}
-                  </button>}
-
-                  <button
-                    type="button"
-                    disabled={savingMember || removingMember === member.uid || !editingRoleId}
-                    onClick={() => void saveMember()}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-[#111413] px-4 py-2 text-xs font-semibold text-white disabled:opacity-40"
-                  >
-                    <Save className="h-3.5 w-3.5" />
-                    {savingMember ? (language === 'es' ? 'Guardando…' : 'Saving…') : (language === 'es' ? 'Guardar cambios' : 'Save changes')}
-                  </button>
-                </div>
-              </div>}
             </div>;
           })}
         </div> : <p className="mt-4 text-sm text-black/45">{language === 'es' ? 'Tu rol no permite ver el equipo completo.' : 'Your role cannot view the full team.'}</p>}

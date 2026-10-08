@@ -394,3 +394,10 @@ html.gkais-surface-dark [class*="lg:pl-[245px]"] aside.bg-white textarea::placeh
     grid-template-columns: minmax(90px, 1fr) minmax(160px, 1.55fr) minmax(140px, 1.15fr) minmax(145px, 1fr);
   }
 }
+
+/* Keep native time input + mobile picker, with one explicit clock on desktop. */
+@media (min-width: 640px) {
+  .gkais-time-picker-input::-webkit-calendar-picker-indicator {
+    display: none;
+  }
+}

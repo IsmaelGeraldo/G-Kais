@@ -6,6 +6,7 @@ import { completeExpertWorkTaskWithNext, hydrateExpertsTaskMemory, persistExpert
 import { appendExpertAuditLog, appendExpertRelationshipEvent, hasWorkspacePermission, loadExpertWorkspaceTeam, workspaceAssigneeLabel, type WorkspaceMember, type WorkspaceTeamState } from '../../services/expertsWorkspaceCore';
 import { appendJournal, getWorkPriority, loadTasks, refreshClientNextAction, saveTasks, WORKSPACE_STATE_EVENT, type WorkActionType, type WorkTask } from './workspaceState';
 import { BuyerQueueWorkspaceV2 } from './BuyerQueueWorkspaceV2';
+import { GkaisTimeInput } from './GkaisTimeInput';
 
 type Interaction = 'queue' | 'waiting-reply' | 'reply-received';
 type Lane = 'queue' | 'waiting' | 'replied';
@@ -353,8 +354,7 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
                   </select>
                   <input type="date" value={nextDate} onChange={(event) => setNextDate(event.target.value)}
                     className="min-w-0 w-full rounded-lg border border-black/10 bg-white px-2 py-2 text-xs" />
-                  <input type="time" aria-label={language === 'es' ? 'Hora' : 'Time'} value={nextTime} onChange={(event) => setNextTime(event.target.value)}
-                    className="min-w-0 w-full rounded-lg border border-black/10 bg-white px-2 py-2 text-xs" />
+                  <GkaisTimeInput value={nextTime} onChange={setNextTime} language={language} />
                 </div>
                 <input value={nextNote} onChange={(event) => setNextNote(event.target.value)}
                   placeholder={language === 'es' ? 'Pequeña nota' : 'Short note'}

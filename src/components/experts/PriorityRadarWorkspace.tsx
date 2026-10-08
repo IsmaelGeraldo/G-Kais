@@ -106,7 +106,6 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
   const [nextDate, setNextDate] = useState('');
   const [nextTime, setNextTime] = useState('');
   const [nextNote, setNextNote] = useState('');
-  const [nextEnabled, setNextEnabled] = useState(false);
   const [savingNext, setSavingNext] = useState(false);
   const [nextError, setNextError] = useState('');
   const [editingId, setEditingId] = useState('');
@@ -135,6 +134,11 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
   const canManageOwn = Boolean(team && hasWorkspacePermission(team.currentMember.permissions, 'tasks.manage.own'));
   const members = useMemo(() => (team?.members || []).filter((member) => member.status === 'active'), [team]);
   const assigneeOptionLabel = (member: WorkspaceMember) => workspaceAssigneeLabel(member, team?.roles || []);
+  // Fields are always visible; editing any next-action detail opts into delegation.
+  // An untouched form only completes the current task.
+  const hasNextAction = nextType !== 'whatsapp'
+    || (nextAssignee || currentUid) !== currentUid
+    || Boolean(nextDate || nextTime || nextNote.trim());
   const clientPersonById = useMemo(() => new Map(loadMentoringClientCache<MentoringClientLink>().filter((item) => item.id && item.personId).map((item) => [item.id, item.personId!])), [tasks]);
   const resolvedPersonId = (task: TeamTask) => task.personId || clientPersonById.get(task.clientId) || '';
 
@@ -198,7 +202,7 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
       completedAt: new Date().toISOString()
     };
     try {
-      const next = nextEnabled ? buildNextAction(task) : undefined;
+      const next = hasNextAction ? buildNextAction(task) : undefined;
       // One atomic commit: no orphan follow-up and no unfinished source task.
       await completeExpertWorkTaskWithNext(updated, next);
       persist(next
@@ -212,7 +216,6 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
       });
       setActiveId('');
       setResult('');
-      setNextEnabled(false);
       setNextNote('');
       setNextDate('');
       setNextTime('');
@@ -311,13 +314,13 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
     </section>
 
     {mainTab === 'buyers' ? <BuyerQueueWorkspaceV2 language={language} /> : <>
-      <section className="overflow-hidden rounded-2xl border border-black/10 bg-white"><div className="max-h-[700px] divide-y divide-black/5 overflow-y-auto">{rows.map((task) => {
+      <section className="overflow-hidden rounded-2xl border border-black/10 bg-white"><div className="gkais-light-scrollbar max-h-[700px] divide-y divide-black/5 overflow-y-auto">{rows.map((task) => {
         const opened = activeId === task.id;
         const state = stateOf(task);
         const taskPriority = priority(task, language);
         const personId = resolvedPersonId(task);
         return <div key={task.id} className="p-4">
-          <div className="grid gap-3 lg:grid-cols-[1fr_90px_105px_145px_170px_auto] lg:items-center"><div><p className="text-sm font-semibold">{task.title}</p>{personId && isOwner ? <button type="button" onClick={() => onOpenClient(personId)} className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-[#0A3F4D]">{task.clientName}<ChevronRight className="h-3 w-3" /></button> : <p className="mt-1 text-xs font-medium text-[#0A3F4D]">{task.clientName}</p>}<p className="mt-1 line-clamp-1 text-xs text-black/40">{task.note}</p></div><span className={`w-fit rounded-full px-2.5 py-1 text-[9px] font-semibold ${taskPriority.cls}`}>{taskPriority.label}</span><div className="flex items-center gap-2 text-xs text-black/55"><ActionIcon type={task.type} />{actionLabel(task.type, language)}</div><div className="flex items-center gap-1.5 text-xs text-black/50"><Clock3 className="h-3.5 w-3.5" />{due(task, language)}</div>{canManageTeam || isOwner ? <label className="relative"><UserRoundCheck className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-black/30" /><select value={task.assignedToUid || currentUid} onChange={(event) => { const member = members.find((item) => item.uid === event.target.value); if (member) patch(task, { assignedToUid: member.uid, assignedToName: memberLabel(member), assignee: memberLabel(member) }); }} className="w-full rounded-lg border border-black/8 bg-white py-1.5 pl-8 pr-2 text-xs">{members.map((member) => <option key={member.uid} value={member.uid}>{assigneeOptionLabel(member)}</option>)}</select></label> : <span className="text-xs text-black/50">{task.assignedToName || task.assignee}</span>}<button type="button" disabled={!canWork(task)} onClick={() => { setActiveId(opened ? '' : task.id); setResult(task.result || task.lastInteractionNote || ''); setNextEnabled(false); setNextAssignee(currentUid); setNextType('whatsapp'); setNextDate(''); setNextTime(''); setNextNote(''); setNextError(''); }} className="inline-flex items-center justify-center gap-1 rounded-full bg-[#111413] px-3 py-2 text-[10px] font-semibold text-white disabled:opacity-30">{opened ? (language === 'es' ? 'Cerrar' : 'Close') : (language === 'es' ? 'Trabajar' : 'Work')}<ChevronDown className={`h-3 w-3 ${opened ? 'rotate-180' : ''}`} /></button></div>
+          <div className="grid gap-3 lg:grid-cols-[1fr_90px_105px_145px_170px_auto] lg:items-center"><div><p className="text-sm font-semibold">{task.title}</p>{personId && isOwner ? <button type="button" onClick={() => onOpenClient(personId)} className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-[#0A3F4D]">{task.clientName}<ChevronRight className="h-3 w-3" /></button> : <p className="mt-1 text-xs font-medium text-[#0A3F4D]">{task.clientName}</p>}<p className="mt-1 line-clamp-1 text-xs text-black/40">{task.note}</p></div><span className={`w-fit rounded-full px-2.5 py-1 text-[9px] font-semibold ${taskPriority.cls}`}>{taskPriority.label}</span><div className="flex items-center gap-2 text-xs text-black/55"><ActionIcon type={task.type} />{actionLabel(task.type, language)}</div><div className="flex items-center gap-1.5 text-xs text-black/50"><Clock3 className="h-3.5 w-3.5" />{due(task, language)}</div>{canManageTeam || isOwner ? <label className="relative"><UserRoundCheck className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-black/30" /><select value={task.assignedToUid || currentUid} onChange={(event) => { const member = members.find((item) => item.uid === event.target.value); if (member) patch(task, { assignedToUid: member.uid, assignedToName: memberLabel(member), assignee: memberLabel(member) }); }} className="w-full rounded-lg border border-black/8 bg-white py-1.5 pl-8 pr-2 text-xs">{members.map((member) => <option key={member.uid} value={member.uid}>{assigneeOptionLabel(member)}</option>)}</select></label> : <span className="text-xs text-black/50">{task.assignedToName || task.assignee}</span>}<button type="button" disabled={!canWork(task)} onClick={() => { setActiveId(opened ? '' : task.id); setResult(task.result || task.lastInteractionNote || ''); setNextAssignee(currentUid); setNextType('whatsapp'); setNextDate(''); setNextTime(''); setNextNote(''); setNextError(''); }} className="inline-flex items-center justify-center gap-1 rounded-full bg-[#111413] px-3 py-2 text-[10px] font-semibold text-white disabled:opacity-30">{opened ? (language === 'es' ? 'Cerrar' : 'Close') : (language === 'es' ? 'Trabajar' : 'Work')}<ChevronDown className={`h-3 w-3 ${opened ? 'rotate-180' : ''}`} /></button></div>
 
           {opened && canWork(task) && state === 'waiting-reply' && <div className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-[#FAFAF8] p-3"><div><p className="text-xs font-semibold">{language === 'es' ? 'Esperando respuesta' : 'Waiting for reply'}</p><p className="mt-1 text-xs text-black/45">{task.lastInteractionNote || task.note}</p></div><div className="flex gap-2"><button type="button" onClick={() => replied(task)} className="rounded-full bg-[#111413] px-4 py-2 text-xs font-semibold text-white">{language === 'es' ? 'Marcar respuesta recibida' : 'Mark reply received'}</button><button type="button" onClick={() => patch(task, { interactionState: 'queue' })} className="rounded-full border border-black/10 bg-white px-4 py-2 text-xs font-semibold">{language === 'es' ? 'Volver a por hacer' : 'Return to queue'}</button></div></div>}
 
@@ -334,36 +337,27 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
               </div></div>
             <div className="min-w-0">
               <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#0A3F4D]">{language === 'es' ? 'SIGUIENTE ACCIÓN' : 'NEXT ACTION'}</p>
-              <label className="mt-2 inline-flex cursor-pointer items-center gap-2 text-xs text-black/65">
-                <input type="checkbox" checked={nextEnabled} onChange={(event) => { setNextEnabled(event.target.checked); setNextError(''); }} />
-                {language === 'es' ? 'Crear otra acción al completar' : 'Create another action on completion'}
-              </label>
-              {nextEnabled && <>
-                <div className="mt-3 grid gap-2 [grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr))]">
-                  <select value={nextType} onChange={(event) => setNextType(event.target.value as WorkActionType)}
-                    className="min-w-0 w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-xs">
-                    <option value="whatsapp">WhatsApp</option><option value="email">Email</option>
-                    <option value="call">{language === 'es' ? 'Llamada' : 'Call'}</option>
-                    <option value="meeting">{language === 'es' ? 'Reunión' : 'Meeting'}</option>
-                    <option value="task">{language === 'es' ? 'Tarea' : 'Task'}</option>
-                  </select>
-                  <select value={nextAssignee || currentUid} onChange={(event) => setNextAssignee(event.target.value)}
-                    className="min-w-0 w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-xs">
-                    {members.map((member) => <option key={member.uid} value={member.uid}>{assigneeOptionLabel(member)}</option>)}
-                  </select>
-                  <input type="date" value={nextDate} onChange={(event) => setNextDate(event.target.value)}
-                    className="min-w-0 w-full rounded-lg border border-black/10 bg-white px-2 py-2 text-xs" />
-                  <input type="time" value={nextTime} onChange={(event) => setNextTime(event.target.value)}
-                    onClick={(event) => { try { event.currentTarget.showPicker?.(); } catch {} }}
-                    className="min-w-0 w-full rounded-lg border border-black/10 bg-white px-2 py-2 text-xs" />
-                </div>
-                <input value={nextNote} onChange={(event) => setNextNote(event.target.value)}
-                  placeholder={language === 'es' ? 'Indicación para la siguiente acción (opcional)' : 'Instructions for the next action (optional)'}
-                  className="mt-2 w-full min-w-0 rounded-lg border border-black/10 bg-white px-3 py-2 text-xs" />
-                <p className="mt-1.5 text-[10px] text-black/45">{language === 'es'
-                  ? 'Completar cerrará este trabajo y enviará la próxima acción al responsable seleccionado.'
-                  : 'Complete will close this task and assign the next action to the selected teammate.'}</p>
-              </>}
+                <div className="mt-2 grid gap-2 [grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr))]">
+                <select value={nextType} onChange={(event) => setNextType(event.target.value as WorkActionType)}
+                className="min-w-0 w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-xs">
+                <option value="whatsapp">WhatsApp</option><option value="email">Email</option>
+                <option value="call">{language === 'es' ? 'Llamada' : 'Call'}</option>
+                <option value="meeting">{language === 'es' ? 'Reunión' : 'Meeting'}</option>
+                <option value="task">{language === 'es' ? 'Tarea' : 'Task'}</option>
+                </select>
+                <select value={nextAssignee || currentUid} onChange={(event) => setNextAssignee(event.target.value)}
+                className="min-w-0 w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-xs">
+                {members.map((member) => <option key={member.uid} value={member.uid}>{assigneeOptionLabel(member)}</option>)}
+                </select>
+                <input type="date" value={nextDate} onChange={(event) => setNextDate(event.target.value)}
+                className="min-w-0 w-full rounded-lg border border-black/10 bg-white px-2 py-2 text-xs" />
+                <input type="time" value={nextTime} onChange={(event) => setNextTime(event.target.value)}
+                onClick={(event) => { try { event.currentTarget.showPicker?.(); } catch {} }}
+                className="min-w-0 w-full rounded-lg border border-black/10 bg-white px-2 py-2 text-xs" />
+              </div>
+              <input value={nextNote} onChange={(event) => setNextNote(event.target.value)}
+                placeholder={language === 'es' ? 'Indicación para la siguiente acción (opcional)' : 'Instructions for the next action (optional)'}
+                className="mt-2 w-full min-w-0 rounded-lg border border-black/10 bg-white px-3 py-2 text-xs" />
               {nextError && <p role="alert" className="mt-2 text-xs text-[#8D332C]">{nextError}</p>}
             </div>
           </div>}

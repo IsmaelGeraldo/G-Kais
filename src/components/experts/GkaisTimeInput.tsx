@@ -108,7 +108,7 @@ export function GkaisTimeInput({ value, onChange, language, variant = 'compact' 
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => open ? setOpen(false) : show()}
-        className={`hidden min-w-0 w-full items-center justify-between gap-1 border border-black/10 bg-white text-left text-black/65 shadow-none outline-offset-2 sm:flex ${standard ? 'rounded-xl px-2 py-2.5 text-sm' : 'rounded-lg px-2 py-2 text-xs'}`}
+        className={`hidden min-w-0 w-full items-center justify-between gap-1 border border-black/10 bg-white text-left shadow-none outline-offset-2 sm:flex ${value ? 'text-[#111413]' : 'text-black/45'} ${standard ? 'rounded-xl px-2 py-2.5 text-sm' : 'rounded-lg px-2 py-2 text-xs'}`}
       >
         <span className="truncate tabular-nums">{value || '--:--'}</span>
         <Clock3 aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-black/70" />

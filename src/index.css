@@ -394,20 +394,3 @@ html.gkais-surface-dark [class*="lg:pl-[245px]"] aside.bg-white textarea::placeh
     grid-template-columns: minmax(90px, 1fr) minmax(160px, 1.55fr) minmax(140px, 1.15fr) minmax(145px, 1fr);
   }
 }
-
-/* Chrome: leave its real time-picker hit target clickable in narrow notebook fields.
-   The separate clock icon is decorative and has no hover/focus effect. */
-@media (min-width: 640px) {
-  .gkais-native-time-control .gkais-time-picker-input::-webkit-calendar-picker-indicator {
-    display: block;
-    position: absolute;
-    top: 0;
-    right: 0;
-    width: 36px;
-    height: 100%;
-    margin: 0;
-    padding: 0;
-    opacity: 0;
-    cursor: pointer;
-  }
-}

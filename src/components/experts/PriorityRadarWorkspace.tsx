@@ -6,7 +6,6 @@ import { completeExpertWorkTaskWithNext, hydrateExpertsTaskMemory, persistExpert
 import { appendExpertAuditLog, appendExpertRelationshipEvent, hasWorkspacePermission, loadExpertWorkspaceTeam, workspaceAssigneeLabel, type WorkspaceMember, type WorkspaceTeamState } from '../../services/expertsWorkspaceCore';
 import { appendJournal, getWorkPriority, loadTasks, refreshClientNextAction, saveTasks, WORKSPACE_STATE_EVENT, type WorkActionType, type WorkTask } from './workspaceState';
 import { BuyerQueueWorkspaceV2 } from './BuyerQueueWorkspaceV2';
-import { WorkTimeField } from './WorkTimeField';
 
 type Interaction = 'queue' | 'waiting-reply' | 'reply-received';
 type Lane = 'queue' | 'waiting' | 'replied';
@@ -331,8 +330,8 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
 
           {opened && canWork(task) && state === 'waiting-reply' && <div className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-[#FAFAF8] p-3"><div><p className="text-xs font-semibold">{language === 'es' ? 'Esperando respuesta' : 'Waiting for reply'}</p><p className="mt-1 text-xs text-black/45">{task.lastInteractionNote || task.note}</p></div><div className="flex gap-2"><button type="button" onClick={() => replied(task)} className="rounded-full bg-[#111413] px-4 py-2 text-xs font-semibold text-white">{language === 'es' ? 'Marcar respuesta recibida' : 'Mark reply received'}</button><button type="button" onClick={() => patch(task, { interactionState: 'queue' })} className="rounded-full border border-black/10 bg-white px-4 py-2 text-xs font-semibold">{language === 'es' ? 'Volver a por hacer' : 'Return to queue'}</button></div></div>}
 
-          {opened && canWork(task) && state !== 'waiting-reply' && <div className="mt-3 rounded-xl bg-[#FAFAF8] p-3">
-            <div className="grid gap-3 2xl:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)]">
+          {opened && canWork(task) && state !== 'waiting-reply' && <div className="gkais-work-panel mt-3 rounded-xl bg-[#FAFAF8] p-3">
+            <div className="gkais-work-columns grid gap-3">
               <div className="min-w-0">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-black/40">{language === 'es' ? 'NOTAS / RESULTADO' : 'NOTES / RESULT'}</p>
                 <textarea rows={3} value={result} onChange={(event) => setResult(event.target.value)}
@@ -354,7 +353,8 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
                   </select>
                   <input type="date" value={nextDate} onChange={(event) => setNextDate(event.target.value)}
                     className="min-w-0 w-full rounded-lg border border-black/10 bg-white px-2 py-2 text-xs" />
-                  <WorkTimeField value={nextTime} onChange={setNextTime} language={language} />
+                  <input type="time" aria-label={language === 'es' ? 'Hora' : 'Time'} value={nextTime} onChange={(event) => setNextTime(event.target.value)}
+                    className="min-w-0 w-full rounded-lg border border-black/10 bg-white px-2 py-2 text-xs" />
                 </div>
                 <input value={nextNote} onChange={(event) => setNextNote(event.target.value)}
                   placeholder={language === 'es' ? 'Pequeña nota' : 'Short note'}

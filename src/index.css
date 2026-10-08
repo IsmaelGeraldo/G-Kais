@@ -367,13 +367,30 @@ html.gkais-surface-dark [class*="lg:pl-[245px]"] aside.bg-white textarea::placeh
     transform: none;
   }
 }
-/* In Trabajar, the field grid responds to the action panel's actual width. */
+/* Trabajar uses available panel width, not the notebook viewport breakpoints. */
+.gkais-work-panel,
 .gkais-next-action-container {
   container-type: inline-size;
 }
 
-@container (min-width: 640px) {
+/* Show both original panels side by side as soon as their contents can fit. */
+@container (min-width: 785px) {
+  .gkais-work-columns {
+    grid-template-columns: minmax(220px, 0.56fr) minmax(0, 1.44fr);
+  }
+}
+
+/* Preserve the original notes/action proportions on larger desktop layouts. */
+@container (min-width: 1160px) {
+  .gkais-work-columns {
+    grid-template-columns: minmax(0, 0.75fr) minmax(0, 1.25fr);
+  }
+}
+
+/* Only place all four fields on one row when the action panel can accommodate
+   the native date and time controls without clipping the picker or AM/PM. */
+@container (min-width: 600px) {
   .gkais-next-action-grid {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.65fr) minmax(132px, 1.1fr) minmax(120px, 0.9fr);
+    grid-template-columns: minmax(90px, 1fr) minmax(160px, 1.55fr) minmax(140px, 1.15fr) minmax(145px, 1fr);
   }
 }

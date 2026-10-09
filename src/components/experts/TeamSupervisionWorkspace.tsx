@@ -117,7 +117,7 @@ export function TeamSupervisionWorkspace({ language }: { language: Language }) {
   const owner = Boolean(team && team.workspaceId === team.currentUid);
   const permissions = team?.currentMember.permissions || [];
   const hasGlobal = owner || hasWorkspacePermission(permissions, 'members.manage') || hasWorkspacePermission(permissions, 'audit.read');
-  const canSeeMembers = owner || hasWorkspacePermission(permissions, 'members.read') || hasWorkspacePermission(permissions, 'members.manage');
+  const canSeeMembers = hasGlobal; // Preserve the global member directory for managers/owners only.
   const canReadAudit = owner || hasWorkspacePermission(permissions, 'audit.read');
   const canSeeTeam = Boolean(team && (hasGlobal || team.currentMember.isSupervisor));
   const people = useMemo(() => (team?.members || []).filter((member) => member.status === 'active' && (

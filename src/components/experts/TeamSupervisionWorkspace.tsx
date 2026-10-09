@@ -305,24 +305,24 @@ export function TeamSupervisionWorkspace({ language }: { language: Language }) {
   return <div className="space-y-5">
     <section className="rounded-2xl border border-black/10 bg-white p-5">
       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#0A3F4D]">{es ? 'EQUIPO' : 'TEAM'}</p>
-      <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
-        <div>
+      <div className="mt-2 grid grid-cols-1 items-start gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+        <div className="min-w-0">
           <h3 className="text-xl font-semibold">{es ? 'Supervisión y actividad' : 'Supervision and activity'}</h3>
           <p className="mt-2 text-sm text-black/50">{hasGlobal ? (es ? 'Visión general del Workspace.' : 'Workspace-wide view.') : (es ? 'Actividad de tus miembros a cargo.' : 'Activity for your direct reports.')}</p>
         </div>
-        <div className="flex w-full flex-col items-start gap-2 xl:w-auto xl:items-end">
+        <div className="flex w-full flex-col items-end gap-2 sm:w-auto">
           <span className="rounded-full bg-[#F7F7F5] px-3 py-1.5 text-[11px] font-medium text-black/60">{people.length} {es ? 'miembros visibles' : 'visible members'}</span>
-          <div className="grid w-full grid-cols-3 gap-2 sm:w-auto">
+          <div className="grid grid-cols-3 gap-2">
             {[
               {label: es ? 'Completadas' : 'Completed', count: completed, Icon: CheckCircle2},
               {label: es ? 'Pendientes' : 'Pending', count: pending, Icon: Clock3},
               {label: es ? 'Vencidas' : 'Overdue', count: overdue, Icon: AlertCircle}
-            ].map(({label, count, Icon}) => <div key={label} className="flex min-w-0 items-center gap-2 rounded-xl border border-black/8 bg-[#FAFAF8] px-3 py-2.5 sm:min-w-[112px]">
-              <Icon className="h-3.5 w-3.5 shrink-0 text-black/45"/>
-              <div className="min-w-0">
-                <p className="text-base font-semibold leading-5 tabular-nums text-[#111413]">{count}</p>
+            ].map(({label, count, Icon}) => <div key={label} className="flex h-[76px] w-[96px] flex-col justify-between rounded-xl border border-black/8 bg-[#FAFAF8] px-3 py-2.5 sm:w-[108px] xl:w-[126px]">
+              <div className="flex items-center justify-between gap-1">
                 <p className="text-[10px] leading-4 text-black/50">{label}</p>
+                <Icon className="h-3.5 w-3.5 shrink-0 text-black/45"/>
               </div>
+              <p className="text-lg font-semibold leading-5 tabular-nums text-[#111413]">{count}</p>
             </div>)}
           </div>
         </div>

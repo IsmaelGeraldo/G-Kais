@@ -265,19 +265,17 @@ export function TeamSupervisionWorkspace({ language }: { language: Language }) {
     const unknown = [...new Set(events.map((event) => event.personId).filter((id): id is string => Boolean(id)))]
       .filter((id) => !lookedUpPeople.current.has(id)).slice(0, 60);
     unknown.forEach((id) => lookedUpPeople.current.add(id));
-    let cancelled = false;
     void Promise.all(unknown.map(async (personId) => {
       try {
         const snapshot = await getDoc(doc(firestoreDb, 'expert_workspaces', team.workspaceId, 'people', personId));
         const name = snapshot.data()?.name;
-        if (!cancelled && typeof name === 'string' && name.trim()) {
+        if (typeof name === 'string' && name.trim()) {
           setPersonNames((current) => ({ ...current, [personId]: name.trim() }));
         }
       } catch {
         // The event remains available even when the linked person is inaccessible.
       }
     }));
-    return () => { cancelled = true; };
   }, [events, team?.workspaceId]);
 
   const visibleTasks = useMemo(() => tasks.filter((task) => filteredUids.has(task.assignedToUid || '')), [tasks, filteredUids]);
@@ -312,7 +310,22 @@ export function TeamSupervisionWorkspace({ language }: { language: Language }) {
           <h3 className="text-xl font-semibold">{es ? 'Supervisión y actividad' : 'Supervision and activity'}</h3>
           <p className="mt-2 text-sm text-black/50">{hasGlobal ? (es ? 'Visión general del Workspace.' : 'Workspace-wide view.') : (es ? 'Actividad de tus miembros a cargo.' : 'Activity for your direct reports.')}</p>
         </div>
-        <span className="rounded-full bg-[#F7F7F5] px-3 py-1.5 text-[11px] font-medium text-black/60">{people.length} {es ? 'miembros visibles' : 'visible members'}</span>
+        <div className="flex w-full flex-col items-start gap-2 xl:w-auto xl:items-end">
+          <span className="rounded-full bg-[#F7F7F5] px-3 py-1.5 text-[11px] font-medium text-black/60">{people.length} {es ? 'miembros visibles' : 'visible members'}</span>
+          <div className="grid w-full grid-cols-3 gap-2 sm:w-auto">
+            {[
+              {label: es ? 'Completadas' : 'Completed', count: completed, Icon: CheckCircle2},
+              {label: es ? 'Pendientes' : 'Pending', count: pending, Icon: Clock3},
+              {label: es ? 'Vencidas' : 'Overdue', count: overdue, Icon: AlertCircle}
+            ].map(({label, count, Icon}) => <div key={label} className="flex min-w-0 items-center gap-2 rounded-xl border border-black/8 bg-[#FAFAF8] px-3 py-2.5 sm:min-w-[112px]">
+              <Icon className="h-3.5 w-3.5 shrink-0 text-black/45"/>
+              <div className="min-w-0">
+                <p className="text-base font-semibold leading-5 tabular-nums text-[#111413]">{count}</p>
+                <p className="text-[10px] leading-4 text-black/50">{label}</p>
+              </div>
+            </div>)}
+          </div>
+        </div>
       </div>
       <div className="mt-4 flex flex-wrap gap-2">
         {([
@@ -331,9 +344,13 @@ export function TeamSupervisionWorkspace({ language }: { language: Language }) {
     {panel === 'members' && canSeeMembers ? <TeamWorkspace language={language} /> : <>
       <section className="rounded-2xl border border-black/10 bg-white p-4">
         <div className="flex flex-wrap items-center gap-3">
+          <label className="text-xs text-black/55">{es ? 'Rol' : 'Role'} <select value={roleId} onChange={(event) => { setRoleId(event.target.value); setMemberUid('all'); }} className="ml-2 rounded-lg border border-black/10 bg-white px-3 py-2 text-xs text-black/75">
+            <option value="all">{es ? 'Todos los roles' : 'All roles'}</option>
+            {roles.map((role) => <option key={role.id} value={role.id}>{role.name}</option>)}
+          </select></label>
           <label className="text-xs text-black/55">{es ? 'Miembro' : 'Member'} <select value={memberUid} onChange={(event) => setMemberUid(event.target.value)} className="ml-2 rounded-lg border border-black/10 bg-white px-3 py-2 text-xs text-black/75">
             <option value="all">{es ? 'Todos los visibles' : 'All visible'}</option>
-            {people.map((member) => <option key={member.uid} value={member.uid}>{member.displayName || member.email || member.uid}</option>)}
+            {filteredPeople.map((member) => <option key={member.uid} value={member.uid}>{member.displayName || member.email || member.uid}</option>)}
           </select></label>
           <label className="text-xs text-black/55">{es ? 'Periodo' : 'Period'} <select value={period} onChange={(event) => setPeriod(event.target.value)} className="ml-2 rounded-lg border border-black/10 bg-white px-3 py-2 text-xs text-black/75">
             <option value="7">{es ? '7 días' : '7 days'}</option>
@@ -346,18 +363,6 @@ export function TeamSupervisionWorkspace({ language }: { language: Language }) {
         <p className="mt-2 text-[10px] text-black/40">{es ? 'Actividad disponible en Firebase. Las métricas corresponden a los registros cargados, no a un informe histórico exhaustivo.' : 'Available Firebase activity. Metrics reflect loaded records, not an exhaustive historical report.'}</p>
       </section>
 
-      {panel === 'summary' && <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        {[
-          {label: es ? 'Completadas' : 'Completed', count: completed, Icon: CheckCircle2},
-          {label: es ? 'Pendientes' : 'Pending', count: pending, Icon: Clock3},
-          {label: es ? 'Vencidas' : 'Overdue', count: overdue, Icon: AlertCircle}
-        ].map(({label, count, Icon}) => <div key={label} className="rounded-2xl border border-black/10 bg-white p-5">
-          <Icon className="h-4 w-4 text-black/55"/>
-          <p className="mt-3 text-2xl font-semibold tabular-nums text-[#111413]">{count}</p>
-          <p className="mt-1 text-xs text-black/50">{label}</p>
-        </div>)}
-      </div>}
-
       <section className="overflow-hidden rounded-2xl border border-black/10 bg-white p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-black/55"/><p className="text-sm font-semibold">{es ? 'Registro de actividad' : 'Activity history'}</p></div>
@@ -368,7 +373,7 @@ export function TeamSupervisionWorkspace({ language }: { language: Language }) {
             <Activity className="mt-0.5 h-4 w-4 shrink-0 text-black/35"/>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium text-[#111413]">{labelForAction(item.action, language)}</p>
-              {item.detail && <p className="mt-0.5 break-words text-xs text-black/55">{item.detail}</p>}
+              {readableDetail(item, es, personNames) && <p className="mt-0.5 break-words text-xs text-black/55">{readableDetail(item, es, personNames)}</p>}
               <p className="mt-1 text-[11px] text-black/40">{item.actorUid && names.has(item.actorUid) ? (es ? 'Realizado por: ' : 'By: ') + names.get(item.actorUid) : item.assignedUid && names.has(item.assignedUid) ? (es ? 'Responsable: ' : 'Assignee: ') + names.get(item.assignedUid) : (es ? 'Responsable no registrado' : 'Actor not recorded')}</p>
             </div>
             <span className="shrink-0 text-[10px] tabular-nums text-black/40">{dateLabel(item.date)}</span>

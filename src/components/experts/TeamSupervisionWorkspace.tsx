@@ -315,12 +315,12 @@ export function TeamSupervisionWorkspace({ language }: { language: Language }) {
             {label: es ? 'Completadas' : 'Completed', count: completed, Icon: CheckCircle2},
             {label: es ? 'Pendientes' : 'Pending', count: pending, Icon: Clock3},
             {label: es ? 'Vencidas' : 'Overdue', count: overdue, Icon: AlertCircle}
-          ].map(({label, count, Icon}) => <div key={label} className="flex h-[80px] min-w-0 flex-col justify-between rounded-xl border border-black/8 bg-[#FAFAF8] px-2.5 py-2.5 xl:px-3">
+          ].map(({label, count, Icon}) => <div key={label} className="flex h-[80px] min-w-0 flex-col justify-between rounded-xl border border-black/8 bg-[#FAFAF8] px-2.5 py-2.5 sm:h-[66px] 2xl:h-[80px] xl:px-3">
             <div className="flex items-start justify-between gap-1">
               <p className="min-w-0 text-[10px] leading-4 text-black/50">{label}</p>
               <Icon className="h-3.5 w-3.5 shrink-0 text-black/45"/>
             </div>
-            <p className="text-lg font-semibold leading-5 tabular-nums text-[#111413]">{count}</p>
+            <p className="text-lg font-semibold leading-5 tabular-nums text-[#111413] sm:text-[22px] sm:leading-6 2xl:text-lg 2xl:leading-5">{count}</p>
           </div>)}
         </div>}
         <span className="w-fit justify-self-end whitespace-nowrap rounded-full bg-[#F7F7F5] px-3 py-1.5 text-[11px] font-medium text-black/60">{people.length} {es ? 'miembros visibles' : 'visible members'}</span>

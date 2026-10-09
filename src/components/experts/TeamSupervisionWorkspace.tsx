@@ -5,6 +5,7 @@ import { firebaseAuth, firestoreDb } from '../../lib/firebase';
 import type { Language } from '../../i18n/LanguageContext';
 import { hasWorkspacePermission, loadExpertWorkspaceTeam, type WorkspaceMember, type WorkspaceTeamState } from '../../services/expertsWorkspaceCore';
 import { TeamWorkspace } from './TeamWorkspace';
+import { coalesceTaskCompletionActivity } from './teamActivityDedup';
 
 type Task = {
   id: string;
@@ -30,6 +31,7 @@ type ActivityItem = {
   assignedUid: string;
   date: Date | null;
   source: 'task' | 'event' | 'audit';
+  taskId?: string;
   personId?: string;
   metadata?: Record<string, unknown>;
 };
@@ -40,6 +42,7 @@ type FeedEvent = {
   entityType?: string;
   entityId?: string;
   sourceId?: string;
+  sourceType?: string;
   personId?: string;
   metadata?: Record<string, unknown>;
   changes?: Record<string, unknown>;
@@ -138,7 +141,7 @@ function taskActivities(task: Task): ActivityItem[] {
   const created = readDate(task.createdAt);
   if (created) rows.push({ id: `task-create-${task.id}`, action: 'task.created', detail: title, actorUid: task.createdByUid || '', assignedUid: task.assignedToUid || '', date: created, source: 'task' });
   const completed = readDate(task.completedAt);
-  if (completed && task.status === 'done') rows.push({ id: `task-done-${task.id}`, action: 'task.completed', detail: title, actorUid: task.completedByUid || '', assignedUid: task.assignedToUid || '', date: completed, source: 'task' });
+  if (completed && task.status === 'done') rows.push({ id: `task-done-${task.id}`, taskId: task.id, action: 'task.completed', detail: title, actorUid: task.completedByUid || '', assignedUid: task.assignedToUid || '', date: completed, source: 'task' });
   const removed = readDate(task.deletedAt);
   if (removed) rows.push({ id: `task-delete-${task.id}`, action: 'task.deleted', detail: title, actorUid: '', assignedUid: task.assignedToUid || '', date: removed, source: 'task' });
   return rows;
@@ -236,6 +239,7 @@ export function TeamSupervisionWorkspace({ language }: { language: Language }) {
               const event = item.data() as FeedEvent;
               return {
                 id: `event-${item.id}`,
+                taskId: event.sourceType === 'work_task' ? event.sourceId || '' : '',
                 action: event.type || '',
                 detail: safeDetail(event),
                 actorUid: event.actorUid || '',
@@ -252,7 +256,7 @@ export function TeamSupervisionWorkspace({ language }: { language: Language }) {
         if (auditAllowed) unsubscribers.push(onSnapshot(query(auditRef, limit(MAX_EVENTS)), (snapshot) => {
           eventBuckets.set('audit', snapshot.docs.map((item) => {
             const event = item.data() as FeedEvent;
-            return { id: `audit-${item.id}`, action: event.action || '',
+            return { id: `audit-${item.id}`, taskId: event.entityType === 'work_task' ? event.entityId || '' : '', action: event.action || '',
               detail: safeDetail(event), actorUid: event.actorUid || '', assignedUid: '',
               date: readDate(event.occurredAt) || readDate(event.createdAt), source: 'audit' as const };
           }));
@@ -290,14 +294,14 @@ export function TeamSupervisionWorkspace({ language }: { language: Language }) {
   const visibleTasks = useMemo(() => tasks.filter((task) => filteredUids.has(task.assignedToUid || '')), [tasks, filteredUids]);
   const taskEvents = useMemo(() => visibleTasks.flatMap(taskActivities), [visibleTasks]);
   const since = period === 'all' ? 0 : Date.now() - Number(period) * 86400000;
-  const activity = useMemo(() => [...taskEvents, ...events]
+  const activity = useMemo(() => coalesceTaskCompletionActivity([...taskEvents, ...events]
     .filter((event) => hasGlobal || allowedUids.has(event.actorUid) || (event.source === 'task' && allowedUids.has(event.assignedUid)))
     .filter((event) => (roleId === 'all' && memberUid === 'all')
       || filteredUids.has(event.actorUid)
       || (event.source === 'task' && filteredUids.has(event.assignedUid)))
     .filter((event) => event.date && event.date.getTime() >= since)
     .filter((event) => !search.trim() || [event.action, event.detail, personNames[event.personId || ''] || '', names.get(event.actorUid) || '', names.get(event.assignedUid) || '']
-      .some((value) => value.toLowerCase().includes(search.trim().toLowerCase())))
+      .some((value) => value.toLowerCase().includes(search.trim().toLowerCase()))))
     .sort((a, b) => (b.date?.getTime() || 0) - (a.date?.getTime() || 0)), [taskEvents, events, hasGlobal, allowedUids, filteredUids, roleId, memberUid, since, search, names, personNames]);
   const now = new Date();
   const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;

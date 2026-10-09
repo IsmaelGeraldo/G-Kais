@@ -209,14 +209,23 @@ export function TeamSupervisionWorkspace({ language }: { language: Language }) {
           setLoading(false);
           return;
         }
+        const canReadTeamTasks = state.workspaceId === state.currentUid ||
+          hasWorkspacePermission(state.currentMember.permissions, 'tasks.read.team');
+        const canReadOwnTasks = hasWorkspacePermission(state.currentMember.permissions, 'tasks.read.own');
         const taskRef = collection(firestoreDb, 'expert_workspaces', state.workspaceId, 'work_tasks');
         const eventsRef = collection(firestoreDb, 'expert_workspaces', state.workspaceId, 'relationship_events');
         const auditRef = collection(firestoreDb, 'expert_workspaces', state.workspaceId, 'audit_logs');
         const watches = privileged ? [null] : uniqueChunks(uids);
         for (let i = 0; i < watches.length; i += 1) {
           const chunk = watches[i];
-          const taskQuery = chunk ? query(taskRef, where('task.assignedToUid', 'in', chunk), limit(MAX_TEAM_TASKS)) : query(taskRef, limit(MAX_TEAM_TASKS));
-          unsubscribers.push(onSnapshot(taskQuery, (snapshot) => {
+          // Role-filtered task queries must also be authorized by Firestore rules.
+          // Event history remains available under its separate events permissions.
+          const taskQuery = canReadTeamTasks
+            ? chunk ? query(taskRef, where('task.assignedToUid', 'in', chunk), limit(MAX_TEAM_TASKS)) : query(taskRef, limit(MAX_TEAM_TASKS))
+            : canReadOwnTasks && i === 0
+              ? query(taskRef, where('task.assignedToUid', '==', state.currentUid), limit(MAX_TEAM_TASKS))
+              : null;
+          if (taskQuery) unsubscribers.push(onSnapshot(taskQuery, (snapshot) => {
             taskBuckets.set(`task-${i}`, snapshot.docs.map((item) => ({ ...(item.data().task || {}), id: item.id } as Task))
               .filter((task) => task.id && task.type && !String((task as Task & { workstream?: string }).workstream || '').startsWith('formation-')));
             publishTasks();

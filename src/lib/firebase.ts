@@ -12,7 +12,16 @@ const selected = resolveFirebaseTarget({
   messagingSenderId: firebaseAppletConfig.messagingSenderId,
   appId: firebaseAppletConfig.appId,
   firestoreDatabaseId: firebaseAppletConfig.firestoreDatabaseId
-}, import.meta.env);
+}, {
+  VITE_GKAIS_FIREBASE_TARGET: import.meta.env.VITE_GKAIS_FIREBASE_TARGET,
+  VITE_GKAIS_QA_API_KEY: import.meta.env.VITE_GKAIS_QA_API_KEY,
+  VITE_GKAIS_QA_AUTH_DOMAIN: import.meta.env.VITE_GKAIS_QA_AUTH_DOMAIN,
+  VITE_GKAIS_QA_PROJECT_ID: import.meta.env.VITE_GKAIS_QA_PROJECT_ID,
+  VITE_GKAIS_QA_STORAGE_BUCKET: import.meta.env.VITE_GKAIS_QA_STORAGE_BUCKET,
+  VITE_GKAIS_QA_MESSAGING_SENDER_ID: import.meta.env.VITE_GKAIS_QA_MESSAGING_SENDER_ID,
+  VITE_GKAIS_QA_APP_ID: import.meta.env.VITE_GKAIS_QA_APP_ID,
+  VITE_GKAIS_QA_FIRESTORE_DATABASE_ID: import.meta.env.VITE_GKAIS_QA_FIRESTORE_DATABASE_ID
+});
 
 export const firebaseTarget = selected.target;
 export const firebaseApp = getApps().length > 0

@@ -1,13 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import {
-  browserLocalPersistence,
-  GoogleAuthProvider,
-  onAuthStateChanged,
-  setPersistence,
-  signInWithPopup,
-  signOut
-} from 'firebase/auth';
-import { ArrowLeft, Building2, LogIn, ShieldCheck } from 'lucide-react';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { ArrowLeft, Building2, ShieldCheck } from 'lucide-react';
+import { WorkspaceAuthChoices } from './WorkspaceAuthChoices';
 import { firebaseAuth } from '../../lib/firebase';
 import { resolveValidExpertWorkspaceId } from '../../services/expertsWorkspaceMembers';
 
@@ -51,40 +45,12 @@ export function WorkspaceLoginPage() {
     });
   }), []);
 
-  const login = async () => {
-    setBusy(true);
-    setError('');
-    const provider = new GoogleAuthProvider();
-    provider.setCustomParameters({ prompt: 'select_account' });
-
-    try {
-      await setPersistence(firebaseAuth, browserLocalPersistence);
-      await signInWithPopup(firebaseAuth, provider);
-      const allowed = await checkWorkspace();
-      if (allowed) window.location.replace('/workspace/experts');
-    } catch (cause) {
-      const code = cause && typeof cause === 'object' && 'code' in cause
-        ? String((cause as { code?: unknown }).code || '')
-        : '';
-      if (code === 'auth/popup-blocked') {
-        setError('El navegador bloqueó la ventana de Google. Habilita las ventanas emergentes para g-kais.vercel.app y vuelve a intentarlo.');
-      } else if (code === 'auth/popup-closed-by-user') {
-        setError('El inicio de sesión fue cancelado.');
-      } else {
-        setError(cause instanceof Error ? cause.message : 'LOGIN_FAILED');
-      }
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const switchAccount = async () => {
     setBusy(true);
     setError('');
     try {
       await signOut(firebaseAuth);
       setState('signed-out');
-      await login();
     } finally {
       setBusy(false);
     }
@@ -107,22 +73,14 @@ export function WorkspaceLoginPage() {
       <p className="mt-6 text-xs font-semibold uppercase tracking-[0.18em] text-[#0A3F4D]">G-KAIS WORKSPACE</p>
       <h1 className="mt-2 text-3xl font-semibold tracking-[-0.04em]">Iniciar sesión</h1>
       <p className="mt-3 text-sm leading-6 text-black/50">
-        Entra con la cuenta de Google asociada a tu empresa. G-Kais abrirá automáticamente el Workspace al que perteneces.
+        Accede con Google, Microsoft o un enlace enviado a tu correo. G-Kais abrirá únicamente el Workspace donde tengas una membresía activa.
       </p>
 
       {state === 'checking' && <div className="mt-6 rounded-2xl bg-[#F7F7F5] p-4 text-sm text-black/50">
         Verificando tu acceso…
       </div>}
 
-      {state === 'signed-out' && <button
-        type="button"
-        disabled={busy}
-        onClick={() => void login()}
-        className="mt-7 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#111413] px-5 py-3 text-sm font-semibold text-white disabled:opacity-40"
-      >
-        <LogIn className="h-4 w-4" />
-        {busy ? 'Abriendo Google…' : 'Continuar con Google'}
-      </button>}
+      {state === 'signed-out' && <WorkspaceAuthChoices />}
 
       {state === 'ready' && <button
         type="button"

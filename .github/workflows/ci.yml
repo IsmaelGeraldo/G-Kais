@@ -33,6 +33,9 @@ jobs:
       - name: Test hierarchy assignments
         run: npm run test:workspace-hierarchy
 
+      - name: Test Workspace DOM translation guard
+        run: node --test tests/workspace-translation-guard.test.mjs
+
       - name: Build
         run: npm run build
 

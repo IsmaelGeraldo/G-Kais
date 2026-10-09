@@ -432,7 +432,8 @@ function ExpertsWorkspaceShell({ onExit, verifiedWorkspaceId }: Props) {
   };
 
   return <div
-    className={`min-h-screen text-[#0A0A0A] ${sidebarCollapsed ? 'gkais-sidebar-collapsed' : '' } ${appearance.theme === 'black' ? 'gkais-black-surface' : ''}`}
+    translate="no"
+    className={`notranslate min-h-screen text-[#0A0A0A] ${sidebarCollapsed ? 'gkais-sidebar-collapsed' : '' } ${appearance.theme === 'black' ? 'gkais-black-surface' : ''}`}
     style={{
       background: workspaceBackground(workspaceAccent, appearance.intensity),
       '--gkais-card-surface': cardSurface,

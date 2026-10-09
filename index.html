@@ -1,6 +1,14 @@
 <!doctype html>
 <html lang="en" class="scroll-smooth">
   <head>
+    <!-- Workspace has its own Spanish/English UI. Do not let Chrome auto-translate
+         React-managed text nodes, which can cause insertBefore/removeChild crashes. -->
+    <script>
+      if (location.pathname === '/login' || location.pathname.startsWith('/workspace')) {
+        document.documentElement.setAttribute('translate', 'no');
+        document.documentElement.classList.add('notranslate');
+      }
+    </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>G-KAIS AI Business Systems</title>

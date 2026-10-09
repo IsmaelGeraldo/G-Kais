@@ -12,7 +12,7 @@ import {
   type WorkspaceRole,
   type WorkspaceTeamState
 } from '../../services/expertsWorkspaceCore';
-import { revokeExpertWorkspaceInvite } from '../../services/expertsWorkspaceInvites';
+import { revokeExpertWorkspaceInvite, sendExpertWorkspaceInvitationEmail } from '../../services/expertsWorkspaceInvites';
 import { removeExpertWorkspaceMember, updateExpertWorkspaceMember } from '../../services/expertsWorkspaceMembers';
 
 const PERMISSIONS: WorkspacePermission[] = ['people.read','people.manage','webinars.read','webinars.manage','formations.read','formations.manage','mentoring.read','mentoring.manage','tasks.read.own','tasks.manage.own','tasks.read.team','tasks.manage','members.read','members.manage','roles.read','roles.manage','events.read','events.create','audit.read','settings.manage','billing.manage'];
@@ -159,6 +159,8 @@ export function TeamWorkspace({ language }: { language: Language }) {
   const [revokingInvite, setRevokingInvite] = useState('');
   const [confirmingInviteId, setConfirmingInviteId] = useState('');
   const [inviteNotice, setInviteNotice] = useState('');
+  const [inviteMailError, setInviteMailError] = useState('');
+  const [resendingInvite, setResendingInvite] = useState('');
   const [editingMemberUid, setEditingMemberUid] = useState('');
   const [editingRoleId, setEditingRoleId] = useState('');
   const [editingPermissions, setEditingPermissions] = useState<WorkspacePermission[]>([]);
@@ -244,16 +246,49 @@ export function TeamWorkspace({ language }: { language: Language }) {
     if (!name.trim() || !email.trim() || !role) return;
     setSaving(true);
     setError('');
+    setInviteNotice('');
+    setInviteMailError('');
     try {
       const result = await createExpertWorkspaceInvite({ displayName: name, email, roleId: role });
       setInviteLink(buildPublicAppUrl('/workspace/experts', new URLSearchParams({ invite: result.token })));
       setName('');
       setEmail('');
+      try {
+        await sendExpertWorkspaceInvitationEmail(result.inviteId);
+        setInviteNotice(language === 'es'
+          ? 'Invitación creada y correo enviado al destinatario.'
+          : 'Invitation created and email sent to the recipient.');
+      } catch (deliveryError) {
+        console.warn('WORKSPACE_INVITATION_DELIVERY_FAILED', deliveryError);
+        setInviteMailError(language === 'es'
+          ? 'Invitación creada, pero el correo no se pudo enviar. Puedes copiar el enlace y compartirlo manualmente. Comprueba el dominio remitente y las credenciales de correo.'
+          : 'Invitation created but the email was not sent. Copy and share the link manually. Check the sending domain and email credentials.');
+      }
       await refresh();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'INVITE_FAILED');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const resendInvite = async (inviteId: string) => {
+    setResendingInvite(inviteId);
+    setError('');
+    setInviteNotice('');
+    setInviteMailError('');
+    try {
+      await sendExpertWorkspaceInvitationEmail(inviteId);
+      setInviteNotice(language === 'es'
+        ? 'Correo de invitación reenviado correctamente.'
+        : 'Invitation email resent successfully.');
+    } catch (cause) {
+      console.warn('WORKSPACE_INVITATION_RESEND_FAILED', cause);
+      setInviteMailError(language === 'es'
+        ? 'No se pudo enviar el correo. Revisa la configuración del remitente o comparte el enlace de invitación.'
+        : 'The email could not be sent. Check sender configuration or share the invitation link.');
+    } finally {
+      setResendingInvite('');
     }
   };
 
@@ -424,7 +459,8 @@ export function TeamWorkspace({ language }: { language: Language }) {
         </div>
       </div>
       {error && <p className="mt-3 rounded-xl bg-[#A23A32]/8 p-3 text-xs text-[#8D332C]">{error}</p>}
-      {inviteNotice && <p className="mt-3 rounded-xl bg-[#17603D]/8 p-3 text-xs font-medium text-[#17603D]">{inviteNotice}</p>}
+      {inviteNotice && <p role="status" className="mt-3 rounded-xl bg-[#17603D]/8 p-3 text-xs font-medium text-[#17603D]">{inviteNotice}</p>}
+      {inviteMailError && <p role="alert" className="mt-3 rounded-xl bg-[#A46F16]/8 p-3 text-xs font-medium text-[#82570F]">{inviteMailError}</p>}
     </section>
 
     {showInvite && canManageMembers && <section className="rounded-2xl border border-black/10 bg-white p-5">
@@ -435,7 +471,7 @@ export function TeamWorkspace({ language }: { language: Language }) {
           {team.roles.filter((item) => item.id !== 'owner').map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
         </select>
         <button disabled={saving} onClick={() => void invite()} className="rounded-xl bg-[#0A3F4D] px-4 py-2.5 text-xs font-semibold text-white disabled:opacity-40">
-          {language === 'es' ? 'Crear invitación' : 'Create invite'}
+          {saving ? (language === 'es' ? 'Enviando…' : 'Sending…') : (language === 'es' ? 'Invitar y enviar correo' : 'Invite and send email')}
         </button>
       </div>
       {inviteLink && <div className="mt-3">
@@ -508,15 +544,23 @@ export function TeamWorkspace({ language }: { language: Language }) {
               <XCircle className="h-3.5 w-3.5" />
               {revokingInvite === invite.id ? (language === 'es' ? 'Cancelando…' : 'Canceling…') : (language === 'es' ? 'Sí, cancelar' : 'Yes, cancel')}
             </button>
-          </div> : <button
-            type="button"
-            disabled={Boolean(revokingInvite)}
-            onClick={() => setConfirmingInviteId(invite.id)}
-            className="inline-flex items-center justify-center gap-1.5 rounded-full border border-[#A23A32]/15 px-3 py-2 text-xs font-semibold text-[#8D332C] transition hover:bg-[#A23A32]/6 disabled:opacity-40"
-          >
-            <XCircle className="h-3.5 w-3.5" />
-            {language === 'es' ? 'Cancelar invitación' : 'Cancel invitation'}
-          </button>}
+          </div> : <div className="flex flex-wrap items-center justify-end gap-2">
+            {(invite.invitedByUid === team.currentUid || team.workspaceId === team.currentUid) && <button
+              type="button"
+              disabled={Boolean(resendingInvite) || Boolean(revokingInvite)}
+              onClick={() => void resendInvite(invite.id)}
+              className="rounded-full border border-black/10 bg-white px-3 py-2 text-xs font-semibold text-black/65 disabled:opacity-40"
+            >{resendingInvite === invite.id ? (language === 'es' ? 'Enviando…' : 'Sending…') : (language === 'es' ? 'Reenviar correo' : 'Resend email')}</button>}
+            <button
+              type="button"
+              disabled={Boolean(revokingInvite)}
+              onClick={() => setConfirmingInviteId(invite.id)}
+              className="inline-flex items-center justify-center gap-1.5 rounded-full border border-[#A23A32]/15 px-3 py-2 text-xs font-semibold text-[#8D332C] transition hover:bg-[#A23A32]/6 disabled:opacity-40"
+            >
+              <XCircle className="h-3.5 w-3.5" />
+              {language === 'es' ? 'Cancelar invitación' : 'Cancel invitation'}
+            </button>
+          </div>}
         </div>)}
       </div>
     </section>}

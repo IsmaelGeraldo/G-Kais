@@ -153,11 +153,15 @@ test('new QA owner can bootstrap Workspace, role, member and user atomically', a
     schemaVersion: 1, name: 'QA Workspace', ownerUid: uid,
     status: 'active', createdAt: now, updatedAt: now
   });
-  batch.set(doc(db, workspace(uid, 'roles', 'owner')), {
-    schemaVersion: 1, name: 'Owner', description: 'Full access',
-    permissions: ['*'], isSystem: true, createdByUid: uid,
-    createdAt: now, updatedAt: now
-  });
+  // The real first-login bootstrap creates all six default role templates.
+  for (const roleId of ['owner', 'manager', 'mentor', 'closer', 'assistant', 'customer-success']) {
+    batch.set(doc(db, workspace(uid, 'roles', roleId)), {
+      schemaVersion: 1, name: roleId, description: 'QA role',
+      permissions: roleId === 'owner' ? ['*'] : ['tasks.read.own'],
+      isSystem: true, createdByUid: uid,
+      createdAt: now, updatedAt: now
+    });
+  }
   batch.set(doc(db, workspace(uid, 'members', uid)), {
     schemaVersion: 1, uid, email: 'fresh@example.test', displayName: 'QA Owner',
     roleId: 'owner', permissions: ['*'], status: 'active',
@@ -166,7 +170,8 @@ test('new QA owner can bootstrap Workspace, role, member and user atomically', a
   await assertSucceeds(batch.commit());
   await assertSucceeds(getDoc(doc(db, 'users', uid)));
   await assertSucceeds(getDoc(doc(db, workspace(uid, 'members', uid))));
-  await assertSucceeds(getDocs(collection(db, 'expert_workspaces', uid, 'roles')));
+  const roleDocs = await assertSucceeds(getDocs(collection(db, 'expert_workspaces', uid, 'roles')));
+  assert.equal(roleDocs.size, 6);
 });
 
 test('owner sees people and tasks in own Workspace', async () => {

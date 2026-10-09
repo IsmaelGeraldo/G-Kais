@@ -121,7 +121,7 @@ export function TeamSupervisionWorkspace({ language }: { language: Language }) {
   const canReadAudit = owner || hasWorkspacePermission(permissions, 'audit.read');
   const canSeeTeam = Boolean(team && (hasGlobal || team.currentMember.isSupervisor));
   const people = useMemo(() => (team?.members || []).filter((member) => member.status === 'active' && (
-    hasGlobal || member.uid === team.currentUid || member.supervisorUid === team.currentUid
+    hasGlobal || member.uid === team?.currentUid || member.supervisorUid === team?.currentUid
   )), [team, hasGlobal]);
   const allowedUids = useMemo(() => new Set(people.map((member) => member.uid)), [people]);
   const names = useMemo(() => new Map(people.map((member) => [member.uid, member.displayName || member.email || member.uid])), [people]);

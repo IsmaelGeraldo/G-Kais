@@ -166,6 +166,7 @@ export function TeamWorkspace({ language }: { language: Language }) {
   const [editingDirectReportUids, setEditingDirectReportUids] = useState<string[]>([]);
   const [editingIsSupervisor, setEditingIsSupervisor] = useState(false);
   const [reportRoleFilter, setReportRoleFilter] = useState('all');
+  const [memberListRoleFilter, setMemberListRoleFilter] = useState('all');
   const [editingPermissionsOpen, setEditingPermissionsOpen] = useState(false);
   const [savingMember, setSavingMember] = useState(false);
   const [removingMember, setRemovingMember] = useState('');
@@ -524,9 +525,20 @@ export function TeamWorkspace({ language }: { language: Language }) {
 
     <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
       <section className="min-w-0 rounded-2xl border border-black/10 bg-white p-5">
-        <div className="flex items-center gap-2">
-          <UsersRound className="h-4 w-4 text-[#0A3F4D]" />
-          <p className="font-semibold">{language === 'es' ? 'Miembros' : 'Members'}</p>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <UsersRound className="h-4 w-4 text-[#0A3F4D]" />
+            <p className="font-semibold">{language === 'es' ? 'Miembros' : 'Members'}</p>
+          </div>
+          <label className="flex items-center gap-2 text-xs text-black/55">
+            {language === 'es' ? 'Rol' : 'Role'}
+            <select value={memberListRoleFilter} onChange={(event) => setMemberListRoleFilter(event.target.value)}
+              className="rounded-lg border border-black/10 bg-white px-3 py-2 text-xs text-black/75">
+              <option value="all">{language === 'es' ? 'Todos los roles' : 'All roles'}</option>
+              {team.roles.filter((role) => team.members.some((member) => member.roleId === role.id))
+                .map((role) => <option key={role.id} value={role.id}>{role.name}</option>)}
+            </select>
+          </label>
         </div>
         {canManageMembers && <p className="mt-2 text-[11px] leading-5 text-black/45">
           {language === 'es'
@@ -534,7 +546,7 @@ export function TeamWorkspace({ language }: { language: Language }) {
             : 'Edit appears for members who have accepted their invitation. The Owner account and your own account are protected to prevent accidental loss of access.'}
         </p>}
         {canRead ? <div className="mt-3 divide-y divide-black/5">
-          {team.members.map((member) => {
+          {team.members.filter((member) => memberListRoleFilter === 'all' || member.roleId === memberListRoleFilter).map((member) => {
             const isOwner = member.uid === team.workspaceId || member.roleId === 'owner';
             const isCurrentMember = member.uid === team.currentUid;
             const canEdit = canManageMembers && !isOwner && !isCurrentMember;

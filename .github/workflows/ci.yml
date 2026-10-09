@@ -35,3 +35,16 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      # Only local synthetic data is used. No Firebase production credentials.
+      - name: Setup Java for Firestore emulator
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install Firestore emulator test tools
+        run: npm install --no-save --no-audit --no-fund --package-lock=false @firebase/rules-unit-testing firebase-tools
+
+      - name: Test Firestore authorization rules
+        run: npx firebase emulators:exec --only firestore --project demo-gkais-rules "node --test tests/firestore-permissions.test.mjs"

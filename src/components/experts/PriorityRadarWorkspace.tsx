@@ -175,13 +175,28 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
     .sort((left, right) => (right.deletedAt || right.completedAt || right.createdAt).localeCompare(left.deletedAt || left.completedAt || left.createdAt));
 
   const persist = (next: TeamTask[]) => { setTasks(next); saveTasks(next as WorkTask[]); };
-  const patch = (task: TeamTask, change: Partial<TeamTask>) => {
+  const patch = (task: TeamTask, change: Partial<TeamTask>, auditAction?: string) => {
     const linkedPersonId = resolvedPersonId(task);
     const updated = { ...task, ...change, ...(!task.personId && linkedPersonId ? { personId: linkedPersonId } : {}) } as TeamTask;
     if (change.status === 'done' && !updated.completedAt) updated.completedAt = new Date().toISOString();
     persist(tasks.map((item) => item.id === task.id ? updated : item));
     if (task.clientId) refreshClientNextAction(task.clientId);
-    void persistExpertWorkTask(updated);
+    const action = auditAction || (
+      change.deletedAt ? 'task.deleted' :
+      change.interactionState === 'waiting-reply' ? 'interaction.waiting_reply' :
+      change.interactionState === 'reply-received' ? 'interaction.reply_received' :
+      change.assignedToUid && change.assignedToUid !== task.assignedToUid ? 'task.assigned' :
+      'task.updated'
+    );
+    // Record an audit entry only after Firebase confirms the task update.
+    void persistExpertWorkTask(updated, { throwOnError: true })
+      .then(() => appendExpertAuditLog({
+        entityType: 'work_task',
+        entityId: task.id,
+        action,
+        changes: { title: task.title, assignedToUid: updated.assignedToUid || '', ...change }
+      }))
+      .catch((cause) => console.error('WORK_AUDIT_PERSIST_FAILED', cause));
     return updated;
   };
   const canWork = (task: TeamTask) => canManageTeam || isOwner || (canManageOwn && task.assignedToUid === currentUid);
@@ -207,6 +222,17 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
       const next = hasNextAction ? buildNextAction(task) : undefined;
       // One atomic commit: no orphan follow-up and no unfinished source task.
       await completeExpertWorkTaskWithNext(updated, next);
+      void appendExpertAuditLog({
+        entityType: 'work_task',
+        entityId: task.id,
+        action: 'task.completed',
+        changes: {
+          title: task.title,
+          assignedToUid: updated.assignedToUid || '',
+          completedByUid: currentUid,
+          ...(next ? { nextTaskId: next.id, nextAssignedToUid: next.assignedToUid || '' } : {})
+        }
+      }).catch((cause) => console.error('WORK_AUDIT_LOG_FAILED', cause));
       persist(next
         ? [next, ...tasks.map((item) => item.id === task.id ? updated : item)]
         : tasks.map((item) => item.id === task.id ? updated : item));
@@ -295,13 +321,7 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
       dueDate: editDate,
       dueTime: editTime,
       ...(assigned ? { assignedToUid: assigned.uid, assignedToName: memberLabel(assigned), assignee: memberLabel(assigned) } : {})
-    });
-    void appendExpertAuditLog({
-      entityType: 'work_task',
-      entityId: task.id,
-      action: 'task.history_edited',
-      changes: { note: editNote, result: editResult, type: editType, assignedToUid: editAssignee, dueDate: editDate, dueTime: editTime }
-    }).catch(() => {});
+    }, 'task.history_edited');
     setEditingId('');
   };
 

@@ -11,7 +11,7 @@ import {
   writeBatch
 } from 'firebase/firestore';
 import { firebaseAuth, firestoreDb } from '../lib/firebase';
-import { buildPublicAppUrl } from '../config/publicAppUrl';
+import { configuredPublicAppUrl } from '../config/publicAppUrl';
 
 const SCHEMA_VERSION = 1;
 const PROFILE_KEY = 'gkais-experts-profile-v1';
@@ -481,7 +481,11 @@ export function parseExpertWorkspaceInviteToken(token: string): { workspaceId: s
 }
 
 export function buildExpertWorkspaceInviteLink(token: string): string {
-  return buildPublicAppUrl('/workspace/experts', new URLSearchParams({ invite: token }));
+  // Before a branded domain exists, always share the stable production origin,
+  // not an AI Studio, localhost, or Vercel preview URL.
+  const url = new URL('/workspace/experts', configuredPublicAppUrl() || 'https://g-kais.vercel.app');
+  url.searchParams.set('invite', token);
+  return url.toString();
 }
 
 export async function getExpertWorkspaceInvite(token: string): Promise<WorkspaceInvite> {

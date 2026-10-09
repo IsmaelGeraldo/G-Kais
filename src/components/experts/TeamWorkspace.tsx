@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Copy, Pencil, Plus, Save, ShieldCheck, UserMinus, UserPlus, UsersRound, X, XCircle } from 'lucide-react';
+import { Copy, Pencil, Plus, Save, ShieldCheck, UserMinus, UserPlus, UsersRound, X, XCircle } from 'lucide-react';
 import type { Language } from '../../i18n/LanguageContext';
-import { buildPublicAppUrl, isPrivateOrPreviewAppOrigin } from '../../config/publicAppUrl';
 import {
+  buildExpertWorkspaceInviteLink,
   createExpertWorkspaceInvite,
   createExpertWorkspaceRole,
   hasWorkspacePermission,
@@ -154,7 +154,7 @@ export function TeamWorkspace({ language }: { language: Language }) {
   const [roleDescription, setRoleDescription] = useState('');
   const [rolePermissions, setRolePermissions] = useState<WorkspacePermission[]>([]);
   const [inviteLink, setInviteLink] = useState('');
-  const [copied, setCopied] = useState(false);
+  const [copiedInviteKey, setCopiedInviteKey] = useState('');
   const [saving, setSaving] = useState(false);
   const [revokingInvite, setRevokingInvite] = useState('');
   const [confirmingInviteId, setConfirmingInviteId] = useState('');
@@ -200,7 +200,6 @@ export function TeamWorkspace({ language }: { language: Language }) {
     () => permissions.includes('*') ? PERMISSIONS : PERMISSIONS.filter((permission) => permissions.includes(permission)),
     [permissions]
   );
-  const previewLink = isPrivateOrPreviewAppOrigin();
   const pendingInvites = useMemo(() => team?.invites.filter((invite) => invite.status === 'pending') || [], [team]);
   const memberLabel = (uid?: string) => {
     if (!uid || !team) return language === 'es' ? 'Sin supervisor' : 'No supervisor';
@@ -250,7 +249,7 @@ export function TeamWorkspace({ language }: { language: Language }) {
     setInviteMailError('');
     try {
       const result = await createExpertWorkspaceInvite({ displayName: name, email, roleId: role });
-      setInviteLink(buildPublicAppUrl('/workspace/experts', new URLSearchParams({ invite: result.token })));
+      setInviteLink(buildExpertWorkspaceInviteLink(result.token));
       setName('');
       setEmail('');
       try {
@@ -357,15 +356,15 @@ export function TeamWorkspace({ language }: { language: Language }) {
     setEditingPermissions(normalizePermissionList(selectedRole?.permissions));
   };
 
-  const copyInviteLink = async () => {
-    if (!inviteLink) return;
+  const copyInviteLink = async (link: string, key: string) => {
+    if (!link) return;
     setError('');
     try {
       if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(inviteLink);
+        await navigator.clipboard.writeText(link);
       } else {
         const textarea = document.createElement('textarea');
-        textarea.value = inviteLink;
+        textarea.value = link;
         textarea.setAttribute('readonly', '');
         textarea.style.position = 'fixed';
         textarea.style.opacity = '0';
@@ -375,13 +374,17 @@ export function TeamWorkspace({ language }: { language: Language }) {
         textarea.remove();
         if (!copiedWithFallback) throw new Error('COPY_NOT_AVAILABLE');
       }
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1200);
+      setCopiedInviteKey(key);
+      window.setTimeout(() => setCopiedInviteKey((current) => current === key ? '' : current), 1200);
     } catch {
-      setCopied(false);
+      setCopiedInviteKey('');
+      // A manual text link remains available even when browser clipboard access
+      // is restricted: reveal the existing invitation field to select its URL.
+      setInviteLink(link);
+      setShowInvite(true);
       setError(language === 'es'
-        ? 'No se pudo copiar automáticamente. Selecciona el enlace y cópialo manualmente.'
-        : 'The link could not be copied automatically. Select it and copy it manually.');
+        ? 'No se pudo copiar automáticamente. Selecciona el enlace mostrado y cópialo manualmente.'
+        : 'The link could not be copied automatically. Select the displayed link and copy it manually.');
     }
   };
 
@@ -477,16 +480,11 @@ export function TeamWorkspace({ language }: { language: Language }) {
       {inviteLink && <div className="mt-3">
         <div className="flex items-center gap-2 rounded-xl bg-[#F7F7F5] p-3">
           <p className="min-w-0 flex-1 truncate text-xs">{inviteLink}</p>
-          <button type="button" onClick={() => void copyInviteLink()} className="inline-flex items-center gap-1 rounded-full border border-black/10 bg-white px-3 py-2 text-xs">
-            <Copy className="h-3 w-3" />{copied ? (language === 'es' ? 'Copiado' : 'Copied') : (language === 'es' ? 'Copiar' : 'Copy')}
+          <button type="button" onClick={() => void copyInviteLink(inviteLink, 'new')} className="inline-flex items-center gap-1 rounded-full border border-black/10 bg-white px-3 py-2 text-xs">
+            <Copy className="h-3 w-3" />{copiedInviteKey === 'new' ? (language === 'es' ? 'Copiado' : 'Copied') : (language === 'es' ? 'Copiar' : 'Copy')}
           </button>
         </div>
-        {previewLink && <div className="mt-2 flex items-start gap-2 rounded-xl bg-[#A46F16]/8 p-3 text-xs leading-5 text-[#82570F]">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-          <span>{language === 'es'
-            ? 'Este enlace usa un dominio de vista previa. Puede funcionar en tus dispositivos, pero otra persona puede recibir error. Para invitaciones externas configura VITE_PUBLIC_APP_URL con el dominio público desplegado de G-Kais.'
-            : 'This link uses a preview domain. It may work on your devices while failing for someone else. Configure VITE_PUBLIC_APP_URL with the deployed public G-Kais domain for external invites.'}</span>
-        </div>}
+
       </div>}
     </section>}
 
@@ -545,6 +543,14 @@ export function TeamWorkspace({ language }: { language: Language }) {
               {revokingInvite === invite.id ? (language === 'es' ? 'Cancelando…' : 'Canceling…') : (language === 'es' ? 'Sí, cancelar' : 'Yes, cancel')}
             </button>
           </div> : <div className="flex flex-wrap items-center justify-end gap-2">
+            <button type="button"
+              onClick={() => void copyInviteLink(buildExpertWorkspaceInviteLink(`${team.workspaceId}:${invite.id}`), invite.id)}
+              className="inline-flex items-center gap-1 rounded-full border border-black/10 bg-white px-3 py-2 text-xs font-semibold text-black/65">
+              <Copy className="h-3.5 w-3.5"/>
+              {copiedInviteKey === invite.id
+                ? (language === 'es' ? 'Copiado' : 'Copied')
+                : (language === 'es' ? 'Copiar enlace' : 'Copy link')}
+            </button>
             {(invite.invitedByUid === team.currentUid || team.workspaceId === team.currentUid) && <button
               type="button"
               disabled={Boolean(resendingInvite) || Boolean(revokingInvite)}

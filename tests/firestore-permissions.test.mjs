@@ -33,6 +33,9 @@ const OWNER_A = 'owner-a';
 const OWNER_B = 'owner-b';
 const MANAGER_A = 'manager-a';
 const ASSISTANT_A = 'assistant-a';
+const MENTOR_A = 'mentor-a';
+const CLOSER_A = 'closer-a';
+const CUSTOMER_SUCCESS_A = 'customer-success-a';
 const LIMITED_A = 'limited-a';
 const REVOKED_A = 'revoked-a';
 
@@ -52,15 +55,35 @@ async function seed() {
       });
     }
     const members = [
-      [MANAGER_A, ['people.read', 'tasks.read.team', 'tasks.manage', 'members.manage']],
-      [ASSISTANT_A, ['people.read', 'tasks.read.own', 'tasks.manage.own']],
+      // Match the shipped default role templates. Synthetic accounts are
+      // created only in the Firestore Emulator, never in the real Workspace.
+      [MANAGER_A, ['people.read', 'people.manage', 'webinars.read', 'webinars.manage',
+        'formations.read', 'formations.manage', 'mentoring.read', 'tasks.read.own',
+        'tasks.read.team', 'tasks.manage.own', 'tasks.manage', 'members.read',
+        'members.manage', 'roles.read', 'roles.manage', 'audit.read',
+        'events.read', 'events.create']],
+      [MENTOR_A, ['people.read', 'people.manage', 'webinars.read', 'formations.read',
+        'mentoring.read', 'mentoring.manage', 'tasks.read.own', 'tasks.read.team',
+        'tasks.manage.own', 'tasks.manage', 'members.read', 'roles.read',
+        'events.read', 'events.create']],
+      [CLOSER_A, ['people.read', 'people.manage', 'webinars.read', 'tasks.read.own',
+        'tasks.manage.own', 'events.read', 'events.create']],
+      [ASSISTANT_A, ['people.read', 'webinars.read', 'formations.read',
+        'tasks.read.own', 'tasks.manage.own', 'events.read', 'events.create']],
+      [CUSTOMER_SUCCESS_A, ['people.read', 'people.manage', 'formations.read',
+        'formations.manage', 'mentoring.read', 'tasks.read.own', 'tasks.manage.own',
+        'events.read', 'events.create']],
       [LIMITED_A, ['tasks.read.own']],
       [REVOKED_A, ['people.read', 'tasks.read.team']]
     ];
     for (const [uid, permissions] of members) {
       await setDoc(doc(db, workspace(OWNER_A, 'members', uid)), {
         schemaVersion: 1, uid, email: uid+'@example.test', displayName: uid,
-        roleId: 'assistant', status: uid === REVOKED_A ? 'revoked' : 'active',
+        roleId: uid === MANAGER_A ? 'manager'
+          : uid === MENTOR_A ? 'mentor'
+          : uid === CLOSER_A ? 'closer'
+          : uid === CUSTOMER_SUCCESS_A ? 'customer-success' : 'assistant',
+        status: uid === REVOKED_A ? 'revoked' : 'active',
         permissions, joinedAt: now, updatedAt: now
       });
     }
@@ -82,7 +105,10 @@ async function seed() {
     }
     for (const [taskId, assignee] of [
       ['owned-by-owner', OWNER_A],
-      ['assigned-assistant', ASSISTANT_A]
+      ['assigned-assistant', ASSISTANT_A],
+      ['assigned-mentor', MENTOR_A],
+      ['assigned-closer', CLOSER_A],
+      ['assigned-success', CUSTOMER_SUCCESS_A]
     ]) {
       await setDoc(doc(db, workspace(OWNER_A, 'work_tasks', taskId)), {
         schemaVersion: 1, updatedAt: now,
@@ -238,6 +264,52 @@ test('manager can still manage another member within their own permissions', asy
     permissions: ['people.read'], displayName: 'Assistant managed by manager',
     updatedAt: Timestamp.now()
   }));
+});
+
+test('Mentor can read team tasks, but cannot administer Workspace invitations', async () => {
+  const db = asUser(MENTOR_A);
+  await assertSucceeds(getDocs(tasks(db, OWNER_A)));
+  await assertSucceeds(getDocs(people(db, OWNER_A)));
+  await assertFails(getDocs(collection(db, 'expert_workspaces', OWNER_A, 'invites')));
+});
+
+test('Closer, Assistant and Customer Success can read only their assigned tasks', async () => {
+  for (const [uid, taskId] of [
+    [CLOSER_A, 'assigned-closer'],
+    [ASSISTANT_A, 'assigned-assistant'],
+    [CUSTOMER_SUCCESS_A, 'assigned-success']
+  ]) {
+    const db = asUser(uid);
+    const snapshot = await assertSucceeds(getDocs(query(tasks(db, OWNER_A),
+      where('task.assignedToUid', '==', uid))));
+    assert.equal(snapshot.size, 1, `Expected one assigned task for ${uid}`);
+    assert.equal(snapshot.docs[0].id, taskId);
+    await assertFails(getDocs(tasks(db, OWNER_A)));
+    await assertFails(getDoc(doc(db, workspace(OWNER_A, 'work_tasks', 'owned-by-owner'))));
+    await assertSucceeds(getDocs(people(db, OWNER_A)));
+    await assertFails(getDocs(collection(db, 'expert_workspaces', OWNER_A, 'invites')));
+  }
+});
+
+test('every non-owner default role is isolated from a second organization', async () => {
+  for (const uid of [MANAGER_A, MENTOR_A, CLOSER_A, ASSISTANT_A, CUSTOMER_SUCCESS_A]) {
+    const db = asUser(uid);
+    await assertFails(getDoc(doc(db, 'expert_workspaces', OWNER_B)));
+    await assertFails(getDoc(doc(db, workspace(OWNER_B, 'work_tasks', 'foreign-task'))));
+    await assertFails(getDoc(doc(db, workspace(OWNER_B, 'people', 'person-1'))));
+  }
+});
+
+test('non-manager default roles cannot edit memberships or verified payments', async () => {
+  for (const uid of [MENTOR_A, CLOSER_A, ASSISTANT_A, CUSTOMER_SUCCESS_A]) {
+    const db = asUser(uid);
+    await assertFails(updateDoc(doc(db, workspace(OWNER_A, 'members', LIMITED_A)), {
+      displayName: 'UNAUTHORIZED', updatedAt: Timestamp.now()
+    }));
+    await assertFails(setDoc(doc(db, workspace(OWNER_A, 'payment_events', 'fake-' + uid)), {
+      fake: true
+    }));
+  }
 });
 
 test('assistant cannot modify a Person or fabricate verified payments', async () => {

@@ -1,5 +1,6 @@
 import type { Express, NextFunction, Request, Response } from 'express';
-import { verifyWorkspaceBearerToken } from '../auth/workspaceAuth';
+import { getWorkspaceInviteForDelivery, verifyWorkspaceBearerToken } from '../auth/workspaceAuth';
+import { sendWorkspaceInvitationEmail } from '../services/email';
 import { analyzeLeadWithGemini, sanitizeLeadIntelligenceInput } from '../services/leadIntelligence';
 import { sendEnrollmentWelcome } from '../services/enrollmentWelcome';
 
@@ -52,8 +53,54 @@ async function enrollmentWelcomeHandler(req: Request, res: Response) {
   }
 }
 
+async function workspaceInviteEmailHandler(req: Request, res: Response) {
+  try {
+    const identity = await verifyWorkspaceBearerToken(req.headers.authorization, 'members.manage');
+    if (!identity) return res.status(403).json({ success: false, code: 'WORKSPACE_FORBIDDEN' });
+    const inviteId = cleanText(req.body?.inviteId, 100);
+    if (!/^invite-[a-z0-9-]{10,90}$/.test(inviteId)) {
+      return res.status(400).json({ success: false, code: 'INVALID_INVITATION' });
+    }
+    // Recipient address, status and inviter come exclusively from verified Firestore data.
+    const invite = await getWorkspaceInviteForDelivery(identity, req.headers.authorization, inviteId);
+    if (!invite) return res.status(404).json({ success: false, code: 'INVITATION_NOT_AVAILABLE' });
+
+    const configured = (process.env.VITE_PUBLIC_APP_URL || process.env.APP_URL || '').trim();
+    let publicBase: URL;
+    try {
+      publicBase = new URL(configured);
+      if (publicBase.protocol !== 'https:' && !(process.env.NODE_ENV !== 'production' && publicBase.hostname === 'localhost')) {
+        throw new Error('HTTPS_REQUIRED');
+      }
+    } catch {
+      return res.status(503).json({ success: false, code: 'PUBLIC_APP_URL_NOT_CONFIGURED' });
+    }
+
+    const inviteUrl = new URL('/workspace/experts', publicBase.origin);
+    inviteUrl.searchParams.set('invite', `${identity.workspaceId}:${inviteId}`);
+    const result = await sendWorkspaceInvitationEmail({
+      recipientEmail: invite.recipientEmail,
+      displayName: invite.displayName,
+      inviteUrl: inviteUrl.toString()
+    });
+    if (result.status === 'SKIPPED') {
+      return res.status(503).json({ success: false, code: 'INVITATION_EMAIL_NOT_CONFIGURED' });
+    }
+    if (!result.success || result.status !== 'SENT') {
+      console.warn('[WORKSPACE INVITATION MAIL FAILED]', { workspaceId: identity.workspaceId, inviteId, status: result.status });
+      return res.status(502).json({ success: false, code: 'INVITATION_EMAIL_FAILED' });
+    }
+    console.info('[WORKSPACE INVITATION MAIL SENT]', { workspaceId: identity.workspaceId, inviteId });
+    return res.status(200).json({ success: true, code: 'INVITATION_EMAIL_SENT' });
+  } catch (error) {
+    console.error('[WORKSPACE INVITATION MAIL ERROR]', error instanceof Error ? error.message : 'UNKNOWN');
+    return res.status(503).json({ success: false, code: 'INVITATION_EMAIL_UNAVAILABLE' });
+  }
+}
+
 export function registerWorkspaceAiRoutes(app: Express): void {
   app.post('/api/workspace/ai/session-brief', (req, res) => sessionBriefHandler(req, res));
   app.post('/api/workspace/enrollment-welcome', (req, res) => enrollmentWelcomeHandler(req, res));
+  app.post('/api/workspace/invitations/send', (req, res) => workspaceInviteEmailHandler(req, res));
   app.post('/api/admin/ai/lead-brief', (req, res, next) => sessionBriefHandler(req, res, next));
 }

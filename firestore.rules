@@ -734,7 +734,11 @@ service cloud.firestore {
     match /expert_workspaces/{workspaceId}/work_tasks/{taskId} {
       // The Dashboard shows the organization's global workload. Mutation
       // remains permission-gated below.
-      allow read: if isExpertWorkspaceMember(workspaceId);
+      // Read permission is enforced by Firestore, not only hidden in the UI.
+      // Own-task reads require a query constrained by task.assignedToUid.
+      allow read: if hasWorkspacePermission(workspaceId, 'tasks.read.team') ||
+        (hasWorkspacePermission(workspaceId, 'tasks.read.own') &&
+          resource.data.task.assignedToUid == request.auth.uid);
 
       allow create: if validExpertWorkTask(request.resource.data, taskId) && (
         hasWorkspacePermission(workspaceId, 'tasks.manage') ||
@@ -768,7 +772,8 @@ service cloud.firestore {
     match /expert_workspaces/{workspaceId}/people/{personId} {
       // Global relationship data feeds the read-only Dashboard for all active
       // members; editing remains owner-controlled.
-      allow read: if isExpertWorkspaceMember(workspaceId);
+      allow read: if hasWorkspacePermission(workspaceId, 'people.read') ||
+        hasWorkspacePermission(workspaceId, 'people.manage');
       allow create, update: if ownsExpertWorkspace(workspaceId) &&
         validExpertPerson(request.resource.data);
       allow delete: if ownsExpertWorkspace(workspaceId);

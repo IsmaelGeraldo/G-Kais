@@ -26,7 +26,7 @@ import { PriorityRadarWorkspace } from './PriorityRadarWorkspace';
 import { ClientOnboardingWorkspace } from './ClientOnboardingWorkspace';
 import { FormationsWorkspace } from './FormationsWorkspace';
 import { RelationshipsWorkspace } from './RelationshipsWorkspace';
-import { TeamWorkspace } from './TeamWorkspace';
+import { TeamSupervisionWorkspace } from './TeamSupervisionWorkspace';
 import { WebinarsWorkspace } from './WebinarsWorkspace';
 import { WorkspaceInviteGate } from './WorkspaceInviteGate';
 import {
@@ -77,7 +77,7 @@ const NAV_PERMISSIONS: Partial<Record<string, WorkspacePermission[]>> = {
   clients: ['mentoring.read', 'mentoring.manage'],
   priority: ['tasks.read.own', 'tasks.read.team', 'tasks.manage.own', 'tasks.manage'],
   relationships: ['people.read', 'people.manage'],
-  team: ['members.read', 'members.manage', 'roles.read', 'roles.manage'],
+  team: ['members.manage', 'audit.read'],
   copilot: ['events.read', 'events.create'],
   knowledge: ['events.read']
 };
@@ -269,9 +269,14 @@ function ExpertsWorkspaceShell({ onExit, verifiedWorkspaceId }: Props) {
   }, [verifiedWorkspaceId]);
 
   const currentPermissions = access.currentMember?.permissions || [];
+  const canSuperviseTeam = access.isOwner || Boolean(access.currentMember?.isSupervisor)
+    || hasWorkspacePermission(currentPermissions, 'members.manage')
+    || hasWorkspacePermission(currentPermissions, 'audit.read');
   const visibleNav = useMemo(
-    () => access.isOwner ? NAV : NAV.filter((item) => canAccessWorkspaceView(item.id, currentPermissions)),
-    [access.isOwner, currentPermissions]
+    () => access.isOwner ? NAV : NAV.filter((item) => item.id === 'team'
+      ? canSuperviseTeam
+      : canAccessWorkspaceView(item.id, currentPermissions)),
+    [access.isOwner, canSuperviseTeam, currentPermissions]
   );
   const allowedIds = useMemo(() => new Set(visibleNav.map((item) => item.id)), [visibleNav]);
   const landingView = visibleNav.some((item) => item.id === 'overview') ? 'overview' : (visibleNav[0]?.id || 'settings');
@@ -397,7 +402,7 @@ function ExpertsWorkspaceShell({ onExit, verifiedWorkspaceId }: Props) {
       onOpenPriority={() => navigate('priority')}
     />;
   } else if (active === 'team' && allowedIds.has('team')) {
-    content = <TeamWorkspace language={language} />;
+    content = <TeamSupervisionWorkspace language={language} />;
   } else if (active === 'settings') {
     content = <WorkspaceSettingsProfile
       language={language}

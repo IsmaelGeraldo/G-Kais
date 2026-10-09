@@ -206,7 +206,7 @@ export function buildWorkspaceInviteEmail(input: WorkspaceInviteEmail): EmailMes
       input.inviteUrl,
       '',
       'La invitación tiene una validez de siete días. Si no la esperabas, ignora este correo.'
-    ].join('\\n'),
+    ].join('\n'),
     html: `<div style="background:#f7f7f5;padding:32px 16px;font-family:Arial,sans-serif;color:#111413">
       <div style="max-width:560px;margin:0 auto;background:white;border:1px solid #e5e5e5;border-radius:14px;overflow:hidden">
         <div style="padding:28px">

@@ -57,6 +57,9 @@ export function WorkspaceAuthChoices({ inviteToken }: { inviteToken?: string }) 
       setHasLink(false);
       setNeedsEmail(false);
     } catch (cause) {
+      // A saved address may belong to another invitation or browser session.
+      // Allow entering the actual recipient address without revealing it in the URL.
+      setNeedsEmail(true);
       setError(authError(cause));
     } finally {
       setBusy(false);

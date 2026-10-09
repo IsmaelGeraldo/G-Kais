@@ -9,6 +9,7 @@ import {
   getDocs,
   query,
   setDoc,
+  writeBatch,
   updateDoc,
   deleteDoc,
   Timestamp,
@@ -138,6 +139,35 @@ before(async () => {
 });
 
 after(async () => { await env?.cleanup(); });
+
+test('new QA owner can bootstrap Workspace, role, member and user atomically', async () => {
+  const uid = 'fresh-qa-owner';
+  const db = asUser(uid);
+  const now = Timestamp.now();
+  const batch = writeBatch(db);
+  batch.set(doc(db, 'users', uid), {
+    schemaVersion: 1, email: 'fresh@example.test', displayName: 'QA Owner',
+    photoURL: '', activeWorkspaceId: uid, createdAt: now, updatedAt: now
+  });
+  batch.set(doc(db, 'expert_workspaces', uid), {
+    schemaVersion: 1, name: 'QA Workspace', ownerUid: uid,
+    status: 'active', createdAt: now, updatedAt: now
+  });
+  batch.set(doc(db, workspace(uid, 'roles', 'owner')), {
+    schemaVersion: 1, name: 'Owner', description: 'Full access',
+    permissions: ['*'], isSystem: true, createdByUid: uid,
+    createdAt: now, updatedAt: now
+  });
+  batch.set(doc(db, workspace(uid, 'members', uid)), {
+    schemaVersion: 1, uid, email: 'fresh@example.test', displayName: 'QA Owner',
+    roleId: 'owner', permissions: ['*'], status: 'active',
+    joinedAt: now, updatedAt: now
+  });
+  await assertSucceeds(batch.commit());
+  await assertSucceeds(getDoc(doc(db, 'users', uid)));
+  await assertSucceeds(getDoc(doc(db, workspace(uid, 'members', uid))));
+  await assertSucceeds(getDocs(collection(db, 'expert_workspaces', uid, 'roles')));
+});
 
 test('owner sees people and tasks in own Workspace', async () => {
   const db = asUser(OWNER_A);

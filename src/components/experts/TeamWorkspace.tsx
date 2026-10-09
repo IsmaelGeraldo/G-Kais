@@ -13,6 +13,7 @@ import {
   type WorkspaceTeamState
 } from '../../services/expertsWorkspaceCore';
 import { revokeExpertWorkspaceInvite, sendExpertWorkspaceInvitationEmail } from '../../services/expertsWorkspaceInvites';
+import { firebaseTarget } from '../../lib/firebase';
 import { removeExpertWorkspaceMember, updateExpertWorkspaceMember } from '../../services/expertsWorkspaceMembers';
 
 const PERMISSIONS: WorkspacePermission[] = ['people.read','people.manage','webinars.read','webinars.manage','formations.read','formations.manage','mentoring.read','mentoring.manage','tasks.read.own','tasks.manage.own','tasks.read.team','tasks.manage','members.read','members.manage','roles.read','roles.manage','events.read','events.create','audit.read','settings.manage','billing.manage'];
@@ -252,7 +253,11 @@ export function TeamWorkspace({ language }: { language: Language }) {
       setInviteLink(buildExpertWorkspaceInviteLink(result.token));
       setName('');
       setEmail('');
-      try {
+      if (firebaseTarget === 'qa') {
+        setInviteNotice(language === 'es'
+          ? 'Invitación de prueba creada. Copia el enlace y compártelo manualmente; no se envían correos en QA.'
+          : 'Test invitation created. Copy and share the link manually; email is disabled in QA.');
+      } else try {
         await sendExpertWorkspaceInvitationEmail(result.inviteId);
         setInviteNotice(language === 'es'
           ? 'Invitación creada y correo enviado al destinatario.'

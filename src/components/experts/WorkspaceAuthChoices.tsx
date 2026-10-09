@@ -89,7 +89,7 @@ export function WorkspaceAuthChoices({ inviteToken }: { inviteToken?: string }) 
 
   const requestEmailLink = async () => {
     const recipient = email.trim().toLowerCase();
-    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(recipient)) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient)) {
       setError('Introduce un correo electrónico válido.');
       return;
     }

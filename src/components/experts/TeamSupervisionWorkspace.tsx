@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { onSnapshot, collection, limit, query, where, type Unsubscribe } from 'firebase/firestore';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { onSnapshot, collection, doc, getDoc, limit, query, where, type Unsubscribe } from 'firebase/firestore';
 import { Activity, CheckCircle2, Clock3, AlertCircle, UsersRound, ClipboardList, ShieldCheck } from 'lucide-react';
 import { firebaseAuth, firestoreDb } from '../../lib/firebase';
 import type { Language } from '../../i18n/LanguageContext';
@@ -30,6 +30,8 @@ type ActivityItem = {
   assignedUid: string;
   date: Date | null;
   source: 'task' | 'event' | 'audit';
+  personId?: string;
+  metadata?: Record<string, unknown>;
 };
 type FeedEvent = {
   type?: string;
@@ -38,6 +40,7 @@ type FeedEvent = {
   entityType?: string;
   entityId?: string;
   sourceId?: string;
+  personId?: string;
   metadata?: Record<string, unknown>;
   changes?: Record<string, unknown>;
   occurredAt?: unknown;
@@ -72,17 +75,62 @@ function labelForAction(action: string, language: Language) {
     'interaction.reply_received': ['Respuesta recibida', 'Reply received'],
     'person.action_created': ['Nueva acción creada', 'New action created'],
     'member.updated': ['Miembro actualizado', 'Member updated'],
-    'member.removed': ['Miembro eliminado', 'Member removed']
+    'member.removed': ['Miembro eliminado', 'Member removed'],
+    'formation.progress_updated': ['Progreso de formación actualizado', 'Formation progress updated'],
+    'formation.completed': ['Formación completada', 'Formation completed'],
+    'formation.enrolled': ['Inscripción a formación', 'Formation enrollment'],
+    'formation.attention_created': ['Seguimiento de alumno creado', 'Student follow-up created'],
+    'formation.welcome_email_processed': ['Correo de bienvenida enviado', 'Welcome email processed'],
+    'formation.welcome_email_failed': ['Falló el correo de bienvenida', 'Welcome email failed'],
+    'formation.created': ['Formación creada', 'Formation created'],
+    'formation.updated': ['Formación actualizada', 'Formation updated'],
+    'formation.deleted': ['Formación eliminada', 'Formation deleted'],
+    'formation.enrollment_deleted': ['Inscripción eliminada', 'Enrollment removed'],
+    'cohort.created': ['Grupo de formación creado', 'Training cohort created'],
+    'cohort.updated': ['Grupo de formación actualizado', 'Training cohort updated'],
+    'cohort.deleted': ['Grupo de formación eliminado', 'Training cohort removed'],
+    'buyer_entered': ['Nuevo comprador registrado', 'New buyer recorded']
   };
   const found = labels[action];
   return found ? found[language === 'es' ? 0 : 1] : action.replace(/[._]/g, ' ');
 }
 function safeDetail(source: FeedEvent): string {
   const fields = source.metadata || source.changes || {};
-  for (const value of [fields.title, fields.clientName, fields.displayName, source.entityType, source.sourceId]) {
+  // Source/entity IDs are internal references, not a readable activity description.
+  for (const value of [fields.title, fields.clientName, fields.displayName, fields.personName, fields.name]) {
     if (typeof value === 'string' && value.trim()) return value.trim().slice(0, 150);
   }
   return '';
+}
+
+function readableStatus(value: unknown, es: boolean): string {
+  const translated: Record<string, [string, string]> = {
+    active: ['Activo', 'Active'],
+    completed: ['Completado', 'Completed'],
+    withdrawn: ['Retirado', 'Withdrawn'],
+    refunded: ['Reembolsado', 'Refunded'],
+    pending: ['Pendiente', 'Pending'],
+    paused: ['Pausado', 'Paused']
+  };
+  const status = typeof value === 'string' ? value.trim() : '';
+  return translated[status]?.[es ? 0 : 1] || status.replace(/[_-]/g, ' ');
+}
+
+function readableDetail(item: ActivityItem, es: boolean, personNames: Record<string, string>): string {
+  const pieces: string[] = [];
+  const personName = item.personId ? personNames[item.personId] : '';
+  if (personName) pieces.push(personName);
+  else if (item.personId && item.action.startsWith('formation.')) pieces.push(es ? 'Alumno' : 'Student');
+  if (item.detail && item.detail !== personName) pieces.push(item.detail);
+  if (item.action.startsWith('formation.')) {
+    const progress = item.metadata?.progress;
+    if (typeof progress === 'number' && Number.isFinite(progress)) {
+      pieces.push(`${es ? 'Progreso' : 'Progress'}: ${progress}%`);
+    }
+    const status = readableStatus(item.metadata?.status, es);
+    if (status) pieces.push(`${es ? 'Estado' : 'Status'}: ${status}`);
+  }
+  return pieces.join(' · ');
 }
 function taskActivities(task: Task): ActivityItem[] {
   const title = task.title || task.clientName || task.id;
@@ -110,6 +158,9 @@ export function TeamSupervisionWorkspace({ language }: { language: Language }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [memberUid, setMemberUid] = useState('all');
+  const [roleId, setRoleId] = useState('all');
+  const [personNames, setPersonNames] = useState<Record<string, string>>({});
+  const lookedUpPeople = useRef(new Set<string>());
   const [period, setPeriod] = useState('30');
   const [search, setSearch] = useState('');
   const es = language === 'es';
@@ -125,6 +176,12 @@ export function TeamSupervisionWorkspace({ language }: { language: Language }) {
   )), [team, hasGlobal]);
   const allowedUids = useMemo(() => new Set(people.map((member) => member.uid)), [people]);
   const names = useMemo(() => new Map(people.map((member) => [member.uid, member.displayName || member.email || member.uid])), [people]);
+  const roles = useMemo(() => (team?.roles || [])
+    .filter((role) => people.some((member) => member.roleId === role.id))
+    .sort((a, b) => a.name.localeCompare(b.name)), [team, people]);
+  const filteredPeople = useMemo(() => people.filter((member) => roleId === 'all' || member.roleId === roleId), [people, roleId]);
+  const filteredUids = useMemo(() => new Set(filteredPeople.filter((member) => memberUid === 'all' || member.uid === memberUid).map((member) => member.uid)), [filteredPeople, memberUid]);
+
 
   useEffect(() => {
     let disposed = false;
@@ -174,6 +231,8 @@ export function TeamSupervisionWorkspace({ language }: { language: Language }) {
                 detail: safeDetail(event),
                 actorUid: event.actorUid || '',
                 assignedUid: '',
+                personId: event.personId || '',
+                metadata: event.metadata || {},
                 date: readDate(event.occurredAt) || readDate(event.createdAt),
                 source: 'event' as const
               };
@@ -199,17 +258,40 @@ export function TeamSupervisionWorkspace({ language }: { language: Language }) {
     return () => { disposed = true; unsubscribers.forEach((stop) => stop()); };
   }, []);
 
-  const visibleTasks = useMemo(() => tasks.filter((task) => allowedUids.has(task.assignedToUid || '') &&
-    (memberUid === 'all' || task.assignedToUid === memberUid)), [tasks, allowedUids, memberUid]);
+  // Resolve the person attached to a relationship event only when needed.
+  // Missing/deleted people keep a neutral description instead of exposing IDs.
+  useEffect(() => {
+    if (!team?.workspaceId) return;
+    const unknown = [...new Set(events.map((event) => event.personId).filter((id): id is string => Boolean(id)))]
+      .filter((id) => !lookedUpPeople.current.has(id)).slice(0, 60);
+    unknown.forEach((id) => lookedUpPeople.current.add(id));
+    let cancelled = false;
+    void Promise.all(unknown.map(async (personId) => {
+      try {
+        const snapshot = await getDoc(doc(firestoreDb, 'expert_workspaces', team.workspaceId, 'people', personId));
+        const name = snapshot.data()?.name;
+        if (!cancelled && typeof name === 'string' && name.trim()) {
+          setPersonNames((current) => ({ ...current, [personId]: name.trim() }));
+        }
+      } catch {
+        // The event remains available even when the linked person is inaccessible.
+      }
+    }));
+    return () => { cancelled = true; };
+  }, [events, team?.workspaceId]);
+
+  const visibleTasks = useMemo(() => tasks.filter((task) => filteredUids.has(task.assignedToUid || '')), [tasks, filteredUids]);
   const taskEvents = useMemo(() => visibleTasks.flatMap(taskActivities), [visibleTasks]);
   const since = period === 'all' ? 0 : Date.now() - Number(period) * 86400000;
   const activity = useMemo(() => [...taskEvents, ...events]
     .filter((event) => hasGlobal || allowedUids.has(event.actorUid) || (event.source === 'task' && allowedUids.has(event.assignedUid)))
-    .filter((event) => memberUid === 'all' || event.actorUid === memberUid || (event.source === 'task' && event.assignedUid === memberUid))
+    .filter((event) => (roleId === 'all' && memberUid === 'all')
+      || filteredUids.has(event.actorUid)
+      || (event.source === 'task' && filteredUids.has(event.assignedUid)))
     .filter((event) => event.date && event.date.getTime() >= since)
-    .filter((event) => !search.trim() || [event.action, event.detail, names.get(event.actorUid) || '', names.get(event.assignedUid) || '']
+    .filter((event) => !search.trim() || [event.action, event.detail, personNames[event.personId || ''] || '', names.get(event.actorUid) || '', names.get(event.assignedUid) || '']
       .some((value) => value.toLowerCase().includes(search.trim().toLowerCase())))
-    .sort((a, b) => (b.date?.getTime() || 0) - (a.date?.getTime() || 0)), [taskEvents, events, hasGlobal, allowedUids, memberUid, since, search, names]);
+    .sort((a, b) => (b.date?.getTime() || 0) - (a.date?.getTime() || 0)), [taskEvents, events, hasGlobal, allowedUids, filteredUids, roleId, memberUid, since, search, names, personNames]);
   const now = new Date();
   const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   const completed = visibleTasks.filter((task) => task.status === 'done' && !task.deletedAt).length;

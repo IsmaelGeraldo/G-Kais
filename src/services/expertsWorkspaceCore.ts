@@ -10,7 +10,7 @@ import {
   setDoc,
   writeBatch
 } from 'firebase/firestore';
-import { firebaseAuth, firestoreDb } from '../lib/firebase';
+import { firebaseAuth, firestoreDb, firebaseTarget } from '../lib/firebase';
 import { configuredPublicAppUrl } from '../config/publicAppUrl';
 
 const SCHEMA_VERSION = 1;
@@ -507,9 +507,13 @@ export function parseExpertWorkspaceInviteToken(token: string): { workspaceId: s
 }
 
 export function buildExpertWorkspaceInviteLink(token: string): string {
-  // Before a branded domain exists, always share the stable production origin,
-  // not an AI Studio, localhost, or Vercel preview URL.
-  const url = new URL('/workspace/experts', configuredPublicAppUrl() || 'https://g-kais.vercel.app');
+  // QA invitations must never silently send a member back to production.
+  // Production invitations retain their stable public URL unchanged.
+  const origin = firebaseTarget === 'qa'
+    ? (typeof window === 'undefined' ? '' : window.location.origin)
+    : (configuredPublicAppUrl() || 'https://g-kais.vercel.app');
+  if (!origin) throw new Error('QA_INVITE_ORIGIN_REQUIRED');
+  const url = new URL('/workspace/experts', origin);
   url.searchParams.set('invite', token);
   return url.toString();
 }

@@ -84,6 +84,7 @@ No esperar a terminar la web o los pagos para entender compradores.
 
 Entregables:
 - [ ] Inventariar TODAS las colecciones Firestore, sus reglas de acceso, APIs, datos en localStorage y dependencias del propietario.
+- [ ] Incluir rutas de registro público a webinars, sesiones externas y webhooks de compra de alumnos en matriz de amenazas/pruebas de aislamiento. La URL de inscripción actual se genera pero NO tiene ruta pública operativa implementada.
 - [ ] Probar aislamiento entre empresas A y B y entre owner/manager/mentor/closer/assistant con emulador y pruebas de denegación.
 - [ ] Corregir consultas y reglas donde un usuario pueda ver/modificar información de otro Workspace o saltarse una autorización desde una URL/API.
 - [ ] Migrar o encapsular persistencia crítica que aún depende del navegador, sin pérdida de historial, y documentar reversión.
@@ -128,6 +129,7 @@ Entregables:
 
 Entregables:
 - [ ] Diseñar esquema y persistencia del progreso de onboarding por Workspace; reanudable entre dispositivos.
+- [ ] Preguntar qué plataformas y enlaces externos utiliza la empresa para webinars, clases y llamadas (Zoom/Meet/YouTube/otros), y cómo cobra sus formaciones; configurar recomendaciones sin obligarla a cambiar de herramientas.
 - [ ] Crear cuestionarios adaptativos según modalidad de servicio (mentoría individual/grupal, coaching, curso, consultoría).
 - [ ] Preparar presets verticales REUTILIZABLES sobre los mismos módulos; no Workspaces diferentes.
 - [ ] Estructurar KB por workspaceId y versiones/estados borrador/aprobada; eliminar dependencia global de business_knowledge/default para la operación multiempresa.
@@ -139,6 +141,29 @@ Entregables:
 **Salida:** 2 empresas con ofertas distintas completan onboarding, activan módulos distintos y reciben respuestas del Copilot basadas solo en su conocimiento aprobado y contexto autorizado.
 
 **Contribución al primer cliente:** percibe que G-Kais está adaptado a su negocio y obtiene valor desde la primera sesión.
+
+### FASE 7.5 — Continuidad operativa: inscripciones, webinars, formación, sesiones y compras verificadas
+**Estado: PENDIENTE · Prioridad P0/P1 · GATE OBLIGATORIO antes de beta con eventos, clases o reuniones reales.**
+
+**Motivo:** el profesional debe seguir trabajando donde hoy hace sus eventos y reuniones. G-Kais gestiona la relación y automatiza la captura, pero NO reemplaza Zoom, Google Meet, YouTube Live ni las pasarelas que ya utiliza.
+
+**Especificación técnica y funcional:** [GKAIS_FLUJOS_WEBINARS_FORMACIONES_SESIONES.md](./GKAIS_FLUJOS_WEBINARS_FORMACIONES_SESIONES.md). Este documento desarrolla el flujo Daniel Camero: RRSS → webinar → asistencia → compra/no compra → seguimiento o formación → mentoría, conservando una sola Persona.
+
+Entregables mínimos:
+- [ ] Corregir la ruta pública de inscripción al webinar: la URL generada `/register/webinar` aún no tiene pantalla/handler público específico en src/App.tsx. El interesado se inscribe SIN cuenta G-Kais y la información se guarda automáticamente en Persona + webinar_registrations de la empresa correcta, con consentimiento, protección anti-spam y deduplicación.
+- [ ] Separar claramente **URL pública de inscripción** de **enlace privado o público de sesión externa**; aceptar y validar Zoom/Meet/YouTube/otro sin exigir que el cliente abandone su herramienta.
+- [ ] Desde Webinar, clase de Formación/Cohorte y reuniones 1:1: permitir configurar y abrir el enlace del proveedor, conservar el historial y siguiente acción, y respetar agenda/zona horaria.
+- [ ] Incorporar acceso correcto para quien se inscribió, incluyendo enlaces de registrante individuales cuando el proveedor lo exige; no prometer acceso genérico si Zoom exige aprobación/registro previo.
+- [ ] Sincronizar asistencia solo cuando existan credenciales, permisos y evidencia reales; si no, mantener estado **desconocido**, con importación CSV/manual como alternativa.
+- [ ] Consolidar **pago verificado de oferta del cliente** (distinto de pago de suscripción de G-Kais) con Persona + webinar/oferta/formación; idempotencia, Compradores/Priority Work, matrícula/cohorte, continuidad y tareas para quienes no compran.
+- [ ] Validar flujo completo en 3 escenarios: (A) inscripción pública + no compra y seguimiento; (B) compra verificada + formación/clase; (C) consultor abre sesión Zoom/Meet y registra próxima acción sin módulos irrelevantes.
+- [ ] Conservar funcionales importación CSV, registro manual, edición de participantes, compras, tareas, formaciones y pantallas aprobadas; cero regresiones destructivas.
+
+**Implementación incremental:** primero enlace universal + formulario público + persistencia y deduplicación; después clases/reuniones y cobros verificables; luego integrar de manera profunda el proveedor que más utilicen las primeras empresas. No es necesario completar OAuth de tres plataformas antes de beta, pero sí garantizar el flujo real que utilicen los pilotos.
+
+**Salida (“Done”):** participante externo se registra desde móvil y aparece sin carga manual; puede acceder a la sesión externa autorizada; el sistema sabe distinguir registrado, asistencia comprobada y pago verificado; clasifica y ejecuta próxima acción correctamente; alumno accede a clase con enlace real; el consultor puede utilizar su videollamada habitual. Todo aislado por empresa, probado end-to-end y sin regresiones.
+
+**Contribución al primer cliente:** G-Kais acompaña el trabajo que el cliente YA realiza y elimina dobles registros, en lugar de obligarlo a cambiar de herramientas.
 
 ### FASE 8.0 — Web pública G-Kais 2.0 + demanda de beta
 **Estado: PENDIENTE · Prioridad P1 (diseño paralelo a 6/7; publicación cuando se respalde con funcionalidad).**
@@ -159,12 +184,13 @@ Entregables:
 **Contribución al primer cliente:** transforma visitas en conversaciones con compradores reales.
 
 ### FASE 9.0 — Beta privada de trabajo real
-**Estado: PENDIENTE · Prioridad P1 tras gates de datos.**
+**Estado: PENDIENTE · Prioridad P1 tras gates 5.7, 6.0, 7.0 y 7.5 para el flujo operativo del piloto.**
 
 Entregables:
 - [ ] Seleccionar 3–5 empresas/profesionales pertinentes; priorizar escenarios distintos y acotados.
 - [ ] Establecer términos piloto, privacidad, confidencialidad, duración aproximada de 2–4 semanas y canal de soporte.
 - [ ] Activar empresas con módulos pertinentes y dueño responsable; validar acceso y persistencia.
+- [ ] Probar la operación existente del cliente (inscripción pública a webinars, videollamadas, clases, conversiones verificadas y seguimiento) sin sustituir sus proveedores; criterio de fase 7.5.
 - [ ] Ayudar a importar solo datos mínimos necesarios, de forma segura, con verificación de duplicados y permisos.
 - [ ] Añadir feedback dentro de G-Kais (problema, sección, impacto, sugerencia), evitando incluir datos de alumnos.
 - [ ] Medir activación, usuarios activos, tareas creadas/completadas, seguimientos realizados, errores y sesiones, minimizando datos personales.
@@ -208,6 +234,8 @@ Entregables:
 
 **Visita** → web G-Kais 2.0 → demo/casos de uso → beta (ahora) o plan/pago (más adelante) → crea/verifica identidad → organización/Workspace independiente → onboarding guiado → KB aprobada → módulos recomendados y confirmados → importación/invitación de equipo → Workspace operativo → soporte/feedback → permanencia/renovación.
 
+**Flujo real de los alumnos, clientes y leads de esa empresa (NO confundir con el comprador de G-Kais):** RRSS → URL pública de inscripción G-Kais → Persona + Webinar sin compra → Zoom/Meet/YouTube existente → asistencia comprobada o desconocida → compra de oferta verificada → Compradores y Formación/Cohorte o seguimiento de no comprador → sesiones/clases → continuidad. Es requisito de fase 7.5 antes de iniciar beta que implique estos usos.
+
 **Nunca:** pago confirmado solo porque el navegador volvió de Stripe; Workspace “activo” por ver una pantalla sin membresía; Copilot que mezcla empresas; eliminar datos al ocultar un módulo.
 
 **Beta inicial:** sin pasarela de pago; acceso por invitación aprobada y creación controlada de empresa; mismo flujo de onboarding y Workspace que luego usará un cliente pago.
@@ -220,8 +248,9 @@ Entregables:
 | 5.7 Seguridad/persistencia | ⬜ PENDIENTE | Verificar aislamiento/persistencia y pruebas | PRs + pruebas emulator + recuperación |
 | 6.0 Multiempresa/módulos | ⬜ PENDIENTE | Diseño de organización y permisos robustos | 2 Workspaces de prueba aislados |
 | 7.0 Onboarding + KB + Copilot | ⬜ PENDIENTE | Estructura multiempresa aprobada | 2 activaciones de negocios distintos |
+| 7.5 Webinars/formación/reuniones/pago real | ⬜ PENDIENTE · BLOQUEANTE DE BETA OPERATIVA | Inscripción pública sin handler; falta conexión sesiones/pagos | 3 recorridos end-to-end sin cargas manuales ni regresión |
 | 8.0 Web pública/solicitud beta | ⬜ PENDIENTE | Mensaje/CTA/demo confiable | Prospectos pueden registrarse |
-| 9.0 Beta privada | ⬜ PENDIENTE | Gates 5.7–7 y alojamiento correcto | 3 pilotos, métricas y feedback |
+| 9.0 Beta privada | ⬜ PENDIENTE | Gates 5.7, 6.0, 7.0, 7.5 y alojamiento correcto | 3 pilotos, métricas y feedback |
 | 10.0 Primera venta | ⬜ PENDIENTE | Propuesta y valor validado | 1 cliente pagando y activo |
 | 11.0 Escala | ⏸ DIFERIDA | Retención y unidad económica | Usuarios y pagos recurrentes |
 
@@ -288,7 +317,8 @@ Entregables:
 | --- | --- | --- | --- | --- |
 | 2026-10-09 | Plan maestro | Fijada visión modular, recorrido cliente y secuencia 5.7–11.0 | Este documento | Evita trabajo inconexo y da criterios de avance |
 | 2026-10-09 | Estado base | main en 3afefab; invitaciones recuperables, login ampliado sujeto a configuración, Workspace existente | Revisión de repo y PRs 275–276 | Base para beta, aún sin validación multiempresa |
+| 2026-10-09 | Requisito de cliente | Se restituye continuidad webinar → asistencia → compra/no compra → formación/cita; nace fase 7.5 como puerta de beta | [Especificación operativa](./GKAIS_FLUJOS_WEBINARS_FORMACIONES_SESIONES.md), revisión del código | Eliminar fricción de captación, reuniones y ventas que bloquearía al primer cliente |
 
 ## 10. Instrucción para retomar en otro chat
 
-«Continuemos G-Kais usando **docs/GKAIS_ROADMAP_MAESTRO_2_0.md** como fuente de verdad. Lee primero el documento y el estado actual de main en GitHub IsmaelGeraldo/G-Kais. Indica fase activa, casillas pendientes y el cambio mínimo que nos acerca al primer cliente. No alteres el diseño ni funcionalidades ajenas. Trabaja en GitHub mediante rama, PR y CI; verifica despliegue en Vercel cuando corresponda. Actualiza el roadmap con evidencia y respeta el objetivo: primer cliente de pago con datos seguros y uso real.»
+«Continuemos G-Kais usando **docs/GKAIS_ROADMAP_MAESTRO_2_0.md** como fuente de verdad y **docs/GKAIS_FLUJOS_WEBINARS_FORMACIONES_SESIONES.md** como especificación obligatoria para eventos y sesiones. Lee primero el documento y el estado actual de main en GitHub IsmaelGeraldo/G-Kais. Indica fase activa, casillas pendientes y el cambio mínimo que nos acerca al primer cliente. No alteres el diseño ni funcionalidades ajenas. Trabaja en GitHub mediante rama, PR y CI; verifica despliegue en Vercel cuando corresponda. Actualiza el roadmap con evidencia y respeta el objetivo: primer cliente de pago con datos seguros y uso real.»

@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { onSnapshot, collection, limit, query, where, type Unsubscribe } from 'firebase/firestore';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { onSnapshot, collection, doc, getDoc, limit, query, where, type Unsubscribe } from 'firebase/firestore';
 import { Activity, CheckCircle2, Clock3, AlertCircle, UsersRound, ClipboardList, ShieldCheck } from 'lucide-react';
 import { firebaseAuth, firestoreDb } from '../../lib/firebase';
 import type { Language } from '../../i18n/LanguageContext';
@@ -30,6 +30,8 @@ type ActivityItem = {
   assignedUid: string;
   date: Date | null;
   source: 'task' | 'event' | 'audit';
+  personId?: string;
+  metadata?: Record<string, unknown>;
 };
 type FeedEvent = {
   type?: string;
@@ -38,6 +40,7 @@ type FeedEvent = {
   entityType?: string;
   entityId?: string;
   sourceId?: string;
+  personId?: string;
   metadata?: Record<string, unknown>;
   changes?: Record<string, unknown>;
   occurredAt?: unknown;
@@ -72,17 +75,62 @@ function labelForAction(action: string, language: Language) {
     'interaction.reply_received': ['Respuesta recibida', 'Reply received'],
     'person.action_created': ['Nueva acción creada', 'New action created'],
     'member.updated': ['Miembro actualizado', 'Member updated'],
-    'member.removed': ['Miembro eliminado', 'Member removed']
+    'member.removed': ['Miembro eliminado', 'Member removed'],
+    'formation.progress_updated': ['Progreso de formación actualizado', 'Formation progress updated'],
+    'formation.completed': ['Formación completada', 'Formation completed'],
+    'formation.enrolled': ['Inscripción a formación', 'Formation enrollment'],
+    'formation.attention_created': ['Seguimiento de alumno creado', 'Student follow-up created'],
+    'formation.welcome_email_processed': ['Correo de bienvenida enviado', 'Welcome email processed'],
+    'formation.welcome_email_failed': ['Falló el correo de bienvenida', 'Welcome email failed'],
+    'formation.created': ['Formación creada', 'Formation created'],
+    'formation.updated': ['Formación actualizada', 'Formation updated'],
+    'formation.deleted': ['Formación eliminada', 'Formation deleted'],
+    'formation.enrollment_deleted': ['Inscripción eliminada', 'Enrollment removed'],
+    'cohort.created': ['Grupo de formación creado', 'Training cohort created'],
+    'cohort.updated': ['Grupo de formación actualizado', 'Training cohort updated'],
+    'cohort.deleted': ['Grupo de formación eliminado', 'Training cohort removed'],
+    'buyer_entered': ['Nuevo comprador registrado', 'New buyer recorded']
   };
   const found = labels[action];
   return found ? found[language === 'es' ? 0 : 1] : action.replace(/[._]/g, ' ');
 }
 function safeDetail(source: FeedEvent): string {
   const fields = source.metadata || source.changes || {};
-  for (const value of [fields.title, fields.clientName, fields.displayName, source.entityType, source.sourceId]) {
+  // Source/entity IDs are internal references, not a readable activity description.
+  for (const value of [fields.title, fields.clientName, fields.displayName, fields.personName, fields.name]) {
     if (typeof value === 'string' && value.trim()) return value.trim().slice(0, 150);
   }
   return '';
+}
+
+function readableStatus(value: unknown, es: boolean): string {
+  const translated: Record<string, [string, string]> = {
+    active: ['Activo', 'Active'],
+    completed: ['Completado', 'Completed'],
+    withdrawn: ['Retirado', 'Withdrawn'],
+    refunded: ['Reembolsado', 'Refunded'],
+    pending: ['Pendiente', 'Pending'],
+    paused: ['Pausado', 'Paused']
+  };
+  const status = typeof value === 'string' ? value.trim() : '';
+  return translated[status]?.[es ? 0 : 1] || status.replace(/[_-]/g, ' ');
+}
+
+function readableDetail(item: ActivityItem, es: boolean, personNames: Record<string, string>): string {
+  const pieces: string[] = [];
+  const personName = item.personId ? personNames[item.personId] : '';
+  if (personName) pieces.push(personName);
+  else if (item.personId && item.action.startsWith('formation.')) pieces.push(es ? 'Alumno' : 'Student');
+  if (item.detail && item.detail !== personName) pieces.push(item.detail);
+  if (item.action.startsWith('formation.')) {
+    const progress = item.metadata?.progress;
+    if (typeof progress === 'number' && Number.isFinite(progress)) {
+      pieces.push(`${es ? 'Progreso' : 'Progress'}: ${progress}%`);
+    }
+    const status = readableStatus(item.metadata?.status, es);
+    if (status) pieces.push(`${es ? 'Estado' : 'Status'}: ${status}`);
+  }
+  return pieces.join(' · ');
 }
 function taskActivities(task: Task): ActivityItem[] {
   const title = task.title || task.clientName || task.id;
@@ -110,6 +158,9 @@ export function TeamSupervisionWorkspace({ language }: { language: Language }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [memberUid, setMemberUid] = useState('all');
+  const [roleId, setRoleId] = useState('all');
+  const [personNames, setPersonNames] = useState<Record<string, string>>({});
+  const lookedUpPeople = useRef(new Set<string>());
   const [period, setPeriod] = useState('30');
   const [search, setSearch] = useState('');
   const es = language === 'es';
@@ -125,6 +176,12 @@ export function TeamSupervisionWorkspace({ language }: { language: Language }) {
   )), [team, hasGlobal]);
   const allowedUids = useMemo(() => new Set(people.map((member) => member.uid)), [people]);
   const names = useMemo(() => new Map(people.map((member) => [member.uid, member.displayName || member.email || member.uid])), [people]);
+  const roles = useMemo(() => (team?.roles || [])
+    .filter((role) => people.some((member) => member.roleId === role.id))
+    .sort((a, b) => a.name.localeCompare(b.name)), [team, people]);
+  const filteredPeople = useMemo(() => people.filter((member) => roleId === 'all' || member.roleId === roleId), [people, roleId]);
+  const filteredUids = useMemo(() => new Set(filteredPeople.filter((member) => memberUid === 'all' || member.uid === memberUid).map((member) => member.uid)), [filteredPeople, memberUid]);
+
 
   useEffect(() => {
     let disposed = false;
@@ -174,6 +231,8 @@ export function TeamSupervisionWorkspace({ language }: { language: Language }) {
                 detail: safeDetail(event),
                 actorUid: event.actorUid || '',
                 assignedUid: '',
+                personId: event.personId || '',
+                metadata: event.metadata || {},
                 date: readDate(event.occurredAt) || readDate(event.createdAt),
                 source: 'event' as const
               };
@@ -199,17 +258,38 @@ export function TeamSupervisionWorkspace({ language }: { language: Language }) {
     return () => { disposed = true; unsubscribers.forEach((stop) => stop()); };
   }, []);
 
-  const visibleTasks = useMemo(() => tasks.filter((task) => allowedUids.has(task.assignedToUid || '') &&
-    (memberUid === 'all' || task.assignedToUid === memberUid)), [tasks, allowedUids, memberUid]);
+  // Resolve the person attached to a relationship event only when needed.
+  // Missing/deleted people keep a neutral description instead of exposing IDs.
+  useEffect(() => {
+    if (!team?.workspaceId) return;
+    const unknown = [...new Set(events.map((event) => event.personId).filter((id): id is string => Boolean(id)))]
+      .filter((id) => !lookedUpPeople.current.has(id)).slice(0, 60);
+    unknown.forEach((id) => lookedUpPeople.current.add(id));
+    void Promise.all(unknown.map(async (personId) => {
+      try {
+        const snapshot = await getDoc(doc(firestoreDb, 'expert_workspaces', team.workspaceId, 'people', personId));
+        const name = snapshot.data()?.name;
+        if (typeof name === 'string' && name.trim()) {
+          setPersonNames((current) => ({ ...current, [personId]: name.trim() }));
+        }
+      } catch {
+        // The event remains available even when the linked person is inaccessible.
+      }
+    }));
+  }, [events, team?.workspaceId]);
+
+  const visibleTasks = useMemo(() => tasks.filter((task) => filteredUids.has(task.assignedToUid || '')), [tasks, filteredUids]);
   const taskEvents = useMemo(() => visibleTasks.flatMap(taskActivities), [visibleTasks]);
   const since = period === 'all' ? 0 : Date.now() - Number(period) * 86400000;
   const activity = useMemo(() => [...taskEvents, ...events]
     .filter((event) => hasGlobal || allowedUids.has(event.actorUid) || (event.source === 'task' && allowedUids.has(event.assignedUid)))
-    .filter((event) => memberUid === 'all' || event.actorUid === memberUid || (event.source === 'task' && event.assignedUid === memberUid))
+    .filter((event) => (roleId === 'all' && memberUid === 'all')
+      || filteredUids.has(event.actorUid)
+      || (event.source === 'task' && filteredUids.has(event.assignedUid)))
     .filter((event) => event.date && event.date.getTime() >= since)
-    .filter((event) => !search.trim() || [event.action, event.detail, names.get(event.actorUid) || '', names.get(event.assignedUid) || '']
+    .filter((event) => !search.trim() || [event.action, event.detail, personNames[event.personId || ''] || '', names.get(event.actorUid) || '', names.get(event.assignedUid) || '']
       .some((value) => value.toLowerCase().includes(search.trim().toLowerCase())))
-    .sort((a, b) => (b.date?.getTime() || 0) - (a.date?.getTime() || 0)), [taskEvents, events, hasGlobal, allowedUids, memberUid, since, search, names]);
+    .sort((a, b) => (b.date?.getTime() || 0) - (a.date?.getTime() || 0)), [taskEvents, events, hasGlobal, allowedUids, filteredUids, roleId, memberUid, since, search, names, personNames]);
   const now = new Date();
   const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   const completed = visibleTasks.filter((task) => task.status === 'done' && !task.deletedAt).length;
@@ -230,7 +310,22 @@ export function TeamSupervisionWorkspace({ language }: { language: Language }) {
           <h3 className="text-xl font-semibold">{es ? 'Supervisión y actividad' : 'Supervision and activity'}</h3>
           <p className="mt-2 text-sm text-black/50">{hasGlobal ? (es ? 'Visión general del Workspace.' : 'Workspace-wide view.') : (es ? 'Actividad de tus miembros a cargo.' : 'Activity for your direct reports.')}</p>
         </div>
-        <span className="rounded-full bg-[#F7F7F5] px-3 py-1.5 text-[11px] font-medium text-black/60">{people.length} {es ? 'miembros visibles' : 'visible members'}</span>
+        <div className="flex w-full flex-col items-start gap-2 xl:w-auto xl:items-end">
+          <span className="rounded-full bg-[#F7F7F5] px-3 py-1.5 text-[11px] font-medium text-black/60">{people.length} {es ? 'miembros visibles' : 'visible members'}</span>
+          <div className="grid w-full grid-cols-3 gap-2 sm:w-auto">
+            {[
+              {label: es ? 'Completadas' : 'Completed', count: completed, Icon: CheckCircle2},
+              {label: es ? 'Pendientes' : 'Pending', count: pending, Icon: Clock3},
+              {label: es ? 'Vencidas' : 'Overdue', count: overdue, Icon: AlertCircle}
+            ].map(({label, count, Icon}) => <div key={label} className="flex min-w-0 items-center gap-2 rounded-xl border border-black/8 bg-[#FAFAF8] px-3 py-2.5 sm:min-w-[112px]">
+              <Icon className="h-3.5 w-3.5 shrink-0 text-black/45"/>
+              <div className="min-w-0">
+                <p className="text-base font-semibold leading-5 tabular-nums text-[#111413]">{count}</p>
+                <p className="text-[10px] leading-4 text-black/50">{label}</p>
+              </div>
+            </div>)}
+          </div>
+        </div>
       </div>
       <div className="mt-4 flex flex-wrap gap-2">
         {([
@@ -249,9 +344,13 @@ export function TeamSupervisionWorkspace({ language }: { language: Language }) {
     {panel === 'members' && canSeeMembers ? <TeamWorkspace language={language} /> : <>
       <section className="rounded-2xl border border-black/10 bg-white p-4">
         <div className="flex flex-wrap items-center gap-3">
+          <label className="text-xs text-black/55">{es ? 'Rol' : 'Role'} <select value={roleId} onChange={(event) => { setRoleId(event.target.value); setMemberUid('all'); }} className="ml-2 rounded-lg border border-black/10 bg-white px-3 py-2 text-xs text-black/75">
+            <option value="all">{es ? 'Todos los roles' : 'All roles'}</option>
+            {roles.map((role) => <option key={role.id} value={role.id}>{role.name}</option>)}
+          </select></label>
           <label className="text-xs text-black/55">{es ? 'Miembro' : 'Member'} <select value={memberUid} onChange={(event) => setMemberUid(event.target.value)} className="ml-2 rounded-lg border border-black/10 bg-white px-3 py-2 text-xs text-black/75">
             <option value="all">{es ? 'Todos los visibles' : 'All visible'}</option>
-            {people.map((member) => <option key={member.uid} value={member.uid}>{member.displayName || member.email || member.uid}</option>)}
+            {filteredPeople.map((member) => <option key={member.uid} value={member.uid}>{member.displayName || member.email || member.uid}</option>)}
           </select></label>
           <label className="text-xs text-black/55">{es ? 'Periodo' : 'Period'} <select value={period} onChange={(event) => setPeriod(event.target.value)} className="ml-2 rounded-lg border border-black/10 bg-white px-3 py-2 text-xs text-black/75">
             <option value="7">{es ? '7 días' : '7 days'}</option>
@@ -264,18 +363,6 @@ export function TeamSupervisionWorkspace({ language }: { language: Language }) {
         <p className="mt-2 text-[10px] text-black/40">{es ? 'Actividad disponible en Firebase. Las métricas corresponden a los registros cargados, no a un informe histórico exhaustivo.' : 'Available Firebase activity. Metrics reflect loaded records, not an exhaustive historical report.'}</p>
       </section>
 
-      {panel === 'summary' && <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        {[
-          {label: es ? 'Completadas' : 'Completed', count: completed, Icon: CheckCircle2},
-          {label: es ? 'Pendientes' : 'Pending', count: pending, Icon: Clock3},
-          {label: es ? 'Vencidas' : 'Overdue', count: overdue, Icon: AlertCircle}
-        ].map(({label, count, Icon}) => <div key={label} className="rounded-2xl border border-black/10 bg-white p-5">
-          <Icon className="h-4 w-4 text-black/55"/>
-          <p className="mt-3 text-2xl font-semibold tabular-nums text-[#111413]">{count}</p>
-          <p className="mt-1 text-xs text-black/50">{label}</p>
-        </div>)}
-      </div>}
-
       <section className="overflow-hidden rounded-2xl border border-black/10 bg-white p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-black/55"/><p className="text-sm font-semibold">{es ? 'Registro de actividad' : 'Activity history'}</p></div>
@@ -286,7 +373,7 @@ export function TeamSupervisionWorkspace({ language }: { language: Language }) {
             <Activity className="mt-0.5 h-4 w-4 shrink-0 text-black/35"/>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium text-[#111413]">{labelForAction(item.action, language)}</p>
-              {item.detail && <p className="mt-0.5 break-words text-xs text-black/55">{item.detail}</p>}
+              {readableDetail(item, es, personNames) && <p className="mt-0.5 break-words text-xs text-black/55">{readableDetail(item, es, personNames)}</p>}
               <p className="mt-1 text-[11px] text-black/40">{item.actorUid && names.has(item.actorUid) ? (es ? 'Realizado por: ' : 'By: ') + names.get(item.actorUid) : item.assignedUid && names.has(item.assignedUid) ? (es ? 'Responsable: ' : 'Assignee: ') + names.get(item.assignedUid) : (es ? 'Responsable no registrado' : 'Actor not recorded')}</p>
             </div>
             <span className="shrink-0 text-[10px] tabular-nums text-black/40">{dateLabel(item.date)}</span>

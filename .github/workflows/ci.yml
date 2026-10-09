@@ -33,6 +33,9 @@ jobs:
       - name: Test hierarchy assignments
         run: npm run test:workspace-hierarchy
 
+      - name: Test Team activity reconciliation
+        run: npx tsx --test src/components/experts/teamActivityDedup.test.ts
+
       - name: Test Workspace DOM translation guard
         run: node --test tests/workspace-translation-guard.test.mjs
 

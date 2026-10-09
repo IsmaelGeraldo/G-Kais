@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { browserLocalPersistence, GoogleAuthProvider, onAuthStateChanged, setPersistence, signInWithPopup } from 'firebase/auth';
-import { CheckCircle2, LogIn, ShieldCheck } from 'lucide-react';
+import { onAuthStateChanged } from 'firebase/auth';
+import { CheckCircle2, ShieldCheck } from 'lucide-react';
+import { WorkspaceAuthChoices } from './WorkspaceAuthChoices';
 import { firebaseAuth } from '../../lib/firebase';
 import {
   acceptExpertWorkspaceInvite,
@@ -40,25 +41,6 @@ export function WorkspaceInviteGate({ token }: { token: string }) {
       .finally(() => setStatus('idle'));
   }, [token, userReady]);
 
-  const login = async () => {
-    setError('');
-    const provider = new GoogleAuthProvider();
-    provider.setCustomParameters({ prompt: 'select_account' });
-    try {
-      await setPersistence(firebaseAuth, browserLocalPersistence);
-      await signInWithPopup(firebaseAuth, provider);
-    } catch (err) {
-      const code = err && typeof err === 'object' && 'code' in err
-        ? String((err as { code?: unknown }).code || '')
-        : '';
-      if (code === 'auth/popup-blocked') {
-        setError('El navegador bloqueó la ventana de acceso de Google. Habilita las ventanas emergentes para g-kais.vercel.app y vuelve a intentarlo.');
-        return;
-      }
-      setError(err instanceof Error ? err.message : 'LOGIN_FAILED');
-    }
-  };
-
   const accept = async () => {
     setStatus('loading');
     setError('');
@@ -80,8 +62,8 @@ export function WorkspaceInviteGate({ token }: { token: string }) {
       <p className="mt-6 text-xs font-semibold uppercase tracking-[0.18em] text-[#0A3F4D]">G-KAIS WORKSPACE</p>
       <h1 className="mt-2 text-2xl font-semibold tracking-[-0.03em]">Invitación al equipo</h1>
       {!userReady ? <>
-        <p className="mt-3 text-sm leading-6 text-black/50">Inicia sesión con la cuenta de Google que recibió la invitación. El acceso se completa en una ventana segura de Google y la sesión queda guardada en este navegador.</p>
-        <button type="button" onClick={() => void login()} className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#111413] px-5 py-3 text-sm font-semibold text-white"><LogIn className="h-4 w-4" />Continuar con Google</button>
+        <p className="mt-3 text-sm leading-6 text-black/50">Accede con el mismo correo que recibió esta invitación. Puedes utilizar Google, Microsoft o un enlace seguro enviado por email.</p>
+        <WorkspaceAuthChoices inviteToken={token} />
       </> : <>
         {invite && <div className="mt-5 rounded-2xl bg-[#F7F7F5] p-4"><p className="text-sm font-semibold">{invite.displayName}</p><p className="mt-1 text-xs text-black/45">{invite.email}</p><p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-black/35">Rol asignado</p><p className="mt-1 text-sm font-medium">{invite.roleId}</p></div>}
         {status === 'accepted' ? <div className="mt-5 flex items-center gap-2 rounded-2xl bg-[#0A3F4D]/8 p-4 text-sm font-medium text-[#0A3F4D]"><CheckCircle2 className="h-5 w-5" />Invitación aceptada. Abriendo tu Workspace…</div>

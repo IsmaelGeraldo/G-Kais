@@ -362,12 +362,28 @@ export async function loadExpertWorkspaceTeam(): Promise<WorkspaceTeamState> {
   const canReadMembers = hasWorkspacePermission(currentMember.permissions, 'members.read') || hasWorkspacePermission(currentMember.permissions, 'members.manage');
   const canReadInvites = hasWorkspacePermission(currentMember.permissions, 'members.manage');
 
+  // Identify the specific Firestore read that failed. A team-load failure can
+  // otherwise conceal missing Firebase rules or a stale role configuration.
+  // Never treat a failed permission check as an empty collection.
+  const loadSection = async <T,>(section: string, read: () => Promise<T>): Promise<T> => {
+    try {
+      return await read();
+    } catch (cause) {
+      const code = cause && typeof cause === 'object' && 'code' in cause
+        ? String((cause as { code?: unknown }).code || 'unknown')
+        : 'unknown';
+      throw new Error(`TEAM_${section}_LOAD_FAILED (${code})`);
+    }
+  };
+
   const [membersSnapshot, rolesSnapshot, invitesSnapshot] = await Promise.all([
-    canReadMembers
+    loadSection('MEMBERS', () => canReadMembers
       ? getDocs(workspaceSubCollection(workspaceId, 'members'))
-      : getDocs(query(workspaceSubCollection(workspaceId, 'members'), where('status', '==', 'active'))),
-    getDocs(workspaceSubCollection(workspaceId, 'roles')),
-    canReadInvites ? getDocs(workspaceSubCollection(workspaceId, 'invites')) : Promise.resolve(null)
+      : getDocs(query(workspaceSubCollection(workspaceId, 'members'), where('status', '==', 'active')))),
+    loadSection('ROLES', () => getDocs(workspaceSubCollection(workspaceId, 'roles'))),
+    canReadInvites
+      ? loadSection('INVITES', () => getDocs(workspaceSubCollection(workspaceId, 'invites')))
+      : Promise.resolve(null)
   ]);
 
   const normalizeMember = (value: unknown, fallbackUid = ''): WorkspaceMember => {
@@ -375,7 +391,7 @@ export async function loadExpertWorkspaceTeam(): Promise<WorkspaceTeamState> {
     const permissions = Array.isArray(data.permissions)
       ? data.permissions.filter((permission): permission is WorkspacePermission | '*' => typeof permission === 'string')
       : [];
-    const status = data.status === 'invited' || data.status === 'suspended' ? data.status : 'active';
+    const status = data.status === 'active' || data.status === 'invited' ? data.status : 'suspended';
     return {
       uid: typeof data.uid === 'string' && data.uid.trim() ? data.uid : fallbackUid,
       email: typeof data.email === 'string' ? data.email : '',
@@ -393,10 +409,20 @@ export async function loadExpertWorkspaceTeam(): Promise<WorkspaceTeamState> {
     ? membersSnapshot.docs.map((item) => normalizeMember(item.data(), item.id))
     : [normalizeMember(currentMember, user.uid)];
   const roles = rolesSnapshot
-    ? rolesSnapshot.docs.map((item) => ({ id: item.id, ...(item.data() as Omit<WorkspaceRole, 'id'>) }))
+    ? rolesSnapshot.docs.map((item) => {
+        const value = item.data() as Omit<WorkspaceRole, 'id'>;
+        return { ...value, id: item.id, name: typeof value.name === 'string' ? value.name : item.id };
+      })
     : [];
   const invites = invitesSnapshot
-    ? invitesSnapshot.docs.map((item) => ({ id: item.id, ...(item.data() as Omit<WorkspaceInvite, 'id'>) }))
+    ? invitesSnapshot.docs.map((item) => {
+        const value = item.data() as Omit<WorkspaceInvite, 'id'>;
+        return {
+          ...value,
+          id: item.id,
+          displayName: typeof value.displayName === 'string' ? value.displayName : value.email || item.id
+        };
+      })
     : [];
 
   return {

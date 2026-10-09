@@ -60,6 +60,13 @@ async function seed() {
       });
     }
     for (const owner of [OWNER_A, OWNER_B]) {
+      await setDoc(doc(db, workspace(owner, 'roles', 'owner')), {
+        schemaVersion: 1, name: 'Owner', description: '', permissions: ['*'],
+        isSystem: true, createdByUid: owner, createdAt: now, updatedAt: now
+      });
+      await setDoc(doc(db, workspace(owner, 'invites', 'invite-test')), {
+        normalizedEmail: 'test@example.test', status: 'pending'
+      });
       await setDoc(doc(db, workspace(owner, 'people', 'person-1')), {
         schemaVersion: 1, name: `Person ${owner}`,
         email: 'person@example.test', phone: '', normalizedEmail: 'person@example.test',
@@ -156,6 +163,30 @@ test('employee with no people.read nor people.manage cannot read people', async 
   const db = asUser(LIMITED_A);
   await assertFails(getDocs(people(db, OWNER_A)));
   await assertFails(getDoc(doc(db, workspace(OWNER_A, 'people', 'person-1'))));
+});
+
+test('owner can open Team: members, roles, and invitations in the same Workspace', async () => {
+  const db = asUser(OWNER_A);
+  await assertSucceeds(getDocs(collection(db, 'expert_workspaces', OWNER_A, 'members')));
+  await assertSucceeds(getDocs(collection(db, 'expert_workspaces', OWNER_A, 'roles')));
+  await assertSucceeds(getDocs(collection(db, 'expert_workspaces', OWNER_A, 'invites')));
+});
+
+test('active non-manager can list active members and roles, not private invitations', async () => {
+  const db = asUser(ASSISTANT_A);
+  await assertSucceeds(getDocs(query(
+    collection(db, 'expert_workspaces', OWNER_A, 'members'),
+    where('status', '==', 'active')
+  )));
+  await assertSucceeds(getDocs(collection(db, 'expert_workspaces', OWNER_A, 'roles')));
+  await assertFails(getDocs(collection(db, 'expert_workspaces', OWNER_A, 'invites')));
+});
+
+test('foreign Workspace Team collections remain inaccessible', async () => {
+  const db = asUser(OWNER_B);
+  await assertFails(getDocs(collection(db, 'expert_workspaces', OWNER_A, 'members')));
+  await assertFails(getDocs(collection(db, 'expert_workspaces', OWNER_A, 'roles')));
+  await assertFails(getDocs(collection(db, 'expert_workspaces', OWNER_A, 'invites')));
 });
 
 test('assistant cannot modify a Person or fabricate verified payments', async () => {

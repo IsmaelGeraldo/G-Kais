@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { CheckCircle2, ShieldCheck } from 'lucide-react';
 import { WorkspaceAuthChoices } from './WorkspaceAuthChoices';
 import { firebaseAuth } from '../../lib/firebase';
@@ -11,6 +11,7 @@ import {
 
 function friendlyError(value: string) {
   if (value === 'INVITE_EMAIL_MISMATCH') return 'La cuenta iniciada no coincide con el email de la invitación.';
+  if (value === 'INVITE_EMAIL_NOT_VERIFIED') return 'El correo de esta cuenta aún no está verificado. Usa la opción de acceso por enlace enviado a ese correo.';
   if (value === 'INVITE_EXPIRED') return 'La invitación venció. Solicita una nueva invitación al administrador del Workspace.';
   if (value === 'INVITE_NOT_FOUND') return 'La invitación ya no existe o el enlace no es válido.';
   if (value === 'INVITE_ALREADY_ACCEPTED') return 'Esta invitación ya fue utilizada. Inicia sesión normalmente para volver a tu Workspace.';
@@ -45,6 +46,7 @@ export function WorkspaceInviteGate({ token }: { token: string }) {
     setStatus('loading');
     setError('');
     try {
+      if (!firebaseAuth.currentUser?.emailVerified) throw new Error('INVITE_EMAIL_NOT_VERIFIED');
       await acceptExpertWorkspaceInvite(token);
       setStatus('accepted');
       window.setTimeout(() => {
@@ -70,8 +72,10 @@ export function WorkspaceInviteGate({ token }: { token: string }) {
           : invite?.status === 'accepted'
             ? <button type="button" onClick={() => window.location.assign('/login')} className="mt-6 w-full rounded-full bg-[#111413] px-5 py-3 text-sm font-semibold text-white">Esta invitación ya fue usada · Iniciar sesión</button>
             : <button type="button" disabled={!invite || status === 'loading'} onClick={() => void accept()} className="mt-6 w-full rounded-full bg-[#111413] px-5 py-3 text-sm font-semibold text-white disabled:opacity-40">{status === 'loading' ? 'Verificando…' : 'Aceptar y entrar al Workspace'}</button>}
+        <button type="button" onClick={() => void signOut(firebaseAuth).catch((cause) => setError(cause instanceof Error ? cause.message : 'LOGOUT_FAILED'))}
+          className="mt-3 w-full rounded-full border border-black/10 bg-white px-5 py-2.5 text-xs font-semibold text-black/60">Usar otra cuenta o método de acceso</button>
       </>}
-      {error && <p className="mt-4 rounded-xl bg-[#A23A32]/8 px-3 py-2 text-xs text-[#8D332C]">{friendlyError(error)}</p>}
+      {error && <p className="mt-4 rounded-xl bg-[#A23A32]/8 px-3 py-2 text-xs text-[#8D332C]">{friendlyError(error)}</p>
     </div>
   </div>;
 }

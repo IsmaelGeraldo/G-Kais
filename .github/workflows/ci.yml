@@ -36,6 +36,9 @@ jobs:
       - name: Test Workspace DOM translation guard
         run: node --test tests/workspace-translation-guard.test.mjs
 
+      - name: Test Firebase QA isolation selector
+        run: npx tsx --test src/lib/firebaseConfig.test.ts
+
       - name: Build
         run: npm run build
 

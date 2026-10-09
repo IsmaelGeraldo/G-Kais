@@ -260,8 +260,10 @@ test('owner can still manage a different, non-owner member', async () => {
 
 test('manager can still manage another member within their own permissions', async () => {
   const db = asUser(MANAGER_A);
-  await assertSucceeds(updateDoc(doc(db, workspace(OWNER_A, 'members', ASSISTANT_A)), {
-    permissions: ['people.read'], displayName: 'Assistant managed by manager',
+  // Do not mutate the Assistant fixture: later tests exercise its real default
+  // permissions. Tests must not depend on fixture state left by earlier tests.
+  await assertSucceeds(updateDoc(doc(db, workspace(OWNER_A, 'members', LIMITED_A)), {
+    permissions: ['people.read'], displayName: 'Limited member managed by manager',
     updatedAt: Timestamp.now()
   }));
 });

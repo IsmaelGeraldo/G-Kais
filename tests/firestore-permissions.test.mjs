@@ -9,6 +9,8 @@ import {
   getDocs,
   query,
   setDoc,
+  updateDoc,
+  deleteDoc,
   Timestamp,
   where
 } from 'firebase/firestore';
@@ -44,19 +46,22 @@ async function seed() {
         status: 'active', createdAt: now, updatedAt: now
       });
       await setDoc(doc(db, workspace(owner, 'members', owner)), {
-        uid: owner, roleId: 'owner', status: 'active', permissions: ['*']
+        schemaVersion: 1, uid: owner, email: owner+'@example.test',
+        displayName: 'Owner', roleId: 'owner', status: 'active',
+        permissions: ['*'], joinedAt: now, updatedAt: now
       });
     }
     const members = [
-      [MANAGER_A, ['people.read', 'tasks.read.team', 'tasks.manage']],
+      [MANAGER_A, ['people.read', 'tasks.read.team', 'tasks.manage', 'members.manage']],
       [ASSISTANT_A, ['people.read', 'tasks.read.own', 'tasks.manage.own']],
       [LIMITED_A, ['tasks.read.own']],
       [REVOKED_A, ['people.read', 'tasks.read.team']]
     ];
     for (const [uid, permissions] of members) {
       await setDoc(doc(db, workspace(OWNER_A, 'members', uid)), {
-        uid, roleId: 'assistant', status: uid === REVOKED_A ? 'revoked' : 'active',
-        permissions
+        schemaVersion: 1, uid, email: uid+'@example.test', displayName: uid,
+        roleId: 'assistant', status: uid === REVOKED_A ? 'revoked' : 'active',
+        permissions, joinedAt: now, updatedAt: now
       });
     }
     for (const owner of [OWNER_A, OWNER_B]) {
@@ -187,6 +192,52 @@ test('foreign Workspace Team collections remain inaccessible', async () => {
   await assertFails(getDocs(collection(db, 'expert_workspaces', OWNER_A, 'members')));
   await assertFails(getDocs(collection(db, 'expert_workspaces', OWNER_A, 'roles')));
   await assertFails(getDocs(collection(db, 'expert_workspaces', OWNER_A, 'invites')));
+});
+
+test('manager cannot suspend the owner even through direct Firestore update', async () => {
+  const db = asUser(MANAGER_A);
+  await assertFails(updateDoc(doc(db, workspace(OWNER_A, 'members', OWNER_A)), {
+    status: 'suspended', roleId: 'assistant',
+    permissions: ['people.read'], updatedAt: Timestamp.now()
+  }));
+});
+
+test('manager cannot change their own membership, even with members.manage', async () => {
+  const db = asUser(MANAGER_A);
+  await assertFails(updateDoc(doc(db, workspace(OWNER_A, 'members', MANAGER_A)), {
+    status: 'suspended', updatedAt: Timestamp.now()
+  }));
+  await assertFails(deleteDoc(doc(db, workspace(OWNER_A, 'members', MANAGER_A))));
+});
+
+test('manager cannot create another owner or assign owner role to a member', async () => {
+  const db = asUser(MANAGER_A);
+  const now = Timestamp.now();
+  await assertFails(setDoc(doc(db, workspace(OWNER_A, 'members', 'fake-owner')), {
+    schemaVersion: 1, uid: 'fake-owner', email: 'fake-owner@example.test',
+    displayName: 'Fake Owner', roleId: 'owner', permissions: ['people.read'],
+    status: 'active', joinedAt: now, updatedAt: now
+  }));
+  await assertFails(updateDoc(doc(db, workspace(OWNER_A, 'members', ASSISTANT_A)), {
+    roleId: 'owner', permissions: ['people.read'], updatedAt: now
+  }));
+});
+
+test('owner can still manage a different, non-owner member', async () => {
+  const db = asUser(OWNER_A);
+  await assertSucceeds(updateDoc(doc(db, workspace(OWNER_A, 'members', LIMITED_A)), {
+    displayName: 'Limited member updated', updatedAt: Timestamp.now()
+  }));
+  const updated = await assertSucceeds(getDoc(doc(db, workspace(OWNER_A, 'members', LIMITED_A))));
+  assert.equal(updated.data()?.displayName, 'Limited member updated');
+});
+
+test('manager can still manage another member within their own permissions', async () => {
+  const db = asUser(MANAGER_A);
+  await assertSucceeds(updateDoc(doc(db, workspace(OWNER_A, 'members', ASSISTANT_A)), {
+    permissions: ['people.read'], displayName: 'Assistant managed by manager',
+    updatedAt: Timestamp.now()
+  }));
 });
 
 test('assistant cannot modify a Person or fabricate verified payments', async () => {

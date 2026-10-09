@@ -75,7 +75,7 @@ export function WorkspaceInviteGate({ token }: { token: string }) {
         <button type="button" onClick={() => void signOut(firebaseAuth).catch((cause) => setError(cause instanceof Error ? cause.message : 'LOGOUT_FAILED'))}
           className="mt-3 w-full rounded-full border border-black/10 bg-white px-5 py-2.5 text-xs font-semibold text-black/60">Usar otra cuenta o método de acceso</button>
       </>}
-      {error && <p className="mt-4 rounded-xl bg-[#A23A32]/8 px-3 py-2 text-xs text-[#8D332C]">{friendlyError(error)}</p>
+      {error && <p className="mt-4 rounded-xl bg-[#A23A32]/8 px-3 py-2 text-xs text-[#8D332C]">{friendlyError(error)}</p>}
     </div>
   </div>;
 }

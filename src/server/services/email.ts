@@ -6,7 +6,8 @@ import {
   buildAuditConfirmationEmail,
   buildAuditNotificationEmail,
   buildContactNotificationEmail,
-  buildOperationalAlertEmail
+  buildOperationalAlertEmail,
+  buildWorkspaceInviteEmail
 } from './emailTemplates';
 import type {
   EmailMessage,
@@ -28,13 +29,13 @@ type EmailConfig = {
   from: string;
 };
 
-function getEmailConfig(): EmailConfig | null {
+function getEmailConfig(recipientOverride = false): EmailConfig | null {
   const provider = process.env.EMAIL_PROVIDER?.trim().toLowerCase();
   const apiKey = process.env.EMAIL_SERVICE_API_KEY?.trim();
   const recipient = process.env.NOTIFICATION_EMAIL_TO?.trim();
   const from = process.env.NOTIFICATION_EMAIL_FROM?.trim();
 
-  if (!provider || !apiKey || !recipient || !from) {
+  if (!provider || !apiKey || (!recipientOverride && !recipient) || !from) {
     return null;
   }
 
@@ -46,7 +47,7 @@ function getEmailConfig(): EmailConfig | null {
   return {
     provider: 'resend',
     apiKey,
-    recipient,
+    recipient: recipient || '',
     from
   };
 }
@@ -130,7 +131,7 @@ async function dispatchEmail(
   message: EmailMessage,
   recipientOverride?: string
 ): Promise<EmailDispatchResult> {
-  const config = getEmailConfig();
+  const config = getEmailConfig(Boolean(recipientOverride));
 
   if (!config) {
     console.info(
@@ -167,4 +168,16 @@ export async function sendOperationalAlertNotification(
   alert: OperationalEmailAlert
 ): Promise<EmailDispatchResult> {
   return dispatchEmail(buildOperationalAlertEmail(alert));
+}
+
+/** Uses the existing Resend integration with a verified sender, never a browser API key. */
+export async function sendWorkspaceInvitationEmail(input: {
+  recipientEmail: string;
+  displayName: string;
+  inviteUrl: string;
+}): Promise<EmailDispatchResult> {
+  return dispatchEmail(
+    buildWorkspaceInviteEmail({ displayName: input.displayName, inviteUrl: input.inviteUrl }),
+    input.recipientEmail
+  );
 }

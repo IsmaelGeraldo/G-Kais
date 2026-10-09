@@ -48,3 +48,20 @@ export async function revokeExpertWorkspaceInvite(inviteId: string): Promise<voi
     }
   }).catch(() => {});
 }
+
+/**
+ * Dispatch is authorized server-side using the current Firebase ID token.
+ * Only inviteId is sent: the email address is read from the existing invite.
+ */
+export async function sendExpertWorkspaceInvitationEmail(inviteId: string): Promise<void> {
+  const user = firebaseAuth.currentUser;
+  if (!user) throw new Error('AUTH_REQUIRED');
+  const token = await user.getIdToken();
+  const response = await fetch('/api/workspace/invitations/send', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ inviteId })
+  });
+  const data = await response.json().catch(() => ({})) as { success?: boolean; code?: string };
+  if (!response.ok || data.success !== true) throw new Error(data.code || 'INVITATION_EMAIL_FAILED');
+}

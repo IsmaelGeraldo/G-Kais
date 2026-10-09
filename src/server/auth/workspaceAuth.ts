@@ -12,6 +12,7 @@ export type WorkspaceAiIdentity = {
 
 type FirestoreRestValue = {
   stringValue?: string;
+  timestampValue?: string;
   arrayValue?: { values?: FirestoreRestValue[] };
 };
 
@@ -123,5 +124,43 @@ export async function verifyWorkspaceBearerToken(
     permissions,
     ...(typeof decoded.email === 'string' ? { email: decoded.email } : {}),
     ...(typeof decoded.name === 'string' ? { name: decoded.name } : {})
+  };
+}
+
+export type VerifiedWorkspaceInvite = {
+  recipientEmail: string;
+  displayName: string;
+  roleId: string;
+};
+
+/**
+ * Invite data is read using the authenticated manager's Firestore token,
+ * under the verified workspace scope. The browser never chooses a recipient.
+ */
+export async function getWorkspaceInviteForDelivery(
+  identity: WorkspaceAiIdentity,
+  authorizationHeader: string | undefined,
+  inviteId: string
+): Promise<VerifiedWorkspaceInvite | null> {
+  if (!/^invite-[a-z0-9-]{10,90}$/.test(inviteId)) return null;
+  if (!authorizationHeader?.startsWith('Bearer ')) return null;
+  const token = authorizationHeader.slice('Bearer '.length).trim();
+  const doc = await fetchUserScopedDocument(
+    `expert_workspaces/${identity.workspaceId}/invites/${inviteId}`,
+    token
+  );
+  if (!doc?.fields) return null;
+  const fields = doc.fields;
+  if (restString(fields, 'status') !== 'pending') return null;
+  const expiresAt = fields.expiresAt?.timestampValue || '';
+  if (!expiresAt || !Number.isFinite(Date.parse(expiresAt)) || Date.parse(expiresAt) <= Date.now()) return null;
+  const invitedBy = restString(fields, 'invitedByUid');
+  if (invitedBy !== identity.uid && !identity.permissions.includes('*')) return null;
+  const recipientEmail = restString(fields, 'normalizedEmail').toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientEmail)) return null;
+  return {
+    recipientEmail,
+    displayName: restString(fields, 'displayName') || 'Miembro del equipo',
+    roleId: restString(fields, 'roleId')
   };
 }

@@ -185,3 +185,39 @@ export function buildOperationalAlertEmail(alert: OperationalEmailAlert): EmailM
     )
   };
 }
+
+export type WorkspaceInviteEmail = {
+  displayName: string;
+  inviteUrl: string;
+};
+
+export function buildWorkspaceInviteEmail(input: WorkspaceInviteEmail): EmailMessage {
+  const title = 'Invitación a G-Kais';
+  const safeName = escapeHtml(input.displayName);
+  const safeUrl = escapeHtml(input.inviteUrl);
+  return {
+    subject: 'Te invitaron a un equipo en G-KAIS',
+    text: [
+      `Hola ${input.displayName},`,
+      '',
+      'Has recibido una invitación para unirte al Workspace de tu equipo en G-Kais.',
+      'Acepta la invitación usando la misma dirección de correo a la que llegó este mensaje.',
+      '',
+      input.inviteUrl,
+      '',
+      'La invitación tiene una validez de siete días. Si no la esperabas, ignora este correo.'
+    ].join('\n'),
+    html: `<div style="background:#f7f7f5;padding:32px 16px;font-family:Arial,sans-serif;color:#111413">
+      <div style="max-width:560px;margin:0 auto;background:white;border:1px solid #e5e5e5;border-radius:14px;overflow:hidden">
+        <div style="padding:28px">
+          <p style="font-size:11px;letter-spacing:.17em;color:#0a3f4d;font-weight:bold">G-KAIS WORKSPACE</p>
+          <h1 style="font-size:26px;margin:14px 0">Invitación a tu equipo</h1>
+          <p style="font-size:15px;line-height:1.6">Hola ${safeName}, has recibido una invitación para colaborar con tu equipo en G-Kais.</p>
+          <p style="font-size:14px;line-height:1.6">Acepta utilizando la misma dirección de correo a la que llegó este mensaje.</p>
+          <a href="${safeUrl}" style="display:inline-block;margin:18px 0;background:#111413;color:white;padding:13px 24px;text-decoration:none;border-radius:24px;font-size:14px;font-weight:bold">Aceptar invitación</a>
+          <p style="font-size:12px;line-height:1.6;color:#666">El enlace caduca en siete días. Si no esperabas esta invitación, puedes ignorar el mensaje.</p>
+        </div>
+      </div>
+    </div>`
+  };
+}

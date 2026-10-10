@@ -5,7 +5,7 @@ import { firebaseAuth, firestoreDb, firebaseTarget } from '../../lib/firebase';
 import type { Language } from '../../i18n/LanguageContext';
 import { hasWorkspacePermission, loadExpertWorkspaceTeam, type WorkspaceMember, type WorkspaceTeamState } from '../../services/expertsWorkspaceCore';
 import { TeamWorkspace } from './TeamWorkspace';
-import { coalesceTaskCompletionActivity } from './teamActivityDedup';
+import { activityMatchesActorSelection, coalesceTaskCompletionActivity } from './teamActivityDedup';
 
 type Task = {
   id: string;
@@ -297,9 +297,8 @@ export function TeamSupervisionWorkspace({ language }: { language: Language }) {
   const since = period === 'all' ? 0 : Date.now() - Number(period) * 86400000;
   const activity = useMemo(() => coalesceTaskCompletionActivity([...taskEvents, ...events]
     .filter((event) => hasGlobal || allowedUids.has(event.actorUid) || (event.source === 'task' && allowedUids.has(event.assignedUid)))
-    .filter((event) => (roleId === 'all' && memberUid === 'all')
-      || filteredUids.has(event.actorUid)
-      || (event.source === 'task' && filteredUids.has(event.assignedUid)))
+    // Member/role selection filters actions by actor, never by task assignee.
+    .filter((event) => activityMatchesActorSelection(event, filteredUids, roleId !== 'all' || memberUid !== 'all'))
     .filter((event) => event.date && event.date.getTime() >= since)
     .filter((event) => !search.trim() || [event.action, event.detail, personNames[event.personId || ''] || '', names.get(event.actorUid) || '', names.get(event.assignedUid) || '']
       .some((value) => value.toLowerCase().includes(search.trim().toLowerCase()))))

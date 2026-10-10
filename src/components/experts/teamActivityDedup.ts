@@ -57,3 +57,12 @@ export function coalesceTaskCompletionActivity<T extends TaskCompletionActivity>
     return true;
   });
 }
+
+/** Member and role activity filters track the actor, never the task assignee. */
+export function activityMatchesActorSelection(
+  item: Pick<TaskCompletionActivity, 'actorUid'>,
+  selectedActorUids: ReadonlySet<string>,
+  hasSelection: boolean
+): boolean {
+  return !hasSelection || selectedActorUids.has(item.actorUid);
+}

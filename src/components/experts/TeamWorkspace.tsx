@@ -579,7 +579,7 @@ export function TeamWorkspace({ language }: { language: Language }) {
 
 
     <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
-      <section className="min-w-0 rounded-2xl border border-black/10 bg-white p-5">
+      <section className="@container min-w-0 rounded-2xl border border-black/10 bg-white p-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <UsersRound className="h-4 w-4 text-[#0A3F4D]" />
@@ -608,12 +608,12 @@ export function TeamWorkspace({ language }: { language: Language }) {
             const isEditing = editingMemberUid === member.uid;
 
             return <div key={member.uid} className="py-3">
-              <div className={`grid gap-2 ${canManageMembers ? 'md:grid-cols-[1fr_160px_90px_auto]' : 'md:grid-cols-[1fr_180px_100px]'} md:items-center`}>
-                <div>
-                  <p className="text-sm font-semibold">{member.displayName || member.email}</p>
-                  <p className="mt-1 text-xs text-black/40">{member.email}</p>
+              <div className={`grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 ${canManageMembers ? '@min-[660px]:grid-cols-[minmax(0,1fr)_160px_90px_auto]' : '@min-[600px]:grid-cols-[minmax(0,1fr)_180px_100px]'}`}>
+                <div className="min-w-0">
+                  <p className="break-words text-sm font-semibold">{member.displayName || member.email}</p>
+                  <p className="mt-1 break-all text-xs text-black/40">{member.email}</p>
                 </div>
-                <div>
+                <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-1.5">
                     <span className="text-xs text-black/50">{roleName(team.roles, member.roleId)}</span>
                     {(member.isSupervisor || directReportCount(member.uid) > 0) && <span className="rounded-full bg-[#0A3F4D]/8 px-2 py-0.5 text-[9px] font-semibold text-[#0A3F4D]">
@@ -626,12 +626,12 @@ export function TeamWorkspace({ language }: { language: Language }) {
                 {canManageMembers && (canEdit ? <button
                   type="button"
                   onClick={() => isEditing ? setEditingMemberUid('') : beginEditMember(member)}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-full border border-black/10 px-3 py-2 text-xs font-semibold text-black/60 transition hover:bg-black/[0.03]"
+                  className="inline-flex max-w-full items-center justify-center gap-1.5 rounded-full border border-black/10 px-3 py-2 text-xs font-semibold text-black/60 transition hover:bg-black/[0.03]"
                 >
                   {isEditing ? <X className="h-3.5 w-3.5" /> : <Pencil className="h-3.5 w-3.5" />}
                   {isEditing ? (language === 'es' ? 'Cerrar' : 'Close') : (language === 'es' ? 'Editar' : 'Edit')}
                 </button> : <span
-                  className="inline-flex items-center justify-center rounded-full border border-black/8 bg-[#F7F7F5] px-3 py-2 text-[10px] font-semibold text-black/40"
+                  className="inline-flex max-w-full items-center justify-center rounded-full border border-black/8 bg-[#F7F7F5] px-3 py-2 text-center text-[10px] font-semibold leading-tight text-black/40"
                   title={isOwner
                     ? (language === 'es' ? 'El propietario no se puede eliminar ni cambiar de rol.' : 'The owner cannot be removed or have their role changed.')
                     : (language === 'es' ? 'Tu propia cuenta se protege para evitar perder acceso accidentalmente.' : 'Your own account is protected to prevent accidental loss of access.')}

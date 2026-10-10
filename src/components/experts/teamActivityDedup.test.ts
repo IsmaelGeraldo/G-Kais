@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { coalesceTaskCompletionActivity, type TaskCompletionActivity } from './teamActivityDedup';
+import { activityMatchesActorSelection, coalesceTaskCompletionActivity, type TaskCompletionActivity } from './teamActivityDedup';
 
 const at = (second = 0) => new Date(Date.UTC(2026, 9, 9, 18, 0, second));
 const item = (
@@ -76,3 +76,19 @@ test('the same task completed by another actor is not silently hidden', () => {
     ['task-done-pablo', 'event-giovanni']);
 });
 
+
+test('selected member shows actions performed by member, not creations by task assigner', () => {
+  const selectedActors = new Set(['pablo']);
+  const completedByPablo = { ...item('task-done-1', 'task-1', 'task'), actorUid: 'pablo', assignedUid: 'pablo' };
+  const createdByOwner = { ...item('task-create-1', 'task-1', 'task', 'task.created'), actorUid: 'owner', assignedUid: 'pablo' };
+  assert.equal(activityMatchesActorSelection(completedByPablo, selectedActors, true), true);
+  assert.equal(activityMatchesActorSelection(createdByOwner, selectedActors, true), false);
+  assert.equal(activityMatchesActorSelection(createdByOwner, selectedActors, false), true);
+});
+
+test('selected role includes only actions performed by members of that role', () => {
+  const roleActors = new Set(['manager-a', 'manager-b']);
+  assert.equal(activityMatchesActorSelection({ actorUid: 'manager-b' }, roleActors, true), true);
+  assert.equal(activityMatchesActorSelection({ actorUid: 'owner' }, roleActors, true), false);
+  assert.equal(activityMatchesActorSelection({ actorUid: '' }, roleActors, true), false);
+});

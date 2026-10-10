@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { onSnapshot, collection, doc, getDoc, limit, query, where, type Unsubscribe } from 'firebase/firestore';
 import { Activity, CheckCircle2, Clock3, AlertCircle, UsersRound, ClipboardList, ShieldCheck } from 'lucide-react';
-import { firebaseAuth, firestoreDb } from '../../lib/firebase';
+import { firebaseAuth, firestoreDb, firebaseTarget } from '../../lib/firebase';
 import type { Language } from '../../i18n/LanguageContext';
 import { hasWorkspacePermission, loadExpertWorkspaceTeam, type WorkspaceMember, type WorkspaceTeamState } from '../../services/expertsWorkspaceCore';
 import { TeamWorkspace } from './TeamWorkspace';
@@ -239,7 +239,8 @@ export function TeamSupervisionWorkspace({ language }: { language: Language }) {
               const event = item.data() as FeedEvent;
               return {
                 id: `event-${item.id}`,
-                taskId: event.sourceType === 'work_task' ? event.sourceId || '' : '',
+                taskId: event.sourceType === 'work_task' ? event.sourceId || ''
+                  : typeof event.metadata?.taskId === 'string' ? event.metadata.taskId : '',
                 action: event.type || '',
                 detail: safeDetail(event),
                 actorUid: event.actorUid || '',
@@ -386,6 +387,9 @@ export function TeamSupervisionWorkspace({ language }: { language: Language }) {
               <p className="text-sm font-medium text-[#111413]">{labelForAction(item.action, language)}</p>
               {readableDetail(item, es, personNames) && <p className="mt-0.5 break-words text-xs text-black/55">{readableDetail(item, es, personNames)}</p>}
               <p className="mt-1 text-[11px] text-black/40">{item.actorUid && names.has(item.actorUid) ? (es ? 'Realizado por: ' : 'By: ') + names.get(item.actorUid) : item.assignedUid && names.has(item.assignedUid) ? (es ? 'Responsable: ' : 'Assignee: ') + names.get(item.assignedUid) : (es ? 'Responsable no registrado' : 'Actor not recorded')}</p>
+              {firebaseTarget === 'qa' && item.action === 'task.completed' && <p className="mt-1 break-all text-[10px] text-black/35" title={es ? 'Identificador de origen para verificar historial; no es una acción adicional' : 'Source ID for audit reconciliation, not an extra action'}>
+                {es ? 'Verificación QA' : 'QA verification'} · {item.source === 'task' ? (es ? 'Estado de tarea' : 'Task state') : item.source === 'event' ? (es ? 'Evento registrado' : 'Recorded event') : (es ? 'Auditoría' : 'Audit')} · {es ? 'Tarea' : 'Task'}: {item.taskId || (es ? 'sin vínculo' : 'unlinked')} · ID: {item.id}
+              </p>}
             </div>
             <span className="shrink-0 text-[10px] tabular-nums text-black/40">{dateLabel(item.date)}</span>
           </div>)}

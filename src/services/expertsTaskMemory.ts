@@ -12,6 +12,7 @@ import {
   type Unsubscribe
 } from 'firebase/firestore';
 import { firebaseAuth, firestoreDb, firebaseTarget } from '../lib/firebase';
+import { canSyncOwnerLocalTaskCache, mayImportLegacyTasksToNewWorkspace } from './expertsTaskBootstrap';
 import {
   getCurrentExpertWorkspaceMember,
   hasWorkspacePermission,
@@ -250,6 +251,8 @@ async function syncOwnerLegacyTasksFromLocal(): Promise<void> {
   if (!user || typeof window === 'undefined') return;
   const workspaceId = await resolveActiveExpertWorkspaceId(user);
   if (!workspaceId || workspaceId !== user.uid) return;
+  // QA may never sync a stale browser cache before Firestore is loaded.
+  if (!canSyncOwnerLocalTaskCache(firebaseTarget, hydratedKey, user.uid, workspaceId)) return;
 
   const local = withOwnerAssignment(readLocalTasks().filter(isOperationalLocalTask), user);
   const nextFingerprint = fingerprint(local);
@@ -295,7 +298,7 @@ export async function hydrateExpertsTaskMemory(): Promise<'firestore' | 'local'>
 
     // A new QA Workspace must start empty. Never import local browser history
     // or bundled pilot data into an isolated Firebase project.
-    if (isOwnerWorkspace && allRemote.length === 0 && firebaseTarget !== 'qa') {
+    if (isOwnerWorkspace && allRemote.length === 0 && mayImportLegacyTasksToNewWorkspace(firebaseTarget)) {
       let local = readLocalTasks().filter(isOperationalLocalTask);
       if (!local.length) local = PILOT_TASKS;
       local = withOwnerAssignment(local, user);

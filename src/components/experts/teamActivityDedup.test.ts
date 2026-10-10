@@ -60,3 +60,19 @@ test('distinct actors and unrelated activity without task source identity are no
   ];
   assert.equal(coalesceTaskCompletionActivity(activities).length, 5);
 });
+
+test('an earlier completion cycle remains visible alongside the latest task snapshot', () => {
+  const current = item('task-done-current', 'task-history-1', 'task', 'task.completed', at(45));
+  const earlier = item('event-earlier', 'task-history-1', 'event', 'task.completed', at(0));
+  const matching = item('event-current', 'task-history-1', 'event', 'task.completed', at(45));
+  assert.deepEqual(coalesceTaskCompletionActivity([current, earlier, matching]).map(x => x.id),
+    ['task-done-current', 'event-earlier']);
+});
+
+test('the same task completed by another actor is not silently hidden', () => {
+  const canonical = item('task-done-pablo', 'task-shared', 'task');
+  const event = { ...item('event-giovanni', 'task-shared', 'event'), actorUid: 'giovanni' };
+  assert.deepEqual(coalesceTaskCompletionActivity([canonical, event]).map(x=>x.id),
+    ['task-done-pablo', 'event-giovanni']);
+});
+

@@ -609,13 +609,13 @@ export function TeamWorkspace({ language }: { language: Language }) {
 
             return <div key={member.uid} className="py-3">
               <div className={`grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-2 ${canManageMembers
-                ? '@min-[420px]:grid-cols-[minmax(0,1fr)_90px_auto] @min-[660px]:grid-cols-[minmax(0,1fr)_160px_90px_auto]'
-                : '@min-[420px]:grid-cols-[minmax(0,1fr)_150px] @min-[600px]:grid-cols-[minmax(0,1fr)_180px_100px]'}`}>
+                ? '@min-[420px]:grid-cols-[minmax(0,1fr)_160px_auto] @min-[660px]:grid-cols-[minmax(0,1fr)_160px_90px_auto]'
+                : '@min-[420px]:grid-cols-[minmax(0,1fr)_160px] @min-[600px]:grid-cols-[minmax(0,1fr)_180px_100px]'}`}>
                 <div className="min-w-0">
                   <p className="break-words text-sm font-semibold">{member.displayName || member.email}</p>
                   <p className="mt-1 break-all text-xs text-black/40">{member.email}</p>
                 </div>
-                <div className={`flex min-w-0 flex-col gap-1 ${canManageMembers ? '@min-[660px]:contents' : '@min-[600px]:contents'}`}>
+                <div className={`flex min-w-0 flex-row flex-wrap items-center gap-x-2 gap-y-1 ${canManageMembers ? '@min-[660px]:contents' : '@min-[600px]:contents'}`}>
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-1.5">
                     <span className="text-xs text-black/50">{roleName(team.roles, member.roleId)}</span>

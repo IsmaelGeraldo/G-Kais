@@ -794,14 +794,18 @@ service cloud.firestore {
     }
 
     match /expert_workspaces/{workspaceId}/webinars/{webinarId} {
-      allow read: if ownsExpertWorkspace(workspaceId);
-      allow create, update: if ownsExpertWorkspace(workspaceId) &&
+      // A teaching Mentor can plan and edit sessions when explicitly granted
+      // webinars.manage; merely having webinars.read never permits writes.
+      allow read: if hasWorkspacePermission(workspaceId, 'webinars.read') ||
+        hasWorkspacePermission(workspaceId, 'webinars.manage');
+      allow create, update: if hasWorkspacePermission(workspaceId, 'webinars.manage') &&
         validExpertWebinar(request.resource.data);
+      // Deleting published sessions can destroy registration context.
       allow delete: if ownsExpertWorkspace(workspaceId);
     }
 
     match /expert_workspaces/{workspaceId}/webinar_registrations/{registrationId} {
-      allow read: if ownsExpertWorkspace(workspaceId) || (
+      allow read: if hasWorkspacePermission(workspaceId, 'webinars.manage') || ownsExpertWorkspace(workspaceId) || (
         resource.data.followUpTaskId is string &&
         resource.data.followUpTaskId.size() > 0 &&
         (hasWorkspacePermission(workspaceId, 'tasks.manage') ||
@@ -828,14 +832,14 @@ service cloud.firestore {
 
     match /expert_workspaces/{workspaceId}/formations/{formationId} {
       allow read: if isExpertWorkspaceMember(workspaceId);
-      allow create, update: if ownsExpertWorkspace(workspaceId) &&
+      allow create, update: if hasWorkspacePermission(workspaceId, 'formations.manage') &&
         validExpertFormation(request.resource.data);
       allow delete: if ownsExpertWorkspace(workspaceId);
     }
 
     match /expert_workspaces/{workspaceId}/cohorts/{cohortId} {
       allow read: if isExpertWorkspaceMember(workspaceId);
-      allow create, update: if ownsExpertWorkspace(workspaceId) &&
+      allow create, update: if hasWorkspacePermission(workspaceId, 'formations.manage') &&
         validExpertCohort(request.resource.data);
       allow delete: if ownsExpertWorkspace(workspaceId);
     }

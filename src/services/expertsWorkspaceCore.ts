@@ -108,8 +108,9 @@ export const DEFAULT_WORKSPACE_ROLES: WorkspaceRoleTemplate[] = [
     name: 'Mentor',
     description: 'Gestiona personas, mentorías, sesiones y trabajo relacionado.',
     permissions: [
-      'people.read', 'people.manage', 'webinars.read', 'formations.read',
-      'mentoring.read', 'mentoring.manage', 'tasks.read.own', 'tasks.read.team',
+      'people.read', 'people.manage', 'webinars.read', 'webinars.manage',
+      'formations.read', 'formations.manage', 'mentoring.read', 'mentoring.manage',
+      'tasks.read.own', 'tasks.read.team',
       'tasks.manage.own', 'tasks.manage', 'members.read', 'roles.read',
       'events.read', 'events.create'
     ]

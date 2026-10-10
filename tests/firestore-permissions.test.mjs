@@ -63,8 +63,9 @@ async function seed() {
         'tasks.read.team', 'tasks.manage.own', 'tasks.manage', 'members.read',
         'members.manage', 'roles.read', 'roles.manage', 'audit.read',
         'events.read', 'events.create']],
-      [MENTOR_A, ['people.read', 'people.manage', 'webinars.read', 'formations.read',
-        'mentoring.read', 'mentoring.manage', 'tasks.read.own', 'tasks.read.team',
+      [MENTOR_A, ['people.read', 'people.manage', 'webinars.read', 'webinars.manage',
+        'formations.read', 'formations.manage', 'mentoring.read', 'mentoring.manage',
+        'tasks.read.own', 'tasks.read.team',
         'tasks.manage.own', 'tasks.manage', 'members.read', 'roles.read',
         'events.read', 'events.create']],
       [CLOSER_A, ['people.read', 'people.manage', 'webinars.read', 'tasks.read.own',
@@ -337,6 +338,87 @@ test('manager can still manage another member within their own permissions', asy
     permissions: ['people.read'], displayName: 'Limited member managed by manager',
     updatedAt: Timestamp.now()
   }));
+});
+
+
+test('Mentor with webinar management may create and update a webinar, read registration roster, but not delete', async () => {
+  const mentor = asUser(MENTOR_A);
+  const ref = doc(mentor, workspace(OWNER_A, 'webinars', 'mentor-webinar'));
+  const now = Timestamp.now();
+  const webinar = {
+    schemaVersion: 1, title: 'Webinar de prueba',
+    startsAt: '2026-10-20T12:00:00', source: '', status: 'scheduled',
+    createdAt: now, updatedAt: now
+  };
+  await assertSucceeds(setDoc(ref, webinar));
+  await assertSucceeds(getDoc(ref));
+  await assertSucceeds(updateDoc(ref, { title: 'Webinar actualizado', updatedAt: Timestamp.now() }));
+  await assertSucceeds(getDocs(collection(mentor, 'expert_workspaces', OWNER_A, 'webinar_registrations')));
+  await assertFails(deleteDoc(ref));
+});
+
+test('Mentor with formations.manage may create and update formations/cohorts but not delete them', async () => {
+  const mentor = asUser(MENTOR_A);
+  const now = Timestamp.now();
+  const formationRef = doc(mentor, workspace(OWNER_A, 'formations', 'mentor-formation'));
+  const cohortRef = doc(mentor, workspace(OWNER_A, 'cohorts', 'mentor-cohort'));
+  await assertSucceeds(setDoc(formationRef, {
+    schemaVersion: 1, title: 'Formación de prueba', status: 'active',
+    createdAt: now, updatedAt: now
+  }));
+  await assertSucceeds(setDoc(cohortRef, {
+    schemaVersion: 1, formationId: 'mentor-formation', title: 'Grupo A',
+    startsAt: '2026-10-21', endsAt: '2026-11-21', status: 'planned',
+    createdAt: now, updatedAt: now
+  }));
+  await assertSucceeds(updateDoc(formationRef, { title: 'Formación actualizada', updatedAt: Timestamp.now() }));
+  await assertSucceeds(updateDoc(cohortRef, { title: 'Grupo B', updatedAt: Timestamp.now() }));
+  await assertFails(deleteDoc(cohortRef));
+  await assertFails(deleteDoc(formationRef));
+});
+
+test('Read-only Closer and Assistant may view webinars but cannot create or modify them', async () => {
+  for (const uid of [CLOSER_A, ASSISTANT_A]) {
+    const db = asUser(uid);
+    await assertSucceeds(getDocs(collection(db, 'expert_workspaces', OWNER_A, 'webinars')));
+    await assertFails(setDoc(doc(db, workspace(OWNER_A, 'webinars', 'unauthorized-'+uid)), {
+      schemaVersion: 1, title: 'No autorizado', startsAt: '', source: '',
+      status: 'draft', createdAt: Timestamp.now(), updatedAt: Timestamp.now()
+    }));
+    await assertFails(updateDoc(doc(db, workspace(OWNER_A, 'webinars', 'mentor-webinar')), {
+      title: 'Modificación no autorizada'
+    }));
+  }
+});
+
+test('Read-only Assistant cannot create formations or cohorts', async () => {
+  const db = asUser(ASSISTANT_A);
+  await assertSucceeds(getDocs(collection(db, 'expert_workspaces', OWNER_A, 'formations')));
+  await assertFails(setDoc(doc(db, workspace(OWNER_A, 'formations', 'unauthorized')), {
+    schemaVersion: 1, title: 'No autorizado', status: 'draft',
+    createdAt: Timestamp.now(), updatedAt: Timestamp.now()
+  }));
+  await assertFails(setDoc(doc(db, workspace(OWNER_A, 'cohorts', 'unauthorized')), {
+    schemaVersion: 1, formationId: 'mentor-formation', title: 'No autorizado',
+    startsAt: '', endsAt: '', status: 'planned',
+    createdAt: Timestamp.now(), updatedAt: Timestamp.now()
+  }));
+});
+
+test('Mentor cannot write programs to another Workspace or administer its members', async () => {
+  const mentor = asUser(MENTOR_A);
+  await assertFails(setDoc(doc(mentor, workspace(OWNER_B, 'webinars', 'foreign-webinar')), {
+    schemaVersion: 1, title: 'Prohibido', startsAt: '', source: '',
+    status: 'draft', createdAt: Timestamp.now(), updatedAt: Timestamp.now()
+  }));
+  await assertFails(setDoc(doc(mentor, workspace(OWNER_B, 'formations', 'foreign-formation')), {
+    schemaVersion: 1, title: 'Prohibido', status: 'draft',
+    createdAt: Timestamp.now(), updatedAt: Timestamp.now()
+  }));
+  await assertFails(updateDoc(doc(mentor, workspace(OWNER_A, 'members', LIMITED_A)), {
+    roleId: 'mentor'
+  }));
+  await assertFails(getDocs(collection(mentor, 'expert_workspaces', OWNER_A, 'invites')));
 });
 
 test('Mentor can read team tasks, but cannot administer Workspace invitations', async () => {

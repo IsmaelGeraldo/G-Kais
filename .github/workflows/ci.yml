@@ -39,6 +39,9 @@ jobs:
       - name: Test Team activity reconciliation
         run: npx tsx --test src/components/experts/teamActivityDedup.test.ts
 
+      - name: Test webinar date and time picker data
+        run: npx tsx --test src/components/experts/webinarDateTime.test.ts
+
       - name: Test personal work history ownership
         run: npx tsx --test src/components/experts/priorityTaskVisibility.test.ts
 

@@ -11,7 +11,7 @@ import {
   writeBatch,
   type Unsubscribe
 } from 'firebase/firestore';
-import { firebaseAuth, firestoreDb } from '../lib/firebase';
+import { firebaseAuth, firestoreDb, firebaseTarget } from '../lib/firebase';
 import {
   getCurrentExpertWorkspaceMember,
   hasWorkspacePermission,
@@ -293,7 +293,9 @@ export async function hydrateExpertsTaskMemory(): Promise<'firestore' | 'local'>
     let remote = allRemote.filter(isOperationalLocalTask);
     const isOwnerWorkspace = readable.workspaceId === user.uid;
 
-    if (isOwnerWorkspace && allRemote.length === 0) {
+    // A new QA Workspace must start empty. Never import local browser history
+    // or bundled pilot data into an isolated Firebase project.
+    if (isOwnerWorkspace && allRemote.length === 0 && firebaseTarget !== 'qa') {
       let local = readLocalTasks().filter(isOperationalLocalTask);
       if (!local.length) local = PILOT_TASKS;
       local = withOwnerAssignment(local, user);

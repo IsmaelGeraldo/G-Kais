@@ -114,6 +114,16 @@ function emitWorkspaceRefresh(): void {
   window.dispatchEvent(new CustomEvent(WORKSPACE_STATE_EVENT));
 }
 
+// Only QA surfaces Firestore subscription/read errors. Do not treat failed reads
+// as empty task collections or silently hide a permissions regression.
+function reportTaskSyncError(cause?: unknown): void {
+  if (firebaseTarget !== 'qa' || typeof window === 'undefined') return;
+  const value = cause && typeof cause === 'object' && 'code' in cause
+    ? String((cause as { code?: unknown }).code || 'unknown')
+    : cause ? 'read-unavailable' : '';
+  window.dispatchEvent(new CustomEvent('gkais:task-sync-error', { detail: value }));
+}
+
 function sanitizeForFirestore<T>(value: T): T {
   if (Array.isArray(value)) return value.map((item) => sanitizeForFirestore(item)) as T;
   if (value && typeof value === 'object') {
@@ -314,12 +324,14 @@ export async function hydrateExpertsTaskMemory(): Promise<'firestore' | 'local'>
     }
 
     writeLocalTasks(remote);
+    reportTaskSyncError();
     lastOwnerLocalFingerprint = isOwnerWorkspace ? fingerprint(remote) : '';
     hydratedKey = `${user.uid}:${readable.workspaceId}`;
     emitWorkspaceRefresh();
     await startTaskSubscription();
     return 'firestore';
-  } catch {
+  } catch (cause) {
+    reportTaskSyncError(cause);
     return 'local';
   }
 }
@@ -339,9 +351,10 @@ async function startTaskSubscription(): Promise<void> {
       .filter(isOperationalLocalTask)
       .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
     writeLocalTasks(remote);
+    reportTaskSyncError();
     if (readable.workspaceId === user.uid) lastOwnerLocalFingerprint = fingerprint(remote);
     emitWorkspaceRefresh();
-  }, () => {});
+  }, reportTaskSyncError);
 }
 
 if (typeof window !== 'undefined') {

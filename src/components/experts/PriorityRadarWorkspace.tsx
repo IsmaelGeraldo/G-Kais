@@ -8,7 +8,8 @@ import { appendJournal, getWorkPriority, loadTasks, refreshClientNextAction, sav
 import { BuyerQueueWorkspaceV2 } from './BuyerQueueWorkspaceV2';
 import { GkaisTimeInput } from './GkaisTimeInput';
 import { GkaisDateInput } from './GkaisDateInput';
-import { firebaseTarget } from '../../lib/firebase';
+import { firebaseTarget, firestoreDb } from '../../lib/firebase';
+import { doc, getDocFromServer } from 'firebase/firestore';
 
 type Interaction = 'queue' | 'waiting-reply' | 'reply-received';
 type Lane = 'queue' | 'waiting' | 'replied';
@@ -122,6 +123,8 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
   const [historySaving, setHistorySaving] = useState(false);
   const [historyError, setHistoryError] = useState('');
   const [historyNotice, setHistoryNotice] = useState('');
+  const [historySavedTaskId, setHistorySavedTaskId] = useState('');
+  const [taskSyncError, setTaskSyncError] = useState('');
 
   useEffect(() => {
     void loadExpertWorkspaceTeam().then((state) => {
@@ -130,8 +133,13 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
     }).catch(() => {});
     void hydrateExpertsTaskMemory().then(() => setTasks(loadTasks() as TeamTask[]));
     const refresh = () => setTasks(loadTasks() as TeamTask[]);
+    const onSyncError = (event: Event) => setTaskSyncError((event as CustomEvent<string>).detail || '');
     window.addEventListener(WORKSPACE_STATE_EVENT, refresh);
-    return () => window.removeEventListener(WORKSPACE_STATE_EVENT, refresh);
+    window.addEventListener('gkais:task-sync-error', onSyncError);
+    return () => {
+      window.removeEventListener(WORKSPACE_STATE_EVENT, refresh);
+      window.removeEventListener('gkais:task-sync-error', onSyncError);
+    };
   }, []);
 
   const currentUid = team?.currentUid || '';
@@ -174,7 +182,11 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
     return !term || [task.clientName, task.title, task.note, task.assignedToName || task.assignee]
       .some((value) => String(value || '').toLowerCase().includes(term));
   });
-  const history = visible
+  // History is not a queue of the currently assigned member. A completed task
+  // must remain visible to Owner even after its assignee changes.
+  const historySource = isOwner ? tasks : tasks.filter((task) =>
+    visible.includes(task) || task.completedByUid === currentUid);
+  const history = historySource
     .filter((task) => task.status === 'done' || Boolean(task.deletedAt))
     .filter((task) => !requestedClientId && !requestedPersonId || task.clientId === requestedClientId || resolvedPersonId(task) === requestedPersonId)
     .sort((left, right) => (right.deletedAt || right.completedAt || right.createdAt).localeCompare(left.deletedAt || left.completedAt || left.createdAt));
@@ -310,6 +322,7 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
   const beginEdit = (task: TeamTask) => {
     setHistoryMode('edit');
     setHistoryError('');
+    setHistorySavedTaskId('');
     setEditingId(task.id);
     setEditNote(task.note || '');
     setEditResult(task.result || '');
@@ -326,9 +339,11 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
     setHistoryMode('create');
     setHistoryError('');
     setHistoryNotice('');
+    setHistorySavedTaskId('');
     setEditingId(task.id);
     setEditType('whatsapp');
-    setEditAssignee(currentUid);
+    const originalAssignee = members.find((member) => member.uid === task.assignedToUid && member.status === 'active');
+    setEditAssignee(originalAssignee?.uid || currentUid);
     setEditDate('');
     setEditTime('');
     setEditNote('');
@@ -336,7 +351,7 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
   };
 
   const createFromHistory = async (task: TeamTask) => {
-    if (historySaving || (!isOwner && !canManageTeam)) return;
+    if (historySaving || historySavedTaskId || (!isOwner && !canManageTeam)) return;
     const assigned = members.find((member) => member.uid === editAssignee && member.status === 'active');
     if (!assigned) {
       setHistoryError(language === 'es' ? 'Selecciona un miembro activo.' : 'Select an active team member.');
@@ -348,6 +363,7 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
     }
     setHistorySaving(true);
     setHistoryError('');
+    let committed = false;
     const created: TeamTask = {
       id: `task-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       clientId: task.clientId,
@@ -370,7 +386,19 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
     };
     try {
       await persistExpertWorkTask(created, { throwOnError: true });
-      persist([created, ...tasks]);
+      committed = true;
+      setHistorySavedTaskId(created.id);
+      if (!team?.workspaceId) throw new Error('WORKSPACE_NOT_READY');
+      const saved = await getDocFromServer(doc(firestoreDb, 'expert_workspaces', team.workspaceId, 'work_tasks', created.id));
+      const savedTask = saved.data()?.task as TeamTask | undefined;
+      if (!saved.exists() || savedTask?.id !== created.id || savedTask.status !== 'pending' || savedTask.assignedToUid !== assigned.uid) {
+        throw new Error('TASK_REMOTE_CONFIRMATION_MISMATCH');
+      }
+      // Reload from the Firestore source of truth. Never replace an entire
+      // task cache with a stale React closure after the server confirms a write.
+      const syncSource = await hydrateExpertsTaskMemory();
+      if (syncSource !== 'firestore') throw new Error('TASK_REMOTE_RELOAD_FAILED');
+      setTasks(loadTasks() as TeamTask[]);
       if (task.clientId) refreshClientNextAction(task.clientId);
       void appendExpertAuditLog({
         entityType: 'work_task',
@@ -379,14 +407,18 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
         changes: { title: created.title, assignedToUid: assigned.uid, sourceTaskId: task.id }
       }).catch((cause) => console.error('HISTORY_FOLLOWUP_AUDIT_FAILED', cause));
       setHistoryNotice(language === 'es'
-        ? `Nueva acción guardada en Firebase y asignada a ${memberLabel(assigned)}.`
-        : `New action saved to Firebase and assigned to ${memberLabel(assigned)}.`);
+        ? `Nueva acción pendiente confirmada en Firebase para ${memberLabel(assigned)}. ID: ${created.id}`
+        : `Pending action confirmed in Firebase for ${memberLabel(assigned)}. ID: ${created.id}`);
       setEditingId('');
     } catch (cause) {
       console.error('HISTORY_FOLLOWUP_CREATE_FAILED', cause);
-      setHistoryError(language === 'es'
-        ? 'No se pudo guardar la nueva acción en Firebase. No se ha creado ninguna tarea local.'
-        : 'Could not save the new action to Firebase. No local task was created.');
+      setHistoryError(committed
+        ? (language === 'es'
+          ? `La acción ${created.id} fue enviada a Firebase, pero no pudo verificarse su lectura. No la crees de nuevo hasta comprobarla en Equipo.`
+          : `Action ${created.id} was submitted to Firebase but its readback could not be verified. Check Team before creating another.`)
+        : (language === 'es'
+          ? 'No se pudo guardar la nueva acción en Firebase. No se ha creado ninguna tarea local.'
+          : 'Could not save the new action to Firebase. No local task was created.'));
     } finally {
       setHistorySaving(false);
     }
@@ -418,6 +450,7 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
         </div>
         <div className="flex shrink-0 items-center gap-2"><label className="relative block w-[165px] shrink-0"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-black/30" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={language === 'es' ? 'Buscar tarea o persona…' : 'Search task or person…'} className="w-full rounded-xl border border-black/10 py-2 pl-9 pr-3 text-sm" /></label><label className="flex shrink-0 items-center gap-2 text-xs text-black/45"><input type="checkbox" checked={showHistory} onChange={(event) => setShowHistory(event.target.checked)} />{language === 'es' ? 'Historial' : 'History'}</label></div>
       </div>}
+      {firebaseTarget === 'qa' && taskSyncError && <p role="alert" className="mt-3 text-xs text-[#8D332C]">Firestore QA: {taskSyncError}. {language === 'es' ? 'Las tareas pueden estar desactualizadas. Recarga la página y comprueba los permisos del rol.' : 'Tasks may be outdated. Refresh and check your role permissions.'}</p>}
       {mainTab === 'active' && (requestedClientId || requestedPersonId) && <p className="mt-3 text-[10px] font-medium text-[#0A3F4D]">{language === 'es' ? 'Vista filtrada al cliente seleccionado desde Mentorías.' : 'View filtered to the client selected from Mentoring.'}</p>}
     </section>
 
@@ -485,7 +518,7 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
         : (language === 'es' ? 'No hay trabajo en esta vista.' : 'No work in this view.')}</div>}</div></section>
 
       {showHistory && <section className="rounded-2xl border border-black/10 bg-white p-4"><p className="text-xs font-semibold uppercase tracking-[0.12em] text-black/40">{language === 'es' ? 'HISTORIAL' : 'HISTORY'}</p>{historyNotice && <p role="status" className="mt-2 text-xs text-[#17603D]">{historyNotice}</p>}<div className="mt-3 divide-y divide-black/5">{history.map((task) => <div key={task.id} className="py-3">{editingId === task.id ? <div className="grid gap-3 rounded-xl bg-[#FAFAF8] p-3 lg:grid-cols-[0.9fr_1.1fr]">
-        <div><p className="text-sm font-semibold">{task.clientName}</p><p className="mt-1 text-xs text-black/50">{task.title}</p><p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-black/40">{historyMode === 'create' ? (language === 'es' ? 'NOTA DE LA NUEVA ACCIÓN' : 'NEW ACTION NOTE') : (language === 'es' ? 'NOTAS / RESULTADO' : 'NOTES / RESULT')}</p><textarea rows={2} value={editNote} onChange={(event) => setEditNote(event.target.value)} placeholder={language === 'es' ? 'Nota' : 'Note'} className="mt-2 w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-xs" />{historyMode === 'edit' && <textarea rows={2} value={editResult} onChange={(event) => setEditResult(event.target.value)} placeholder={language === 'es' ? 'Resultado' : 'Result'} className="mt-2 w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-xs" />}<div className="mt-2 flex flex-wrap gap-2"><button type="button" disabled={historySaving} onClick={() => historyMode === 'create' ? void createFromHistory(task) : saveEdit(task)} className="rounded-full bg-[#111413] px-4 py-2 text-xs font-semibold text-white disabled:opacity-40">{historyMode === 'create' ? (historySaving ? (language === 'es' ? 'Guardando…' : 'Saving…') : (language === 'es' ? 'Crear acción' : 'Create action')) : (language === 'es' ? 'Guardar cambios' : 'Save changes')}</button><button type="button" disabled={historySaving} onClick={() => { setEditingId(''); setHistoryError(''); }} className="rounded-full border border-black/10 px-4 py-2 text-xs">{language === 'es' ? 'Cancelar' : 'Cancel'}</button></div>{historyError && <p role="alert" className="mt-2 text-xs text-[#8D332C]">{historyError}</p>}</div>
+        <div><p className="text-sm font-semibold">{task.clientName}</p><p className="mt-1 text-xs text-black/50">{task.title}</p><p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-black/40">{historyMode === 'create' ? (language === 'es' ? 'NOTA DE LA NUEVA ACCIÓN' : 'NEW ACTION NOTE') : (language === 'es' ? 'NOTAS / RESULTADO' : 'NOTES / RESULT')}</p><textarea rows={2} value={editNote} onChange={(event) => setEditNote(event.target.value)} placeholder={language === 'es' ? 'Nota' : 'Note'} className="mt-2 w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-xs" />{historyMode === 'edit' && <textarea rows={2} value={editResult} onChange={(event) => setEditResult(event.target.value)} placeholder={language === 'es' ? 'Resultado' : 'Result'} className="mt-2 w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-xs" />}<div className="mt-2 flex flex-wrap gap-2"><button type="button" disabled={historySaving || (historyMode === 'create' && Boolean(historySavedTaskId))} onClick={() => historyMode === 'create' ? void createFromHistory(task) : saveEdit(task)} className="rounded-full bg-[#111413] px-4 py-2 text-xs font-semibold text-white disabled:opacity-40">{historyMode === 'create' ? (historySaving ? (language === 'es' ? 'Guardando…' : 'Saving…') : (language === 'es' ? 'Crear acción' : 'Create action')) : (language === 'es' ? 'Guardar cambios' : 'Save changes')}</button><button type="button" disabled={historySaving} onClick={() => { setEditingId(''); setHistoryError(''); }} className="rounded-full border border-black/10 px-4 py-2 text-xs">{language === 'es' ? 'Cancelar' : 'Cancel'}</button></div>{historyError && <p role="alert" className="mt-2 text-xs text-[#8D332C]">{historyError}</p>}</div>
         <div><p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#0A3F4D]">{historyMode === 'create' ? (language === 'es' ? 'NUEVA ACCIÓN PENDIENTE' : 'NEW PENDING ACTION') : (language === 'es' ? 'ACCIÓN REGISTRADA' : 'RECORDED ACTION')}</p><div className="mt-2 grid gap-2 [grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr))]"><select value={editType} onChange={(event) => setEditType(event.target.value as WorkActionType)} className="rounded-lg border border-black/10 bg-white px-3 py-2 text-xs"><option value="whatsapp">WhatsApp</option><option value="email">Email</option><option value="call">{language === 'es' ? 'Llamada' : 'Call'}</option><option value="meeting">{language === 'es' ? 'Reunión' : 'Meeting'}</option><option value="task">{language === 'es' ? 'Tarea' : 'Task'}</option></select><select value={editAssignee || currentUid} onChange={(event) => setEditAssignee(event.target.value)} className="rounded-lg border border-black/10 bg-white px-3 py-2 text-xs">{members.map((member) => <option key={member.uid} value={member.uid}>{assigneeOptionLabel(member)}</option>)}</select><GkaisDateInput value={editDate} onChange={setEditDate} language={language} /><GkaisTimeInput value={editTime} onChange={setEditTime} language={language} /></div><div className="mt-2 rounded-lg bg-white px-3 py-2 text-xs text-black/45">{historyMode === 'create' ? (language === 'es' ? 'Se creará una tarea nueva para esta persona. La actividad completada del historial no cambiará.' : 'A new task will be created for this person. The completed history record will not change.') : (language === 'es' ? 'Edita el registro si la acción, responsable, fecha, hora, nota o resultado fueron ingresados incorrectamente.' : 'Correct the recorded action, owner, date, time, note or result if needed.')}</div></div>
       </div> : <div className="grid gap-2 md:grid-cols-[1fr_150px_auto] md:items-center"><div><p className="text-sm font-semibold">{task.clientName}</p><p className="mt-1 text-xs text-black/45">{task.title}{task.result ? ` · ${task.result}` : ''}</p>{firebaseTarget === 'qa' && <p className="mt-1 text-[10px] text-black/35">
           {language === 'es' ? 'Verificación QA' : 'QA verification'} · {language === 'es' ? 'ID de tarea' : 'Task ID'}: {task.id} · {language === 'es' ? 'Completada' : 'Completed'}: {task.completedAt && !Number.isNaN(new Date(task.completedAt).getTime()) ? new Intl.DateTimeFormat(language === 'es' ? 'es-CL' : 'en-US', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(task.completedAt)) : (language === 'es' ? 'sin registro' : 'not recorded')} · {language === 'es' ? 'Por' : 'By'}: {members.find((member) => member.uid === task.completedByUid)?.displayName || (task.completedByUid ? (language === 'es' ? 'Miembro no disponible' : 'Member unavailable') : (language === 'es' ? 'no registrado' : 'not recorded'))}

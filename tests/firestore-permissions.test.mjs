@@ -220,6 +220,19 @@ test('Owner can create a new pending action for an existing person and Mentor ca
       assignedToUid: MENTOR_A, createdByUid: OWNER_A
     }
   }));
+  // The prior completed task must remain unchanged when a follow-up is created.
+  const completedId = 'history-completed-source';
+  await assertSucceeds(setDoc(doc(ownerDb, workspace(OWNER_A, 'work_tasks', completedId)), {
+    schemaVersion: 1, updatedAt: Timestamp.now(),
+    task: {
+      id: completedId, clientId: 'client-1', clientName: 'QA Person',
+      title: 'WhatsApp · QA Person', type: 'whatsapp',
+      createdAt: '2026-10-08T10:00:00Z', completedAt: '2026-10-09T10:00:00Z',
+      status: 'done', assignedToUid: OWNER_A, createdByUid: OWNER_A
+    }
+  }));
+  const prior = await assertSucceeds(getDoc(doc(ownerDb, workspace(OWNER_A, 'work_tasks', completedId))));
+  assert.equal(prior.data().task.status, 'done');
   const assigned = await assertSucceeds(getDocs(query(tasks(mentorDb, OWNER_A), where('task.assignedToUid', '==', MENTOR_A))));
   const created = assigned.docs.find((item) => item.id === id);
   assert.ok(created, 'new follow-up must be visible in Mentor task query');

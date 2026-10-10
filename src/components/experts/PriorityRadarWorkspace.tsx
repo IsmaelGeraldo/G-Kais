@@ -8,8 +8,9 @@ import { appendJournal, getWorkPriority, loadTasks, refreshClientNextAction, sav
 import { BuyerQueueWorkspaceV2 } from './BuyerQueueWorkspaceV2';
 import { GkaisTimeInput } from './GkaisTimeInput';
 import { GkaisDateInput } from './GkaisDateInput';
-import { firebaseTarget, firestoreDb } from '../../lib/firebase';
-import { doc, getDocFromServer } from 'firebase/firestore';
+import { firebaseAuth, firebaseTarget, firestoreDb } from '../../lib/firebase';
+import { collection, doc, getDocFromServer, getDocsFromServer, limit, query, where } from 'firebase/firestore';
+import { historyBelongsToMember } from './priorityTaskVisibility';
 
 type Interaction = 'queue' | 'waiting-reply' | 'reply-received';
 type Lane = 'queue' | 'waiting' | 'replied';
@@ -125,18 +126,34 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
   const [historyNotice, setHistoryNotice] = useState('');
   const [historySavedTaskId, setHistorySavedTaskId] = useState('');
   const [taskSyncError, setTaskSyncError] = useState('');
+  const [qaCheckingTasks, setQaCheckingTasks] = useState(false);
+  const [qaTaskCheck, setQaTaskCheck] = useState('');
 
   useEffect(() => {
-    void loadExpertWorkspaceTeam().then((state) => {
-      setTeam(state);
-      setNextAssignee(state.currentUid);
-    }).catch(() => {});
-    void hydrateExpertsTaskMemory().then(() => setTasks(loadTasks() as TeamTask[]));
+    let disposed = false;
+    const initialize = async () => {
+      try {
+        const state = await loadExpertWorkspaceTeam();
+        if (disposed) return;
+        setTeam(state);
+        setNextAssignee(state.currentUid);
+      } catch (cause) {
+        if (firebaseTarget === 'qa' && !disposed) {
+          setTaskSyncError(cause instanceof Error ? cause.message : 'TEAM_LOAD_FAILED');
+        }
+      }
+      const source = await hydrateExpertsTaskMemory();
+      if (disposed) return;
+      setTasks(loadTasks() as TeamTask[]);
+      if (firebaseTarget === 'qa' && source !== 'firestore') setTaskSyncError('TASK_REMOTE_HYDRATION_FAILED');
+    };
+    void initialize();
     const refresh = () => setTasks(loadTasks() as TeamTask[]);
     const onSyncError = (event: Event) => setTaskSyncError((event as CustomEvent<string>).detail || '');
     window.addEventListener(WORKSPACE_STATE_EVENT, refresh);
     window.addEventListener('gkais:task-sync-error', onSyncError);
     return () => {
+      disposed = true;
       window.removeEventListener(WORKSPACE_STATE_EVENT, refresh);
       window.removeEventListener('gkais:task-sync-error', onSyncError);
     };
@@ -182,14 +199,55 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
     return !term || [task.clientName, task.title, task.note, task.assignedToName || task.assignee]
       .some((value) => String(value || '').toLowerCase().includes(term));
   });
-  // History is not a queue of the currently assigned member. A completed task
-  // must remain visible to Owner even after its assignee changes.
-  const historySource = isOwner ? tasks : tasks.filter((task) =>
-    visible.includes(task) || task.completedByUid === currentUid);
+  // History belongs to the person who performed the completion, not to the
+  // current assignee and never to the entire Workspace.
+  const historySource = tasks.filter((task) =>
+    historyBelongsToMember(task, currentUid, isOwner) &&
+    !isFollowUp(task) && !isBuyer(task) && !isInternalAutomation(task));
   const history = historySource
     .filter((task) => task.status === 'done' || Boolean(task.deletedAt))
     .filter((task) => !requestedClientId && !requestedPersonId || task.clientId === requestedClientId || resolvedPersonId(task) === requestedPersonId)
     .sort((left, right) => (right.deletedAt || right.completedAt || right.createdAt).localeCompare(left.deletedAt || left.completedAt || left.createdAt));
+
+  // QA only: independently check the signed-in member's Firestore task query,
+  // then rehydrate without writing tasks to the remote database.
+  const verifyQaAssignments = async () => {
+    if (firebaseTarget !== 'qa' || qaCheckingTasks) return;
+    if (!team || !firebaseAuth.currentUser || team.currentUid !== firebaseAuth.currentUser.uid) {
+      setQaTaskCheck(language === 'es'
+        ? 'No se pudo confirmar la membresía actual. Recarga la sesión.'
+        : 'Current membership could not be confirmed. Reload this session.');
+      return;
+    }
+    setQaCheckingTasks(true);
+    setQaTaskCheck('');
+    try {
+      const ref = query(collection(firestoreDb, 'expert_workspaces', team.workspaceId, 'work_tasks'),
+        where('task.assignedToUid', '==', team.currentUid), limit(100));
+      const snapshot = await getDocsFromServer(ref);
+      const assigned = snapshot.docs.map((item) => ({
+        ...(item.data().task || {}), id: item.id
+      } as TeamTask));
+      const pending = assigned.filter((item) => item.status !== 'done' && !item.deletedAt);
+      const actionable = pending.filter((item) => !isFollowUp(item) && !isBuyer(item) && !isInternalAutomation(item));
+      const source = await hydrateExpertsTaskMemory();
+      const cached = loadTasks() as TeamTask[];
+      setTasks(cached);
+      const localActionable = cached.filter((item) => item.assignedToUid === team.currentUid &&
+        item.status !== 'done' && !item.deletedAt && !isFollowUp(item) && !isBuyer(item) && !isInternalAutomation(item));
+      const sample = pending.slice(0, 6).map((item) => `${item.id} (${item.status || '?'})`).join(' · ') || '—';
+      setQaTaskCheck(
+        `QA · ${team.currentMember.roleId} · Firestore asignadas: ${assigned.length}, pendientes: ${pending.length}, trabajo operativo: ${actionable.length} · caché operativa: ${localActionable.length} · sincronización: ${source} · IDs: ${sample}`
+      );
+    } catch (cause) {
+      const code = cause && typeof cause === 'object' && 'code' in cause
+        ? String((cause as { code?: unknown }).code || 'unknown')
+        : cause instanceof Error ? cause.message : 'unavailable';
+      setQaTaskCheck(`QA · error de lectura de asignaciones Firestore: ${code}`);
+    } finally {
+      setQaCheckingTasks(false);
+    }
+  };
 
   const persist = (next: TeamTask[]) => { setTasks(next); saveTasks(next as WorkTask[]); };
   const patch = (task: TeamTask, change: Partial<TeamTask>, auditAction?: string) => {
@@ -515,7 +573,14 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
       })}
       {!rows.length && <div className="p-10 text-center text-sm text-black/40">{view === 'team'
         ? (language === 'es' ? 'No hay trabajo asignado a otros miembros del equipo en esta vista.' : 'No work is assigned to other team members in this view.')
-        : (language === 'es' ? 'No hay trabajo en esta vista.' : 'No work in this view.')}</div>}</div></section>
+        : (language === 'es' ? 'No hay trabajo en esta vista.' : 'No work in this view.')}
+        {firebaseTarget === 'qa' && <div className="mt-3">
+          <button type="button" disabled={qaCheckingTasks} onClick={() => void verifyQaAssignments()} className="rounded-full border border-black/10 px-3 py-2 text-[11px] font-semibold text-black/60 disabled:opacity-40">
+            {qaCheckingTasks ? (language === 'es' ? 'Verificando…' : 'Checking…') : (language === 'es' ? 'Verificar mis asignaciones en Firebase QA' : 'Check my Firebase QA assignments')}
+          </button>
+        </div>}
+      </div>}</div></section>
+      {firebaseTarget === 'qa' && qaTaskCheck && <p role="status" className="mt-2 break-words rounded-xl border border-black/10 bg-white px-3 py-2 text-[10px] text-black/60">{qaTaskCheck}</p>}
 
       {showHistory && <section className="rounded-2xl border border-black/10 bg-white p-4"><p className="text-xs font-semibold uppercase tracking-[0.12em] text-black/40">{language === 'es' ? 'HISTORIAL' : 'HISTORY'}</p>{historyNotice && <p role="status" className="mt-2 text-xs text-[#17603D]">{historyNotice}</p>}<div className="mt-3 divide-y divide-black/5">{history.map((task) => <div key={task.id} className="py-3">{editingId === task.id ? <div className="grid gap-3 rounded-xl bg-[#FAFAF8] p-3 lg:grid-cols-[0.9fr_1.1fr]">
         <div><p className="text-sm font-semibold">{task.clientName}</p><p className="mt-1 text-xs text-black/50">{task.title}</p><p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-black/40">{historyMode === 'create' ? (language === 'es' ? 'NOTA DE LA NUEVA ACCIÓN' : 'NEW ACTION NOTE') : (language === 'es' ? 'NOTAS / RESULTADO' : 'NOTES / RESULT')}</p><textarea rows={2} value={editNote} onChange={(event) => setEditNote(event.target.value)} placeholder={language === 'es' ? 'Nota' : 'Note'} className="mt-2 w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-xs" />{historyMode === 'edit' && <textarea rows={2} value={editResult} onChange={(event) => setEditResult(event.target.value)} placeholder={language === 'es' ? 'Resultado' : 'Result'} className="mt-2 w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-xs" />}<div className="mt-2 flex flex-wrap gap-2"><button type="button" disabled={historySaving || (historyMode === 'create' && Boolean(historySavedTaskId))} onClick={() => historyMode === 'create' ? void createFromHistory(task) : saveEdit(task)} className="rounded-full bg-[#111413] px-4 py-2 text-xs font-semibold text-white disabled:opacity-40">{historyMode === 'create' ? (historySaving ? (language === 'es' ? 'Guardando…' : 'Saving…') : (language === 'es' ? 'Crear acción' : 'Create action')) : (language === 'es' ? 'Guardar cambios' : 'Save changes')}</button><button type="button" disabled={historySaving} onClick={() => { setEditingId(''); setHistoryError(''); }} className="rounded-full border border-black/10 px-4 py-2 text-xs">{language === 'es' ? 'Cancelar' : 'Cancel'}</button></div>{historyError && <p role="alert" className="mt-2 text-xs text-[#8D332C]">{historyError}</p>}</div>

@@ -39,6 +39,9 @@ jobs:
       - name: Test Team activity reconciliation
         run: npx tsx --test src/components/experts/teamActivityDedup.test.ts
 
+      - name: Test personal work history ownership
+        run: npx tsx --test src/components/experts/priorityTaskVisibility.test.ts
+
       - name: Test Workspace DOM translation guard
         run: node --test tests/workspace-translation-guard.test.mjs
 

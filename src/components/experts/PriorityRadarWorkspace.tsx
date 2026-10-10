@@ -118,6 +118,10 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
   const [editAssignee, setEditAssignee] = useState('');
   const [editDate, setEditDate] = useState('');
   const [editTime, setEditTime] = useState('');
+  const [historyMode, setHistoryMode] = useState<'edit' | 'create'>('edit');
+  const [historySaving, setHistorySaving] = useState(false);
+  const [historyError, setHistoryError] = useState('');
+  const [historyNotice, setHistoryNotice] = useState('');
 
   useEffect(() => {
     void loadExpertWorkspaceTeam().then((state) => {
@@ -304,6 +308,8 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
   };
 
   const beginEdit = (task: TeamTask) => {
+    setHistoryMode('edit');
+    setHistoryError('');
     setEditingId(task.id);
     setEditNote(task.note || '');
     setEditResult(task.result || '');
@@ -311,6 +317,79 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
     setEditAssignee(task.assignedToUid || currentUid);
     setEditDate(task.dueDate || '');
     setEditTime(task.dueTime || '');
+  };
+
+  // Editing a completed history record does not create a new pending task.
+  // Creating a follow-up must persist a separate task ID before it appears locally.
+  const beginNewFromHistory = (task: TeamTask) => {
+    if (!isOwner && !canManageTeam) return;
+    setHistoryMode('create');
+    setHistoryError('');
+    setHistoryNotice('');
+    setEditingId(task.id);
+    setEditType('whatsapp');
+    setEditAssignee(currentUid);
+    setEditDate('');
+    setEditTime('');
+    setEditNote('');
+    setEditResult('');
+  };
+
+  const createFromHistory = async (task: TeamTask) => {
+    if (historySaving || (!isOwner && !canManageTeam)) return;
+    const assigned = members.find((member) => member.uid === editAssignee && member.status === 'active');
+    if (!assigned) {
+      setHistoryError(language === 'es' ? 'Selecciona un miembro activo.' : 'Select an active team member.');
+      return;
+    }
+    if (editTime && !editDate) {
+      setHistoryError(language === 'es' ? 'Selecciona una fecha para la hora indicada.' : 'Select a date for the chosen time.');
+      return;
+    }
+    setHistorySaving(true);
+    setHistoryError('');
+    const created: TeamTask = {
+      id: `task-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      clientId: task.clientId,
+      clientName: task.clientName,
+      ...(resolvedPersonId(task) ? { personId: resolvedPersonId(task) } : {}),
+      title: `${actionLabel(editType, language)} · ${task.clientName}`,
+      type: editType,
+      note: editNote.trim(),
+      dueDate: editDate,
+      dueTime: editTime,
+      assignee: memberLabel(assigned),
+      assignedToUid: assigned.uid,
+      assignedToName: memberLabel(assigned),
+      createdByUid: currentUid,
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+      source: 'manual',
+      interactionState: 'queue',
+      confirmationEmail: editType === 'meeting' ? 'queued' : 'not-required'
+    };
+    try {
+      await persistExpertWorkTask(created, { throwOnError: true });
+      persist([created, ...tasks]);
+      if (task.clientId) refreshClientNextAction(task.clientId);
+      void appendExpertAuditLog({
+        entityType: 'work_task',
+        entityId: created.id,
+        action: 'task.created',
+        changes: { title: created.title, assignedToUid: assigned.uid, sourceTaskId: task.id }
+      }).catch((cause) => console.error('HISTORY_FOLLOWUP_AUDIT_FAILED', cause));
+      setHistoryNotice(language === 'es'
+        ? `Nueva acción guardada en Firebase y asignada a ${memberLabel(assigned)}.`
+        : `New action saved to Firebase and assigned to ${memberLabel(assigned)}.`);
+      setEditingId('');
+    } catch (cause) {
+      console.error('HISTORY_FOLLOWUP_CREATE_FAILED', cause);
+      setHistoryError(language === 'es'
+        ? 'No se pudo guardar la nueva acción en Firebase. No se ha creado ninguna tarea local.'
+        : 'Could not save the new action to Firebase. No local task was created.');
+    } finally {
+      setHistorySaving(false);
+    }
   };
 
   const saveEdit = (task: TeamTask) => {
@@ -327,17 +406,17 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
   };
 
   return <div className="space-y-4">
-    <section className="rounded-2xl border border-black/10 bg-white p-4 md:p-5">
+    <section className="@container rounded-2xl border border-black/10 bg-white p-4 md:p-5">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#0A3F4D]">PRIORITY WORK</p><h3 className="mt-1.5 text-xl font-semibold">{language === 'es' ? 'Trabajo operativo principal' : 'Primary operating work'}</h3><p className="mt-1.5 max-w-2xl text-sm leading-5 text-black/50">{language === 'es' ? 'Alumnos, clientes 1:1 y relaciones activas. No compradores se trabajan en Relaciones → Seguimiento.' : 'Students, 1:1 clients and active relationships. Non-buyers live in Relationships → Follow-up.'}</p></div>
         <div className="inline-flex h-fit w-fit shrink-0 self-start rounded-xl bg-[#F7F7F5] p-1 lg:self-center"><button type="button" onClick={() => setMainTab('active')} className={`inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-lg px-3 text-[11px] font-semibold ${mainTab === 'active' ? '' : 'text-black/50'}`} style={internalActiveStyle(mainTab === 'active')}><ListTodo className="h-3.5 w-3.5 shrink-0" />{language === 'es' ? 'Trabajo activo' : 'Active work'}</button><button type="button" onClick={() => setMainTab('buyers')} className={`inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-lg px-3 text-[11px] font-semibold ${mainTab === 'buyers' ? '' : 'text-black/50'}`} style={internalActiveStyle(mainTab === 'buyers')}><ShoppingBag className="h-3.5 w-3.5 shrink-0" />{language === 'es' ? 'Compradores' : 'Buyers'}</button></div>
       </div>
-      {mainTab === 'active' && <div className="mt-4 flex flex-col gap-3 border-t border-black/5 pt-4 lg:flex-row xl:items-center xl:justify-between">
+      {mainTab === 'active' && <div className="mt-4 flex flex-col gap-2 border-t border-black/5 pt-4 @min-[820px]:flex-row @min-[820px]:items-center @min-[820px]:justify-between">
         <div className="flex flex-wrap gap-2">
           <div className="inline-flex rounded-xl bg-[#F7F7F5] p-1"><button type="button" onClick={() => setView('mine')} className={`rounded-lg px-3 py-2 text-xs font-semibold ${view === 'mine' ? '' : 'text-black/45'}`} style={internalActiveStyle(view === 'mine')}>{language === 'es' ? 'Mi trabajo' : 'My work'}</button>{canReadTeam && <button type="button" onClick={() => setView('team')} className={`inline-flex items-center gap-1 rounded-lg px-3 py-2 text-xs font-semibold ${view === 'team' ? '' : 'text-black/45'}`} style={internalActiveStyle(view === 'team')}><UsersRound className="h-3.5 w-3.5" />{language === 'es' ? 'Equipo' : 'Team'}</button>}</div>
           <div className="inline-flex rounded-xl border border-black/8 p-1"><LaneButton active={lane === 'queue'} onClick={() => setLane('queue')} icon={ListTodo} label={language === 'es' ? 'Por hacer' : 'To do'} count={queues.queue.length} /><LaneButton active={lane === 'waiting'} onClick={() => setLane('waiting')} icon={Inbox} label={language === 'es' ? 'Interacciones activas' : 'Active interactions'} count={queues.waiting.length} /><LaneButton active={lane === 'replied'} onClick={() => setLane('replied')} icon={BellRing} label={language === 'es' ? 'Respondieron' : 'Replied'} count={queues.replied.length} /></div>
         </div>
-        <div className="flex gap-3"><label className="relative block min-w-[280px]"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-black/30" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={language === 'es' ? 'Buscar tarea o persona…' : 'Search task or person…'} className="w-full rounded-xl border border-black/10 py-2 pl-9 pr-3 text-sm" /></label><label className="flex items-center gap-2 text-xs text-black/45"><input type="checkbox" checked={showHistory} onChange={(event) => setShowHistory(event.target.checked)} />{language === 'es' ? 'Historial' : 'History'}</label></div>
+        <div className="flex shrink-0 items-center gap-2"><label className="relative block w-[165px] shrink-0"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-black/30" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={language === 'es' ? 'Buscar tarea o persona…' : 'Search task or person…'} className="w-full rounded-xl border border-black/10 py-2 pl-9 pr-3 text-sm" /></label><label className="flex shrink-0 items-center gap-2 text-xs text-black/45"><input type="checkbox" checked={showHistory} onChange={(event) => setShowHistory(event.target.checked)} />{language === 'es' ? 'Historial' : 'History'}</label></div>
       </div>}
       {mainTab === 'active' && (requestedClientId || requestedPersonId) && <p className="mt-3 text-[10px] font-medium text-[#0A3F4D]">{language === 'es' ? 'Vista filtrada al cliente seleccionado desde Mentorías.' : 'View filtered to the client selected from Mentoring.'}</p>}
     </section>
@@ -405,12 +484,12 @@ export function PriorityRadarWorkspace({ language, onOpenClient }: { language: L
         ? (language === 'es' ? 'No hay trabajo asignado a otros miembros del equipo en esta vista.' : 'No work is assigned to other team members in this view.')
         : (language === 'es' ? 'No hay trabajo en esta vista.' : 'No work in this view.')}</div>}</div></section>
 
-      {showHistory && <section className="rounded-2xl border border-black/10 bg-white p-4"><p className="text-xs font-semibold uppercase tracking-[0.12em] text-black/40">{language === 'es' ? 'HISTORIAL' : 'HISTORY'}</p><div className="mt-3 divide-y divide-black/5">{history.map((task) => <div key={task.id} className="py-3">{editingId === task.id ? <div className="grid gap-3 rounded-xl bg-[#FAFAF8] p-3 lg:grid-cols-[0.9fr_1.1fr]">
-        <div><p className="text-sm font-semibold">{task.clientName}</p><p className="mt-1 text-xs text-black/50">{task.title}</p><p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-black/40">{language === 'es' ? 'NOTAS / RESULTADO' : 'NOTES / RESULT'}</p><textarea rows={2} value={editNote} onChange={(event) => setEditNote(event.target.value)} placeholder={language === 'es' ? 'Nota' : 'Note'} className="mt-2 w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-xs" /><textarea rows={2} value={editResult} onChange={(event) => setEditResult(event.target.value)} placeholder={language === 'es' ? 'Resultado' : 'Result'} className="mt-2 w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-xs" /><div className="mt-2 flex gap-2"><button type="button" onClick={() => saveEdit(task)} className="rounded-full bg-[#111413] px-4 py-2 text-xs font-semibold text-white">{language === 'es' ? 'Guardar cambios' : 'Save changes'}</button><button type="button" onClick={() => setEditingId('')} className="rounded-full border border-black/10 px-4 py-2 text-xs">{language === 'es' ? 'Cancelar' : 'Cancel'}</button></div></div>
-        <div><p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#0A3F4D]">{language === 'es' ? 'ACCIÓN REGISTRADA' : 'RECORDED ACTION'}</p><div className="mt-2 grid gap-2 [grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr))]"><select value={editType} onChange={(event) => setEditType(event.target.value as WorkActionType)} className="rounded-lg border border-black/10 bg-white px-3 py-2 text-xs"><option value="whatsapp">WhatsApp</option><option value="email">Email</option><option value="call">{language === 'es' ? 'Llamada' : 'Call'}</option><option value="meeting">{language === 'es' ? 'Reunión' : 'Meeting'}</option><option value="task">{language === 'es' ? 'Tarea' : 'Task'}</option></select><select value={editAssignee || currentUid} onChange={(event) => setEditAssignee(event.target.value)} className="rounded-lg border border-black/10 bg-white px-3 py-2 text-xs">{members.map((member) => <option key={member.uid} value={member.uid}>{assigneeOptionLabel(member)}</option>)}</select><GkaisDateInput value={editDate} onChange={setEditDate} language={language} /><GkaisTimeInput value={editTime} onChange={setEditTime} language={language} /></div><div className="mt-2 rounded-lg bg-white px-3 py-2 text-xs text-black/45">{language === 'es' ? 'Edita el registro si la acción, responsable, fecha, hora, nota o resultado fueron ingresados incorrectamente.' : 'Correct the recorded action, owner, date, time, note or result if needed.'}</div></div>
+      {showHistory && <section className="rounded-2xl border border-black/10 bg-white p-4"><p className="text-xs font-semibold uppercase tracking-[0.12em] text-black/40">{language === 'es' ? 'HISTORIAL' : 'HISTORY'}</p>{historyNotice && <p role="status" className="mt-2 text-xs text-[#17603D]">{historyNotice}</p>}<div className="mt-3 divide-y divide-black/5">{history.map((task) => <div key={task.id} className="py-3">{editingId === task.id ? <div className="grid gap-3 rounded-xl bg-[#FAFAF8] p-3 lg:grid-cols-[0.9fr_1.1fr]">
+        <div><p className="text-sm font-semibold">{task.clientName}</p><p className="mt-1 text-xs text-black/50">{task.title}</p><p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-black/40">{historyMode === 'create' ? (language === 'es' ? 'NOTA DE LA NUEVA ACCIÓN' : 'NEW ACTION NOTE') : (language === 'es' ? 'NOTAS / RESULTADO' : 'NOTES / RESULT')}</p><textarea rows={2} value={editNote} onChange={(event) => setEditNote(event.target.value)} placeholder={language === 'es' ? 'Nota' : 'Note'} className="mt-2 w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-xs" />{historyMode === 'edit' && <textarea rows={2} value={editResult} onChange={(event) => setEditResult(event.target.value)} placeholder={language === 'es' ? 'Resultado' : 'Result'} className="mt-2 w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-xs" />}<div className="mt-2 flex flex-wrap gap-2"><button type="button" disabled={historySaving} onClick={() => historyMode === 'create' ? void createFromHistory(task) : saveEdit(task)} className="rounded-full bg-[#111413] px-4 py-2 text-xs font-semibold text-white disabled:opacity-40">{historyMode === 'create' ? (historySaving ? (language === 'es' ? 'Guardando…' : 'Saving…') : (language === 'es' ? 'Crear acción' : 'Create action')) : (language === 'es' ? 'Guardar cambios' : 'Save changes')}</button><button type="button" disabled={historySaving} onClick={() => { setEditingId(''); setHistoryError(''); }} className="rounded-full border border-black/10 px-4 py-2 text-xs">{language === 'es' ? 'Cancelar' : 'Cancel'}</button></div>{historyError && <p role="alert" className="mt-2 text-xs text-[#8D332C]">{historyError}</p>}</div>
+        <div><p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#0A3F4D]">{historyMode === 'create' ? (language === 'es' ? 'NUEVA ACCIÓN PENDIENTE' : 'NEW PENDING ACTION') : (language === 'es' ? 'ACCIÓN REGISTRADA' : 'RECORDED ACTION')}</p><div className="mt-2 grid gap-2 [grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr))]"><select value={editType} onChange={(event) => setEditType(event.target.value as WorkActionType)} className="rounded-lg border border-black/10 bg-white px-3 py-2 text-xs"><option value="whatsapp">WhatsApp</option><option value="email">Email</option><option value="call">{language === 'es' ? 'Llamada' : 'Call'}</option><option value="meeting">{language === 'es' ? 'Reunión' : 'Meeting'}</option><option value="task">{language === 'es' ? 'Tarea' : 'Task'}</option></select><select value={editAssignee || currentUid} onChange={(event) => setEditAssignee(event.target.value)} className="rounded-lg border border-black/10 bg-white px-3 py-2 text-xs">{members.map((member) => <option key={member.uid} value={member.uid}>{assigneeOptionLabel(member)}</option>)}</select><GkaisDateInput value={editDate} onChange={setEditDate} language={language} /><GkaisTimeInput value={editTime} onChange={setEditTime} language={language} /></div><div className="mt-2 rounded-lg bg-white px-3 py-2 text-xs text-black/45">{historyMode === 'create' ? (language === 'es' ? 'Se creará una tarea nueva para esta persona. La actividad completada del historial no cambiará.' : 'A new task will be created for this person. The completed history record will not change.') : (language === 'es' ? 'Edita el registro si la acción, responsable, fecha, hora, nota o resultado fueron ingresados incorrectamente.' : 'Correct the recorded action, owner, date, time, note or result if needed.')}</div></div>
       </div> : <div className="grid gap-2 md:grid-cols-[1fr_150px_auto] md:items-center"><div><p className="text-sm font-semibold">{task.clientName}</p><p className="mt-1 text-xs text-black/45">{task.title}{task.result ? ` · ${task.result}` : ''}</p>{firebaseTarget === 'qa' && <p className="mt-1 text-[10px] text-black/35">
           {language === 'es' ? 'Verificación QA' : 'QA verification'} · {language === 'es' ? 'ID de tarea' : 'Task ID'}: {task.id} · {language === 'es' ? 'Completada' : 'Completed'}: {task.completedAt && !Number.isNaN(new Date(task.completedAt).getTime()) ? new Intl.DateTimeFormat(language === 'es' ? 'es-CL' : 'en-US', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(task.completedAt)) : (language === 'es' ? 'sin registro' : 'not recorded')} · {language === 'es' ? 'Por' : 'By'}: {members.find((member) => member.uid === task.completedByUid)?.displayName || (task.completedByUid ? (language === 'es' ? 'Miembro no disponible' : 'Member unavailable') : (language === 'es' ? 'no registrado' : 'not recorded'))}
-        </p>}</div><span className="text-xs text-black/40">{firebaseTarget === 'qa' ? (language === 'es' ? 'Programada: ' : 'Scheduled: ') : ''}{due(task, language)}</span><button type="button" onClick={() => beginEdit(task)} className="inline-flex items-center gap-1 rounded-full bg-[#111413] px-3 py-2 text-[10px] font-semibold text-white"><Pencil className="h-3.5 w-3.5" />{language === 'es' ? 'Editar' : 'Edit'}</button></div>}</div>)}</div></section>}
+        </p>}</div><span className="text-xs text-black/40">{firebaseTarget === 'qa' ? (language === 'es' ? 'Programada: ' : 'Scheduled: ') : ''}{due(task, language)}</span><div className="flex flex-wrap justify-end gap-2">{(isOwner || canManageTeam) && <button type="button" onClick={() => beginNewFromHistory(task)} className="inline-flex items-center gap-1 rounded-full border border-black/10 px-3 py-2 text-[10px] font-semibold text-black/65">{language === 'es' ? 'Nueva acción' : 'New action'}</button>}<button type="button" onClick={() => beginEdit(task)} className="inline-flex items-center gap-1 rounded-full bg-[#111413] px-3 py-2 text-[10px] font-semibold text-white"><Pencil className="h-3.5 w-3.5" />{language === 'es' ? 'Editar' : 'Edit'}</button></div></div>}</div>)}</div></section>}
     </>}
   </div>;
 }

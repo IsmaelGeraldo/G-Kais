@@ -205,6 +205,29 @@ test('manager with tasks.read.team can read and list all Workspace tasks', async
   await assertSucceeds(getDoc(doc(db, workspace(OWNER_A, 'work_tasks', 'owned-by-owner'))));
 });
 
+test('Owner can create a new pending action for an existing person and Mentor can read it', async () => {
+  const ownerDb = asUser(OWNER_A);
+  const mentorDb = asUser(MENTOR_A);
+  const id = 'history-followup-for-mentor';
+  await assertSucceeds(setDoc(doc(ownerDb, workspace(OWNER_A, 'work_tasks', id)), {
+    schemaVersion: 1,
+    updatedAt: Timestamp.now(),
+    task: {
+      id, clientId: 'client-1', clientName: 'QA Person',
+      title: 'WhatsApp · QA Person', type: 'whatsapp', note: 'QA follow-up',
+      dueDate: '2026-10-12', dueTime: '10:00', source: 'manual',
+      status: 'pending', createdAt: '2026-10-10T10:00:00Z',
+      assignedToUid: MENTOR_A, createdByUid: OWNER_A
+    }
+  }));
+  const assigned = await assertSucceeds(getDocs(query(tasks(mentorDb, OWNER_A), where('task.assignedToUid', '==', MENTOR_A))));
+  const created = assigned.docs.find((item) => item.id === id);
+  assert.ok(created, 'new follow-up must be visible in Mentor task query');
+  assert.equal(created.data().task.status, 'pending');
+  assert.equal(created.data().task.source, 'manual');
+  await assertFails(getDoc(doc(asUser(OWNER_B), workspace(OWNER_A, 'work_tasks', id))));
+});
+
 test('assistant can only list tasks constrained to their own assignment', async () => {
   const db = asUser(ASSISTANT_A);
   const assigned = await assertSucceeds(getDocs(query(tasks(db, OWNER_A), where('task.assignedToUid', '==', ASSISTANT_A))));

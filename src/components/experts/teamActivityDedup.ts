@@ -18,9 +18,13 @@ export type TaskCompletionActivity = {
 const LEGACY_REPEAT_WINDOW_MS = 10_000;
 
 export function coalesceTaskCompletionActivity<T extends TaskCompletionActivity>(items: T[]): T[] {
-  const snapshotCompletions = new Set(items
-    .filter((item) => item.source === 'task' && item.action === 'task.completed' && item.taskId)
-    .map((item) => item.taskId));
+  const snapshotCompletions = new Map<string, T[]>();
+  for (const item of items) {
+    if (item.source !== 'task' || item.action !== 'task.completed' || !item.taskId) continue;
+    const group = snapshotCompletions.get(item.taskId) || [];
+    group.push(item);
+    snapshotCompletions.set(item.taskId, group);
+  }
 
   // Fallback for older event-only records, where the task snapshot may no
   // longer be among the limited results. Preserve genuinely separate actions
@@ -30,10 +34,18 @@ export function coalesceTaskCompletionActivity<T extends TaskCompletionActivity>
   return items.filter((item) => {
     if (item.action !== 'task.completed' || !item.taskId) return true;
     if (item.source === 'task') return true;
-    if (snapshotCompletions.has(item.taskId)) return false;
-
     const timestamp = item.date?.getTime();
     if (timestamp === undefined || !Number.isFinite(timestamp)) return true;
+
+    // A persisted task snapshot only represents its *latest* completion.
+    // Suppress the matching event, not earlier real completion/reopen cycles.
+    const matchingSnapshot = (snapshotCompletions.get(item.taskId) || []).some((snapshot) => {
+      const snapshotTime = snapshot.date?.getTime();
+      const actorMatches = !item.actorUid || !snapshot.actorUid || item.actorUid === snapshot.actorUid;
+      return actorMatches && snapshotTime !== undefined &&
+        Number.isFinite(snapshotTime) && Math.abs(timestamp - snapshotTime) <= LEGACY_REPEAT_WINDOW_MS;
+    });
+    if (matchingSnapshot) return false;
 
     const identity = `${item.taskId}:${item.actorUid}`;
     const seen = recentEventCompletions.get(identity) || [];

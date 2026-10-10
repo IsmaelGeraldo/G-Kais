@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { startTransition, useEffect, useMemo, useState } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import {
@@ -301,9 +301,13 @@ function ExpertsWorkspaceShell({ onExit, verifiedWorkspaceId }: Props) {
     if (id === 'relationships' && options?.tab) params.set('tab', options.tab);
     if (options?.personId) params.set('person', options.personId);
     window.history.pushState({}, '', `/workspace/experts?${params.toString()}`);
-    setActive(id);
-    if (options?.clientId) setSelectedClientId(options.clientId);
-    if (id === 'relationships') setRelationshipTab(options?.tab || 'people');
+    // Keep sidebar interactions responsive while the destination workspace
+    // renders. INP is measured on the navigation click, not the child span.
+    startTransition(() => {
+      setActive(id);
+      if (options?.clientId) setSelectedClientId(options.clientId);
+      if (id === 'relationships') setRelationshipTab(options?.tab || 'people');
+    });
   };
 
   const startSession = (clientId: string) => {
@@ -432,7 +436,8 @@ function ExpertsWorkspaceShell({ onExit, verifiedWorkspaceId }: Props) {
   };
 
   return <div
-    className={`min-h-screen text-[#0A0A0A] ${sidebarCollapsed ? 'gkais-sidebar-collapsed' : '' } ${appearance.theme === 'black' ? 'gkais-black-surface' : ''}`}
+    translate="no"
+    className={`notranslate min-h-screen text-[#0A0A0A] ${sidebarCollapsed ? 'gkais-sidebar-collapsed' : '' } ${appearance.theme === 'black' ? 'gkais-black-surface' : ''}`}
     style={{
       background: workspaceBackground(workspaceAccent, appearance.intensity),
       '--gkais-card-surface': cardSurface,

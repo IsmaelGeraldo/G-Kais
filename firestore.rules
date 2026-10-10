@@ -633,13 +633,20 @@ service cloud.firestore {
       allow create: if (
           hasWorkspacePermission(workspaceId, 'members.manage') &&
           validWorkspaceMember(request.resource.data, memberId) &&
+          // Only the actual workspace owner may create the owner membership.
+          (memberId != workspaceId || request.auth.uid == workspaceId) &&
+          (memberId == workspaceId
+            ? request.resource.data.roleId == 'owner'
+            : request.resource.data.roleId != 'owner') &&
           (request.auth.uid == workspaceId ||
             request.resource.data.permissions.hasOnly(
               get(/databases/$(database)/documents/expert_workspaces/$(workspaceId)/members/$(request.auth.uid)).data.permissions
             ))
         ) || (
           request.auth != null && request.auth.uid == memberId &&
+          memberId != workspaceId &&
           validWorkspaceMember(request.resource.data, memberId) &&
+          request.resource.data.roleId != 'owner' &&
           request.resource.data.status == 'active' &&
           ('inviteId' in request.resource.data) &&
           request.resource.data.inviteId.size() > 0 &&
@@ -652,13 +659,20 @@ service cloud.firestore {
         );
 
       allow update: if hasWorkspacePermission(workspaceId, 'members.manage') &&
+        // Prevent API/SDK bypass of the Team editor's owner/self protection.
+        memberId != workspaceId &&
+        memberId != request.auth.uid &&
+        resource.data.roleId != 'owner' &&
+        request.resource.data.roleId != 'owner' &&
         validWorkspaceMember(request.resource.data, memberId) &&
         (request.auth.uid == workspaceId ||
           request.resource.data.permissions.hasOnly(
             get(/databases/$(database)/documents/expert_workspaces/$(workspaceId)/members/$(request.auth.uid)).data.permissions
           ));
       allow delete: if hasWorkspacePermission(workspaceId, 'members.manage') &&
-        memberId != workspaceId;
+        memberId != workspaceId &&
+        memberId != request.auth.uid &&
+        resource.data.roleId != 'owner';
     }
 
     match /expert_workspaces/{workspaceId}/invites/{inviteId} {
@@ -734,7 +748,11 @@ service cloud.firestore {
     match /expert_workspaces/{workspaceId}/work_tasks/{taskId} {
       // The Dashboard shows the organization's global workload. Mutation
       // remains permission-gated below.
-      allow read: if isExpertWorkspaceMember(workspaceId);
+      // Read permission is enforced by Firestore, not only hidden in the UI.
+      // Own-task reads require a query constrained by task.assignedToUid.
+      allow read: if hasWorkspacePermission(workspaceId, 'tasks.read.team') ||
+        (hasWorkspacePermission(workspaceId, 'tasks.read.own') &&
+          resource.data.task.assignedToUid == request.auth.uid);
 
       allow create: if validExpertWorkTask(request.resource.data, taskId) && (
         hasWorkspacePermission(workspaceId, 'tasks.manage') ||
@@ -768,21 +786,26 @@ service cloud.firestore {
     match /expert_workspaces/{workspaceId}/people/{personId} {
       // Global relationship data feeds the read-only Dashboard for all active
       // members; editing remains owner-controlled.
-      allow read: if isExpertWorkspaceMember(workspaceId);
+      allow read: if hasWorkspacePermission(workspaceId, 'people.read') ||
+        hasWorkspacePermission(workspaceId, 'people.manage');
       allow create, update: if ownsExpertWorkspace(workspaceId) &&
         validExpertPerson(request.resource.data);
       allow delete: if ownsExpertWorkspace(workspaceId);
     }
 
     match /expert_workspaces/{workspaceId}/webinars/{webinarId} {
-      allow read: if ownsExpertWorkspace(workspaceId);
-      allow create, update: if ownsExpertWorkspace(workspaceId) &&
+      // A teaching Mentor can plan and edit sessions when explicitly granted
+      // webinars.manage; merely having webinars.read never permits writes.
+      allow read: if hasWorkspacePermission(workspaceId, 'webinars.read') ||
+        hasWorkspacePermission(workspaceId, 'webinars.manage');
+      allow create, update: if hasWorkspacePermission(workspaceId, 'webinars.manage') &&
         validExpertWebinar(request.resource.data);
+      // Deleting published sessions can destroy registration context.
       allow delete: if ownsExpertWorkspace(workspaceId);
     }
 
     match /expert_workspaces/{workspaceId}/webinar_registrations/{registrationId} {
-      allow read: if ownsExpertWorkspace(workspaceId) || (
+      allow read: if hasWorkspacePermission(workspaceId, 'webinars.manage') || ownsExpertWorkspace(workspaceId) || (
         resource.data.followUpTaskId is string &&
         resource.data.followUpTaskId.size() > 0 &&
         (hasWorkspacePermission(workspaceId, 'tasks.manage') ||
@@ -809,14 +832,14 @@ service cloud.firestore {
 
     match /expert_workspaces/{workspaceId}/formations/{formationId} {
       allow read: if isExpertWorkspaceMember(workspaceId);
-      allow create, update: if ownsExpertWorkspace(workspaceId) &&
+      allow create, update: if hasWorkspacePermission(workspaceId, 'formations.manage') &&
         validExpertFormation(request.resource.data);
       allow delete: if ownsExpertWorkspace(workspaceId);
     }
 
     match /expert_workspaces/{workspaceId}/cohorts/{cohortId} {
       allow read: if isExpertWorkspaceMember(workspaceId);
-      allow create, update: if ownsExpertWorkspace(workspaceId) &&
+      allow create, update: if hasWorkspacePermission(workspaceId, 'formations.manage') &&
         validExpertCohort(request.resource.data);
       allow delete: if ownsExpertWorkspace(workspaceId);
     }

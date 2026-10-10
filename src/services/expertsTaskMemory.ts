@@ -11,7 +11,8 @@ import {
   writeBatch,
   type Unsubscribe
 } from 'firebase/firestore';
-import { firebaseAuth, firestoreDb } from '../lib/firebase';
+import { firebaseAuth, firestoreDb, firebaseTarget } from '../lib/firebase';
+import { canSyncOwnerLocalTaskCache, mayImportLegacyTasksToNewWorkspace } from './expertsTaskBootstrap';
 import {
   getCurrentExpertWorkspaceMember,
   hasWorkspacePermission,
@@ -111,6 +112,16 @@ function writeLocalTasks(tasks: StoredTask[]): void {
 function emitWorkspaceRefresh(): void {
   if (typeof window === 'undefined') return;
   window.dispatchEvent(new CustomEvent(WORKSPACE_STATE_EVENT));
+}
+
+// Only QA surfaces Firestore subscription/read errors. Do not treat failed reads
+// as empty task collections or silently hide a permissions regression.
+function reportTaskSyncError(cause?: unknown): void {
+  if (firebaseTarget !== 'qa' || typeof window === 'undefined') return;
+  const value = cause && typeof cause === 'object' && 'code' in cause
+    ? String((cause as { code?: unknown }).code || 'unknown')
+    : cause ? 'read-unavailable' : '';
+  window.dispatchEvent(new CustomEvent('gkais:task-sync-error', { detail: value }));
 }
 
 function sanitizeForFirestore<T>(value: T): T {
@@ -250,6 +261,8 @@ async function syncOwnerLegacyTasksFromLocal(): Promise<void> {
   if (!user || typeof window === 'undefined') return;
   const workspaceId = await resolveActiveExpertWorkspaceId(user);
   if (!workspaceId || workspaceId !== user.uid) return;
+  // QA may never sync a stale browser cache before Firestore is loaded.
+  if (!canSyncOwnerLocalTaskCache(firebaseTarget, hydratedKey, user.uid, workspaceId)) return;
 
   const local = withOwnerAssignment(readLocalTasks().filter(isOperationalLocalTask), user);
   const nextFingerprint = fingerprint(local);
@@ -293,7 +306,9 @@ export async function hydrateExpertsTaskMemory(): Promise<'firestore' | 'local'>
     let remote = allRemote.filter(isOperationalLocalTask);
     const isOwnerWorkspace = readable.workspaceId === user.uid;
 
-    if (isOwnerWorkspace && allRemote.length === 0) {
+    // A new QA Workspace must start empty. Never import local browser history
+    // or bundled pilot data into an isolated Firebase project.
+    if (isOwnerWorkspace && allRemote.length === 0 && mayImportLegacyTasksToNewWorkspace(firebaseTarget)) {
       let local = readLocalTasks().filter(isOperationalLocalTask);
       if (!local.length) local = PILOT_TASKS;
       local = withOwnerAssignment(local, user);
@@ -309,12 +324,14 @@ export async function hydrateExpertsTaskMemory(): Promise<'firestore' | 'local'>
     }
 
     writeLocalTasks(remote);
+    reportTaskSyncError();
     lastOwnerLocalFingerprint = isOwnerWorkspace ? fingerprint(remote) : '';
     hydratedKey = `${user.uid}:${readable.workspaceId}`;
     emitWorkspaceRefresh();
     await startTaskSubscription();
     return 'firestore';
-  } catch {
+  } catch (cause) {
+    reportTaskSyncError(cause);
     return 'local';
   }
 }
@@ -334,9 +351,10 @@ async function startTaskSubscription(): Promise<void> {
       .filter(isOperationalLocalTask)
       .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
     writeLocalTasks(remote);
+    reportTaskSyncError();
     if (readable.workspaceId === user.uid) lastOwnerLocalFingerprint = fingerprint(remote);
     emitWorkspaceRefresh();
-  }, () => {});
+  }, reportTaskSyncError);
 }
 
 if (typeof window !== 'undefined') {

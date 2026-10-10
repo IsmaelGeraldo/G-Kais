@@ -1,6 +1,6 @@
-import { collection, onSnapshot, type Unsubscribe } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, type Unsubscribe } from 'firebase/firestore';
 import { firebaseAuth, firestoreDb } from '../lib/firebase';
-import { resolveActiveExpertWorkspaceId } from './expertsWorkspaceCore';
+import { getCurrentExpertWorkspaceMember, hasWorkspacePermission, resolveActiveExpertWorkspaceId } from './expertsWorkspaceCore';
 
 export type DashboardWorkItem = {
   id: string;
@@ -152,6 +152,23 @@ function canonicalLeadMetricRows(snapshot: { docs: Array<{ id: string; data: () 
   });
 }
 
+/**
+ * Dashboard task reads must have the same Firestore authorization contract as
+ * Priority Work. A user with tasks.read.own cannot subscribe to all tasks,
+ * even if the UI would later filter them.
+ */
+async function readableDashboardTasks() {
+  const context = await getCurrentExpertWorkspaceMember();
+  if (!context) return null;
+  const { workspaceId, member } = context;
+  const tasks = collection(firestoreDb, 'expert_workspaces', workspaceId, 'work_tasks');
+  if (hasWorkspacePermission(member.permissions, 'tasks.read.team')) return tasks;
+  if (hasWorkspacePermission(member.permissions, 'tasks.read.own')) {
+    return query(tasks, where('task.assignedToUid', '==', member.uid));
+  }
+  return null;
+}
+
 export async function subscribeDashboardWorkItems(
   callback: (items: DashboardWorkItem[]) => void
 ): Promise<Unsubscribe> {
@@ -160,7 +177,8 @@ export async function subscribeDashboardWorkItems(
   let canonicalLeads: DashboardWorkItem[] = [];
   const emit = () => callback([...workItems, ...canonicalLeads]);
 
-  const unsubscribeTasks = onSnapshot(collection(firestoreDb, 'expert_workspaces', workspace, 'work_tasks'), (snapshot) => {
+  const readableTasks = await readableDashboardTasks();
+  const unsubscribeTasks = readableTasks ? onSnapshot(readableTasks, (snapshot) => {
     workItems = snapshot.docs.map((item) => {
       const data = item.data() as Record<string, unknown>;
       return dashboardWorkItem(item.id, object(data.task));
@@ -169,7 +187,7 @@ export async function subscribeDashboardWorkItems(
   }, () => {
     workItems = [];
     emit();
-  });
+  }) : () => {};
 
   const unsubscribeEvents = onSnapshot(collection(firestoreDb, 'expert_workspaces', workspace, 'relationship_events'), (snapshot) => {
     canonicalLeads = canonicalLeadMetricRows(snapshot);
@@ -240,8 +258,9 @@ export async function subscribeDashboardVerifiedPurchases(
 export async function subscribeDashboardFormationClasses(
   callback: (items: DashboardFormationClass[]) => void
 ): Promise<Unsubscribe> {
-  const workspace = await workspaceId();
-  return onSnapshot(collection(firestoreDb, 'expert_workspaces', workspace, 'work_tasks'), (snapshot) => {
+  const readableTasks = await readableDashboardTasks();
+  if (!readableTasks) { callback([]); return () => {}; }
+  return onSnapshot(readableTasks, (snapshot) => {
     const rows: DashboardFormationClass[] = [];
     snapshot.docs.forEach((item) => {
       const data = item.data() as Record<string, unknown>;
@@ -267,8 +286,9 @@ export async function subscribeDashboardFormationClasses(
 export async function subscribeDashboardCohortTimes(
   callback: (items: DashboardCohortTime[]) => void
 ): Promise<Unsubscribe> {
-  const workspace = await workspaceId();
-  return onSnapshot(collection(firestoreDb, 'expert_workspaces', workspace, 'work_tasks'), (snapshot) => {
+  const readableTasks = await readableDashboardTasks();
+  if (!readableTasks) { callback([]); return () => {}; }
+  return onSnapshot(readableTasks, (snapshot) => {
     const rows: DashboardCohortTime[] = [];
     snapshot.docs.forEach((item) => {
       const data = item.data() as Record<string, unknown>;

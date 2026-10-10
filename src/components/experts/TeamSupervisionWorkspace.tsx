@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { onSnapshot, collection, doc, getDoc, limit, query, where, type Unsubscribe } from 'firebase/firestore';
 import { Activity, CheckCircle2, Clock3, AlertCircle, UsersRound, ClipboardList, ShieldCheck } from 'lucide-react';
-import { firebaseAuth, firestoreDb } from '../../lib/firebase';
+import { firebaseAuth, firestoreDb, firebaseTarget } from '../../lib/firebase';
 import type { Language } from '../../i18n/LanguageContext';
 import { hasWorkspacePermission, loadExpertWorkspaceTeam, type WorkspaceMember, type WorkspaceTeamState } from '../../services/expertsWorkspaceCore';
 import { TeamWorkspace } from './TeamWorkspace';
+import { activityMatchesActorSelection, coalesceTaskCompletionActivity } from './teamActivityDedup';
 
 type Task = {
   id: string;
@@ -30,6 +31,7 @@ type ActivityItem = {
   assignedUid: string;
   date: Date | null;
   source: 'task' | 'event' | 'audit';
+  taskId?: string;
   personId?: string;
   metadata?: Record<string, unknown>;
 };
@@ -40,6 +42,7 @@ type FeedEvent = {
   entityType?: string;
   entityId?: string;
   sourceId?: string;
+  sourceType?: string;
   personId?: string;
   metadata?: Record<string, unknown>;
   changes?: Record<string, unknown>;
@@ -136,9 +139,9 @@ function taskActivities(task: Task): ActivityItem[] {
   const title = task.title || task.clientName || task.id;
   const rows: ActivityItem[] = [];
   const created = readDate(task.createdAt);
-  if (created) rows.push({ id: `task-create-${task.id}`, action: 'task.created', detail: title, actorUid: task.createdByUid || '', assignedUid: task.assignedToUid || '', date: created, source: 'task' });
+  if (created) rows.push({ id: `task-create-${task.id}`, taskId: task.id, action: 'task.created', detail: title, actorUid: task.createdByUid || '', assignedUid: task.assignedToUid || '', date: created, source: 'task' });
   const completed = readDate(task.completedAt);
-  if (completed && task.status === 'done') rows.push({ id: `task-done-${task.id}`, action: 'task.completed', detail: title, actorUid: task.completedByUid || '', assignedUid: task.assignedToUid || '', date: completed, source: 'task' });
+  if (completed && task.status === 'done') rows.push({ id: `task-done-${task.id}`, taskId: task.id, action: 'task.completed', detail: title, actorUid: task.completedByUid || '', assignedUid: task.assignedToUid || '', date: completed, source: 'task' });
   const removed = readDate(task.deletedAt);
   if (removed) rows.push({ id: `task-delete-${task.id}`, action: 'task.deleted', detail: title, actorUid: '', assignedUid: task.assignedToUid || '', date: removed, source: 'task' });
   return rows;
@@ -209,14 +212,23 @@ export function TeamSupervisionWorkspace({ language }: { language: Language }) {
           setLoading(false);
           return;
         }
+        const canReadTeamTasks = state.workspaceId === state.currentUid ||
+          hasWorkspacePermission(state.currentMember.permissions, 'tasks.read.team');
+        const canReadOwnTasks = hasWorkspacePermission(state.currentMember.permissions, 'tasks.read.own');
         const taskRef = collection(firestoreDb, 'expert_workspaces', state.workspaceId, 'work_tasks');
         const eventsRef = collection(firestoreDb, 'expert_workspaces', state.workspaceId, 'relationship_events');
         const auditRef = collection(firestoreDb, 'expert_workspaces', state.workspaceId, 'audit_logs');
         const watches = privileged ? [null] : uniqueChunks(uids);
         for (let i = 0; i < watches.length; i += 1) {
           const chunk = watches[i];
-          const taskQuery = chunk ? query(taskRef, where('task.assignedToUid', 'in', chunk), limit(MAX_TEAM_TASKS)) : query(taskRef, limit(MAX_TEAM_TASKS));
-          unsubscribers.push(onSnapshot(taskQuery, (snapshot) => {
+          // Role-filtered task queries must also be authorized by Firestore rules.
+          // Event history remains available under its separate events permissions.
+          const taskQuery = canReadTeamTasks
+            ? chunk ? query(taskRef, where('task.assignedToUid', 'in', chunk), limit(MAX_TEAM_TASKS)) : query(taskRef, limit(MAX_TEAM_TASKS))
+            : canReadOwnTasks && i === 0
+              ? query(taskRef, where('task.assignedToUid', '==', state.currentUid), limit(MAX_TEAM_TASKS))
+              : null;
+          if (taskQuery) unsubscribers.push(onSnapshot(taskQuery, (snapshot) => {
             taskBuckets.set(`task-${i}`, snapshot.docs.map((item) => ({ ...(item.data().task || {}), id: item.id } as Task))
               .filter((task) => task.id && task.type && !String((task as Task & { workstream?: string }).workstream || '').startsWith('formation-')));
             publishTasks();
@@ -227,6 +239,8 @@ export function TeamSupervisionWorkspace({ language }: { language: Language }) {
               const event = item.data() as FeedEvent;
               return {
                 id: `event-${item.id}`,
+                taskId: event.sourceType === 'work_task' ? event.sourceId || ''
+                  : typeof event.metadata?.taskId === 'string' ? event.metadata.taskId : '',
                 action: event.type || '',
                 detail: safeDetail(event),
                 actorUid: event.actorUid || '',
@@ -243,7 +257,7 @@ export function TeamSupervisionWorkspace({ language }: { language: Language }) {
         if (auditAllowed) unsubscribers.push(onSnapshot(query(auditRef, limit(MAX_EVENTS)), (snapshot) => {
           eventBuckets.set('audit', snapshot.docs.map((item) => {
             const event = item.data() as FeedEvent;
-            return { id: `audit-${item.id}`, action: event.action || '',
+            return { id: `audit-${item.id}`, taskId: event.entityType === 'work_task' ? event.entityId || '' : '', action: event.action || '',
               detail: safeDetail(event), actorUid: event.actorUid || '', assignedUid: '',
               date: readDate(event.occurredAt) || readDate(event.createdAt), source: 'audit' as const };
           }));
@@ -281,14 +295,13 @@ export function TeamSupervisionWorkspace({ language }: { language: Language }) {
   const visibleTasks = useMemo(() => tasks.filter((task) => filteredUids.has(task.assignedToUid || '')), [tasks, filteredUids]);
   const taskEvents = useMemo(() => visibleTasks.flatMap(taskActivities), [visibleTasks]);
   const since = period === 'all' ? 0 : Date.now() - Number(period) * 86400000;
-  const activity = useMemo(() => [...taskEvents, ...events]
+  const activity = useMemo(() => coalesceTaskCompletionActivity([...taskEvents, ...events]
     .filter((event) => hasGlobal || allowedUids.has(event.actorUid) || (event.source === 'task' && allowedUids.has(event.assignedUid)))
-    .filter((event) => (roleId === 'all' && memberUid === 'all')
-      || filteredUids.has(event.actorUid)
-      || (event.source === 'task' && filteredUids.has(event.assignedUid)))
+    // Member/role selection filters actions by actor, never by task assignee.
+    .filter((event) => activityMatchesActorSelection(event, filteredUids, roleId !== 'all' || memberUid !== 'all'))
     .filter((event) => event.date && event.date.getTime() >= since)
     .filter((event) => !search.trim() || [event.action, event.detail, personNames[event.personId || ''] || '', names.get(event.actorUid) || '', names.get(event.assignedUid) || '']
-      .some((value) => value.toLowerCase().includes(search.trim().toLowerCase())))
+      .some((value) => value.toLowerCase().includes(search.trim().toLowerCase()))))
     .sort((a, b) => (b.date?.getTime() || 0) - (a.date?.getTime() || 0)), [taskEvents, events, hasGlobal, allowedUids, filteredUids, roleId, memberUid, since, search, names, personNames]);
   const now = new Date();
   const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -373,6 +386,9 @@ export function TeamSupervisionWorkspace({ language }: { language: Language }) {
               <p className="text-sm font-medium text-[#111413]">{labelForAction(item.action, language)}</p>
               {readableDetail(item, es, personNames) && <p className="mt-0.5 break-words text-xs text-black/55">{readableDetail(item, es, personNames)}</p>}
               <p className="mt-1 text-[11px] text-black/40">{item.actorUid && names.has(item.actorUid) ? (es ? 'Realizado por: ' : 'By: ') + names.get(item.actorUid) : item.assignedUid && names.has(item.assignedUid) ? (es ? 'Responsable: ' : 'Assignee: ') + names.get(item.assignedUid) : (es ? 'Responsable no registrado' : 'Actor not recorded')}</p>
+              {firebaseTarget === 'qa' && (item.action === 'task.completed' || item.action === 'task.created') && <p className="mt-1 break-all text-[10px] text-black/35" title={es ? 'Identificador de origen para verificar historial; no es una acción adicional' : 'Source ID for audit reconciliation, not an extra action'}>
+                {es ? 'Verificación QA' : 'QA verification'} · {item.source === 'task' ? (es ? 'Estado de tarea' : 'Task state') : item.source === 'event' ? (es ? 'Evento registrado' : 'Recorded event') : (es ? 'Auditoría' : 'Audit')} · {es ? 'Tarea' : 'Task'}: {item.taskId || (es ? 'sin vínculo' : 'unlinked')} · ID: {item.id}
+              </p>}
             </div>
             <span className="shrink-0 text-[10px] tabular-nums text-black/40">{dateLabel(item.date)}</span>
           </div>)}

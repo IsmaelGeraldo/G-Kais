@@ -10,7 +10,7 @@ import {
   setDoc,
   writeBatch
 } from 'firebase/firestore';
-import { firebaseAuth, firestoreDb } from '../lib/firebase';
+import { firebaseAuth, firestoreDb, firebaseTarget } from '../lib/firebase';
 import { configuredPublicAppUrl } from '../config/publicAppUrl';
 
 const SCHEMA_VERSION = 1;
@@ -108,8 +108,9 @@ export const DEFAULT_WORKSPACE_ROLES: WorkspaceRoleTemplate[] = [
     name: 'Mentor',
     description: 'Gestiona personas, mentorías, sesiones y trabajo relacionado.',
     permissions: [
-      'people.read', 'people.manage', 'webinars.read', 'formations.read',
-      'mentoring.read', 'mentoring.manage', 'tasks.read.own', 'tasks.read.team',
+      'people.read', 'people.manage', 'webinars.read', 'webinars.manage',
+      'formations.read', 'formations.manage', 'mentoring.read', 'mentoring.manage',
+      'tasks.read.own', 'tasks.read.team',
       'tasks.manage.own', 'tasks.manage', 'members.read', 'roles.read',
       'events.read', 'events.create'
     ]
@@ -362,12 +363,28 @@ export async function loadExpertWorkspaceTeam(): Promise<WorkspaceTeamState> {
   const canReadMembers = hasWorkspacePermission(currentMember.permissions, 'members.read') || hasWorkspacePermission(currentMember.permissions, 'members.manage');
   const canReadInvites = hasWorkspacePermission(currentMember.permissions, 'members.manage');
 
+  // Identify the specific Firestore read that failed. A team-load failure can
+  // otherwise conceal missing Firebase rules or a stale role configuration.
+  // Never treat a failed permission check as an empty collection.
+  const loadSection = async <T,>(section: string, read: () => Promise<T>): Promise<T> => {
+    try {
+      return await read();
+    } catch (cause) {
+      const code = cause && typeof cause === 'object' && 'code' in cause
+        ? String((cause as { code?: unknown }).code || 'unknown')
+        : 'unknown';
+      throw new Error(`TEAM_${section}_LOAD_FAILED (${code})`);
+    }
+  };
+
   const [membersSnapshot, rolesSnapshot, invitesSnapshot] = await Promise.all([
-    canReadMembers
+    loadSection('MEMBERS', () => canReadMembers
       ? getDocs(workspaceSubCollection(workspaceId, 'members'))
-      : getDocs(query(workspaceSubCollection(workspaceId, 'members'), where('status', '==', 'active'))),
-    getDocs(workspaceSubCollection(workspaceId, 'roles')),
-    canReadInvites ? getDocs(workspaceSubCollection(workspaceId, 'invites')) : Promise.resolve(null)
+      : getDocs(query(workspaceSubCollection(workspaceId, 'members'), where('status', '==', 'active')))),
+    loadSection('ROLES', () => getDocs(workspaceSubCollection(workspaceId, 'roles'))),
+    canReadInvites
+      ? loadSection('INVITES', () => getDocs(workspaceSubCollection(workspaceId, 'invites')))
+      : Promise.resolve(null)
   ]);
 
   const normalizeMember = (value: unknown, fallbackUid = ''): WorkspaceMember => {
@@ -375,7 +392,7 @@ export async function loadExpertWorkspaceTeam(): Promise<WorkspaceTeamState> {
     const permissions = Array.isArray(data.permissions)
       ? data.permissions.filter((permission): permission is WorkspacePermission | '*' => typeof permission === 'string')
       : [];
-    const status = data.status === 'invited' || data.status === 'suspended' ? data.status : 'active';
+    const status = data.status === 'active' || data.status === 'invited' ? data.status : 'suspended';
     return {
       uid: typeof data.uid === 'string' && data.uid.trim() ? data.uid : fallbackUid,
       email: typeof data.email === 'string' ? data.email : '',
@@ -393,10 +410,20 @@ export async function loadExpertWorkspaceTeam(): Promise<WorkspaceTeamState> {
     ? membersSnapshot.docs.map((item) => normalizeMember(item.data(), item.id))
     : [normalizeMember(currentMember, user.uid)];
   const roles = rolesSnapshot
-    ? rolesSnapshot.docs.map((item) => ({ id: item.id, ...(item.data() as Omit<WorkspaceRole, 'id'>) }))
+    ? rolesSnapshot.docs.map((item) => {
+        const value = item.data() as Omit<WorkspaceRole, 'id'>;
+        return { ...value, id: item.id, name: typeof value.name === 'string' ? value.name : item.id };
+      })
     : [];
   const invites = invitesSnapshot
-    ? invitesSnapshot.docs.map((item) => ({ id: item.id, ...(item.data() as Omit<WorkspaceInvite, 'id'>) }))
+    ? invitesSnapshot.docs.map((item) => {
+        const value = item.data() as Omit<WorkspaceInvite, 'id'>;
+        return {
+          ...value,
+          id: item.id,
+          displayName: typeof value.displayName === 'string' ? value.displayName : value.email || item.id
+        };
+      })
     : [];
 
   return {
@@ -481,9 +508,13 @@ export function parseExpertWorkspaceInviteToken(token: string): { workspaceId: s
 }
 
 export function buildExpertWorkspaceInviteLink(token: string): string {
-  // Before a branded domain exists, always share the stable production origin,
-  // not an AI Studio, localhost, or Vercel preview URL.
-  const url = new URL('/workspace/experts', configuredPublicAppUrl() || 'https://g-kais.vercel.app');
+  // QA invitations must never silently send a member back to production.
+  // Production invitations retain their stable public URL unchanged.
+  const origin = firebaseTarget === 'qa'
+    ? (typeof window === 'undefined' ? '' : window.location.origin)
+    : (configuredPublicAppUrl() || 'https://g-kais.vercel.app');
+  if (!origin) throw new Error('QA_INVITE_ORIGIN_REQUIRED');
+  const url = new URL('/workspace/experts', origin);
   url.searchParams.set('invite', token);
   return url.toString();
 }

@@ -608,30 +608,34 @@ export function TeamWorkspace({ language }: { language: Language }) {
             const isEditing = editingMemberUid === member.uid;
 
             return <div key={member.uid} className="py-3">
-              <div className={`grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 ${canManageMembers ? '@min-[660px]:grid-cols-[minmax(0,1fr)_160px_90px_auto]' : '@min-[600px]:grid-cols-[minmax(0,1fr)_180px_100px]'}`}>
+              <div className={`grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-2 ${canManageMembers
+                ? '@min-[420px]:grid-cols-[minmax(0,1fr)_90px_auto] @min-[660px]:grid-cols-[minmax(0,1fr)_160px_90px_auto]'
+                : '@min-[420px]:grid-cols-[minmax(0,1fr)_150px] @min-[600px]:grid-cols-[minmax(0,1fr)_180px_100px]'}`}>
                 <div className="min-w-0">
                   <p className="break-words text-sm font-semibold">{member.displayName || member.email}</p>
                   <p className="mt-1 break-all text-xs text-black/40">{member.email}</p>
                 </div>
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-1.5">
+                <div className={`flex min-w-0 flex-col gap-1 ${canManageMembers ? '@min-[660px]:contents' : '@min-[600px]:contents'}`}>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-1.5">
                     <span className="text-xs text-black/50">{roleName(team.roles, member.roleId)}</span>
                     {(member.isSupervisor || directReportCount(member.uid) > 0) && <span className="rounded-full bg-[#0A3F4D]/8 px-2 py-0.5 text-[9px] font-semibold text-[#0A3F4D]">
                       {language === 'es' ? 'Supervisor' : 'Supervisor'} · {directReportCount(member.uid)}
                     </span>}
                   </div>
-                  {member.supervisorUid && <p className="mt-1 truncate text-[10px] text-black/35">{language === 'es' ? 'Reporta a' : 'Reports to'}: {memberLabel(member.supervisorUid)}</p>}
+                    {member.supervisorUid && <p className="mt-1 truncate text-[10px] text-black/35">{language === 'es' ? 'Reporta a' : 'Reports to'}: {memberLabel(member.supervisorUid)}</p>}
+                  </div>
+                  <span className={`text-xs font-semibold ${member.status === 'active' ? 'text-[#17603D]' : 'text-black/45'}`}>{member.status}</span>
                 </div>
-                <span className={`text-xs font-semibold ${member.status === 'active' ? 'text-[#17603D]' : 'text-black/45'}`}>{member.status}</span>
                 {canManageMembers && (canEdit ? <button
                   type="button"
                   onClick={() => isEditing ? setEditingMemberUid('') : beginEditMember(member)}
-                  className="inline-flex max-w-full items-center justify-center gap-1.5 rounded-full border border-black/10 px-3 py-2 text-xs font-semibold text-black/60 transition hover:bg-black/[0.03]"
+                  className="col-span-2 inline-flex max-w-full items-center justify-center justify-self-end gap-1.5 rounded-full border border-black/10 px-3 py-2 text-xs font-semibold text-black/60 transition hover:bg-black/[0.03] @min-[420px]:col-span-1"
                 >
                   {isEditing ? <X className="h-3.5 w-3.5" /> : <Pencil className="h-3.5 w-3.5" />}
                   {isEditing ? (language === 'es' ? 'Cerrar' : 'Close') : (language === 'es' ? 'Editar' : 'Edit')}
                 </button> : <span
-                  className="inline-flex max-w-full items-center justify-center rounded-full border border-black/8 bg-[#F7F7F5] px-3 py-2 text-center text-[10px] font-semibold leading-tight text-black/40"
+                  className="col-span-2 inline-flex max-w-full items-center justify-center justify-self-end rounded-full border border-black/8 bg-[#F7F7F5] px-3 py-2 text-center text-[10px] font-semibold leading-tight text-black/40 @min-[420px]:col-span-1"
                   title={isOwner
                     ? (language === 'es' ? 'El propietario no se puede eliminar ni cambiar de rol.' : 'The owner cannot be removed or have their role changed.')
                     : (language === 'es' ? 'Tu propia cuenta se protege para evitar perder acceso accidentalmente.' : 'Your own account is protected to prevent accidental loss of access.')}

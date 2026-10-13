@@ -557,6 +557,36 @@ test('Customer Success cannot edit academic programs, class plans or unrelated p
   }));
 });
 
+
+test('Customer Success cannot write reserved class plan tasks even if assigned to them', async () => {
+  const id = 'formation-plan-assigned-success-1';
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), workspace(OWNER_A, 'work_tasks', id)), {
+      schemaVersion: 1, updatedAt: Timestamp.now(),
+      task: {
+        id, clientId: '', createdAt: '2026-10-13T00:00:00Z',
+        type: 'task', status: 'done', assignedToUid: CUSTOMER_SUCCESS_A,
+        createdByUid: OWNER_A, source: 'formation',
+        workstream: 'formation-plan', sourceActionKind: 'formation-plan',
+        cohortId: 'cohort-1', formationId: 'formation-1'
+      }
+    });
+  });
+  const cs = asUser(CUSTOMER_SUCCESS_A);
+  await assertFails(updateDoc(doc(cs, workspace(OWNER_A, 'work_tasks', id)), {
+    'task.planTitle': 'Unexpected edit', updatedAt: Timestamp.now()
+  }));
+  await assertFails(deleteDoc(doc(cs, workspace(OWNER_A, 'work_tasks', id))));
+  await assertFails(setDoc(doc(cs, workspace(OWNER_A, 'work_tasks', 'formation-plan-forged')), {
+    schemaVersion: 1, updatedAt: Timestamp.now(),
+    task: {
+      id: 'formation-plan-forged', clientId: '', createdAt: '2026-10-13T00:00:00Z',
+      type: 'task', status: 'pending', assignedToUid: CUSTOMER_SUCCESS_A,
+      createdByUid: CUSTOMER_SUCCESS_A, workstream: 'formation-plan'
+    }
+  }));
+});
+
 test('Customer Success cannot bypass enrollment validation or touch another Workspace', async () => {
   const cs = asUser(CUSTOMER_SUCCESS_A);
   const now = Timestamp.now();

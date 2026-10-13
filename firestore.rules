@@ -80,6 +80,14 @@ service cloud.firestore {
         request.resource.data.updatedAt == request.time;
     }
 
+    function isReservedFormationMemory(task, taskId) {
+      return taskId.matches('formation-plan-.*') ||
+        taskId.matches('formation-meta-.*') ||
+        taskId.matches('cohort-meta-.*') ||
+        task.get('workstream', '') in ['formation-plan', 'formation-meta'] ||
+        task.get('sourceActionKind', '') in ['formation-plan', 'formation-meta', 'cohort-meta'];
+    }
+
     function authEmailMatches(email) {
       return request.auth != null &&
         request.auth.token.email is string &&
@@ -817,7 +825,8 @@ service cloud.firestore {
            (taskId.matches('cohort-meta-.*') &&
             resource.data.task.sourceActionKind == 'cohort-meta')));
 
-      allow create: if validExpertWorkTask(request.resource.data, taskId) && (
+      allow create: if validExpertWorkTask(request.resource.data, taskId) &&
+        !(isCustomerSuccess(workspaceId) && isReservedFormationMemory(request.resource.data.task, taskId)) && (
         hasWorkspacePermission(workspaceId, 'tasks.manage') ||
         (hasWorkspacePermission(workspaceId, 'tasks.manage.own') &&
           request.resource.data.task.createdByUid == request.auth.uid &&
@@ -826,16 +835,21 @@ service cloud.firestore {
           get(/databases/$(database)/documents/expert_workspaces/$(workspaceId)/members/$(request.resource.data.task.assignedToUid)).data.status == 'active')
       );
 
-      allow update: if validExpertWorkTask(request.resource.data, taskId) && (
+      allow update: if validExpertWorkTask(request.resource.data, taskId) &&
+        !(isCustomerSuccess(workspaceId) &&
+          (isReservedFormationMemory(resource.data.task, taskId) ||
+           isReservedFormationMemory(request.resource.data.task, taskId))) && (
         hasWorkspacePermission(workspaceId, 'tasks.manage') ||
         (hasWorkspacePermission(workspaceId, 'tasks.manage.own') &&
           resource.data.task.assignedToUid == request.auth.uid &&
           request.resource.data.task.assignedToUid == request.auth.uid)
       );
 
-      allow delete: if hasWorkspacePermission(workspaceId, 'tasks.manage') ||
-        (hasWorkspacePermission(workspaceId, 'tasks.manage.own') &&
-          resource.data.task.assignedToUid == request.auth.uid);
+      allow delete: if !(isCustomerSuccess(workspaceId) &&
+          isReservedFormationMemory(resource.data.task, taskId)) &&
+        (hasWorkspacePermission(workspaceId, 'tasks.manage') ||
+          (hasWorkspacePermission(workspaceId, 'tasks.manage.own') &&
+            resource.data.task.assignedToUid == request.auth.uid));
     }
 
     match /expert_workspaces/{workspaceId}/settings/{settingsId} {

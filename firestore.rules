@@ -28,6 +28,58 @@ service cloud.firestore {
       );
     }
 
+    function isCustomerSuccess(workspaceId) {
+      return isExpertWorkspaceMember(workspaceId) &&
+        get(/databases/$(database)/documents/expert_workspaces/$(workspaceId)/members/$(request.auth.uid)).data.roleId == 'customer-success' &&
+        hasWorkspacePermission(workspaceId, 'formations.read');
+    }
+
+    function isValidCustomerSuccessEnrollment(workspaceId, enrollmentId) {
+      return isCustomerSuccess(workspaceId) &&
+        validExpertEnrollment(request.resource.data) &&
+        request.resource.data.status == 'active' &&
+        request.resource.data.progress == 0 &&
+        enrollmentId == ('enrollment-' + request.resource.data.cohortId + '-' + request.resource.data.personId) &&
+        exists(/databases/$(database)/documents/expert_workspaces/$(workspaceId)/people/$(request.resource.data.personId)) &&
+        exists(/databases/$(database)/documents/expert_workspaces/$(workspaceId)/cohorts/$(request.resource.data.cohortId)) &&
+        get(/databases/$(database)/documents/expert_workspaces/$(workspaceId)/cohorts/$(request.resource.data.cohortId)).data.formationId == request.resource.data.formationId &&
+        // A successful enrollment must update the Person in the SAME atomic transaction.
+        getAfter(/databases/$(database)/documents/expert_workspaces/$(workspaceId)/people/$(request.resource.data.personId)).data.outcomeMemory.currentCohortId == request.resource.data.cohortId &&
+        getAfter(/databases/$(database)/documents/expert_workspaces/$(workspaceId)/people/$(request.resource.data.personId)).data.outcomeMemory.currentFormationId == request.resource.data.formationId;
+    }
+
+    function isValidCustomerSuccessPersonLink(workspaceId, personId) {
+      let cohortId = request.resource.data.outcomeMemory.get('currentCohortId', '');
+      let formationId = request.resource.data.outcomeMemory.get('currentFormationId', '');
+      let enrollmentId = 'enrollment-' + cohortId + '-' + personId;
+      return isCustomerSuccess(workspaceId) &&
+        cohortId is string && cohortId.size() > 0 &&
+        formationId is string && formationId.size() > 0 &&
+        !exists(/databases/$(database)/documents/expert_workspaces/$(workspaceId)/enrollments/$(enrollmentId)) &&
+        getAfter(/databases/$(database)/documents/expert_workspaces/$(workspaceId)/enrollments/$(enrollmentId)).data.personId == personId &&
+        getAfter(/databases/$(database)/documents/expert_workspaces/$(workspaceId)/enrollments/$(enrollmentId)).data.formationId == formationId &&
+        getAfter(/databases/$(database)/documents/expert_workspaces/$(workspaceId)/enrollments/$(enrollmentId)).data.cohortId == cohortId &&
+        getAfter(/databases/$(database)/documents/expert_workspaces/$(workspaceId)/enrollments/$(enrollmentId)).data.status == 'active' &&
+        getAfter(/databases/$(database)/documents/expert_workspaces/$(workspaceId)/enrollments/$(enrollmentId)).data.progress == 0 &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['currentStage', 'sourceRefs', 'outcomeMemory', 'updatedAt']) &&
+        request.resource.data.sourceRefs.diff(resource.data.sourceRefs).affectedKeys().hasOnly(['formationIds', 'cohortIds']) &&
+        request.resource.data.outcomeMemory.diff(resource.data.outcomeMemory).affectedKeys().hasOnly([
+          'currentFormationId', 'currentCohortId', 'currentEnrollmentStatus', 'currentFormationProgress'
+        ]) &&
+        request.resource.data.sourceRefs.formationIds is list &&
+        request.resource.data.sourceRefs.cohortIds is list &&
+        request.resource.data.sourceRefs.formationIds.hasAll(resource.data.sourceRefs.get('formationIds', [])) &&
+        request.resource.data.sourceRefs.cohortIds.hasAll(resource.data.sourceRefs.get('cohortIds', [])) &&
+        formationId in request.resource.data.sourceRefs.formationIds &&
+        cohortId in request.resource.data.sourceRefs.cohortIds &&
+        request.resource.data.outcomeMemory.currentEnrollmentStatus == 'active' &&
+        request.resource.data.outcomeMemory.currentFormationProgress == 0 &&
+        (resource.data.currentStage in ['alumni', 'mentoring']
+          ? request.resource.data.currentStage == resource.data.currentStage
+          : request.resource.data.currentStage == 'student') &&
+        request.resource.data.updatedAt == request.time;
+    }
+
     function authEmailMatches(email) {
       return request.auth != null &&
         request.auth.token.email is string &&
@@ -799,8 +851,11 @@ service cloud.firestore {
       // members; editing remains owner-controlled.
       allow read: if hasWorkspacePermission(workspaceId, 'people.read') ||
         hasWorkspacePermission(workspaceId, 'people.manage');
-      allow create, update: if ownsExpertWorkspace(workspaceId) &&
+      allow create: if ownsExpertWorkspace(workspaceId) &&
         validExpertPerson(request.resource.data);
+      allow update: if validExpertPerson(request.resource.data) &&
+        (ownsExpertWorkspace(workspaceId) ||
+          isValidCustomerSuccessPersonLink(workspaceId, personId));
       allow delete: if ownsExpertWorkspace(workspaceId);
     }
 
@@ -844,6 +899,7 @@ service cloud.firestore {
     match /expert_workspaces/{workspaceId}/formations/{formationId} {
       allow read: if isExpertWorkspaceMember(workspaceId);
       allow create, update: if hasWorkspacePermission(workspaceId, 'formations.manage') &&
+        !isCustomerSuccess(workspaceId) &&
         validExpertFormation(request.resource.data);
       allow delete: if ownsExpertWorkspace(workspaceId);
     }
@@ -851,13 +907,17 @@ service cloud.firestore {
     match /expert_workspaces/{workspaceId}/cohorts/{cohortId} {
       allow read: if isExpertWorkspaceMember(workspaceId);
       allow create, update: if hasWorkspacePermission(workspaceId, 'formations.manage') &&
+        !isCustomerSuccess(workspaceId) &&
         validExpertCohort(request.resource.data);
       allow delete: if ownsExpertWorkspace(workspaceId);
     }
 
     match /expert_workspaces/{workspaceId}/enrollments/{enrollmentId} {
       allow read: if isExpertWorkspaceMember(workspaceId);
-      allow create, update: if ownsExpertWorkspace(workspaceId) &&
+      allow create: if (ownsExpertWorkspace(workspaceId) &&
+        validExpertEnrollment(request.resource.data)) ||
+        isValidCustomerSuccessEnrollment(workspaceId, enrollmentId);
+      allow update: if ownsExpertWorkspace(workspaceId) &&
         validExpertEnrollment(request.resource.data);
       allow delete: if ownsExpertWorkspace(workspaceId);
     }

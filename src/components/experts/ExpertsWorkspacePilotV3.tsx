@@ -392,7 +392,7 @@ function ExpertsWorkspaceShell({ onExit, verifiedWorkspaceId }: Props) {
   } else if (active === 'webinars' && allowedIds.has('webinars')) {
     content = <WebinarsWorkspace language={language} />;
   } else if (active === 'formations' && allowedIds.has('formations')) {
-    content = <FormationsWorkspace language={language} />;
+    content = <FormationsWorkspace language={language} member={access.currentMember} />;
   } else if (active === 'priority' && allowedIds.has('priority')) {
     content = <PriorityRadarWorkspace language={language} onOpenClient={openPerson} />;
   } else if (active === 'relationships' && allowedIds.has('relationships')) {

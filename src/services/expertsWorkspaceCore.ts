@@ -150,7 +150,7 @@ export const DEFAULT_WORKSPACE_ROLES: WorkspaceRoleTemplate[] = [
     name: 'Customer Success',
     description: 'Acompaña alumnos, continuidad y seguimiento postventa.',
     permissions: [
-      'people.read', 'people.manage', 'formations.read', 'formations.manage',
+      'people.read', 'people.manage', 'formations.read',
       'mentoring.read', 'tasks.read.own', 'tasks.manage.own',
       'events.read', 'events.create'
     ]

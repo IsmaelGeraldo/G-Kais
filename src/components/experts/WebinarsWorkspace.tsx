@@ -2,7 +2,7 @@ import React from 'react';
 import type { Language } from '../../i18n/LanguageContext';
 import { WebinarsWorkspaceV2 } from './WebinarsWorkspaceV2';
 
-export function WebinarsWorkspace({ language }: { language: Language }) {
+export function WebinarsWorkspace({ language, canManageWebinars }: { language: Language; canManageWebinars: boolean }) {
   return <div className="gkais-webinars-shell">
     <style>{`
       .gkais-webinars-shell button[class*="bg-[#F7F7F5]"] { background:#111413 !important; color:#fff !important; }
@@ -17,6 +17,6 @@ export function WebinarsWorkspace({ language }: { language: Language }) {
         background:transparent !important;
       }
     `}</style>
-    <WebinarsWorkspaceV2 language={language} />
+    <WebinarsWorkspaceV2 language={language} canManageWebinars={canManageWebinars} />
   </div>;
 }

@@ -390,7 +390,7 @@ function ExpertsWorkspaceShell({ onExit, verifiedWorkspaceId }: Props) {
       canInteract={(id) => access.isOwner || allowedIds.has(id)}
     />;
   } else if (active === 'webinars' && allowedIds.has('webinars')) {
-    content = <WebinarsWorkspace language={language} />;
+    content = <WebinarsWorkspace language={language} canManageWebinars={access.isOwner || hasWorkspacePermission(currentPermissions, 'webinars.manage')} />;
   } else if (active === 'formations' && allowedIds.has('formations')) {
     content = <FormationsWorkspace language={language} member={access.currentMember} />;
   } else if (active === 'priority' && allowedIds.has('priority')) {

@@ -396,7 +396,7 @@ function ExpertsWorkspaceShell({ onExit, verifiedWorkspaceId }: Props) {
   } else if (active === 'priority' && allowedIds.has('priority')) {
     content = <PriorityRadarWorkspace language={language} onOpenClient={openPerson} />;
   } else if (active === 'relationships' && allowedIds.has('relationships')) {
-    content = <RelationshipsWorkspace key={relationshipTab} language={language} initialTab={relationshipTab} />;
+    content = <RelationshipsWorkspace key={relationshipTab} language={language} initialTab={relationshipTab} member={access.currentMember} />;
   } else if (active === 'clients' && allowedIds.has('clients')) {
     content = <ClientOnboardingWorkspace
       language={language}

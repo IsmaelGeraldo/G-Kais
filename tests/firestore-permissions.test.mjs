@@ -585,6 +585,10 @@ test('Customer Success cannot write reserved class plan tasks even if assigned t
       createdByUid: CUSTOMER_SUCCESS_A, workstream: 'formation-plan'
     }
   }));
+  // Keep later assigned-work tests isolated from this synthetic academic fixture.
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await deleteDoc(doc(ctx.firestore(), workspace(OWNER_A, 'work_tasks', id)));
+  });
 });
 
 test('Customer Success cannot bypass enrollment validation or touch another Workspace', async () => {

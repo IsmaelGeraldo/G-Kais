@@ -120,6 +120,39 @@ async function seed() {
         }
       });
     }
+    for (const owner of [OWNER_A, OWNER_B]) {
+      await setDoc(doc(db, workspace(owner, 'work_tasks', 'formation-plan-cohort-1-1')), {
+        schemaVersion: 1, updatedAt: now,
+        task: {
+          id: 'formation-plan-cohort-1-1', clientId: '',
+          createdAt: '2026-10-09T00:00:00Z', type: 'task',
+          status: 'done', assignedToUid: owner, createdByUid: owner,
+          source: 'formation', workstream: 'formation-plan',
+          sourceActionKind: 'formation-plan', cohortId: 'cohort-1',
+          formationId: 'formation-1', classNumber: 1
+        }
+      });
+    }
+    await setDoc(doc(db, workspace(OWNER_A, 'work_tasks', 'formation-meta-formation-1')), {
+      schemaVersion: 1, updatedAt: now,
+      task: {
+        id: 'formation-meta-formation-1', clientId: '',
+        createdAt: '2026-10-09T00:00:00Z', type: 'task',
+        status: 'done', assignedToUid: OWNER_A, createdByUid: OWNER_A,
+        source: 'formation', workstream: 'formation-meta',
+        sourceActionKind: 'formation-meta', learning: 'Aprendizaje de QA'
+      }
+    });
+    await setDoc(doc(db, workspace(OWNER_A, 'work_tasks', 'cohort-meta-cohort-1')), {
+      schemaVersion: 1, updatedAt: now,
+      task: {
+        id: 'cohort-meta-cohort-1', clientId: '',
+        createdAt: '2026-10-09T00:00:00Z', type: 'task',
+        status: 'done', assignedToUid: OWNER_A, createdByUid: OWNER_A,
+        source: 'formation', workstream: 'formation-meta',
+        sourceActionKind: 'cohort-meta', classDays: [2]
+      }
+    });
     await setDoc(doc(db, workspace(OWNER_B, 'work_tasks', 'foreign-task')), {
       schemaVersion: 1, updatedAt: now,
       task: {
@@ -428,7 +461,33 @@ test('Mentor can read team tasks, but cannot administer Workspace invitations', 
   await assertFails(getDocs(collection(db, 'expert_workspaces', OWNER_A, 'invites')));
 });
 
-test('Closer, Assistant and Customer Success can read only their assigned tasks', async () => {
+
+test('Customer Success reads formation plans and metadata but cannot enumerate team work', async () => {
+  const cs = asUser(CUSTOMER_SUCCESS_A);
+  const queryPlans = query(tasks(cs, OWNER_A), where('task.workstream', '==', 'formation-plan'));
+  const plan = await assertSucceeds(getDocs(queryPlans));
+  assert.equal(plan.size, 1);
+  assert.equal(plan.docs[0].id, 'formation-plan-cohort-1-1');
+  await assertSucceeds(getDoc(doc(cs, workspace(OWNER_A, 'work_tasks', 'formation-meta-formation-1'))));
+  await assertSucceeds(getDoc(doc(cs, workspace(OWNER_A, 'work_tasks', 'cohort-meta-cohort-1'))));
+  await assertFails(getDocs(query(tasks(cs, OWNER_A), where('task.cohortId', '==', 'cohort-1'))));
+  await assertFails(getDocs(tasks(cs, OWNER_A)));
+  await assertFails(getDoc(doc(cs, workspace(OWNER_A, 'work_tasks', 'owned-by-owner'))));
+  await assertFails(getDoc(doc(cs, workspace(OWNER_B, 'work_tasks', 'formation-plan-cohort-1-1'))));
+});
+
+test('Assistant can read formation memory, but Closer with no formations.read cannot', async () => {
+  const assistant = asUser(ASSISTANT_A);
+  const closer = asUser(CLOSER_A);
+  const planRef = workspace(OWNER_A, 'work_tasks', 'formation-plan-cohort-1-1');
+  await assertSucceeds(getDocs(query(tasks(assistant, OWNER_A), where('task.workstream', '==', 'formation-plan'))));
+  await assertSucceeds(getDoc(doc(assistant, planRef)));
+  await assertFails(getDoc(doc(closer, planRef)));
+  await assertFails(getDocs(query(tasks(closer, OWNER_A), where('task.workstream', '==', 'formation-plan'))));
+  await assertFails(getDoc(doc(closer, workspace(OWNER_A, 'work_tasks', 'formation-meta-formation-1'))));
+});
+
+test('Closer, Assistant and Customer Success can read assigned work but not unrelated operational tasks', async () => {
   for (const [uid, taskId] of [
     [CLOSER_A, 'assigned-closer'],
     [ASSISTANT_A, 'assigned-assistant'],

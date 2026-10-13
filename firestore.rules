@@ -752,7 +752,18 @@ service cloud.firestore {
       // Own-task reads require a query constrained by task.assignedToUid.
       allow read: if hasWorkspacePermission(workspaceId, 'tasks.read.team') ||
         (hasWorkspacePermission(workspaceId, 'tasks.read.own') &&
-          resource.data.task.assignedToUid == request.auth.uid);
+          resource.data.task.assignedToUid == request.auth.uid) ||
+        // Class plans are program memory, not members' assigned work. The
+        // matching client query must restrict task.workstream explicitly.
+        (hasWorkspacePermission(workspaceId, 'formations.read') &&
+          resource.data.task.workstream == 'formation-plan') ||
+        // Single-document formation/cohort metadata is never a team-task query.
+        (hasWorkspacePermission(workspaceId, 'formations.read') &&
+          resource.data.task.workstream == 'formation-meta' &&
+          ((taskId.matches('formation-meta-.*') &&
+            resource.data.task.sourceActionKind == 'formation-meta') ||
+           (taskId.matches('cohort-meta-.*') &&
+            resource.data.task.sourceActionKind == 'cohort-meta')));
 
       allow create: if validExpertWorkTask(request.resource.data, taskId) && (
         hasWorkspacePermission(workspaceId, 'tasks.manage') ||

@@ -297,6 +297,41 @@ test('assistant can only list tasks constrained to their own assignment', async 
   await assertFails(getDoc(doc(db, workspace(OWNER_A, 'work_tasks', 'owned-by-owner'))));
 });
 
+
+test('Assistant may delegate a new pending Person action to an active colleague, not edit their task', async () => {
+  const assistant = asUser(ASSISTANT_A);
+  const closer = asUser(CLOSER_A);
+  const id = 'assistant-delegated-action';
+  const taskRef = doc(assistant, workspace(OWNER_A, 'work_tasks', id));
+  const delegatedTask = {
+    schemaVersion: 1,
+    updatedAt: Timestamp.now(),
+    task: {
+      id, clientId: '', clientName: 'QA Person', personId: 'person-1',
+      title: 'Delegated QA follow-up', type: 'whatsapp', note: 'QA only',
+      status: 'pending', source: 'people', sourceActionKind: 'manual',
+      createdAt: '2026-10-13T10:00:00Z',
+      assignedToUid: CLOSER_A, createdByUid: ASSISTANT_A
+    }
+  };
+  try {
+    await assertSucceeds(setDoc(taskRef, delegatedTask));
+    const assigned = await assertSucceeds(getDoc(doc(closer, workspace(OWNER_A, 'work_tasks', id))));
+    assert.equal(assigned.data()?.task?.assignedToUid, CLOSER_A);
+    assert.equal(assigned.data()?.task?.createdByUid, ASSISTANT_A);
+    await assertFails(getDoc(taskRef));
+    await assertFails(updateDoc(taskRef, { 'task.note': 'Assistant cannot edit delegated work', updatedAt: Timestamp.now() }));
+    await assertSucceeds(updateDoc(doc(closer, workspace(OWNER_A, 'work_tasks', id)), {
+      'task.note': 'Closer owns this action', updatedAt: Timestamp.now()
+    }));
+    await assertFails(setDoc(doc(assistant, workspace(OWNER_B, 'work_tasks', 'foreign-delegation')), delegatedTask));
+  } finally {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await deleteDoc(doc(ctx.firestore(), workspace(OWNER_A, 'work_tasks', id)));
+    });
+  }
+});
+
 test('read-own permission alone never grants team-wide task access', async () => {
   const db = asUser(LIMITED_A);
   await assertFails(getDocs(tasks(db, OWNER_A)));

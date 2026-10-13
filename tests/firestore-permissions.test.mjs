@@ -748,7 +748,13 @@ test('Workspace B owner can read their own synthetic records across core domains
   for (const [section, id] of ISOLATED_COLLECTION_DOCS) {
     const snapshot = await assertSucceeds(getDoc(doc(db, workspace(OWNER_B, section, id))));
     assert.ok(snapshot.exists(), `B owner must see B/${section}/${id}`);
-    await assertSucceeds(getDocs(collection(db, 'expert_workspaces', OWNER_B, section)));
+    // The settings rules intentionally authorize only settings/workspace by ID.
+    // Firestore cannot authorize an unconstrained list for that collection.
+    if (section === 'settings') {
+      await assertFails(getDocs(collection(db, 'expert_workspaces', OWNER_B, section)));
+    } else {
+      await assertSucceeds(getDocs(collection(db, 'expert_workspaces', OWNER_B, section)));
+    }
   }
 });
 

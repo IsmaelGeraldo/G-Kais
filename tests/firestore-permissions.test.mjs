@@ -779,7 +779,7 @@ test('validated owner B writes cannot be replayed by owner A across Workspace bo
   }
 });
 
-test('non-manager default roles cannot edit memberships or verified payments', async () {
+test('non-manager default roles cannot edit memberships or verified payments', async () => {
   for (const uid of [MENTOR_A, CLOSER_A, ASSISTANT_A, CUSTOMER_SUCCESS_A]) {
     const db = asUser(uid);
     await assertFails(updateDoc(doc(db, workspace(OWNER_A, 'members', LIMITED_A)), {

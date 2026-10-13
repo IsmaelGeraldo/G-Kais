@@ -10,6 +10,7 @@ import {
   query,
   setDoc,
   writeBatch,
+  serverTimestamp,
   updateDoc,
   deleteDoc,
   Timestamp,
@@ -102,6 +103,17 @@ async function seed() {
         email: 'person@example.test', phone: '', normalizedEmail: 'person@example.test',
         normalizedPhone: '', firstSource: 'test', latestSource: 'test',
         currentStage: 'lead', outcomeMemory: {}, sourceRefs: {},
+        createdAt: now, updatedAt: now
+      });
+    }
+    for (const owner of [OWNER_A, OWNER_B]) {
+      await setDoc(doc(db, workspace(owner, 'formations', 'formation-1')), {
+        schemaVersion: 1, title: 'Academia QA', status: 'active',
+        createdAt: now, updatedAt: now
+      });
+      await setDoc(doc(db, workspace(owner, 'cohorts', 'cohort-1')), {
+        schemaVersion: 1, formationId: 'formation-1', title: 'Cohorte QA',
+        startsAt: '2026-10-13', endsAt: '2026-11-13', status: 'active',
         createdAt: now, updatedAt: now
       });
     }
@@ -485,6 +497,85 @@ test('Assistant can read formation memory, but Closer with no formations.read ca
   await assertFails(getDoc(doc(closer, planRef)));
   await assertFails(getDocs(query(tasks(closer, OWNER_A), where('task.workstream', '==', 'formation-plan'))));
   await assertFails(getDoc(doc(closer, workspace(OWNER_A, 'work_tasks', 'formation-meta-formation-1'))));
+});
+
+
+test('Customer Success can integrate an EXISTING CRM person into own cohort atomically', async () => {
+  const cs = asUser(CUSTOMER_SUCCESS_A);
+  const enrollmentRef = doc(cs, workspace(OWNER_A, 'enrollments', 'enrollment-cohort-1-person-1'));
+  const personRef = doc(cs, workspace(OWNER_A, 'people', 'person-1'));
+  const batch = writeBatch(cs);
+  batch.set(enrollmentRef, {
+    schemaVersion: 1, personId: 'person-1', formationId: 'formation-1',
+    cohortId: 'cohort-1', status: 'active', progress: 0,
+    joinedAt: serverTimestamp(), updatedAt: serverTimestamp()
+  });
+  batch.update(personRef, {
+    currentStage: 'student',
+    'sourceRefs.formationIds': ['formation-1'],
+    'sourceRefs.cohortIds': ['cohort-1'],
+    'outcomeMemory.currentFormationId': 'formation-1',
+    'outcomeMemory.currentCohortId': 'cohort-1',
+    'outcomeMemory.currentEnrollmentStatus': 'active',
+    'outcomeMemory.currentFormationProgress': 0,
+    updatedAt: serverTimestamp()
+  });
+  await assertSucceeds(batch.commit());
+  const enrollment = await assertSucceeds(getDoc(enrollmentRef));
+  assert.equal(enrollment.data()?.personId, 'person-1');
+  const person = await assertSucceeds(getDoc(personRef));
+  assert.equal(person.data()?.outcomeMemory?.currentCohortId, 'cohort-1');
+  assert.equal(person.data()?.currentStage, 'student');
+  await assertFails(updateDoc(enrollmentRef, { progress: 100, updatedAt: Timestamp.now() }));
+  await assertFails(deleteDoc(enrollmentRef));
+});
+
+test('Customer Success cannot edit academic programs, class plans or unrelated people', async () => {
+  const cs = asUser(CUSTOMER_SUCCESS_A);
+  const now = Timestamp.now();
+  const formationRef = doc(cs, workspace(OWNER_A, 'formations', 'formation-1'));
+  const cohortRef = doc(cs, workspace(OWNER_A, 'cohorts', 'cohort-1'));
+  await assertFails(updateDoc(formationRef, { title: 'MODIFIED', updatedAt: now }));
+  await assertFails(updateDoc(cohortRef, { title: 'MODIFIED', updatedAt: now }));
+  await assertFails(setDoc(doc(cs, workspace(OWNER_A, 'formations', 'not-authorized')), {
+    schemaVersion: 1, title: 'No debería existir', status: 'active',
+    createdAt: now, updatedAt: now
+  }));
+  await assertFails(setDoc(doc(cs, workspace(OWNER_A, 'cohorts', 'not-authorized')), {
+    schemaVersion: 1, formationId: 'formation-1', title: 'No autorizado',
+    startsAt: '', endsAt: '', status: 'planned',
+    createdAt: now, updatedAt: now
+  }));
+  await assertFails(updateDoc(doc(cs, workspace(OWNER_A, 'work_tasks', 'formation-plan-cohort-1-1')), {
+    'task.planTitle': 'No puede modificar'
+  }));
+  await assertFails(updateDoc(doc(cs, workspace(OWNER_A, 'people', 'person-1')), {
+    name: 'No puede cambiar identidad', updatedAt: now
+  }));
+  await assertFails(setDoc(doc(cs, workspace(OWNER_A, 'people', 'new-person')), {
+    schemaVersion: 1
+  }));
+});
+
+test('Customer Success cannot bypass enrollment validation or touch another Workspace', async () => {
+  const cs = asUser(CUSTOMER_SUCCESS_A);
+  const now = Timestamp.now();
+  const payload = {
+    schemaVersion: 1, personId: 'person-1', formationId: 'formation-1',
+    cohortId: 'cohort-1', status: 'active', progress: 0,
+    joinedAt: now, updatedAt: now
+  };
+  await assertFails(setDoc(doc(cs, workspace(OWNER_A, 'enrollments', 'made-up')), payload));
+  await assertFails(setDoc(doc(cs, workspace(OWNER_B, 'enrollments', 'enrollment-cohort-1-person-1')), payload));
+  await assertFails(setDoc(doc(cs, workspace(OWNER_A, 'enrollments', 'enrollment-cohort-1-missing-person')), {
+    ...payload, personId: 'missing-person'
+  }));
+  await assertFails(setDoc(doc(cs, workspace(OWNER_A, 'enrollments', 'enrollment-wrong-cohort-person-1')), {
+    ...payload, cohortId: 'wrong-cohort'
+  }));
+  await assertFails(setDoc(doc(cs, workspace(OWNER_A, 'enrollments', 'enrollment-cohort-1-person-1')), payload));
+  const assistant = asUser(ASSISTANT_A);
+  await assertFails(setDoc(doc(assistant, workspace(OWNER_A, 'enrollments', 'enrollment-cohort-1-person-1')), payload));
 });
 
 test('Closer, Assistant and Customer Success can read assigned work but not unrelated operational tasks', async () => {

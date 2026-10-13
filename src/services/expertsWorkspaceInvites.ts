@@ -1,5 +1,5 @@
 import { deleteDoc, doc, serverTimestamp, setDoc } from 'firebase/firestore';
-import { firebaseAuth, firestoreDb } from '../lib/firebase';
+import { firebaseAuth, firestoreDb, firebaseTarget } from '../lib/firebase';
 import { appendExpertAuditLog, hasWorkspacePermission, loadExpertWorkspaceTeam } from './expertsWorkspaceCore';
 
 export async function revokeExpertWorkspaceInvite(inviteId: string): Promise<void> {
@@ -54,6 +54,8 @@ export async function revokeExpertWorkspaceInvite(inviteId: string): Promise<voi
  * Only inviteId is sent: the email address is read from the existing invite.
  */
 export async function sendExpertWorkspaceInvitationEmail(inviteId: string): Promise<void> {
+  // QA sessions must not invoke live email endpoints or reveal QA identities.
+  if (firebaseTarget === 'qa') throw new Error('QA_INVITATION_EMAIL_DISABLED');
   const user = firebaseAuth.currentUser;
   if (!user) throw new Error('AUTH_REQUIRED');
   const token = await user.getIdToken();

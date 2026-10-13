@@ -93,15 +93,21 @@ async function subscribePlanByDeletedState(
   const workspace = await workspaceId();
   const planQuery = query(
     collection(firestoreDb, 'expert_workspaces', workspace, 'work_tasks'),
-    where('task.cohortId', '==', cohortId)
+    // Firestore authorizes this collection query by the actual memory type.
+    // Filtering cohortId only would require unrelated team-task read access.
+    where('task.workstream', '==', 'formation-plan')
   );
   return onSnapshot(planQuery, (snapshot) => {
     callback(snapshot.docs
-      .filter((item) => item.id.startsWith('formation-plan-'))
+      .filter((item) => item.id.startsWith('formation-plan-') &&
+        item.data().task?.cohortId === cohortId)
       .map((item) => mapClass(item.id, item.data() as Record<string, unknown>))
       .filter((item) => deleted ? Boolean(item.deletedAt) : !item.deletedAt)
       .sort((a, b) => a.classNumber - b.classNumber || a.date.localeCompare(b.date)));
-  }, () => callback([]));
+  }, (error) => {
+    console.error('[G-KAIS FORMATION PLAN SUBSCRIPTION]', error.code || error.message);
+    callback([]);
+  });
 }
 
 export async function subscribeFormationPlan(

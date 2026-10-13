@@ -1,8 +1,9 @@
 import React, { useEffect, useRef } from 'react';
 import type { Language } from '../../i18n/LanguageContext';
 import { FormationsWorkspaceV2 } from './FormationsWorkspaceV2';
+import type { WorkspaceMember } from '../../services/expertsWorkspaceCore';
 
-export function FormationsWorkspace({ language }: { language: Language }) {
+export function FormationsWorkspace({ language, member }: { language: Language; member: WorkspaceMember | null }) {
   const shellRef = useRef<HTMLDivElement>(null);
   const deepLinkHandled = useRef(false);
 
@@ -32,6 +33,6 @@ export function FormationsWorkspace({ language }: { language: Language }) {
       .gkais-formations-shell > div > p[class*="bg-[#F7F7F5]"],
       .gkais-formations-shell p[class*="bg-[#F7F7F5]"][class*="text-black/55"] { position:fixed; right:24px; bottom:24px; top:auto; z-index:160; max-width:380px; background:#111413 !important; color:#fff !important; box-shadow:0 16px 44px rgba(0,0,0,.20); border-radius:14px; padding:12px 16px; }
     `}</style>
-    <FormationsWorkspaceV2 language={language} />
+    <FormationsWorkspaceV2 language={language} member={member} />
   </div>;
 }

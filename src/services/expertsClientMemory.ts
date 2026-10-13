@@ -9,7 +9,11 @@ import {
   writeBatch,
   type Unsubscribe
 } from 'firebase/firestore';
-import { firebaseAuth, firestoreDb } from '../lib/firebase';
+import { firebaseAuth, firestoreDb, firebaseTarget } from '../lib/firebase';
+import {
+  findUnmigratedLocalRecords,
+  preserveQaRecoveryCopy
+} from './expertsPersistenceRecovery';
 import { resolveActiveExpertWorkspaceId } from './expertsWorkspaceCore';
 import { emitExpertsPersistenceStatus } from './expertsPersistenceStatus';
 import {
@@ -300,13 +304,26 @@ export async function hydrateExpertsClientMemory(): Promise<HydrationResult> {
     const localRecords = readLocalArray<ClientLike>(CLIENT_RECORD_STORAGE_KEY, workspaceId);
     const localSessions = readLocalArray<ClientLike>(SESSION_CLIENT_STORAGE_KEY, workspaceId);
 
+    // QA Firestore is authoritative. A prior browser cache cannot bootstrap an
+    // empty database or overwrite newer remote state after a fresh sign-in.
+    // Retain divergent QA-only records for explicit/manual recovery first.
+    if (firebaseTarget === 'qa') {
+      const canonical = remoteClientState(snapshot);
+      preserveQaRecoveryCopy(workspaceId, 'client-records',
+        findUnmigratedLocalRecords(firebaseTarget, localRecords, canonical.records),
+        scopedWorkspaceStorageKey);
+      preserveQaRecoveryCopy(workspaceId, 'session-clients',
+        findUnmigratedLocalRecords(firebaseTarget, localSessions, canonical.sessions),
+        scopedWorkspaceStorageKey);
+    }
+
     if (snapshot.empty) {
       const ids = Array.from(new Set([
         ...localRecords.map((item) => item.id),
         ...localSessions.map((item) => item.id)
       ].filter(Boolean)));
 
-      if (!ids.length) {
+      if (firebaseTarget === 'qa' || !ids.length) {
         writeLocalArray(CLIENT_RECORD_STORAGE_KEY, workspaceId, []);
         writeLocalArray(SESSION_CLIENT_STORAGE_KEY, workspaceId, []);
         remoteRecordFingerprints = new Map();

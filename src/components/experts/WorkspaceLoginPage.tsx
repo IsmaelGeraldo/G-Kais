@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { ArrowLeft, Building2, ShieldCheck } from 'lucide-react';
 import { WorkspaceAuthChoices } from './WorkspaceAuthChoices';
-import { firebaseAuth } from '../../lib/firebase';
+import { firebaseAuth, firebaseTarget } from '../../lib/firebase';
+import { ensureExpertWorkspaceCore } from '../../services/expertsWorkspaceCore';
 import { resolveValidExpertWorkspaceId } from '../../services/expertsWorkspaceMembers';
 
 type AccessState = 'checking' | 'signed-out' | 'ready' | 'no-access';
@@ -44,6 +45,31 @@ export function WorkspaceLoginPage() {
       if (allowed) window.location.replace('/workspace/experts');
     });
   }), []);
+
+  const createQAWorkspace = async () => {
+    if (firebaseTarget !== 'qa') return;
+    const user = firebaseAuth.currentUser;
+    if (!user) {
+      setError('Inicia sesión con Google antes de crear el Workspace de prueba.');
+      return;
+    }
+    setBusy(true);
+    setError('');
+    setState('checking');
+    try {
+      await ensureExpertWorkspaceCore(user);
+      const verifiedWorkspaceId = await resolveValidExpertWorkspaceId(user);
+      if (!verifiedWorkspaceId || verifiedWorkspaceId !== user.uid) {
+        throw new Error('QA_WORKSPACE_CREATION_NOT_VERIFIED');
+      }
+      window.location.replace('/workspace/experts?view=team');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'QA_WORKSPACE_CREATION_FAILED');
+      setState('no-access');
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const switchAccount = async () => {
     setBusy(true);
@@ -98,6 +124,20 @@ export function WorkspaceLoginPage() {
             Si perteneces a una empresa, usa la misma cuenta con la que aceptaste la invitación. Una invitación no crea un Workspace personal.
           </p>
         </div>
+        {firebaseTarget === 'qa' && !error && <div className="mt-4">
+          <p className="mb-3 text-xs leading-5 text-black/55">
+            Este es el entorno QA aislado. Si estás configurando una organización de prueba,
+            puedes crear aquí un Workspace vacío con los roles del sistema.
+          </p>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void createQAWorkspace()}
+            className="w-full rounded-full bg-[#111413] px-5 py-3 text-sm font-semibold text-white disabled:opacity-40"
+          >
+            {busy ? 'Creando Workspace de prueba…' : 'Crear Workspace de prueba'}
+          </button>
+        </div>}
         <button
           type="button"
           disabled={busy}

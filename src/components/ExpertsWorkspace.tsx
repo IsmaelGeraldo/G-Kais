@@ -62,7 +62,8 @@ function WorkspaceNotificationRelay() {
   if (!message || typeof document === 'undefined') return null;
   return createPortal(
     <div
-      className="fixed bottom-6 right-6 z-[9999] max-w-[380px] rounded-[14px] border border-white/10 bg-[#111413] px-4 py-3 text-xs leading-5 text-white shadow-[0_16px_44px_rgba(0,0,0,0.20)]"
+      translate="no"
+      className="notranslate fixed bottom-6 right-6 z-[9999] max-w-[380px] rounded-[14px] border border-white/10 bg-[#111413] px-4 py-3 text-xs leading-5 text-white shadow-[0_16px_44px_rgba(0,0,0,0.20)]"
       role="status"
       aria-live="polite"
     >

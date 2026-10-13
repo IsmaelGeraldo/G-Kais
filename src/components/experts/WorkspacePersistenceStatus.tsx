@@ -64,7 +64,7 @@ export function WorkspacePersistenceStatus() {
       : 'Guardado');
 
   return createPortal(
-    <div className={`fixed bottom-6 right-6 z-[10000] inline-flex max-w-[380px] items-center gap-2 rounded-[14px] border px-4 py-3 text-xs font-medium shadow-[0_16px_44px_rgba(0,0,0,0.20)] ${isError ? 'border-red-300/30 bg-[#111413] text-red-200' : 'border-white/10 bg-[#111413] text-white'}`} role={isError ? 'alert' : 'status'} aria-live={isError ? 'assertive' : 'polite'}>
+    <div translate="no" className={`notranslate fixed bottom-6 right-6 z-[10000] inline-flex max-w-[380px] items-center gap-2 rounded-[14px] border px-4 py-3 text-xs font-medium shadow-[0_16px_44px_rgba(0,0,0,0.20)] ${isError ? 'border-red-300/30 bg-[#111413] text-red-200' : 'border-white/10 bg-[#111413] text-white'}`} role={isError ? 'alert' : 'status'} aria-live={isError ? 'assertive' : 'polite'}>
       {isSaving ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" /> : isError ? <AlertTriangle className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
       <span>{text}</span>
     </div>,

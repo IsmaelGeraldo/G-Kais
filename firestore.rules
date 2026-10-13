@@ -28,6 +28,66 @@ service cloud.firestore {
       );
     }
 
+    function isCustomerSuccess(workspaceId) {
+      return isExpertWorkspaceMember(workspaceId) &&
+        get(/databases/$(database)/documents/expert_workspaces/$(workspaceId)/members/$(request.auth.uid)).data.roleId == 'customer-success' &&
+        hasWorkspacePermission(workspaceId, 'formations.read');
+    }
+
+    function isValidCustomerSuccessEnrollment(workspaceId, enrollmentId) {
+      return isCustomerSuccess(workspaceId) &&
+        validExpertEnrollment(request.resource.data) &&
+        request.resource.data.status == 'active' &&
+        request.resource.data.progress == 0 &&
+        enrollmentId == ('enrollment-' + request.resource.data.cohortId + '-' + request.resource.data.personId) &&
+        exists(/databases/$(database)/documents/expert_workspaces/$(workspaceId)/people/$(request.resource.data.personId)) &&
+        exists(/databases/$(database)/documents/expert_workspaces/$(workspaceId)/cohorts/$(request.resource.data.cohortId)) &&
+        get(/databases/$(database)/documents/expert_workspaces/$(workspaceId)/cohorts/$(request.resource.data.cohortId)).data.formationId == request.resource.data.formationId &&
+        // A successful enrollment must update the Person in the SAME atomic transaction.
+        getAfter(/databases/$(database)/documents/expert_workspaces/$(workspaceId)/people/$(request.resource.data.personId)).data.outcomeMemory.currentCohortId == request.resource.data.cohortId &&
+        getAfter(/databases/$(database)/documents/expert_workspaces/$(workspaceId)/people/$(request.resource.data.personId)).data.outcomeMemory.currentFormationId == request.resource.data.formationId;
+    }
+
+    function isValidCustomerSuccessPersonLink(workspaceId, personId) {
+      let cohortId = request.resource.data.outcomeMemory.get('currentCohortId', '');
+      let formationId = request.resource.data.outcomeMemory.get('currentFormationId', '');
+      let enrollmentId = 'enrollment-' + cohortId + '-' + personId;
+      return isCustomerSuccess(workspaceId) &&
+        cohortId is string && cohortId.size() > 0 &&
+        formationId is string && formationId.size() > 0 &&
+        !exists(/databases/$(database)/documents/expert_workspaces/$(workspaceId)/enrollments/$(enrollmentId)) &&
+        getAfter(/databases/$(database)/documents/expert_workspaces/$(workspaceId)/enrollments/$(enrollmentId)).data.personId == personId &&
+        getAfter(/databases/$(database)/documents/expert_workspaces/$(workspaceId)/enrollments/$(enrollmentId)).data.formationId == formationId &&
+        getAfter(/databases/$(database)/documents/expert_workspaces/$(workspaceId)/enrollments/$(enrollmentId)).data.cohortId == cohortId &&
+        getAfter(/databases/$(database)/documents/expert_workspaces/$(workspaceId)/enrollments/$(enrollmentId)).data.status == 'active' &&
+        getAfter(/databases/$(database)/documents/expert_workspaces/$(workspaceId)/enrollments/$(enrollmentId)).data.progress == 0 &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['currentStage', 'sourceRefs', 'outcomeMemory', 'updatedAt']) &&
+        request.resource.data.sourceRefs.diff(resource.data.sourceRefs).affectedKeys().hasOnly(['formationIds', 'cohortIds']) &&
+        request.resource.data.outcomeMemory.diff(resource.data.outcomeMemory).affectedKeys().hasOnly([
+          'currentFormationId', 'currentCohortId', 'currentEnrollmentStatus', 'currentFormationProgress'
+        ]) &&
+        request.resource.data.sourceRefs.formationIds is list &&
+        request.resource.data.sourceRefs.cohortIds is list &&
+        request.resource.data.sourceRefs.formationIds.hasAll(resource.data.sourceRefs.get('formationIds', [])) &&
+        request.resource.data.sourceRefs.cohortIds.hasAll(resource.data.sourceRefs.get('cohortIds', [])) &&
+        formationId in request.resource.data.sourceRefs.formationIds &&
+        cohortId in request.resource.data.sourceRefs.cohortIds &&
+        request.resource.data.outcomeMemory.currentEnrollmentStatus == 'active' &&
+        request.resource.data.outcomeMemory.currentFormationProgress == 0 &&
+        (resource.data.currentStage in ['alumni', 'mentoring']
+          ? request.resource.data.currentStage == resource.data.currentStage
+          : request.resource.data.currentStage == 'student') &&
+        request.resource.data.updatedAt == request.time;
+    }
+
+    function isReservedFormationMemory(task, taskId) {
+      return taskId.matches('formation-plan-.*') ||
+        taskId.matches('formation-meta-.*') ||
+        taskId.matches('cohort-meta-.*') ||
+        task.get('workstream', '') in ['formation-plan', 'formation-meta'] ||
+        task.get('sourceActionKind', '') in ['formation-plan', 'formation-meta', 'cohort-meta'];
+    }
+
     function authEmailMatches(email) {
       return request.auth != null &&
         request.auth.token.email is string &&
@@ -633,13 +693,20 @@ service cloud.firestore {
       allow create: if (
           hasWorkspacePermission(workspaceId, 'members.manage') &&
           validWorkspaceMember(request.resource.data, memberId) &&
+          // Only the actual workspace owner may create the owner membership.
+          (memberId != workspaceId || request.auth.uid == workspaceId) &&
+          (memberId == workspaceId
+            ? request.resource.data.roleId == 'owner'
+            : request.resource.data.roleId != 'owner') &&
           (request.auth.uid == workspaceId ||
             request.resource.data.permissions.hasOnly(
               get(/databases/$(database)/documents/expert_workspaces/$(workspaceId)/members/$(request.auth.uid)).data.permissions
             ))
         ) || (
           request.auth != null && request.auth.uid == memberId &&
+          memberId != workspaceId &&
           validWorkspaceMember(request.resource.data, memberId) &&
+          request.resource.data.roleId != 'owner' &&
           request.resource.data.status == 'active' &&
           ('inviteId' in request.resource.data) &&
           request.resource.data.inviteId.size() > 0 &&
@@ -652,13 +719,20 @@ service cloud.firestore {
         );
 
       allow update: if hasWorkspacePermission(workspaceId, 'members.manage') &&
+        // Prevent API/SDK bypass of the Team editor's owner/self protection.
+        memberId != workspaceId &&
+        memberId != request.auth.uid &&
+        resource.data.roleId != 'owner' &&
+        request.resource.data.roleId != 'owner' &&
         validWorkspaceMember(request.resource.data, memberId) &&
         (request.auth.uid == workspaceId ||
           request.resource.data.permissions.hasOnly(
             get(/databases/$(database)/documents/expert_workspaces/$(workspaceId)/members/$(request.auth.uid)).data.permissions
           ));
       allow delete: if hasWorkspacePermission(workspaceId, 'members.manage') &&
-        memberId != workspaceId;
+        memberId != workspaceId &&
+        memberId != request.auth.uid &&
+        resource.data.roleId != 'owner';
     }
 
     match /expert_workspaces/{workspaceId}/invites/{inviteId} {
@@ -734,9 +808,25 @@ service cloud.firestore {
     match /expert_workspaces/{workspaceId}/work_tasks/{taskId} {
       // The Dashboard shows the organization's global workload. Mutation
       // remains permission-gated below.
-      allow read: if isExpertWorkspaceMember(workspaceId);
+      // Read permission is enforced by Firestore, not only hidden in the UI.
+      // Own-task reads require a query constrained by task.assignedToUid.
+      allow read: if hasWorkspacePermission(workspaceId, 'tasks.read.team') ||
+        (hasWorkspacePermission(workspaceId, 'tasks.read.own') &&
+          resource.data.task.assignedToUid == request.auth.uid) ||
+        // Class plans are program memory, not members' assigned work. The
+        // matching client query must restrict task.workstream explicitly.
+        (hasWorkspacePermission(workspaceId, 'formations.read') &&
+          resource.data.task.workstream == 'formation-plan') ||
+        // Single-document formation/cohort metadata is never a team-task query.
+        (hasWorkspacePermission(workspaceId, 'formations.read') &&
+          resource.data.task.workstream == 'formation-meta' &&
+          ((taskId.matches('formation-meta-.*') &&
+            resource.data.task.sourceActionKind == 'formation-meta') ||
+           (taskId.matches('cohort-meta-.*') &&
+            resource.data.task.sourceActionKind == 'cohort-meta')));
 
-      allow create: if validExpertWorkTask(request.resource.data, taskId) && (
+      allow create: if validExpertWorkTask(request.resource.data, taskId) &&
+        !(isCustomerSuccess(workspaceId) && isReservedFormationMemory(request.resource.data.task, taskId)) && (
         hasWorkspacePermission(workspaceId, 'tasks.manage') ||
         (hasWorkspacePermission(workspaceId, 'tasks.manage.own') &&
           request.resource.data.task.createdByUid == request.auth.uid &&
@@ -745,16 +835,21 @@ service cloud.firestore {
           get(/databases/$(database)/documents/expert_workspaces/$(workspaceId)/members/$(request.resource.data.task.assignedToUid)).data.status == 'active')
       );
 
-      allow update: if validExpertWorkTask(request.resource.data, taskId) && (
+      allow update: if validExpertWorkTask(request.resource.data, taskId) &&
+        !(isCustomerSuccess(workspaceId) &&
+          (isReservedFormationMemory(resource.data.task, taskId) ||
+           isReservedFormationMemory(request.resource.data.task, taskId))) && (
         hasWorkspacePermission(workspaceId, 'tasks.manage') ||
         (hasWorkspacePermission(workspaceId, 'tasks.manage.own') &&
           resource.data.task.assignedToUid == request.auth.uid &&
           request.resource.data.task.assignedToUid == request.auth.uid)
       );
 
-      allow delete: if hasWorkspacePermission(workspaceId, 'tasks.manage') ||
-        (hasWorkspacePermission(workspaceId, 'tasks.manage.own') &&
-          resource.data.task.assignedToUid == request.auth.uid);
+      allow delete: if !(isCustomerSuccess(workspaceId) &&
+          isReservedFormationMemory(resource.data.task, taskId)) &&
+        (hasWorkspacePermission(workspaceId, 'tasks.manage') ||
+          (hasWorkspacePermission(workspaceId, 'tasks.manage.own') &&
+            resource.data.task.assignedToUid == request.auth.uid));
     }
 
     match /expert_workspaces/{workspaceId}/settings/{settingsId} {
@@ -768,21 +863,29 @@ service cloud.firestore {
     match /expert_workspaces/{workspaceId}/people/{personId} {
       // Global relationship data feeds the read-only Dashboard for all active
       // members; editing remains owner-controlled.
-      allow read: if isExpertWorkspaceMember(workspaceId);
-      allow create, update: if ownsExpertWorkspace(workspaceId) &&
+      allow read: if hasWorkspacePermission(workspaceId, 'people.read') ||
+        hasWorkspacePermission(workspaceId, 'people.manage');
+      allow create: if ownsExpertWorkspace(workspaceId) &&
         validExpertPerson(request.resource.data);
+      allow update: if validExpertPerson(request.resource.data) &&
+        (ownsExpertWorkspace(workspaceId) ||
+          isValidCustomerSuccessPersonLink(workspaceId, personId));
       allow delete: if ownsExpertWorkspace(workspaceId);
     }
 
     match /expert_workspaces/{workspaceId}/webinars/{webinarId} {
-      allow read: if ownsExpertWorkspace(workspaceId);
-      allow create, update: if ownsExpertWorkspace(workspaceId) &&
+      // A teaching Mentor can plan and edit sessions when explicitly granted
+      // webinars.manage; merely having webinars.read never permits writes.
+      allow read: if hasWorkspacePermission(workspaceId, 'webinars.read') ||
+        hasWorkspacePermission(workspaceId, 'webinars.manage');
+      allow create, update: if hasWorkspacePermission(workspaceId, 'webinars.manage') &&
         validExpertWebinar(request.resource.data);
+      // Deleting published sessions can destroy registration context.
       allow delete: if ownsExpertWorkspace(workspaceId);
     }
 
     match /expert_workspaces/{workspaceId}/webinar_registrations/{registrationId} {
-      allow read: if ownsExpertWorkspace(workspaceId) || (
+      allow read: if hasWorkspacePermission(workspaceId, 'webinars.manage') || ownsExpertWorkspace(workspaceId) || (
         resource.data.followUpTaskId is string &&
         resource.data.followUpTaskId.size() > 0 &&
         (hasWorkspacePermission(workspaceId, 'tasks.manage') ||
@@ -809,21 +912,26 @@ service cloud.firestore {
 
     match /expert_workspaces/{workspaceId}/formations/{formationId} {
       allow read: if isExpertWorkspaceMember(workspaceId);
-      allow create, update: if ownsExpertWorkspace(workspaceId) &&
+      allow create, update: if hasWorkspacePermission(workspaceId, 'formations.manage') &&
+        !isCustomerSuccess(workspaceId) &&
         validExpertFormation(request.resource.data);
       allow delete: if ownsExpertWorkspace(workspaceId);
     }
 
     match /expert_workspaces/{workspaceId}/cohorts/{cohortId} {
       allow read: if isExpertWorkspaceMember(workspaceId);
-      allow create, update: if ownsExpertWorkspace(workspaceId) &&
+      allow create, update: if hasWorkspacePermission(workspaceId, 'formations.manage') &&
+        !isCustomerSuccess(workspaceId) &&
         validExpertCohort(request.resource.data);
       allow delete: if ownsExpertWorkspace(workspaceId);
     }
 
     match /expert_workspaces/{workspaceId}/enrollments/{enrollmentId} {
       allow read: if isExpertWorkspaceMember(workspaceId);
-      allow create, update: if ownsExpertWorkspace(workspaceId) &&
+      allow create: if (ownsExpertWorkspace(workspaceId) &&
+        validExpertEnrollment(request.resource.data)) ||
+        isValidCustomerSuccessEnrollment(workspaceId, enrollmentId);
+      allow update: if ownsExpertWorkspace(workspaceId) &&
         validExpertEnrollment(request.resource.data);
       allow delete: if ownsExpertWorkspace(workspaceId);
     }

@@ -117,6 +117,52 @@ async function seed() {
         createdAt: now, updatedAt: now
       });
     }
+
+    // Synthetic A/B records for negative permission coverage. The emulator
+    // bypass is allowed ONLY in test fixtures: no real Firebase connection.
+    for (const owner of [OWNER_A, OWNER_B]) {
+      const suffix = owner === OWNER_A ? 'A' : 'B';
+      await setDoc(doc(db, workspace(owner, 'clients', 'client-1')), {
+        schemaVersion: 1, record: { id: 'client-1', name: 'Client ' + suffix },
+        updatedAt: now
+      });
+      await setDoc(doc(db, workspace(owner, 'journal_entries', 'journal-1')), {
+        schemaVersion: 1,
+        entry: { id: 'journal-1', clientId: 'client-1', type: 'qa', title: 'QA', body: 'Journal ' + suffix, createdAt: '2026-10-13T10:00:00Z' },
+        updatedAt: now
+      });
+      await setDoc(doc(db, workspace(owner, 'session_summaries', 'summary-1')), {
+        schemaVersion: 1,
+        summary: { id: 'summary-1', clientId: 'client-1', title: 'Summary ' + suffix, createdAt: '2026-10-13T10:00:00Z' },
+        updatedAt: now
+      });
+      await setDoc(doc(db, workspace(owner, 'settings', 'workspace')), {
+        schemaVersion: 1, profile: { businessName: 'QA ' + suffix }, updatedAt: now
+      });
+      await setDoc(doc(db, workspace(owner, 'relationship_events', 'event-1')), {
+        type: 'qa.event', actorUid: owner, personId: 'person-1',
+        occurredAt: '2026-10-13T10:00:00Z', metadata: { synthetic: true }
+      });
+      await setDoc(doc(db, workspace(owner, 'audit_logs', 'audit-1')), {
+        actorUid: owner, action: 'qa.created', createdAt: now
+      });
+      await setDoc(doc(db, workspace(owner, 'enrollments', 'enrollment-1')), {
+        schemaVersion: 1, personId: 'person-1', formationId: 'formation-1',
+        cohortId: 'cohort-1', status: 'active', progress: 0,
+        joinedAt: now, updatedAt: now
+      });
+      await setDoc(doc(db, workspace(owner, 'webinars', 'webinar-1')), {
+        schemaVersion: 1, title: 'Webinar ' + suffix, status: 'published',
+        createdAt: now, updatedAt: now
+      });
+      await setDoc(doc(db, workspace(owner, 'webinar_registrations', 'registration-1')), {
+        webinarId: 'webinar-1', personId: 'person-1', followUpTaskId: '',
+        registeredAt: now, updatedAt: now
+      });
+      await setDoc(doc(db, workspace(owner, 'payment_events', 'payment-1')), {
+        status: 'verified', amount: 100, synthetic: true
+      });
+    }
     for (const [taskId, assignee] of [
       ['owned-by-owner', OWNER_A],
       ['assigned-assistant', ASSISTANT_A],
@@ -674,7 +720,66 @@ test('every non-owner default role is isolated from a second organization', asyn
   }
 });
 
-test('non-manager default roles cannot edit memberships or verified payments', async () => {
+
+const ISOLATED_COLLECTION_DOCS = [
+  ['members', OWNER_B],
+  ['roles', 'owner'],
+  ['invites', 'invite-test'],
+  ['people', 'person-1'],
+  ['work_tasks', 'foreign-task'],
+  ['formations', 'formation-1'],
+  ['cohorts', 'cohort-1'],
+  ['enrollments', 'enrollment-1'],
+  ['webinars', 'webinar-1'],
+  ['webinar_registrations', 'registration-1'],
+  ['relationship_events', 'event-1'],
+  ['audit_logs', 'audit-1'],
+  ['payment_events', 'payment-1'],
+  ['clients', 'client-1'],
+  ['journal_entries', 'journal-1'],
+  ['session_summaries', 'summary-1'],
+  ['settings', 'workspace']
+];
+
+test('Workspace B owner can read their own synthetic records across core domains', async () => {
+  const db = asUser(OWNER_B);
+  const own = await assertSucceeds(getDoc(doc(db, 'expert_workspaces', OWNER_B)));
+  assert.equal(own.data()?.ownerUid, OWNER_B);
+  for (const [section, id] of ISOLATED_COLLECTION_DOCS) {
+    const snapshot = await assertSucceeds(getDoc(doc(db, workspace(OWNER_B, section, id))));
+    assert.ok(snapshot.exists(), `B owner must see B/${section}/${id}`);
+    await assertSucceeds(getDocs(collection(db, 'expert_workspaces', OWNER_B, section)));
+  }
+});
+
+test('A owner and every A role cannot read B records or list B collections', async () => {
+  for (const uid of [OWNER_A, MANAGER_A, MENTOR_A, CLOSER_A, ASSISTANT_A, CUSTOMER_SUCCESS_A]) {
+    const db = asUser(uid);
+    await assertFails(getDoc(doc(db, 'expert_workspaces', OWNER_B)));
+    for (const [section, id] of ISOLATED_COLLECTION_DOCS) {
+      await assertFails(getDoc(doc(db, workspace(OWNER_B, section, id))));
+      await assertFails(getDocs(collection(db, 'expert_workspaces', OWNER_B, section)));
+    }
+  }
+});
+
+test('validated owner B writes cannot be replayed by owner A across Workspace boundary', async () => {
+  const dbA = asUser(OWNER_A);
+  const dbB = asUser(OWNER_B);
+  // First prove each payload is accepted by B's own rules; a schema-invalid
+  // payload denied for everybody would not prove tenant isolation.
+  for (const [section, id, change] of [
+    ['people', 'person-1', { name: 'B only person', updatedAt: Timestamp.now() }],
+    ['formations', 'formation-1', { title: 'B only formation', updatedAt: Timestamp.now() }],
+    ['cohorts', 'cohort-1', { title: 'B only cohort', updatedAt: Timestamp.now() }],
+    ['work_tasks', 'foreign-task', { 'task.note': 'B only task', updatedAt: Timestamp.now() }]
+  ]) {
+    await assertSucceeds(updateDoc(doc(dbB, workspace(OWNER_B, section, id)), change));
+    await assertFails(updateDoc(doc(dbA, workspace(OWNER_B, section, id)), change));
+  }
+});
+
+test('non-manager default roles cannot edit memberships or verified payments', async () {
   for (const uid of [MENTOR_A, CLOSER_A, ASSISTANT_A, CUSTOMER_SUCCESS_A]) {
     const db = asUser(uid);
     await assertFails(updateDoc(doc(db, workspace(OWNER_A, 'members', LIMITED_A)), {

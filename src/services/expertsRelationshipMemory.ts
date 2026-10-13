@@ -9,7 +9,13 @@ import {
   writeBatch,
   type Unsubscribe
 } from 'firebase/firestore';
-import { firebaseAuth, firestoreDb } from '../lib/firebase';
+import { firebaseAuth, firestoreDb, firebaseTarget } from '../lib/firebase';
+import {
+  mayAutoImportLegacyBrowserMemory,
+  canSyncHydratedRelationshipCache,
+  findUnmigratedLocalRecords,
+  preserveQaRecoveryCopy
+} from './expertsPersistenceRecovery';
 import { resolveActiveExpertWorkspaceId } from './expertsWorkspaceCore';
 import {
   scopedWorkspaceStorageKey,
@@ -40,6 +46,7 @@ let subscribedWorkspaceId = '';
 let remoteJournalFingerprints = new Map<string, string>();
 let remoteSessionFingerprints = new Map<string, string>();
 let syncTimer: number | undefined;
+let hydratedIdentityKey = '';
 
 function readLocalArray<T>(baseKey: string, workspaceId: string): T[] {
   if (typeof window === 'undefined') return [];
@@ -201,6 +208,7 @@ function stopRelationshipSubscriptions(): void {
   journalSubscription = null;
   sessionSubscription = null;
   subscribedWorkspaceId = '';
+  hydratedIdentityKey = '';
   remoteJournalFingerprints = new Map();
   remoteSessionFingerprints = new Map();
 }
@@ -235,8 +243,11 @@ async function hydrateJournal(workspaceId: string): Promise<boolean> {
   const local = readLocalArray<StoredItem>(JOURNAL_STORAGE_KEY, workspaceId);
   const remoteIds = new Set(remote.map((item) => item.id));
   const missingRemote = local.filter((item) => item?.id && !remoteIds.has(item.id));
-  if (missingRemote.length) await writeJournalBatch(workspaceId, missingRemote, true);
-  const merged = sortNewest([...remote, ...missingRemote]);
+  preserveQaRecoveryCopy(workspaceId, 'journal',
+    findUnmigratedLocalRecords(firebaseTarget, local, remote), scopedWorkspaceStorageKey);
+  const toImport = mayAutoImportLegacyBrowserMemory(firebaseTarget) ? missingRemote : [];
+  if (toImport.length) await writeJournalBatch(workspaceId, toImport, true);
+  const merged = sortNewest([...remote, ...toImport]);
   writeLocalArray(JOURNAL_STORAGE_KEY, workspaceId, merged);
   remoteJournalFingerprints = fingerprintMap(merged);
   return remote.length > 0 || missingRemote.length > 0;
@@ -248,8 +259,11 @@ async function hydrateSessions(workspaceId: string): Promise<boolean> {
   const local = readLocalArray<StoredItem>(SESSION_SUMMARY_STORAGE_KEY, workspaceId);
   const remoteIds = new Set(remote.map((item) => item.id));
   const missingRemote = local.filter((item) => item?.id && !remoteIds.has(item.id));
-  if (missingRemote.length) await writeSessionBatch(workspaceId, missingRemote, true);
-  const merged = sortNewest([...remote, ...missingRemote]);
+  preserveQaRecoveryCopy(workspaceId, 'session-summaries',
+    findUnmigratedLocalRecords(firebaseTarget, local, remote), scopedWorkspaceStorageKey);
+  const toImport = mayAutoImportLegacyBrowserMemory(firebaseTarget) ? missingRemote : [];
+  if (toImport.length) await writeSessionBatch(workspaceId, toImport, true);
+  const merged = sortNewest([...remote, ...toImport]);
   writeLocalArray(SESSION_SUMMARY_STORAGE_KEY, workspaceId, merged);
   remoteSessionFingerprints = fingerprintMap(merged);
   return remote.length > 0 || missingRemote.length > 0;
@@ -274,6 +288,7 @@ export async function hydrateExpertsRelationshipMemory(): Promise<'firestore' | 
       hydrateSessions(workspaceId)
     ]);
     startRelationshipSubscriptions(workspaceId);
+    hydratedIdentityKey = `${user.uid}:${workspaceId}`;
     if (journalChanged || sessionsChanged) emitWorkspaceRefresh();
     return 'firestore';
   } catch (error) {
@@ -313,6 +328,7 @@ async function syncRelationshipMemoryFromLocal(): Promise<void> {
   if (!user) return;
   const workspaceId = await ownerWorkspaceId(user);
   if (!workspaceId) return;
+  if (!canSyncHydratedRelationshipCache(firebaseTarget, hydratedIdentityKey, user.uid, workspaceId)) return;
 
   const journal = readLocalArray<StoredItem>(JOURNAL_STORAGE_KEY, workspaceId);
   const summaries = readLocalArray<StoredItem>(SESSION_SUMMARY_STORAGE_KEY, workspaceId);
